@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1759088323734,
+      "tag": "0000_swift_tarot",
+      "breakpoints": true
+    }
+  ]
+}
