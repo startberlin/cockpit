@@ -17,7 +17,7 @@ export default async function SignIn() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col justify-center px-4 py-10 lg:px-6">
+    <div className="flex min-h-screen flex-1 flex-col md:justify-center px-6 md:px-4 py-6 md:py-10 lg:px-6">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex items-center space-x-2.5">
           <Image src={Logo} alt="START Berlin" className="h-7 w-auto" />
