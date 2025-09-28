@@ -8,7 +8,9 @@ export async function middleware(request: NextRequest) {
   });
 
   if (!session) {
-    return NextResponse.redirect(new URL("/auth", request.url));
+    const redirectUrl = new URL("/auth", request.url);
+    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
   return NextResponse.next();
