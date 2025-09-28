@@ -1,20 +1,8 @@
 import { headers } from "next/headers";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { createLoader, parseAsString } from "nuqs/server";
-import { toast } from "sonner";
 import Logo from "@/app/logo.png";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { auth } from "@/lib/auth";
-import { authClient } from "@/lib/auth-client";
 import Google from "./google";
 
 export default async function SignIn() {
