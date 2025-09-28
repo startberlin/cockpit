@@ -13,11 +13,8 @@ export async function middleware(request: NextRequest) {
     headers: await headers(),
   });
 
-  console.log({ session });
-
   if (!session) {
     const redirectUrl = new URL("/auth", request.url);
-    console.log({ request: request.nextUrl.pathname });
     redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
