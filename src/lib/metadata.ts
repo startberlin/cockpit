@@ -67,6 +67,9 @@ export const createMetadata = ({
     twitter: {
       card: "summary_large_image",
     },
+    robots: {
+      index: false,
+    },
   };
 
   const metadata: Metadata = merge(defaultMetadata, properties);
