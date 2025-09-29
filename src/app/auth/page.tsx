@@ -1,9 +1,15 @@
 import { headers } from "next/headers";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import Logo from "@/app/logo.png";
+import Logo from "@/app/logo-black.png";
 import { auth } from "@/lib/auth";
 import Google from "./google";
+import { createMetadata } from "@/lib/metadata";
+
+export const metadata = createMetadata({
+  title: "Cockpit",
+  description: "Manage your membership, get access to software and more.",
+});
 
 export default async function SignIn() {
   // Check if user is already authenticated

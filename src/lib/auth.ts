@@ -10,6 +10,16 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  user: {
+    additionalFields: {
+      firstName: {
+        type: "string",
+      },
+      lastName: {
+        type: "string",
+      },
+    },
+  },
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   emailAndPassword: {
@@ -21,6 +31,16 @@ export const auth = betterAuth({
       prompt: "select_account",
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
+      mapProfileToUser: async (user) => {
+        return {
+          firstName: user.given_name,
+          lastName: user.family_name,
+          name: user.name,
+          email: user.email,
+          image: user.picture,
+          emailVerified: user.email_verified,
+        };
+      },
     },
   },
   plugins: [nextCookies()],
