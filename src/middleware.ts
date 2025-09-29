@@ -3,6 +3,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
 const publicRoutes = ["/auth"];
+const allowedOrigins = [
+  "cockpit.start-berlin.com",
+  "staging.cockpit.start-berlin.com",
+];
 
 export async function middleware(request: NextRequest) {
   if (publicRoutes.includes(request.nextUrl.pathname)) {
@@ -15,7 +19,14 @@ export async function middleware(request: NextRequest) {
 
   if (!session) {
     const redirectUrl = new URL("/auth", request.url);
-    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+
+    // Only store full URL if origin is in whitelist
+    const requestOrigin = request.nextUrl.hostname;
+
+    if (allowedOrigins.includes(requestOrigin)) {
+      redirectUrl.searchParams.set("redirect", request.nextUrl.href);
+    }
+
     return NextResponse.redirect(redirectUrl);
   }
 
