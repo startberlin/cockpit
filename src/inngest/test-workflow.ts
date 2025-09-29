@@ -20,7 +20,7 @@ export const startWorkflow = inngest.createFunction(
     const workflowId = `wf_${timestamp}_${hash}`;
 
     // Generate approval URL (you can customize this based on your app structure)
-    const approvalUrl = `${process.env.VERCEL_PRODUCTION_URL || "http://localhost:3000"}/approve?workflowId=${workflowId}&token=${Buffer.from(`${workflowId}:${email}`).toString("base64")}`;
+    const approvalUrl = `${process.env.VERCEL_PROJECT_PRODUCTION_URL || "http://localhost:3000"}/approve?workflowId=${workflowId}&token=${Buffer.from(`${workflowId}:${email}`).toString("base64")}`;
 
     await step.run("send-approval-email", async () => {
       await resend.emails.send({
