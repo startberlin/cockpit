@@ -1,4 +1,24 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import type { InferSelectModel } from "drizzle-orm";
+import {
+  type AnyPgColumn,
+  boolean,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
+import { batch } from "./batch";
+import { department } from "./department";
+
+export const userStatus = pgEnum("user_status", [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+  "alumni",
+]);
+
+export const role = pgEnum("role", ["member", "board", "admin"]);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -13,6 +33,22 @@ export const user = pgTable("user", {
     .notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
+  street: text("street"),
+  state: text("state"),
+  city: text("city"),
+  zip: text("zip"),
+  country: text("country"),
+  personalEmail: text("personal_email").notNull(),
+  batchNumber: integer("batch_number")
+    .notNull()
+    .references(() => batch.number, { onDelete: "cascade" }),
+  phone: text("phone"),
+  status: userStatus("status").notNull().default("onboarding"),
+  roles: role("roles").array().notNull().default(["member"]),
+  departmentId: text("department_id").references(
+    (): AnyPgColumn => department.id,
+    { onDelete: "restrict" },
+  ),
 });
 
 export const session = pgTable("session", {
@@ -61,3 +97,17 @@ export const verification = pgTable("verification", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+export type User = InferSelectModel<typeof user>;
+
+export interface OnboardedMember extends User {
+  street: NonNullable<User["street"]>;
+  city: NonNullable<User["city"]>;
+  state: NonNullable<User["state"]>;
+  zip: NonNullable<User["zip"]>;
+  country: NonNullable<User["country"]>;
+}
+
+export function isOnboardedMember(user: User): user is OnboardedMember {
+  return !!(user.street && user.city && user.state && user.zip && user.country);
+}

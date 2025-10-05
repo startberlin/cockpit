@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1759088323734,
-      "tag": "0000_swift_tarot",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1759168203586,
-      "tag": "0001_wakeful_zeigeist",
+      "when": 1759673303111,
+      "tag": "0000_secret_leader",
       "breakpoints": true
     }
   ]
