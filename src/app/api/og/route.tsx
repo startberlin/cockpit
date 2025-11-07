@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : "http://localhost:3000";
+
   const logoUrl = `${baseUrl}/logo-white.png`;
   const polygonUrl = `${baseUrl}/polygon.png`;
 

@@ -1,4 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
+import { type InferSelectModel, relations } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
@@ -18,7 +18,11 @@ export const userStatus = pgEnum("user_status", [
   "alumni",
 ]);
 
+export type UserStatus = (typeof userStatus.enumValues)[number];
+
 export const role = pgEnum("role", ["member", "board", "admin"]);
+
+export type Role = (typeof role.enumValues)[number];
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -31,8 +35,8 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   street: text("street"),
   state: text("state"),
   city: text("city"),
@@ -50,6 +54,14 @@ export const user = pgTable("user", {
     { onDelete: "restrict" },
   ),
 });
+
+export const usersRelations = relations(user, ({ one }) => ({
+  batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
+  department: one(department, {
+    fields: [user.departmentId],
+    references: [department.id],
+  }),
+}));
 
 export const session = pgTable("session", {
   id: text("id").primaryKey(),
@@ -99,15 +111,3 @@ export const verification = pgTable("verification", {
 });
 
 export type User = InferSelectModel<typeof user>;
-
-export interface OnboardedMember extends User {
-  street: NonNullable<User["street"]>;
-  city: NonNullable<User["city"]>;
-  state: NonNullable<User["state"]>;
-  zip: NonNullable<User["zip"]>;
-  country: NonNullable<User["country"]>;
-}
-
-export function isOnboardedMember(user: User): user is OnboardedMember {
-  return !!(user.street && user.city && user.state && user.zip && user.country);
-}

@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { env } from "@/env";
 import { authClient } from "@/lib/auth-client";
 
 export default function Google() {
@@ -21,6 +22,8 @@ export default function Google() {
   async function signIn() {
     try {
       setIsLoading(true);
+
+      console.log(`URL: ${env.NEXT_PUBLIC_COCKPIT_URL}/auth/error`);
 
       const result = await authClient.signIn.social({
         provider: "google",
@@ -40,7 +43,7 @@ export default function Google() {
   }
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <CardTitle>Continue with Google</CardTitle>
         <CardDescription>

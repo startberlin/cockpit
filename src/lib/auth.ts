@@ -1,3 +1,5 @@
+import "server-only";
+
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -18,6 +20,30 @@ export const auth = betterAuth({
       lastName: {
         type: "string",
       },
+      roles: {
+        type: "string[]",
+      },
+      street: {
+        type: "string",
+      },
+      city: {
+        type: "string",
+      },
+      state: {
+        type: "string",
+      },
+      zip: {
+        type: "string",
+      },
+      country: {
+        type: "string",
+      },
+      phone: {
+        type: "string",
+      },
+      personalEmail: {
+        type: "string",
+      },
     },
   },
   secret: env.BETTER_AUTH_SECRET,
@@ -28,19 +54,9 @@ export const auth = betterAuth({
   socialProviders: {
     google: {
       enabled: true,
-      prompt: "select_account",
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
-      mapProfileToUser: async (user) => {
-        return {
-          firstName: user.given_name,
-          lastName: user.family_name,
-          name: user.name,
-          email: user.email,
-          image: user.picture,
-          emailVerified: user.email_verified,
-        };
-      },
+      disableImplicitSignUp: true,
     },
   },
   plugins: [nextCookies()],

@@ -8,7 +8,7 @@ const allowedOrigins = [
   "staging.cockpit.start-berlin.com",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (publicRoutes.includes(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
@@ -34,9 +34,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  runtime: "nodejs",
   matcher: [
     // Skip Next.js internals and all static files, unless found in search params
     "/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-  ],
+  ]
 };
