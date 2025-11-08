@@ -52,6 +52,49 @@ export const handleSlackEvent = inngest.createFunction(
       return user;
     });
 
-    console.log(user);
+    await step.run("sync-user-accounts", async () => {
+      await inngest.send({
+        name: "cockpit/user.updated",
+        data: {
+          id: user.id,
+        },
+      });
+    });
+
+    await step.run("send-welcome-message", async () => {
+      const response = await slack.chat.postMessage({
+        channel: id,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "👋 Welcome to Slack, Sönke!",
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "You will be added to your respective Slack channels shortly.",
+            },
+          },
+          {
+            type: "context",
+            elements: [
+              {
+                type: "plain_text",
+                text: "In case of any problems, reach out to cockpit@start-berlin.com.",
+                emoji: true,
+              },
+            ],
+          },
+        ],
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send welcome message: ${response.error}`);
+      }
+    });
   },
 );

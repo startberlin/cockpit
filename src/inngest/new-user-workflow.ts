@@ -2,6 +2,7 @@ import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
 import slugify from "slugify";
 import db from "@/db";
+import type { UserStatus } from "@/db/schema/auth";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import { newId } from "@/lib/id";
@@ -13,6 +14,8 @@ interface EventData {
   lastName: string;
   personalEmail: string;
   batchNumber: number;
+  departmentId?: string | null;
+  status: UserStatus;
 }
 
 const SUBJECT = "digital-connection-management@start-berlin.com";
@@ -64,8 +67,14 @@ export const onboardNewUserWorkflow = inngest.createFunction(
   { id: "onboard-new-user", idempotency: "event.data.personalEmail" },
   { event: "user.created" },
   async ({ event, step }) => {
-    const { firstName, lastName, personalEmail, batchNumber } =
-      event.data as EventData;
+    const {
+      firstName,
+      lastName,
+      personalEmail,
+      batchNumber,
+      departmentId,
+      status,
+    } = event.data as EventData;
 
     const user = await step.run("create-google-user", async () => {
       const companyEmail = generateCompanyEmail(firstName, lastName);
@@ -110,7 +119,8 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           personalEmail,
           name: `${firstName} ${lastName}`,
           batchNumber,
-          status: "onboarding",
+          departmentId: departmentId ?? null,
+          status: status ?? "onboarding",
         })
         .onConflictDoUpdate({
           target: userTable.email,
@@ -119,7 +129,8 @@ export const onboardNewUserWorkflow = inngest.createFunction(
             lastName,
             personalEmail,
             batchNumber,
-            status: "onboarding",
+            departmentId: departmentId ?? null,
+            status: (status as UserStatus) ?? "onboarding",
           },
         });
     });

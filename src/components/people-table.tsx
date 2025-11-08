@@ -12,18 +12,14 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import * as React from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -36,10 +32,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PublicUserWithDetails } from "@/db/people";
-import { User } from "@/db/schema/auth";
 
 interface PeopleTableProps {
   data: PublicUserWithDetails[];
+  onCreateUserClick?: () => void;
 }
 
 const columns: ColumnDef<PublicUserWithDetails>[] = [
@@ -66,47 +62,18 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "image",
-    header: "Avatar",
-    cell: ({ row }) => {
-      const image = row.original.image;
-      const name = `${row.original.firstName} ${row.original.lastName}`;
-      return (
-        <Avatar>
-          {image ? (
-            <AvatarImage src={image} alt={name} />
-          ) : (
-            <AvatarFallback>
-              {row.original.firstName[0]}
-              {row.original.lastName[0]}
-            </AvatarFallback>
-          )}
-        </Avatar>
-      );
-    },
-    enableHiding: true,
-  },
-  {
-    accessorKey: "firstName",
-    header: "First Name",
-    cell: ({ row }) => <div>{row.original.firstName}</div>,
-  },
-  {
-    accessorKey: "lastName",
-    header: "Last Name",
-    cell: ({ row }) => <div>{row.original.lastName}</div>,
+    id: "name",
+    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+    header: "Name",
+    cell: ({ row }) => (
+      <div>
+        {row.original.firstName} {row.original.lastName}
+      </div>
+    ),
   },
   {
     accessorKey: "email",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Email
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
+    header: "Email",
     cell: ({ row }) => <div className="lowercase">{row.original.email}</div>,
   },
   {
@@ -115,38 +82,9 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
     cell: ({ row }) => <div>{row.original.department ?? "-"}</div>,
   },
   {
-    accessorKey: "departmentId",
-    header: "Department ID",
-    cell: ({ row }) => <div>{row.original.departmentId ?? "-"}</div>,
-  },
-  {
     accessorKey: "batch",
     header: "Batch",
-    cell: ({ row }) => <div>{row.original.batch}</div>,
-  },
-  {
-    accessorKey: "joinedDate",
-    header: "Joined Date",
-    cell: ({ row }) => {
-      const v = row.original.joinedDate;
-      const d = typeof v === "string" ? v : v.toLocaleString();
-      return <div>{d}</div>;
-    },
-  },
-  {
-    accessorKey: "leadFirstName",
-    header: "Lead First Name",
-    cell: ({ row }) => <div>{row.original.leadFirstName ?? "-"}</div>,
-  },
-  {
-    accessorKey: "leadLastName",
-    header: "Lead Last Name",
-    cell: ({ row }) => <div>{row.original.leadLastName ?? "-"}</div>,
-  },
-  {
-    accessorKey: "leadEmail",
-    header: "Lead Email",
-    cell: ({ row }) => <div>{row.original.leadEmail ?? "-"}</div>,
+    cell: ({ row }) => <div>#{row.original.batch}</div>,
   },
   {
     accessorKey: "status",
@@ -155,13 +93,6 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
       <span className="capitalize font-medium px-2 py-1 rounded bg-muted">
         {row.original.status}
       </span>
-    ),
-  },
-  {
-    accessorKey: "id",
-    header: "User ID",
-    cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.original.id}</span>
     ),
   },
   {
@@ -178,15 +109,11 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.id)}
+              onClick={() => navigator.clipboard.writeText(user.email)}
             >
-              Copy user ID
+              Copy email
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>View user</DropdownMenuItem>
-            <DropdownMenuItem>Message user</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -194,7 +121,7 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
   },
 ];
 
-export function PeopleTable({ data }: PeopleTableProps) {
+export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
@@ -226,35 +153,21 @@ export function PeopleTable({ data }: PeopleTableProps) {
     <div className="w-full">
       <div className="flex items-center py-4 gap-2">
         <Input
-          placeholder="Filter emails..."
-          value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+          placeholder="Find users..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("email")?.setFilterValue(event.target.value)
+            table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  className="capitalize"
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                >
-                  {column.id}
-                </DropdownMenuCheckboxItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="outline"
+          className="ml-auto"
+          onClick={onCreateUserClick}
+        >
+          <Plus />
+          Create user
+        </Button>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -307,7 +220,7 @@ export function PeopleTable({ data }: PeopleTableProps) {
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="text-muted-foreground flex-1 text-sm">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {table.getFilteredRowModel().rows.length} user(s) selected.
         </div>
         <div className="space-x-2">
           <Button

@@ -1,6 +1,9 @@
-import { PeopleTable } from "@/components/people-table";
+import db from "@/db";
 import { getAllUsersWithDetails } from "@/db/people";
+import { batch } from "@/db/schema/batch";
+import { department } from "@/db/schema/department";
 import { createMetadata } from "@/lib/metadata";
+import PeoplePageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Cockpit",
@@ -14,5 +17,16 @@ export default async function Home() {
     return <p>No users found</p>;
   }
 
-  return <PeopleTable data={users.data} />;
+  const [batches, departments] = await Promise.all([
+    db.select().from(batch).orderBy(batch.number),
+    db.select().from(department).orderBy(department.name),
+  ]);
+
+  return (
+    <PeoplePageClient
+      users={users.data}
+      batches={batches}
+      departments={departments}
+    />
+  );
 }
