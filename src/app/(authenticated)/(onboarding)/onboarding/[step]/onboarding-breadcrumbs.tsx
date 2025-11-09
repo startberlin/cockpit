@@ -46,24 +46,26 @@ interface OnboardingBreadcrumbsProps {
 export default function OnboardingBreadcrumbs({
   currentStep,
 }: OnboardingBreadcrumbsProps) {
-  const atAbout =
+  const atWelcome = currentStep === ONBOARDING_STEPS.WELCOME;
+
+  const atAccountSetup =
     currentStep === ONBOARDING_STEPS.MASTER_DATA ||
     currentStep === ONBOARDING_STEPS.ADDRESS;
 
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        <OnboardingBreadcrumbStep title="Registrierung" isCompleted />
+        <OnboardingBreadcrumbStep title="Sign up" isCompleted />
         <BreadcrumbSeparator />
         <OnboardingBreadcrumbStep
-          title="About"
-          isActive={atAbout}
-          isCompleted={false}
+          title="Welcome"
+          isActive={atWelcome}
+          isCompleted={atAccountSetup}
         />
         <BreadcrumbSeparator />
         <OnboardingBreadcrumbStep
-          title="My profile"
-          isActive={false}
+          title="Your account"
+          isActive={atAccountSetup}
           isCompleted={false}
         />
       </BreadcrumbList>

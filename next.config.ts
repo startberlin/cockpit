@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         destination: "/onboarding/welcome",
         permanent: true,
       },
+      {
+        source: "/",
+        destination: "/membership",
+        permanent: true,
+      },
     ];
   },
 };

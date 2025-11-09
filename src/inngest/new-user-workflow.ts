@@ -1,5 +1,5 @@
 import { GoogleAuth } from "google-auth-library";
-import { google } from "googleapis";
+import { Common, google } from "googleapis";
 import slugify from "slugify";
 import db from "@/db";
 import type { UserStatus } from "@/db/schema/auth";
@@ -87,18 +87,33 @@ export const onboardNewUserWorkflow = inngest.createFunction(
 
       const admin = google.admin({ auth, version: "directory_v1" });
 
-      const res = await admin.users.insert({
-        requestBody: {
-          name: { givenName: firstName, familyName: lastName },
-          primaryEmail: companyEmail,
-          recoveryEmail: personalEmail,
-          password,
-          changePasswordAtNextLogin: true,
-        },
-      });
+      try {
+        const res = await admin.users.insert({
+          requestBody: {
+            name: { givenName: firstName, familyName: lastName },
+            primaryEmail: companyEmail,
+            recoveryEmail: personalEmail,
+            password,
+            changePasswordAtNextLogin: true,
+          },
+        });
 
-      if (!res.ok) {
-        throw new Error(`Failed to create user: ${res.statusText}.`);
+        if (!res.ok) {
+          throw new Error(`Failed to create user: ${res.statusText}.`);
+        }
+      } catch (error) {
+        if (
+          error instanceof Common.GaxiosError &&
+          error.message === "Entity already exists."
+        ) {
+          return {
+            companyEmail,
+            personalEmail: null,
+            password: null,
+          };
+        }
+
+        throw error;
       }
 
       return {
@@ -109,7 +124,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     });
 
     await step.run("insert-db-user", async () => {
-      await db
+      return await db
         .insert(userTable)
         .values({
           id: newId("user"),
@@ -132,20 +147,23 @@ export const onboardNewUserWorkflow = inngest.createFunction(
             departmentId: departmentId ?? null,
             status: (status as UserStatus) ?? "onboarding",
           },
-        });
+        })
+        .returning({ id: userTable.id });
     });
 
-    await step.run("send-welcome-email", async () => {
-      await resend.emails.send({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: personalEmail,
-        subject: "Welcome to START Berlin!",
-        react: SignInInstructionsEmail({
-          firstName,
-          companyEmail: user.companyEmail,
-          initialPassword: user.password,
-        }),
+    if (user.password && user.personalEmail) {
+      await step.run("send-welcome-email", async () => {
+        return await resend.emails.send({
+          from: "START Berlin <notifications@emails.start-berlin.com>",
+          to: personalEmail,
+          subject: "Welcome to START Berlin!",
+          react: SignInInstructionsEmail({
+            firstName,
+            companyEmail: user.companyEmail,
+            initialPassword: user.password,
+          }),
+        });
       });
-    });
+    }
   },
 );

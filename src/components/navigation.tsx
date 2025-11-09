@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "My membership" },
+  { href: "/membership", label: "My membership" },
   { href: "/people", label: "People" },
 ];
 
@@ -15,17 +15,17 @@ export default function Navigation() {
   return (
     <nav aria-label="Main navigation">
       <LayoutGroup id="nav-underline">
-        <ul className="flex w-full relative gap-0.5">
+        <ul className="flex w-full relative gap-0.5 flex-nowrap overflow-x-auto overflow-y-hidden">
           {NAV_ITEMS.map(({ href, label }) => {
             const current =
               pathname === href || (href !== "/" && pathname.startsWith(href));
             return (
-              <li key={href} className="flex relative">
+              <li key={href} className="flex relative shrink-0">
                 <span className="relative flex flex-col items-center">
                   <Link
                     href={href}
                     aria-current={current ? "page" : undefined}
-                    className="uppercase text-brand-foreground font-bold py-2 px-3 mb-[2px]"
+                    className="uppercase text-brand-foreground font-bold py-2 px-3 mb-[2px] whitespace-nowrap"
                   >
                     {label}
                   </Link>

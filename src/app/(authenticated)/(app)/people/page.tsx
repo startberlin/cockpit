@@ -1,5 +1,5 @@
 import db from "@/db";
-import { getAllUsersWithDetails } from "@/db/people";
+import { getAllUserPublicData } from "@/db/people";
 import { batch } from "@/db/schema/batch";
 import { department } from "@/db/schema/department";
 import { createMetadata } from "@/lib/metadata";
@@ -11,7 +11,7 @@ export const metadata = createMetadata({
 });
 
 export default async function Home() {
-  const users = await getAllUsersWithDetails();
+  const users = await getAllUserPublicData();
 
   if (!users.data) {
     return <p>No users found</p>;

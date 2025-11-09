@@ -3,6 +3,7 @@ import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "@/components/ui/sonner";
 import { createMetadata } from "@/lib/metadata";
+import { RolesProvider } from "@/lib/permissions/roles-context";
 
 const avenirNext = localFont({
   src: [
@@ -40,7 +41,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${avenirNext.variable} antialiased`}>
         <NuqsAdapter>{children}</NuqsAdapter>
-        <Toaster />
+        <Toaster theme="light" />
       </body>
     </html>
   );

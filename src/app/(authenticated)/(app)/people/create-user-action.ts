@@ -2,33 +2,20 @@
 
 import { actionClient } from "@/lib/action-client";
 import { inngest } from "@/lib/inngest";
+import { can } from "@/lib/permissions/server";
 import { createUserSchema } from "./create-user-schema";
 
 export const createUserAction = actionClient
   .inputSchema(createUserSchema)
-  .action(async ({ ctx, parsedInput }) => {
-    if (!ctx.user.roles.includes("admin")) {
-      throw new Error("You are not an admin.");
+  .action(async ({ parsedInput }) => {
+    if (!can("user.manage")) {
+      throw new Error("You are not authorized to create users.");
     }
 
-    const {
-      firstName,
-      lastName,
-      personalEmail,
-      batchNumber,
-      departmentId,
-      status,
-    } = parsedInput;
-
-    await inngest.send({
-      name: "user.created",
-      data: {
-        firstName,
-        lastName,
-        personalEmail,
-        batchNumber,
-        departmentId,
-        status,
-      },
-    });
+    await inngest.send(
+      parsedInput.users.map((user) => ({
+        name: "user.created",
+        data: user,
+      })),
+    );
   });

@@ -65,7 +65,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
       },
       formProps: {
         defaultValues: {
-          personalEmail: user.personalEmail,
+          personalEmail: "",
           phone: user.phone ?? "",
         },
       },

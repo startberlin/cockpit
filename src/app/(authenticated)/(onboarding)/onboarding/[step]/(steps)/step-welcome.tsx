@@ -13,7 +13,7 @@ export function StepWelcome() {
   return (
     <div className="flex flex-col gap-y-8 items-start">
       <Button type="button" onClick={goToNext}>
-        Jetzt Account einrichten
+        Set up my account
       </Button>
     </div>
   );

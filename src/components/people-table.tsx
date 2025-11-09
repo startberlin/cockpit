@@ -13,7 +13,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
-import * as React from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -31,14 +31,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PublicUserWithDetails } from "@/db/people";
+import type { PublicUser } from "@/db/people";
+import { Can } from "./can";
 
 interface PeopleTableProps {
-  data: PublicUserWithDetails[];
+  data: PublicUser[];
   onCreateUserClick?: () => void;
 }
 
-const columns: ColumnDef<PublicUserWithDetails>[] = [
+const columns: ColumnDef<PublicUser>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -84,7 +85,7 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
   {
     accessorKey: "batch",
     header: "Batch",
-    cell: ({ row }) => <div>#{row.original.batch}</div>,
+    cell: ({ row }) => <div>#{row.original.batchNumber}</div>,
   },
   {
     accessorKey: "status",
@@ -122,13 +123,10 @@ const columns: ColumnDef<PublicUserWithDetails>[] = [
 ];
 
 export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
-  );
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState({});
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
 
   const table = useReactTable({
     data,
@@ -160,14 +158,16 @@ export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
           }
           className="max-w-sm"
         />
-        <Button
-          variant="outline"
-          className="ml-auto"
-          onClick={onCreateUserClick}
-        >
-          <Plus />
-          Create user
-        </Button>
+        <Can permission="user.manage">
+          <Button
+            variant="outline"
+            className="ml-auto"
+            onClick={onCreateUserClick}
+          >
+            <Plus />
+            Create user
+          </Button>
+        </Can>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
