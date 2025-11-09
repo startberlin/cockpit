@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { userStatus } from "@/db/schema/auth";
 
-export const createUserSchema = z.object({
+export const singleUserSchema = z.object({
   firstName: z.string().min(1, "Please enter a first name."),
   lastName: z.string().min(1, "Please enter a last name."),
   personalEmail: z.email().min(1, "Please enter a valid email address."),
@@ -10,6 +10,10 @@ export const createUserSchema = z.object({
   status: z.enum(userStatus.enumValues, {
     error: "Please select a status.",
   }),
+});
+
+export const createUserSchema = z.object({
+  users: z.array(singleUserSchema).min(1, "Add at least one user."),
 });
 
 export type CreateUserFormData = z.infer<typeof createUserSchema>;

@@ -20,7 +20,7 @@ export async function generateStaticParams() {
 
 interface OnboardingStepLayoutProps {
   params: Promise<{
-    step: OnboardingStep;
+    step: string;
   }>;
   children: React.ReactNode;
 }
@@ -50,7 +50,7 @@ export default async function OnboardingStepLayout({
     <div className="flex min-h-screen flex-1 flex-col md:justify-center px-6 md:px-4 py-6 md:py-10 lg:px-6">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="mt-6">
-          <OnboardingBreadcrumbs currentStep={step} />
+          <OnboardingBreadcrumbs currentStep={step as OnboardingStep} />
         </div>
         <span className="flex flex-col mt-6 gap-3">
           <Card>
