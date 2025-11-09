@@ -12,10 +12,8 @@ export const createUserAction = actionClient
       throw new Error("You are not authorized to create users.");
     }
 
-    await inngest.send(
-      parsedInput.users.map((user) => ({
-        name: "user.created",
-        data: user,
-      })),
-    );
+    await inngest.send({
+      name: "user.created",
+      data: parsedInput,
+    });
   });
