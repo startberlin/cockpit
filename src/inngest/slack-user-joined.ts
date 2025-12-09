@@ -1,12 +1,9 @@
-import { WebClient } from "@slack/web-api";
 import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
-import { env } from "@/env";
 import { inngest } from "@/lib/inngest";
-
-const slack = new WebClient(env.SLACK_BOT_TOKEN);
+import { slack } from "@/lib/slack";
 
 interface EventData {
   id: string;

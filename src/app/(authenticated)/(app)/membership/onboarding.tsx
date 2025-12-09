@@ -1,6 +1,6 @@
 import Image from "next/image";
+import NotionIcon from "@/assets/notion-logo.svg";
 import SlackIcon from "@/assets/slack-icon.svg";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { NotionDialog } from "./notion-dialog";
+import { SlackDialog } from "./slack-dialog";
 
 export function MembershipOnboarding() {
   return (
@@ -45,7 +47,26 @@ export function MembershipOnboarding() {
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex-col items-start gap-1.5 text-sm">
-              <Button variant="default">Join Slack</Button>
+              <SlackDialog />
+            </CardFooter>
+          </Card>
+          <Card className="@container/card">
+            <CardHeader className="gap-2">
+              <Image
+                src={NotionIcon}
+                className="mb-3"
+                alt="Notion"
+                width={24}
+                height={24}
+              />
+              <CardTitle>Join Notion</CardTitle>
+              <CardDescription>
+                Set up your Notion account to collaborate on projects, tasks
+                management and more.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1.5 text-sm">
+              <NotionDialog />
             </CardFooter>
           </Card>
         </div>
