@@ -13,9 +13,9 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,8 +31,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { PublicUser } from "@/db/people";
+import { USER_STATUS_INFO } from "@/lib/user-status";
 import { Can } from "./can";
+import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
   data: PublicUser[];
@@ -41,46 +48,24 @@ interface PeopleTableProps {
 
 const columns: ColumnDef<PublicUser>[] = [
   {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
     id: "name",
     accessorFn: (row) => `${row.firstName} ${row.lastName}`,
     header: "Name",
     cell: ({ row }) => (
-      <div>
+      <Link href="/people/[id]" as={`/people/${row.original.id}`}>
         {row.original.firstName} {row.original.lastName}
-      </div>
+      </Link>
     ),
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-    cell: ({ row }) => <div className="lowercase">{row.original.email}</div>,
   },
   {
     accessorKey: "department",
     header: "Department",
-    cell: ({ row }) => <div>{row.original.department ?? "-"}</div>,
+    cell: ({ row }) =>
+      row.original.department ? (
+        <Badge variant="outline">{row.original.department}</Badge>
+      ) : (
+        <p>—</p>
+      ),
   },
   {
     accessorKey: "batch",
@@ -90,11 +75,19 @@ const columns: ColumnDef<PublicUser>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => (
-      <span className="capitalize font-medium px-2 py-1 rounded bg-muted">
-        {row.original.status}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const info = USER_STATUS_INFO[row.original.status];
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="capitalize">
+              {info.label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top">{info.description}</TooltipContent>
+        </Tooltip>
+      );
+    },
   },
   {
     id: "actions",
@@ -216,30 +209,6 @@ export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
             )}
           </TableBody>
         </Table>
-      </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="text-muted-foreground flex-1 text-sm">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} user(s) selected.
-        </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
       </div>
     </div>
   );
