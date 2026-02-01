@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, Crown, MoreHorizontal, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Crown,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Can } from "@/components/can";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,17 +40,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Can } from "@/components/can";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import { hasAnyRequiredRole, PERMISSIONS } from "@/lib/permissions";
 import { useRoles } from "@/lib/permissions/roles-context";
-import { 
-  searchUsersNotInGroupAction,
+import {
   addUserToGroupAction,
   removeUserFromGroupAction,
+  searchUsersNotInGroupAction,
   updateUserGroupRoleAction,
 } from "./actions";
 
@@ -46,7 +55,9 @@ interface GroupDetailClientProps {
   group: GroupDetail;
 }
 
-export default function GroupDetailClient({ group: initialGroup }: GroupDetailClientProps) {
+export default function GroupDetailClient({
+  group: initialGroup,
+}: GroupDetailClientProps) {
   const [group, setGroup] = useState(initialGroup);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const roles = useRoles();
@@ -79,20 +90,25 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
     await loadAvailableUsers(query || undefined);
   };
 
-  const handleAddMember = async (user: PublicUser, role: "admin" | "member" = "member") => {
+  const handleAddMember = async (
+    user: PublicUser,
+    role: "admin" | "member" = "member",
+  ) => {
     try {
       await addUserToGroupAction(user.id, group.id, role);
-      
+
       const newMember: GroupMember = {
         ...user,
         role,
       };
-      
-      setGroup(prev => ({
+
+      setGroup((prev) => ({
         ...prev,
         members: [...prev.members, newMember].sort((a, b) => {
           if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
-          return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          return `${a.firstName} ${a.lastName}`.localeCompare(
+            `${b.firstName} ${b.lastName}`,
+          );
         }),
       }));
 
@@ -108,39 +124,48 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
   const handleRemoveMember = async (member: GroupMember) => {
     try {
       await removeUserFromGroupAction(member.id, group.id);
-      
-      setGroup(prev => ({
+
+      setGroup((prev) => ({
         ...prev,
-        members: prev.members.filter(m => m.id !== member.id),
+        members: prev.members.filter((m) => m.id !== member.id),
       }));
 
-      toast.success(`Removed ${member.firstName} ${member.lastName} from the group`);
+      toast.success(
+        `Removed ${member.firstName} ${member.lastName} from the group`,
+      );
     } catch (error) {
       toast.error("Failed to remove member from group");
     }
   };
 
-  const handleRoleChange = async (member: GroupMember, newRole: "admin" | "member") => {
+  const handleRoleChange = async (
+    member: GroupMember,
+    newRole: "admin" | "member",
+  ) => {
     try {
       await updateUserGroupRoleAction(member.id, group.id, newRole);
-      
-      setGroup(prev => ({
+
+      setGroup((prev) => ({
         ...prev,
-        members: prev.members.map(m => 
-          m.id === member.id ? { ...m, role: newRole } : m
-        ).sort((a, b) => {
-          if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
-          return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-        }),
+        members: prev.members
+          .map((m) => (m.id === member.id ? { ...m, role: newRole } : m))
+          .sort((a, b) => {
+            if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
+            return `${a.firstName} ${a.lastName}`.localeCompare(
+              `${b.firstName} ${b.lastName}`,
+            );
+          }),
       }));
 
-      toast.success(`Changed ${member.firstName} ${member.lastName}'s role to ${newRole}`);
+      toast.success(
+        `Changed ${member.firstName} ${member.lastName}'s role to ${newRole}`,
+      );
     } catch (error) {
       toast.error("Failed to update member role");
     }
   };
 
-  const adminCount = group.members.filter(m => m.role === "admin").length;
+  const adminCount = group.members.filter((m) => m.role === "admin").length;
 
   return (
     <div className="w-full space-y-6">
@@ -152,7 +177,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{group.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {group.name}
+            </h1>
             <p className="text-muted-foreground text-sm">
               <span className="font-mono">#{group.slug}</span>
               <span className="mx-2">·</span>
@@ -160,9 +187,12 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
             </p>
           </div>
         </div>
-        
+
         <Can permission="groups.manage_members">
-          <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+          <Dialog
+            open={isAddMemberDialogOpen}
+            onOpenChange={setIsAddMemberDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -200,7 +230,8 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                              {user.firstName[0]}{user.lastName[0]}
+                              {user.firstName[0]}
+                              {user.lastName[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -256,7 +287,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Administrators</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Administrators
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{adminCount}</div>
@@ -266,7 +299,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Members</CardTitle>
-            <CardDescription>All members of this group and their roles</CardDescription>
+            <CardDescription>
+              All members of this group and their roles
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {group.members.length === 0 ? (
@@ -281,12 +316,16 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                     className={`relative flex items-center justify-between p-4 rounded-lg border transition-colors ${canManageUsers ? "hover:bg-accent/50" : ""}`}
                   >
                     {canManageUsers && (
-                      <Link href={`/people/${member.id}`} className="absolute inset-0 z-0" />
+                      <Link
+                        href={`/people/${member.id}`}
+                        className="absolute inset-0 z-0"
+                      />
                     )}
                     <div className="flex items-center gap-4">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback>
-                          {member.firstName[0]}{member.lastName[0]}
+                          {member.firstName[0]}
+                          {member.lastName[0]}
                         </AvatarFallback>
                       </Avatar>
                       <div>
@@ -294,33 +333,51 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                           <span className="font-medium">
                             {member.firstName} {member.lastName}
                           </span>
-                          <Badge variant={member.role === "admin" ? "default" : "secondary"} className="text-xs">
-                            {member.role === "admin" && <Crown className="h-3 w-3 mr-1" />}
+                          <Badge
+                            variant={
+                              member.role === "admin" ? "default" : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {member.role === "admin" && (
+                              <Crown className="h-3 w-3 mr-1" />
+                            )}
                             {member.role}
                           </Badge>
                         </div>
-                        <div className="text-sm text-muted-foreground">{member.email}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {member.email}
+                        </div>
                         {member.department && (
-                          <div className="text-xs text-muted-foreground capitalize">{member.department}</div>
+                          <div className="text-xs text-muted-foreground capitalize">
+                            {member.department}
+                          </div>
                         )}
                       </div>
                     </div>
                     <Can permission="groups.manage_members">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="relative z-10 h-8 w-8 p-0">
+                          <Button
+                            variant="ghost"
+                            className="relative z-10 h-8 w-8 p-0"
+                          >
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {member.role === "member" ? (
-                            <DropdownMenuItem onClick={() => handleRoleChange(member, "admin")}>
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member, "admin")}
+                            >
                               <Crown className="h-4 w-4 mr-2" />
                               Make Admin
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onClick={() => handleRoleChange(member, "member")}>
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member, "member")}
+                            >
                               <Users className="h-4 w-4 mr-2" />
                               Make Member
                             </DropdownMenuItem>

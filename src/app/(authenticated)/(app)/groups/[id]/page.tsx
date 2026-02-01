@@ -10,7 +10,7 @@ interface GroupPageProps {
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
   const group = await getGroupDetailRaw(id);
-  
+
   if (!group) {
     return createMetadata({
       title: "Group Not Found",

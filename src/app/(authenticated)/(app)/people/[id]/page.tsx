@@ -41,9 +41,7 @@ export default async function UserDetailPage({ params }: PageProps) {
             <ShieldX />
           </EmptyMedia>
           <EmptyTitle>Access Denied</EmptyTitle>
-          <EmptyDescription>
-            You don't have permission to view member details.
-          </EmptyDescription>
+          <EmptyDescription>You don't have permission to view member details.</EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" asChild>
           <Link href="/people">Back to People</Link>

@@ -45,9 +45,7 @@ const columns: ColumnDef<PublicGroup>[] = [
     header: "Name",
     cell: ({ row }) => (
       <div className="flex flex-col gap-1">
-        <span className="font-medium">
-          {row.original.name}
-        </span>
+        <span className="font-medium">{row.original.name}</span>
         {row.original.isMember && (
           <Badge variant="secondary" className="w-fit">
             Member
@@ -102,7 +100,9 @@ const columns: ColumnDef<PublicGroup>[] = [
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onClick={() =>
-                  navigator.clipboard.writeText(`${group.slug}@start-berlin.com`)
+                  navigator.clipboard.writeText(
+                    `${group.slug}@start-berlin.com`,
+                  )
                 }
               >
                 Copy email

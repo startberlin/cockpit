@@ -1,12 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { 
-  searchUsersNotInGroupRaw, 
-  addUserToGroupRaw, 
-  removeUserFromGroupRaw,
-  updateUserGroupRoleRaw,
-} from "@/db/groups";
+import { addUserToGroupRaw, removeUserFromGroupRaw, searchUsersNotInGroupRaw, updateUserGroupRoleRaw } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 
 export async function searchUsersNotInGroupAction(groupId: string, query?: string): Promise<PublicUser[]> {
