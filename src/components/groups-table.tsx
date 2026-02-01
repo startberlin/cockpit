@@ -13,7 +13,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,9 +45,9 @@ const columns: ColumnDef<PublicGroup>[] = [
     header: "Name",
     cell: ({ row }) => (
       <div className="flex flex-col gap-1">
-        <Link href={`/groups/${row.original.id}`} className="font-medium">
+        <span className="font-medium">
           {row.original.name}
-        </Link>
+        </span>
         {row.original.isMember && (
           <Badge variant="secondary" className="w-fit">
             Member
@@ -92,23 +91,25 @@ const columns: ColumnDef<PublicGroup>[] = [
       const group = row.original;
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() =>
-                navigator.clipboard.writeText(`${group.slug}@start-berlin.com`)
-              }
-            >
-              Copy email
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(`${group.slug}@start-berlin.com`)
+                }
+              >
+                Copy email
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       );
     },
   },
@@ -185,6 +186,12 @@ export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => {
+                    // Navigate to group detail page when clicking on the row
+                    const groupId = row.original.id;
+                    window.location.href = `/groups/${groupId}`;
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

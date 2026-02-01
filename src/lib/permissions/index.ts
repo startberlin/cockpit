@@ -5,6 +5,7 @@ export const PERMISSIONS = {
   "users.create": ["admin"],
   "groups.view_all": ["admin", "board", "department_lead"],
   "groups.create": ["admin"],
+  "groups.manage_members": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Action = keyof typeof PERMISSIONS;
