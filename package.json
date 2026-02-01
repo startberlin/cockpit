@@ -14,6 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "db:up": "docker compose up -d",
     "db:seed": "dotenv -e .env -- tsx scripts/seed.ts",
+    "db:dump": "dotenv -e .env -- sh -c 'pg_dump \"$DATABASE_URL\" --format=plain --no-owner --no-privileges --file supabase.sql'",
+    "db:restore": "dotenv -e .env -- sh -c 'psql \"$DATABASE_URL\" < supabase.sql'",
     "google:add-member": "dotenv -e .env -- tsx scripts/google.ts",
     "email:dev": "email dev --dir src/emails",
     "inngest:dev": "npx inngest-cli@latest dev"
