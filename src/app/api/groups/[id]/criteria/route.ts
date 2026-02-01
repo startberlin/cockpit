@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getGroupCriteria } from "@/db/groups";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -13,7 +13,7 @@ export async function GET(
     console.error("Error fetching group criteria:", error);
     return NextResponse.json(
       { error: "Failed to fetch group criteria" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

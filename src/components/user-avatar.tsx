@@ -29,10 +29,11 @@ export function UserAvatar({ user }: UserAvatarProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand-foreground/50">
-        <Avatar >
+        <Avatar>
           <AvatarImage src={user.image ?? undefined} />
           <AvatarFallback className="bg-brand-foreground/20 text-brand-foreground">
-            {user.firstName[0]}{user.lastName[0]}
+            {user.firstName[0]}
+            {user.lastName[0]}
           </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
@@ -43,7 +44,11 @@ export function UserAvatar({ user }: UserAvatarProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => authClient.signOut({ fetchOptions: { onSuccess: () => router.push("/auth") } })}
+          onClick={() =>
+            authClient.signOut({
+              fetchOptions: { onSuccess: () => router.push("/auth") },
+            })
+          }
         >
           <LogOut className="mr-2 h-4 w-4" />
           Log out

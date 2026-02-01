@@ -1,12 +1,12 @@
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { actionClient } from "@/lib/action-client";
 import { nanoid } from "@/lib/id";
 import db from ".";
-import { group, usersToGroups, groupRole, groupCriteria } from "./schema/group";
-import { user } from "./schema/auth";
 import type { PublicUser } from "./people";
 import type { Department, Role, UserStatus } from "./schema/auth";
+import { user } from "./schema/auth";
+import { group, groupCriteria, groupRole, usersToGroups } from "./schema/group";
 
 export interface PublicGroup {
   id: string;
@@ -284,7 +284,7 @@ export const getGroupCriteria = actionClient
       where: eq(groupCriteria.groupId, parsedInput.groupId),
       orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
     });
-    
+
     return criteria;
   });
 
@@ -292,9 +292,15 @@ export const getGroupCriteria = actionClient
 const addGroupCriteriaSchema = z.object({
   groupId: z.string(),
   name: z.string().min(1, "Criteria name is required"),
-  department: z.enum(["partnerships", "operations", "community", "growth", "events"]).optional(),
-  roles: z.array(z.enum(["member", "board", "department_lead", "admin"])).optional(),
-  status: z.enum(["onboarding", "member", "supporting_alumni", "alumni"]).optional(),
+  department: z
+    .enum(["partnerships", "operations", "community", "growth", "events"])
+    .optional(),
+  roles: z
+    .array(z.enum(["member", "board", "department_lead", "admin"]))
+    .optional(),
+  status: z
+    .enum(["onboarding", "member", "supporting_alumni", "alumni"])
+    .optional(),
   batchNumber: z.number().int().positive().optional(),
 });
 
@@ -302,7 +308,7 @@ export const addGroupCriteria = actionClient
   .inputSchema(addGroupCriteriaSchema)
   .action(async ({ parsedInput, ctx }): Promise<GroupCriteria> => {
     const criteriaId = nanoid();
-    
+
     const [newCriteria] = await db
       .insert(groupCriteria)
       .values({
@@ -316,7 +322,7 @@ export const addGroupCriteria = actionClient
         createdBy: ctx.user.id,
       })
       .returning();
-      
+
     return newCriteria;
   });
 
@@ -333,61 +339,69 @@ export const removeGroupCriteria = actionClient
 export const addUsersMatchingCriteria = async (
   groupId: string,
   criteria: {
-    department?: string;
-    roles?: string[];
-    status?: string;
+    department?: Department;
+    roles?: Role[];
+    status?: UserStatus;
     batchNumber?: number;
-  }
+  },
 ) => {
   // Build the where conditions dynamically
-  const conditions: any[] = [];
-  
+  const conditions: SQL[] = [];
+
   if (criteria.department) {
     conditions.push(eq(user.department, criteria.department));
   }
-  
+
   if (criteria.status) {
     conditions.push(eq(user.status, criteria.status));
   }
-  
+
   if (criteria.batchNumber) {
     conditions.push(eq(user.batchNumber, criteria.batchNumber));
   }
-  
+
   // If roles are specified, we need to check if any of the user's roles match
   if (criteria.roles && criteria.roles.length > 0) {
     // Use correct PostgreSQL syntax: value = ANY(array_column)
-    const roleConditions = criteria.roles.map(role => sql`${role} = ANY(${user.roles})`);
-    conditions.push(or(...roleConditions));
+    const roleConditions = criteria.roles.map(
+      (role) => sql`${role} = ANY(${user.roles})`,
+    );
+    const roleOr = or(...roleConditions);
+    if (roleOr) conditions.push(roleOr);
   }
-  
+
   // Find users matching the criteria who are not already in the group
   const matchingUsers = await db
     .select({
       id: user.id,
     })
     .from(user)
-    .leftJoin(usersToGroups, and(
-      eq(usersToGroups.userId, user.id),
-      eq(usersToGroups.groupId, groupId)
-    ))
-    .where(and(
-      // User matches criteria
-      conditions.length > 0 ? and(...conditions) : undefined,
-      // User is not already in the group
-      sql`${usersToGroups.userId} IS NULL`
-    ));
-  
+    .leftJoin(
+      usersToGroups,
+      and(
+        eq(usersToGroups.userId, user.id),
+        eq(usersToGroups.groupId, groupId),
+      ),
+    )
+    .where(
+      and(
+        // User matches criteria
+        conditions.length > 0 ? and(...conditions) : undefined,
+        // User is not already in the group
+        sql`${usersToGroups.userId} IS NULL`,
+      ),
+    );
+
   // Add all matching users to the group as members
   if (matchingUsers.length > 0) {
-    const userGroupEntries = matchingUsers.map(u => ({
+    const userGroupEntries = matchingUsers.map((u) => ({
       userId: u.id,
       groupId: groupId,
       role: "member" as const,
     }));
-    
+
     await db.insert(usersToGroups).values(userGroupEntries);
   }
-  
+
   return matchingUsers.length;
 };

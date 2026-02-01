@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import { account, session, user, verification } from "./auth";
 import { batch, batchRelations } from "./batch";
 import {
@@ -8,7 +9,6 @@ import {
   usersToGroups,
   usersToGroupsRelations,
 } from "./group";
-import { relations } from "drizzle-orm";
 
 // Define user relations here to avoid circular dependency
 export const usersRelations = relations(user, ({ one, many }) => ({

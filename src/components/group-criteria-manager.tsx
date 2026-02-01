@@ -1,16 +1,28 @@
 "use client";
 
+import { Filter, Plus, Trash2, Users } from "lucide-react";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Users, Filter } from "lucide-react";
-import { toast } from "sonner";
-import type { GroupCriteria } from "@/types/group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { GroupCriteria } from "@/db/groups";
 
 interface GroupCriteriaManagerProps {
   groupId: string;
@@ -48,7 +60,11 @@ const STATUSES = [
   { value: "alumni", label: "Alumni" },
 ];
 
-export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChange }: GroupCriteriaManagerProps) {
+export default function GroupCriteriaManager({
+  groupId,
+  criteria,
+  onCriteriaChange,
+}: GroupCriteriaManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [formData, setFormData] = useState<CriteriaFormData>({
@@ -78,7 +94,8 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
         };
 
         if (formData.department) data.department = formData.department;
-        if (formData.roles && formData.roles.length > 0) data.roles = formData.roles;
+        if (formData.roles && formData.roles.length > 0)
+          data.roles = formData.roles;
         if (formData.status) data.status = formData.status;
         if (formData.batchNumber) {
           const batchNum = parseInt(formData.batchNumber, 10);
@@ -97,13 +114,17 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
 
         const responseData = await response.json();
         const addedUsersCount = responseData.addedUsersCount || 0;
-        
+
         if (addedUsersCount > 0) {
-          toast.success(`Auto-add criteria created successfully! ${addedUsersCount} existing user${addedUsersCount === 1 ? '' : 's'} added to the group.`);
+          toast.success(
+            `Auto-add criteria created successfully! ${addedUsersCount} existing user${addedUsersCount === 1 ? "" : "s"} added to the group.`,
+          );
         } else {
-          toast.success("Auto-add criteria created successfully! No existing users matched the criteria.");
+          toast.success(
+            "Auto-add criteria created successfully! No existing users matched the criteria.",
+          );
         }
-        
+
         resetForm();
         setIsDialogOpen(false);
         onCriteriaChange();
@@ -137,7 +158,10 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
   const handleRoleToggle = (role: string) => {
     const currentRoles = formData.roles || [];
     if (currentRoles.includes(role)) {
-      setFormData({ ...formData, roles: currentRoles.filter(r => r !== role) });
+      setFormData({
+        ...formData,
+        roles: currentRoles.filter((r) => r !== role),
+      });
     } else {
       setFormData({ ...formData, roles: [...currentRoles, role] });
     }
@@ -145,7 +169,7 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
 
   const formatCriteriaDisplay = (criteria: GroupCriteria) => {
     const parts: string[] = [];
-    
+
     if (criteria.department) {
       parts.push(`Department: ${criteria.department}`);
     }
@@ -158,7 +182,7 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
     if (criteria.batchNumber) {
       parts.push(`Batch: ${criteria.batchNumber}`);
     }
-    
+
     return parts.length > 0 ? parts.join(" • ") : "No specific criteria";
   };
 
@@ -187,13 +211,23 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
                   id="criteria-name"
                   placeholder="e.g., 'New Community Members'"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                 />
               </div>
 
               <div>
                 <Label>Department (Optional)</Label>
-                <Select value={formData.department || "any"} onValueChange={(value) => setFormData({ ...formData, department: value === "any" ? undefined : value })}>
+                <Select
+                  value={formData.department || "any"}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      department: value === "any" ? undefined : value,
+                    })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
@@ -212,7 +246,10 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
                 <Label>Roles (Optional)</Label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {ROLES.map((role) => (
-                    <div key={role.value} className="flex items-center space-x-2">
+                    <div
+                      key={role.value}
+                      className="flex items-center space-x-2"
+                    >
                       <input
                         type="checkbox"
                         id={role.value}
@@ -228,7 +265,15 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
 
               <div>
                 <Label>Status (Optional)</Label>
-                <Select value={formData.status || "any"} onValueChange={(value) => setFormData({ ...formData, status: value === "any" ? undefined : value })}>
+                <Select
+                  value={formData.status || "any"}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      status: value === "any" ? undefined : value,
+                    })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -250,7 +295,9 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
                   type="number"
                   placeholder="Enter batch number"
                   value={formData.batchNumber || ""}
-                  onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, batchNumber: e.target.value })
+                  }
                 />
               </div>
 
@@ -281,7 +328,9 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
             <Card key={criteriaItem.id} className="border border-gray-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">{criteriaItem.name}</CardTitle>
+                  <CardTitle className="text-base font-medium">
+                    {criteriaItem.name}
+                  </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -298,7 +347,8 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
                   {formatCriteriaDisplay(criteriaItem)}
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Future users matching these criteria will be automatically added to this group.
+                  Future users matching these criteria will be automatically
+                  added to this group.
                 </p>
               </CardContent>
             </Card>
@@ -308,9 +358,12 @@ export default function GroupCriteriaManager({ groupId, criteria, onCriteriaChan
         <Card className="border-dashed border-gray-300">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <Users className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Auto-Add Criteria</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Auto-Add Criteria
+            </h3>
             <p className="text-sm text-gray-600 text-center max-w-sm mb-4">
-              Set up criteria to automatically add future users to this group when they match specific attributes.
+              Set up criteria to automatically add future users to this group
+              when they match specific attributes.
             </p>
             <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />

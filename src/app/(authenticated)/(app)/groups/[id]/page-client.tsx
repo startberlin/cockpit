@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
+import GroupCriteriaManager from "@/components/group-criteria-manager";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { GroupDetail, GroupMember } from "@/db/groups";
-import GroupCriteriaManager from "@/components/group-criteria-manager";
-import type { GroupDetail, GroupMember } from "@/types/group";
 import type { PublicUser } from "@/db/people";
 import { hasAnyRequiredRole, PERMISSIONS } from "@/lib/permissions";
 import { useRoles } from "@/lib/permissions/roles-context";
@@ -174,22 +173,22 @@ export default function GroupDetailClient({
       if (!criteriaResponse.ok) {
         throw new Error("Failed to fetch updated criteria");
       }
-      
+
       const { criteria } = await criteriaResponse.json();
-      
+
       // Also refresh group details to get updated member list
       const groupResponse = await fetch(`/api/groups/${group.id}`);
       let updatedMembers = group.members; // fallback to current members
-      
+
       if (groupResponse.ok) {
         const groupData = await groupResponse.json();
         updatedMembers = groupData.members || group.members;
       }
-      
-      setGroup(prev => ({
+
+      setGroup((prev) => ({
         ...prev,
         criteria: criteria,
-        members: updatedMembers
+        members: updatedMembers,
       }));
     } catch (error) {
       console.error("Error refreshing criteria:", error);
@@ -197,8 +196,8 @@ export default function GroupDetailClient({
     }
   };
 
-  const adminCount = group.members.filter(m => m.role === "admin").length;
-  const memberCount = group.members.filter(m => m.role === "member").length;
+  const adminCount = group.members.filter((m) => m.role === "admin").length;
+  const memberCount = group.members.filter((m) => m.role === "member").length;
 
   return (
     <div className="w-full space-y-6">
@@ -250,13 +249,13 @@ export default function GroupDetailClient({
                       className="pl-10"
                     />
                   </div>
-                  
+
                   {isSearching && (
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     </div>
                   )}
-                  
+
                   {searchResults.length > 0 && (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {searchResults.map((user) => (
@@ -267,7 +266,8 @@ export default function GroupDetailClient({
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback>
-                                {user.firstName[0]}{user.lastName[0]}
+                                {user.firstName[0]}
+                                {user.lastName[0]}
                               </AvatarFallback>
                             </Avatar>
                             <div>
@@ -300,12 +300,14 @@ export default function GroupDetailClient({
                       ))}
                     </div>
                   )}
-                  
-                  {searchQuery && !isSearching && searchResults.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No users found matching "{searchQuery}"
-                    </div>
-                  )}
+
+                  {searchQuery &&
+                    !isSearching &&
+                    searchResults.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No users found matching "{searchQuery}"
+                      </div>
+                    )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -370,22 +372,27 @@ export default function GroupDetailClient({
                   <div className="flex items-center gap-4">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
-                        {member.firstName[0]}{member.lastName[0]}
+                        {member.firstName[0]}
+                        {member.lastName[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Link 
+                        <Link
                           href={`/people/${member.id}`}
                           className="font-medium hover:underline"
                         >
                           {member.firstName} {member.lastName}
                         </Link>
-                        <Badge 
-                          variant={member.role === "admin" ? "default" : "secondary"}
+                        <Badge
+                          variant={
+                            member.role === "admin" ? "default" : "secondary"
+                          }
                           className="text-xs"
                         >
-                          {member.role === "admin" && <Crown className="h-3 w-3 mr-1" />}
+                          {member.role === "admin" && (
+                            <Crown className="h-3 w-3 mr-1" />
+                          )}
                           {member.role}
                         </Badge>
                       </div>
@@ -399,7 +406,7 @@ export default function GroupDetailClient({
                       )}
                     </div>
                   </div>
-                  
+
                   <Can permission="groups.manage_members">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -410,18 +417,22 @@ export default function GroupDetailClient({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {member.role === "member" ? (
-                          <DropdownMenuItem onClick={() => handleRoleChange(member, "admin")}>
+                          <DropdownMenuItem
+                            onClick={() => handleRoleChange(member, "admin")}
+                          >
                             <Crown className="h-4 w-4 mr-2" />
                             Make Admin
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => handleRoleChange(member, "member")}>
+                          <DropdownMenuItem
+                            onClick={() => handleRoleChange(member, "member")}
+                          >
                             <Users className="h-4 w-4 mr-2" />
                             Make Member
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleRemoveMember(member)}
                           className="text-red-600 focus:text-red-600"
                         >

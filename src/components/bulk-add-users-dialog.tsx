@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Crown, Plus, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -13,10 +16,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { PublicUser } from "@/db/people";
 
 interface BulkAddUsersDialogProps {
@@ -54,10 +60,10 @@ const STATUSES = [
   { value: "alumni", label: "Alumni" },
 ];
 
-export default function BulkAddUsersDialog({ 
-  groupId, 
-  onUsersAdded, 
-  children 
+export default function BulkAddUsersDialog({
+  groupId,
+  onUsersAdded,
+  children,
 }: BulkAddUsersDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [criteria, setCriteria] = useState<UserCriteria>({
@@ -115,17 +121,23 @@ export default function BulkAddUsersDialog({
     }
   }, [criteria, isOpen]);
 
-  const handleAddCriteria = (type: keyof UserCriteria, value: string | number) => {
-    setCriteria(prev => ({
+  const handleAddCriteria = (
+    type: keyof UserCriteria,
+    value: string | number,
+  ) => {
+    setCriteria((prev) => ({
       ...prev,
       [type]: [...(prev[type] as any[]), value],
     }));
   };
 
-  const handleRemoveCriteria = (type: keyof UserCriteria, value: string | number) => {
-    setCriteria(prev => ({
+  const handleRemoveCriteria = (
+    type: keyof UserCriteria,
+    value: string | number,
+  ) => {
+    setCriteria((prev) => ({
       ...prev,
-      [type]: (prev[type] as any[]).filter(item => item !== value),
+      [type]: (prev[type] as any[]).filter((item) => item !== value),
     }));
   };
 
@@ -149,7 +161,7 @@ export default function BulkAddUsersDialog({
         },
         body: JSON.stringify({
           groupId,
-          userIds: previewUsers.map(u => u.id),
+          userIds: previewUsers.map((u) => u.id),
           role,
         }),
       });
@@ -167,7 +179,9 @@ export default function BulkAddUsersDialog({
         batchNumbers: [],
       });
       setPreviewUsers([]);
-      toast.success(`Added ${previewUsers.length} user${previewUsers.length !== 1 ? 's' : ''} to the group`);
+      toast.success(
+        `Added ${previewUsers.length} user${previewUsers.length !== 1 ? "s" : ""} to the group`,
+      );
     } catch (error) {
       toast.error("Failed to add users to group");
       console.error(error);
@@ -180,7 +194,7 @@ export default function BulkAddUsersDialog({
     title: string,
     type: keyof UserCriteria,
     options: Array<{ value: string; label: string }>,
-    currentValues: string[]
+    currentValues: string[],
   ) => (
     <div className="space-y-2">
       <label className="text-sm font-medium">{title}</label>
@@ -190,8 +204,8 @@ export default function BulkAddUsersDialog({
         </SelectTrigger>
         <SelectContent>
           {options
-            .filter(option => !currentValues.includes(option.value))
-            .map(option => (
+            .filter((option) => !currentValues.includes(option.value))
+            .map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -200,8 +214,8 @@ export default function BulkAddUsersDialog({
       </Select>
       {currentValues.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {currentValues.map(value => {
-            const option = options.find(opt => opt.value === value);
+          {currentValues.map((value) => {
+            const option = options.find((opt) => opt.value === value);
             return (
               <Badge key={value} variant="secondary" className="text-xs">
                 {option?.label || value}
@@ -221,9 +235,7 @@ export default function BulkAddUsersDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Users by Criteria</DialogTitle>
@@ -231,12 +243,22 @@ export default function BulkAddUsersDialog({
             Select criteria to add multiple users to this group at once.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
-          {renderCriteriaSection("Departments", "departments", DEPARTMENTS, criteria.departments)}
+          {renderCriteriaSection(
+            "Departments",
+            "departments",
+            DEPARTMENTS,
+            criteria.departments,
+          )}
           {renderCriteriaSection("Roles", "roles", ROLES, criteria.roles)}
-          {renderCriteriaSection("Statuses", "statuses", STATUSES, criteria.statuses)}
-          
+          {renderCriteriaSection(
+            "Statuses",
+            "statuses",
+            STATUSES,
+            criteria.statuses,
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Batch Numbers</label>
             <div className="flex gap-2">
@@ -264,7 +286,7 @@ export default function BulkAddUsersDialog({
             </div>
             {criteria.batchNumbers.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {criteria.batchNumbers.map(num => (
+                {criteria.batchNumbers.map((num) => (
                   <Badge key={num} variant="secondary" className="text-xs">
                     Batch {num}
                     <button
@@ -291,14 +313,15 @@ export default function BulkAddUsersDialog({
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2"></div>
             )}
           </div>
-          
+
           {previewUsers.length > 0 && (
             <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-3">
-              {previewUsers.map(user => (
+              {previewUsers.map((user) => (
                 <div key={user.id} className="flex items-center gap-3 text-sm">
                   <Avatar className="h-6 w-6">
                     <AvatarFallback className="text-xs">
-                      {user.firstName[0]}{user.lastName[0]}
+                      {user.firstName[0]}
+                      {user.lastName[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
@@ -326,17 +349,17 @@ export default function BulkAddUsersDialog({
               ))}
             </div>
           )}
-          
-          {!isLoading && previewUsers.length === 0 && (
-            (criteria.departments.length > 0 || 
-             criteria.roles.length > 0 || 
-             criteria.statuses.length > 0 || 
-             criteria.batchNumbers.length > 0) && (
+
+          {!isLoading &&
+            previewUsers.length === 0 &&
+            (criteria.departments.length > 0 ||
+              criteria.roles.length > 0 ||
+              criteria.statuses.length > 0 ||
+              criteria.batchNumbers.length > 0) && (
               <div className="text-center py-4 text-muted-foreground">
                 No users match the selected criteria
               </div>
-            )
-          )}
+            )}
         </div>
 
         <DialogFooter>
