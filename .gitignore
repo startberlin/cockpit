@@ -49,3 +49,6 @@ next-env.d.ts
 # symlinks to .agents/skills/
 .cursor/skills/
 .claude/skills/
+
+# database
+*.sql
