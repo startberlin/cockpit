@@ -43,7 +43,6 @@
     "better-auth": "^1.4.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "debounce": "^3.0.0",
     "dotenv": "^17.2.3",
     "dotenv-cli": "^11.0.0",
     "drizzle-orm": "^0.45.1",
@@ -72,6 +71,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tsscmp": "^1.0.6",
+    "use-debounce": "^10.1.0",
     "usehooks-ts": "^3.1.1",
     "vaul": "^1.1.2",
     "zod": "^4.3.6"
