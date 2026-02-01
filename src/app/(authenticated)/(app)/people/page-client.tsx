@@ -10,25 +10,23 @@ import { CreateUserDialog } from "./create-user-dialog";
 interface PeoplePageClientProps {
   users: PublicUser[];
   batches: { number: number }[];
-  departments: { id: string; name: string }[];
 }
 
 export default function PeoplePageClient({
   users,
   batches,
-  departments,
 }: PeoplePageClientProps) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
 
-  function handleSuccess() {
+  const handleSuccess = React.useCallback(() => {
     router.refresh();
 
     toast.success("Creating user...", {
       description:
         "It may take a few minutes for the user to appear in the list.",
     });
-  }
+  }, [router]);
 
   return (
     <>
@@ -37,7 +35,6 @@ export default function PeoplePageClient({
         open={open}
         onOpenChange={setOpen}
         batches={batches}
-        departments={departments}
         onSuccess={handleSuccess}
       />
     </>

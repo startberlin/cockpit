@@ -1,7 +1,10 @@
 import type { Role } from "@/db/schema/auth";
 
 export const PERMISSIONS = {
-  "user.manage": ["admin"],
+  "users.manage": ["admin"],
+  "users.create": ["admin"],
+  "groups.view_all": ["admin", "board", "department_lead"],
+  "groups.create": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Action = keyof typeof PERMISSIONS;

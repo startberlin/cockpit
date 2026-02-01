@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/membership", label: "My membership" },
   { href: "/people", label: "People" },
+  { href: "/groups", label: "Groups" },
 ];
 
 export default function Navigation() {

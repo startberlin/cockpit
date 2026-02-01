@@ -5,17 +5,13 @@ import { user as userTable } from "@/db/schema/auth";
 import { inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
-interface EventData {
-  id: string;
-}
-
 export const handleSlackEvent = inngest.createFunction(
   {
     id: "handle-slack-event",
   },
   { event: "slack/user.joined" },
   async ({ event, step }) => {
-    const { id } = event.data as EventData;
+    const { id } = event.data;
 
     const userEmail = await step.run("find-slack-user-email", async () => {
       const response = await slack.users.profile.get({

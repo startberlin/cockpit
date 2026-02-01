@@ -45,3 +45,7 @@ start-berlin-*.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# symlinks to .agents/skills/
+.cursor/skills/
+.claude/skills/

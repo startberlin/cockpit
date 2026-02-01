@@ -1,13 +1,13 @@
 import { actionClient } from "@/lib/action-client";
 import db from ".";
-import type { UserStatus } from "./schema/auth";
+import type { Department, UserStatus } from "./schema/auth";
 
 export interface PublicUser {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  department: string | null;
+  department: Department | null;
   batchNumber: number;
   status: UserStatus;
 }
@@ -21,10 +21,10 @@ export const getAllUserPublicData = actionClient.action(
         lastName: true,
         email: true,
         status: true,
+        department: true,
       },
       with: {
         batch: true,
-        department: { columns: { id: true, name: true } },
       },
     });
 
@@ -38,7 +38,7 @@ export const getAllUserPublicData = actionClient.action(
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        department: user.department?.name ?? null,
+        department: user.department ?? null,
         batchNumber: user.batch.number,
         status: user.status,
       };

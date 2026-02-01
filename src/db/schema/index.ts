@@ -1,6 +1,11 @@
 import { account, session, user, usersRelations, verification } from "./auth";
 import { batch, batchRelations } from "./batch";
-import { department, departmentRelations } from "./department";
+import {
+  group,
+  groupRelations,
+  usersToGroups,
+  usersToGroupsRelations,
+} from "./group";
 
 export const schema = {
   user,
@@ -8,8 +13,10 @@ export const schema = {
   account,
   verification,
   batch,
-  department,
   usersRelations,
   batchRelations,
-  departmentRelations,
+  group,
+  usersToGroups,
+  groupRelations,
+  usersToGroupsRelations,
 };

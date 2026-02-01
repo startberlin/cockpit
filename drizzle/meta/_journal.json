@@ -15,6 +15,34 @@
       "when": 1760822319847,
       "tag": "0001_sloppy_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768327998385,
+      "tag": "0002_sudden_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768328119478,
+      "tag": "0003_cultured_shriek",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768504685560,
+      "tag": "0004_rainy_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768507038371,
+      "tag": "0005_noisy_tinkerer",
+      "breakpoints": true
     }
   ]
 }

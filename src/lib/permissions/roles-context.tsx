@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createContext, useContext, useState } from "react";
 
 import type { RoleList } from ".";
 
@@ -13,8 +14,21 @@ export function RolesProvider({
   children: React.ReactNode;
   roles: RoleList;
 }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 60 * 1000,
+          },
+        },
+      }),
+  );
+
   return (
-    <RolesContext.Provider value={roles}>{children}</RolesContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <RolesContext.Provider value={roles}>{children}</RolesContext.Provider>
+    </QueryClientProvider>
   );
 }
 

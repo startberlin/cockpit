@@ -8,7 +8,7 @@ import { createUserSchema } from "./create-user-schema";
 export const createUserAction = actionClient
   .inputSchema(createUserSchema)
   .action(async ({ parsedInput }) => {
-    if (!can("user.manage")) {
+    if (!can("users.create")) {
       throw new Error("You are not authorized to create users.");
     }
 

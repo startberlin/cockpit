@@ -1,7 +1,7 @@
+import { all } from "better-all";
 import db from "@/db";
 import { getAllUserPublicData } from "@/db/people";
 import { batch } from "@/db/schema/batch";
-import { department } from "@/db/schema/department";
 import { createMetadata } from "@/lib/metadata";
 import PeoplePageClient from "./page-client";
 
@@ -11,22 +11,14 @@ export const metadata = createMetadata({
 });
 
 export default async function Home() {
-  const users = await getAllUserPublicData();
+  const { users, batches } = await all({
+    users: getAllUserPublicData,
+    batches: async () => db.select().from(batch).orderBy(batch.number),
+  });
 
   if (!users.data) {
     return <p>No users found</p>;
   }
 
-  const [batches, departments] = await Promise.all([
-    db.select().from(batch).orderBy(batch.number),
-    db.select().from(department).orderBy(department.name),
-  ]);
-
-  return (
-    <PeoplePageClient
-      users={users.data}
-      batches={batches}
-      departments={departments}
-    />
-  );
+  return <PeoplePageClient users={users.data} batches={batches} />;
 }

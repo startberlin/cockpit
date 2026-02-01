@@ -2,44 +2,33 @@ import { GoogleAuth } from "google-auth-library";
 import { Common, google } from "googleapis";
 import slugify from "slugify";
 import db from "@/db";
-import type { UserStatus } from "@/db/schema/auth";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
 
-interface EventData {
-  firstName: string;
-  lastName: string;
-  personalEmail: string;
-  batchNumber: number;
-  departmentId?: string | null;
-  status: UserStatus;
-}
-
 const SUBJECT = "digital-connection-management@start-berlin.com";
 
+// Join multi-part names with hyphens, transliterate special chars, lowercase, keep only [a-z0-9.-]
+// For details: https://github.com/simov/slugify#custom-replacements
+const customReplacements = [
+  ["ä", "ae"],
+  ["ö", "oe"],
+  ["ü", "ue"],
+  ["ß", "ss"],
+  ["æ", "ae"],
+  ["ø", "oe"],
+  ["å", "aa"],
+  ["Ä", "ae"],
+  ["Ö", "oe"],
+  ["Ü", "ue"],
+  ["Æ", "ae"],
+  ["Ø", "oe"],
+  ["Å", "aa"],
+];
+
 function generateCompanyEmail(firstName: string, lastName: string) {
-  // Join multi-part names with hyphens, transliterate special chars, lowercase, keep only [a-z0-9.-]
-  // For details: https://github.com/simov/slugify#custom-replacements
-
-  const customReplacements = [
-    ["ä", "ae"],
-    ["ö", "oe"],
-    ["ü", "ue"],
-    ["ß", "ss"],
-    ["æ", "ae"],
-    ["ø", "oe"],
-    ["å", "aa"],
-    ["Ä", "ae"],
-    ["Ö", "oe"],
-    ["Ü", "ue"],
-    ["Æ", "ae"],
-    ["Ø", "oe"],
-    ["Å", "aa"],
-  ];
-
   const slugOptions = {
     lower: true,
     strict: true,
@@ -72,9 +61,9 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       lastName,
       personalEmail,
       batchNumber,
-      departmentId,
+      department,
       status,
-    } = event.data as EventData;
+    } = event.data;
 
     const user = await step.run("create-google-user", async () => {
       const companyEmail = generateCompanyEmail(firstName, lastName);
@@ -124,6 +113,9 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     });
 
     await step.run("insert-db-user", async () => {
+      // Convert empty string to null for the database enum
+      const departmentValue = department || null;
+
       return await db
         .insert(userTable)
         .values({
@@ -134,7 +126,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           personalEmail,
           name: `${firstName} ${lastName}`,
           batchNumber,
-          departmentId: departmentId ?? null,
+          department: departmentValue,
           status: status ?? "onboarding",
         })
         .onConflictDoUpdate({
@@ -144,8 +136,8 @@ export const onboardNewUserWorkflow = inngest.createFunction(
             lastName,
             personalEmail,
             batchNumber,
-            departmentId: departmentId ?? null,
-            status: (status as UserStatus) ?? "onboarding",
+            department: departmentValue,
+            status: status ?? "onboarding",
           },
         })
         .returning({ id: userTable.id });

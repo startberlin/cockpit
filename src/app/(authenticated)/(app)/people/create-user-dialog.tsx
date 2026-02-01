@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DEPARTMENTS } from "@/lib/enums";
 import { handleError } from "@/lib/utils";
 import { createUserAction } from "./create-user-action";
 import { createUserSchema } from "./create-user-schema";
@@ -40,7 +41,6 @@ interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   batches: { number: number }[];
-  departments: { id: string; name: string }[];
   onSuccess?: () => void;
 }
 
@@ -48,7 +48,6 @@ export function CreateUserDialog({
   open,
   onOpenChange,
   batches,
-  departments,
   onSuccess,
 }: CreateUserDialogProps) {
   const { form, handleSubmitWithAction, action } = useHookFormAction(
@@ -68,7 +67,6 @@ export function CreateUserDialog({
           lastName: "",
           personalEmail: "",
           batchNumber: batches[0]?.number ?? 0,
-          departmentId: departments[0]?.id ?? "",
           status: "onboarding",
         },
         mode: "onChange",
@@ -170,7 +168,7 @@ export function CreateUserDialog({
               />
 
               <Controller
-                name="departmentId"
+                name="department"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
@@ -184,9 +182,9 @@ export function CreateUserDialog({
                         <SelectValue placeholder="Select a department" />
                       </SelectTrigger>
                       <SelectContent>
-                        {departments.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
+                        {Object.entries(DEPARTMENTS).map(([id, name]) => (
+                          <SelectItem key={id} value={id}>
+                            {name}
                           </SelectItem>
                         ))}
                       </SelectContent>

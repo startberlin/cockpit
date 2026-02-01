@@ -1,6 +1,5 @@
 import { type InferSelectModel, relations } from "drizzle-orm";
 import {
-  type AnyPgColumn,
   boolean,
   integer,
   pgEnum,
@@ -8,8 +7,9 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { createSelectSchema } from "drizzle-zod";
 import { batch } from "./batch";
-import { department } from "./department";
+import { usersToGroups } from "./group";
 
 export const userStatus = pgEnum("user_status", [
   "onboarding",
@@ -20,7 +20,24 @@ export const userStatus = pgEnum("user_status", [
 
 export type UserStatus = (typeof userStatus.enumValues)[number];
 
-export const role = pgEnum("role", ["member", "board", "admin"]);
+export const department = pgEnum("department", [
+  "partnerships",
+  "operations",
+  "community",
+  "growth",
+  "events",
+]);
+
+export type Department = (typeof department.enumValues)[number];
+
+export const departmentSchema = createSelectSchema(department);
+
+export const role = pgEnum("role", [
+  "member",
+  "board",
+  "department_lead",
+  "admin",
+]);
 
 export type Role = (typeof role.enumValues)[number];
 
@@ -49,18 +66,12 @@ export const user = pgTable("user", {
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
   roles: role("roles").array().notNull().default(["member"]),
-  departmentId: text("department_id").references(
-    (): AnyPgColumn => department.id,
-    { onDelete: "restrict" },
-  ),
+  department: department("department"),
 });
 
-export const usersRelations = relations(user, ({ one }) => ({
+export const usersRelations = relations(user, ({ one, many }) => ({
   batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
-  department: one(department, {
-    fields: [user.departmentId],
-    references: [department.id],
-  }),
+  usersToGroups: many(usersToGroups),
 }));
 
 export const session = pgTable("session", {

@@ -31,70 +31,65 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import type { PublicUser } from "@/db/people";
-import { DEPARTMENTS } from "@/lib/enums";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import type { PublicGroup } from "@/db/groups";
 import { Can } from "./can";
 import { Badge } from "./ui/badge";
 
-interface PeopleTableProps {
-  data: PublicUser[];
-  onCreateUserClick?: () => void;
+interface GroupsTableProps {
+  data: PublicGroup[];
+  onCreateGroupClick?: () => void;
 }
 
-const columns: ColumnDef<PublicUser>[] = [
+const columns: ColumnDef<PublicGroup>[] = [
   {
-    id: "name",
-    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+    accessorKey: "name",
     header: "Name",
     cell: ({ row }) => (
-      <Link href={`/people/${row.original.id}`}>
-        {row.original.firstName} {row.original.lastName}
-      </Link>
+      <div className="flex flex-col gap-1">
+        <Link href={`/groups/${row.original.id}`} className="font-medium">
+          {row.original.name}
+        </Link>
+        {row.original.isMember && (
+          <Badge variant="secondary" className="w-fit">
+            Member
+          </Badge>
+        )}
+      </div>
     ),
   },
   {
-    accessorKey: "department",
-    header: "Department",
-    cell: ({ row }) =>
-      row.original.department ? (
-        <Badge variant="outline">{DEPARTMENTS[row.original.department]}</Badge>
-      ) : (
-        <p>—</p>
-      ),
+    id: "slackChannel",
+    header: "Slack Channel",
+    cell: ({ row }) => (
+      <span className="font-mono text-muted-foreground">
+        #{row.original.slug}
+      </span>
+    ),
   },
   {
-    accessorKey: "batch",
-    header: "Batch",
-    cell: ({ row }) => <div>#{row.original.batchNumber}</div>,
+    id: "email",
+    header: "Email",
+    cell: ({ row }) => (
+      <span className="font-mono text-muted-foreground">
+        {row.original.slug}@start-berlin.com
+      </span>
+    ),
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const info = USER_STATUS_INFO[row.original.status];
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="outline" className="capitalize">
-              {info.label}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="top">{info.description}</TooltipContent>
-        </Tooltip>
-      );
-    },
+    accessorKey: "memberCount",
+    header: "Members",
+    cell: ({ row }) => <div>{row.original.memberCount}</div>,
+  },
+  {
+    accessorKey: "adminCount",
+    header: "Admins",
+    cell: ({ row }) => <div>{row.original.adminCount}</div>,
   },
   {
     id: "actions",
     enableHiding: false,
     cell: ({ row }) => {
-      const user = row.original;
+      const group = row.original;
 
       return (
         <DropdownMenu>
@@ -106,15 +101,12 @@ const columns: ColumnDef<PublicUser>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.email)}
+              onClick={() =>
+                navigator.clipboard.writeText(`${group.slug}@start-berlin.com`)
+              }
             >
               Copy email
             </DropdownMenuItem>
-            {user.status === "onboarding" && (
-              <Can permission="users.manage">
-                <DropdownMenuItem>Complete onboarding</DropdownMenuItem>
-              </Can>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -122,7 +114,7 @@ const columns: ColumnDef<PublicUser>[] = [
   },
 ];
 
-export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
+export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -151,21 +143,21 @@ export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
     <div className="w-full">
       <div className="flex items-center py-4 gap-2">
         <Input
-          placeholder="Find users..."
+          placeholder="Find groups..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
-        <Can permission="users.create">
+        <Can permission="groups.create">
           <Button
             variant="outline"
             className="ml-auto"
-            onClick={onCreateUserClick}
+            onClick={onCreateGroupClick}
           >
             <Plus />
-            Create user
+            Create group
           </Button>
         </Can>
       </div>

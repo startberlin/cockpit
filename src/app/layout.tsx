@@ -3,7 +3,6 @@ import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "@/components/ui/sonner";
 import { createMetadata } from "@/lib/metadata";
-import { RolesProvider } from "@/lib/permissions/roles-context";
 
 const avenirNext = localFont({
   src: [
