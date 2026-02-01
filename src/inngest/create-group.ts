@@ -1,12 +1,9 @@
-import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
 import db from "@/db";
 import { group } from "@/db/schema/group";
-import { env } from "@/env";
+import { createGoogleAuth } from "@/lib/google-auth";
 import { inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
-
-const SUBJECT = "digital-connection-management@start-berlin.com";
 
 export const createGroupWorkflow = inngest.createFunction(
   { id: "create-group", idempotency: "event.data.id" },
@@ -45,10 +42,9 @@ export const createGroupWorkflow = inngest.createFunction(
     // Step 3: Create Google Group if requested
     if (integrations.email) {
       await step.run("create-google-group", async () => {
-        const auth = new GoogleAuth({
-          scopes: ["https://www.googleapis.com/auth/admin.directory.group"],
-          clientOptions: { subject: SUBJECT },
-        });
+        const auth = createGoogleAuth(
+          "https://www.googleapis.com/auth/admin.directory.group",
+        );
 
         const admin = google.admin({
           auth,

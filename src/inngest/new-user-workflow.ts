@@ -1,15 +1,12 @@
-import { GoogleAuth } from "google-auth-library";
 import { Common, google } from "googleapis";
 import slugify from "slugify";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
-import { env } from "@/env";
+import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
-
-const SUBJECT = "digital-connection-management@start-berlin.com";
 
 // Join multi-part names with hyphens, transliterate special chars, lowercase, keep only [a-z0-9.-]
 // For details: https://github.com/simov/slugify#custom-replacements
@@ -70,10 +67,9 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       const companyEmail = generateCompanyEmail(firstName, lastName);
       const password = generateRandomPassword();
 
-      const auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/admin.directory.user"],
-        clientOptions: { subject: SUBJECT },
-      });
+      const auth = createGoogleAuth(
+        "https://www.googleapis.com/auth/admin.directory.user",
+      );
 
       const admin = google.admin({
         auth,

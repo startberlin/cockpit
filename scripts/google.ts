@@ -1,20 +1,11 @@
-import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
-import { env } from "@/env";
-
-const SCOPES = ["https://www.googleapis.com/auth/admin.directory.group.member"];
-
-// The Workspace user to impersonate (has Groups Admin or equivalent role)
-const SUBJECT = "digital-connection-management@start-berlin.com";
+import { createGoogleAuth } from "@/lib/google-auth";
 
 async function main() {
   try {
-    console.log("Env vars", process.env.GOOGLE_CLIENT_ID);
-
-    const auth = new GoogleAuth({
-      scopes: SCOPES,
-      clientOptions: { subject: SUBJECT },
-    });
+    const auth = createGoogleAuth(
+      "https://www.googleapis.com/auth/admin.directory.group.member",
+    );
 
     const admin = google.admin({
       auth,
