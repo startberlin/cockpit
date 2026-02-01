@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,9 +54,9 @@ const columns: ColumnDef<PublicUser>[] = [
     accessorFn: (row) => `${row.firstName} ${row.lastName}`,
     header: "Name",
     cell: ({ row }) => (
-      <Link href={`/people/${row.original.id}`}>
+      <div className="font-medium">
         {row.original.firstName} {row.original.lastName}
-      </Link>
+      </div>
     ),
   },
   {
@@ -123,6 +124,7 @@ const columns: ColumnDef<PublicUser>[] = [
 ];
 
 export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -193,9 +195,19 @@ export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="cursor-pointer"
+                  onClick={() => router.push(`/people/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      onClick={(e) => {
+                        // Prevent navigation when clicking on actions column
+                        if (cell.column.id === "actions") {
+                          e.stopPropagation();
+                        }
+                      }}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
