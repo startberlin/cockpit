@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getUserById } from "@/db/people";
 import { createMetadata } from "@/lib/metadata";
+import { can } from "@/lib/permissions/server";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { ProfileCard } from "./profile-card";
@@ -30,6 +31,11 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 export default async function UserDetailPage({ params }: PageProps) {
+  const canManageUsers = await can("users.manage");
+  if (!canManageUsers) {
+    notFound();
+  }
+
   const { id } = await params;
   const user = await getUserById(id);
 
