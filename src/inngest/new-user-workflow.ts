@@ -75,14 +75,9 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         clientOptions: { subject: SUBJECT },
       });
 
-      const credentials = JSON.parse(
-        Buffer.from(env.GOOGLE_APPLICATION_CREDENTIALS, "base64").toString(),
-      );
-
       const admin = google.admin({
         auth,
         version: "directory_v1",
-        credentials,
       });
 
       try {

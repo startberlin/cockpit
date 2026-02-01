@@ -9,7 +9,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
-    GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
+    GOOGLE_APPLICATION_CREDENTIALS_BASE64: z.string().min(1),
     SLACK_SIGNING_SECRET: z.string().min(1),
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
   },
@@ -24,7 +24,8 @@ export const env = createEnv({
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
-    GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    GOOGLE_APPLICATION_CREDENTIALS_BASE64:
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64,
     SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
   },
