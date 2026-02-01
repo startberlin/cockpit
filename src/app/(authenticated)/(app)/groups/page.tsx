@@ -11,9 +11,7 @@ export const metadata = createMetadata({
 export default async function GroupsPage() {
   const canViewAll = await can("groups.view_all");
 
-  const groupsResult = canViewAll
-    ? await getAllGroups()
-    : await getMyGroups();
+  const groupsResult = canViewAll ? await getAllGroups() : await getMyGroups();
 
   if (!groupsResult.data) {
     return <p>No groups found</p>;

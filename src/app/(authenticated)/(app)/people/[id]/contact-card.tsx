@@ -63,10 +63,12 @@ export function ContactCard({ user }: ContactCardProps) {
             label="Phone"
             value={
               user.phone || (
-                <span className="text-muted-foreground italic">Not provided</span>
+                <span className="text-muted-foreground italic">
+                  Not provided
+                </span>
               )
             }
-            copyValue={user.phone}
+            copyValue={user.phone ?? undefined}
             copyLabel="Copy phone"
           />
 
@@ -87,7 +89,9 @@ export function ContactCard({ user }: ContactCardProps) {
                   {user.country && <div>{user.country}</div>}
                 </div>
               ) : (
-                <span className="text-muted-foreground italic">Not provided</span>
+                <span className="text-muted-foreground italic">
+                  Not provided
+                </span>
               )
             }
             copyValue={hasAddress ? formatAddress() : undefined}

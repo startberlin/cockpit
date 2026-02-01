@@ -94,12 +94,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -170,12 +166,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -185,9 +177,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -333,12 +323,8 @@
           "name": "user_batch_number_batch_number_fk",
           "tableFrom": "user",
           "tableTo": "batch",
-          "columnsFrom": [
-            "batch_number"
-          ],
-          "columnsTo": [
-            "number"
-          ],
+          "columnsFrom": ["batch_number"],
+          "columnsTo": ["number"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -348,9 +334,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -463,9 +447,7 @@
         "group_slug_unique": {
           "name": "group_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -503,12 +485,8 @@
           "name": "users_to_groups_user_id_user_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -516,12 +494,8 @@
           "name": "users_to_groups_group_id_group_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "group",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -529,10 +503,7 @@
       "compositePrimaryKeys": {
         "users_to_groups_user_id_group_id_pk": {
           "name": "users_to_groups_user_id_group_id_pk",
-          "columns": [
-            "user_id",
-            "group_id"
-          ]
+          "columns": ["user_id", "group_id"]
         }
       },
       "uniqueConstraints": {},
@@ -545,41 +516,22 @@
     "public.department": {
       "name": "department",
       "schema": "public",
-      "values": [
-        "partnerships",
-        "operations",
-        "community",
-        "growth",
-        "events"
-      ]
+      "values": ["partnerships", "operations", "community", "growth", "events"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "member",
-        "board",
-        "department_lead",
-        "admin"
-      ]
+      "values": ["member", "board", "department_lead", "admin"]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "onboarding",
-        "member",
-        "supporting_alumni",
-        "alumni"
-      ]
+      "values": ["onboarding", "member", "supporting_alumni", "alumni"]
     },
     "public.group_role": {
       "name": "group_role",
       "schema": "public",
-      "values": [
-        "admin",
-        "member"
-      ]
+      "values": ["admin", "member"]
     }
   },
   "schemas": {},

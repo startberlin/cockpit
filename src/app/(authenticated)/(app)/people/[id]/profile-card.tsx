@@ -22,7 +22,9 @@ export function ProfileCard({ user }: ProfileCardProps) {
     <Card>
       <CardHeader>
         <CardTitle>Profile Information</CardTitle>
-        <CardDescription>Member details and contact information</CardDescription>
+        <CardDescription>
+          Member details and contact information
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">

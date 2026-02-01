@@ -1,11 +1,5 @@
 import { relations } from "drizzle-orm";
-import {
-  integer,
-  pgEnum,
-  pgTable,
-  primaryKey,
-  text,
-} from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
 export const groupRole = pgEnum("group_role", ["admin", "member"]);
