@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Mail, MessageSquare, MoreHorizontal, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Crown, MoreHorizontal, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Can } from "@/components/can";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
+import { hasAnyRequiredRole, PERMISSIONS } from "@/lib/permissions";
+import { useRoles } from "@/lib/permissions/roles-context";
 import { 
   searchUsersNotInGroupAction,
   addUserToGroupAction,
@@ -48,6 +50,8 @@ interface GroupDetailClientProps {
 export default function GroupDetailClient({ group: initialGroup }: GroupDetailClientProps) {
   const [group, setGroup] = useState(initialGroup);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const roles = useRoles();
+  const canManageUsers = hasAnyRequiredRole(roles, PERMISSIONS["users.manage"]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PublicUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -135,24 +139,22 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
   const memberCount = group.members.filter(m => m.role === "member").length;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
+    <div className="w-full space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold">{group.name}</h1>
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <MessageSquare className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/groups">
+              <ArrowLeft />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{group.name}</h1>
+            <p className="text-muted-foreground text-sm">
               <span className="font-mono">#{group.slug}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Mail className="h-4 w-4" />
-              <span className="font-mono">{group.slug}@start-berlin.com</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>{group.members.length} member{group.members.length !== 1 ? 's' : ''}</span>
-            </div>
+              <span className="mx-2">·</span>
+              <span>{group.slug}@start-berlin.com</span>
+            </p>
           </div>
         </div>
         
@@ -243,8 +245,8 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
         </Can>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 md:gap-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Stats Cards */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Total Members</CardTitle>
@@ -261,10 +263,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
             <div className="text-2xl font-bold">{adminCount}</div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Members List */}
-      <Card>
+        {/* Members List */}
+        <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle>Members</CardTitle>
           <CardDescription>
@@ -281,8 +282,14 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
               {group.members.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors"
+                  className={`relative flex items-center justify-between p-4 rounded-lg border transition-colors ${canManageUsers ? "hover:bg-accent/50" : ""}`}
                 >
+                  {canManageUsers && (
+                    <Link 
+                      href={`/people/${member.id}`}
+                      className="absolute inset-0 z-0"
+                    />
+                  )}
                   <div className="flex items-center gap-4">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
@@ -291,12 +298,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Link 
-                          href={`/people/${member.id}`}
-                          className="font-medium hover:underline"
-                        >
+                        <span className="font-medium">
                           {member.firstName} {member.lastName}
-                        </Link>
+                        </span>
                         <Badge 
                           variant={member.role === "admin" ? "default" : "secondary"}
                           className="text-xs"
@@ -319,7 +323,7 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                   <Can permission="groups.manage_members">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="relative z-10 h-8 w-8 p-0">
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -353,6 +357,7 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

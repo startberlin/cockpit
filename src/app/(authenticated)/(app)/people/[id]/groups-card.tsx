@@ -1,13 +1,6 @@
-import { Users } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { UserDetail } from "@/db/people";
 
 interface GroupsCardProps {
@@ -22,12 +15,7 @@ export function GroupsCard({ groups }: GroupsCardProps) {
   return (
     <Card className="md:col-span-2">
       <CardHeader>
-        <CardTitle>
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Groups
-          </div>
-        </CardTitle>
+        <CardTitle>Groups</CardTitle>
         <CardDescription>Groups this member belongs to</CardDescription>
       </CardHeader>
       <CardContent>

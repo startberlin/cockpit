@@ -1,7 +1,8 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldX } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { getUserById } from "@/db/people";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
@@ -33,7 +34,22 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function UserDetailPage({ params }: PageProps) {
   const canManageUsers = await can("users.manage");
   if (!canManageUsers) {
-    notFound();
+    return (
+      <Empty className="min-h-[50vh]">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ShieldX />
+          </EmptyMedia>
+          <EmptyTitle>Access Denied</EmptyTitle>
+          <EmptyDescription>
+            You don't have permission to view member details.
+          </EmptyDescription>
+        </EmptyHeader>
+        <Button variant="outline" asChild>
+          <Link href="/people">Back to People</Link>
+        </Button>
+      </Empty>
+    );
   }
 
   const { id } = await params;
