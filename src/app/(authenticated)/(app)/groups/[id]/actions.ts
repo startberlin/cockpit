@@ -9,7 +9,7 @@ import {
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 
-export async function searchUsersNotInGroupAction(groupId: string, query: string): Promise<PublicUser[]> {
+export async function searchUsersNotInGroupAction(groupId: string, query?: string): Promise<PublicUser[]> {
   return await searchUsersNotInGroupRaw(groupId, query);
 }
 

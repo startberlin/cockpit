@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Crown, MoreHorizontal, Plus, Search, Trash2, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -56,22 +55,28 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
   const [searchResults, setSearchResults] = useState<PublicUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (!query || query.length < 2) {
-      setSearchResults([]);
-      return;
+  // Load available users when dialog opens
+  useEffect(() => {
+    if (isAddMemberDialogOpen) {
+      loadAvailableUsers();
     }
+  }, [isAddMemberDialogOpen]);
 
+  const loadAvailableUsers = async (query?: string) => {
     setIsSearching(true);
     try {
       const result = await searchUsersNotInGroupAction(group.id, query);
       setSearchResults(result);
     } catch (error) {
-      toast.error("Failed to search users");
+      toast.error("Failed to load users");
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    await loadAvailableUsers(query || undefined);
   };
 
   const handleAddMember = async (user: PublicUser, role: "admin" | "member" = "member") => {
@@ -136,11 +141,9 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
   };
 
   const adminCount = group.members.filter(m => m.role === "admin").length;
-  const memberCount = group.members.filter(m => m.role === "member").length;
 
   return (
     <div className="w-full space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
@@ -173,25 +176,22 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                   Search for users to add to this group.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name or email..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                
-                {isSearching && (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="h-72 overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   </div>
-                )}
-                
-                {searchResults.length > 0 && (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                ) : searchResults.length > 0 ? (
+                  <div className="space-y-2">
                     {searchResults.map((user) => (
                       <div
                         key={user.id}
@@ -232,11 +232,11 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
                       </div>
                     ))}
                   </div>
-                )}
-                
-                {searchQuery && !isSearching && searchResults.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No users found matching "{searchQuery}"
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    {searchQuery
+                      ? `No users found matching "${searchQuery}"`
+                      : "All users are already members of this group"}
                   </div>
                 )}
               </div>
@@ -246,7 +246,6 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Stats Cards */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Total Members</CardTitle>
@@ -264,99 +263,85 @@ export default function GroupDetailClient({ group: initialGroup }: GroupDetailCl
           </CardContent>
         </Card>
 
-        {/* Members List */}
         <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Members</CardTitle>
-          <CardDescription>
-            All members of this group and their roles
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {group.members.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No members in this group yet.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {group.members.map((member) => (
-                <div
-                  key={member.id}
-                  className={`relative flex items-center justify-between p-4 rounded-lg border transition-colors ${canManageUsers ? "hover:bg-accent/50" : ""}`}
-                >
-                  {canManageUsers && (
-                    <Link 
-                      href={`/people/${member.id}`}
-                      className="absolute inset-0 z-0"
-                    />
-                  )}
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>
-                        {member.firstName[0]}{member.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {member.firstName} {member.lastName}
-                        </span>
-                        <Badge 
-                          variant={member.role === "admin" ? "default" : "secondary"}
-                          className="text-xs"
-                        >
-                          {member.role === "admin" && <Crown className="h-3 w-3 mr-1" />}
-                          {member.role}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {member.email}
-                      </div>
-                      {member.department && (
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {member.department}
+          <CardHeader>
+            <CardTitle>Members</CardTitle>
+            <CardDescription>All members of this group and their roles</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {group.members.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No members in this group yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {group.members.map((member) => (
+                  <div
+                    key={member.id}
+                    className={`relative flex items-center justify-between p-4 rounded-lg border transition-colors ${canManageUsers ? "hover:bg-accent/50" : ""}`}
+                  >
+                    {canManageUsers && (
+                      <Link href={`/people/${member.id}`} className="absolute inset-0 z-0" />
+                    )}
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {member.firstName[0]}{member.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {member.firstName} {member.lastName}
+                          </span>
+                          <Badge variant={member.role === "admin" ? "default" : "secondary"} className="text-xs">
+                            {member.role === "admin" && <Crown className="h-3 w-3 mr-1" />}
+                            {member.role}
+                          </Badge>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <Can permission="groups.manage_members">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="relative z-10 h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {member.role === "member" ? (
-                          <DropdownMenuItem onClick={() => handleRoleChange(member, "admin")}>
-                            <Crown className="h-4 w-4 mr-2" />
-                            Make Admin
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleRoleChange(member, "member")}>
-                            <Users className="h-4 w-4 mr-2" />
-                            Make Member
-                          </DropdownMenuItem>
+                        <div className="text-sm text-muted-foreground">{member.email}</div>
+                        {member.department && (
+                          <div className="text-xs text-muted-foreground capitalize">{member.department}</div>
                         )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => handleRemoveMember(member)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove from Group
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </Can>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </div>
+                    </div>
+                    <Can permission="groups.manage_members">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="relative z-10 h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {member.role === "member" ? (
+                            <DropdownMenuItem onClick={() => handleRoleChange(member, "admin")}>
+                              <Crown className="h-4 w-4 mr-2" />
+                              Make Admin
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleRoleChange(member, "member")}>
+                              <Users className="h-4 w-4 mr-2" />
+                              Make Member
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleRemoveMember(member)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove from Group
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </Can>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

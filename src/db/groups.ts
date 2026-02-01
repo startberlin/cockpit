@@ -118,10 +118,8 @@ export const getGroupDetail = actionClient
   });
 
 // Raw database functions for use in server actions
-export async function searchUsersNotInGroupRaw(groupId: string, query: string) {
-  if (!query || query.length < 2) return [];
-
-  const usersNotInGroup = await db
+export async function searchUsersNotInGroupRaw(groupId: string, query?: string) {
+  const baseQuery = db
     .select({
       id: user.id,
       firstName: user.firstName,
@@ -135,12 +133,12 @@ export async function searchUsersNotInGroupRaw(groupId: string, query: string) {
     .leftJoin(
       usersToGroups,
       and(eq(usersToGroups.userId, user.id), eq(usersToGroups.groupId, groupId))
-    )
-    .where(
-      and(
-        // User is not already in the group
+    );
+
+  // If query provided, filter by search term
+  const whereCondition = query && query.length >= 2
+    ? and(
         sql`${usersToGroups.userId} IS NULL`,
-        // User matches search query
         or(
           ilike(user.firstName, `%${query}%`),
           ilike(user.lastName, `%${query}%`),
@@ -148,8 +146,12 @@ export async function searchUsersNotInGroupRaw(groupId: string, query: string) {
           ilike(sql`${user.firstName} || ' ' || ${user.lastName}`, `%${query}%`)
         )
       )
-    )
-    .limit(10);
+    : sql`${usersToGroups.userId} IS NULL`;
+
+  const usersNotInGroup = await baseQuery
+    .where(whereCondition)
+    .orderBy(user.firstName, user.lastName)
+    .limit(20);
 
   return usersNotInGroup;
 }
