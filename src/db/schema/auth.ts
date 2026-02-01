@@ -9,7 +9,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
 import { batch } from "./batch";
-import { usersToGroups } from "./group";
 
 export const userStatus = pgEnum("user_status", [
   "onboarding",
@@ -71,7 +70,7 @@ export const user = pgTable("user", {
 
 export const usersRelations = relations(user, ({ one, many }) => ({
   batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
-  usersToGroups: many(usersToGroups),
+  // usersToGroups relation will be defined in the schema/index.ts to avoid circular dependency
 }));
 
 export const session = pgTable("session", {
