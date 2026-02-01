@@ -1,5 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
+import { env } from "@/env";
 
 const SCOPES = ["https://www.googleapis.com/auth/admin.directory.group.member"];
 
@@ -15,9 +16,14 @@ async function main() {
       clientOptions: { subject: SUBJECT },
     });
 
+    const credentials = JSON.parse(
+      Buffer.from(env.GOOGLE_APPLICATION_CREDENTIALS, "base64").toString(),
+    );
+
     const admin = google.admin({
       auth,
       version: "directory_v1",
+      credentials,
     });
 
     // Example: add a member

@@ -4,6 +4,7 @@ import slugify from "slugify";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
+import { env } from "@/env";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
@@ -74,7 +75,15 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         clientOptions: { subject: SUBJECT },
       });
 
-      const admin = google.admin({ auth, version: "directory_v1" });
+      const credentials = JSON.parse(
+        Buffer.from(env.GOOGLE_APPLICATION_CREDENTIALS, "base64").toString(),
+      );
+
+      const admin = google.admin({
+        auth,
+        version: "directory_v1",
+        credentials,
+      });
 
       try {
         const res = await admin.users.insert({

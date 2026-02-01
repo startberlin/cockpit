@@ -2,6 +2,7 @@ import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
 import db from "@/db";
 import { group } from "@/db/schema/group";
+import { env } from "@/env";
 import { inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
@@ -49,7 +50,15 @@ export const createGroupWorkflow = inngest.createFunction(
           clientOptions: { subject: SUBJECT },
         });
 
-        const admin = google.admin({ auth, version: "directory_v1" });
+        const credentials = JSON.parse(
+          Buffer.from(env.GOOGLE_APPLICATION_CREDENTIALS, "base64").toString(),
+        );
+
+        const admin = google.admin({
+          auth,
+          version: "directory_v1",
+          credentials,
+        });
 
         const groupEmail = `${slug}@start-berlin.com`;
 
