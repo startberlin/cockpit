@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getGroupCriteria } from "@/db/groups";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {

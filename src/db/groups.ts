@@ -1,4 +1,4 @@
-import { and, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { actionClient } from "@/lib/action-client";
 import { nanoid } from "@/lib/id";
@@ -6,7 +6,7 @@ import db from ".";
 import type { PublicUser } from "./people";
 import type { Department, Role, UserStatus } from "./schema/auth";
 import { user } from "./schema/auth";
-import { group, groupCriteria, groupRole, usersToGroups } from "./schema/group";
+import { group, groupCriteria, usersToGroups } from "./schema/group";
 
 export interface PublicGroup {
   id: string;

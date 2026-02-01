@@ -3,7 +3,6 @@
 import { Filter, Plus, Trash2, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -99,7 +98,7 @@ export default function GroupCriteriaManager({
         if (formData.status) data.status = formData.status;
         if (formData.batchNumber) {
           const batchNum = parseInt(formData.batchNumber, 10);
-          if (!isNaN(batchNum)) data.batchNumber = batchNum;
+          if (!Number.isNaN(batchNum)) data.batchNumber = batchNum;
         }
 
         const response = await fetch("/api/groups/criteria", {

@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
 import GroupCriteriaManager from "@/components/group-criteria-manager";
@@ -62,29 +62,35 @@ export default function GroupDetailClient({
   const [group, setGroup] = useState(initialGroup);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const roles = useRoles();
-  const canManageUsers = hasAnyRequiredRole(roles, PERMISSIONS["users.manage"]);
+  const _canManageUsers = hasAnyRequiredRole(
+    roles,
+    PERMISSIONS["users.manage"],
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PublicUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  const loadAvailableUsers = useCallback(
+    async (query?: string) => {
+      setIsSearching(true);
+      try {
+        const result = await searchUsersNotInGroupAction(group.id, query);
+        setSearchResults(result);
+      } catch (_error) {
+        toast.error("Failed to load users");
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [group.id],
+  );
 
   // Load available users when dialog opens
   useEffect(() => {
     if (isAddMemberDialogOpen) {
       loadAvailableUsers();
     }
-  }, [isAddMemberDialogOpen]);
-
-  const loadAvailableUsers = async (query?: string) => {
-    setIsSearching(true);
-    try {
-      const result = await searchUsersNotInGroupAction(group.id, query);
-      setSearchResults(result);
-    } catch (error) {
-      toast.error("Failed to load users");
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  }, [isAddMemberDialogOpen, loadAvailableUsers]);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -117,7 +123,7 @@ export default function GroupDetailClient({
       setSearchQuery("");
       setSearchResults([]);
       toast.success(`Added ${user.firstName} ${user.lastName} to the group`);
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to add member to group");
     }
   };
@@ -134,7 +140,7 @@ export default function GroupDetailClient({
       toast.success(
         `Removed ${member.firstName} ${member.lastName} from the group`,
       );
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to remove member from group");
     }
   };
@@ -161,7 +167,7 @@ export default function GroupDetailClient({
       toast.success(
         `Changed ${member.firstName} ${member.lastName}'s role to ${newRole}`,
       );
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to update member role");
     }
   };
@@ -197,7 +203,7 @@ export default function GroupDetailClient({
   };
 
   const adminCount = group.members.filter((m) => m.role === "admin").length;
-  const memberCount = group.members.filter((m) => m.role === "member").length;
+  const _memberCount = group.members.filter((m) => m.role === "member").length;
 
   return (
     <div className="w-full space-y-6">

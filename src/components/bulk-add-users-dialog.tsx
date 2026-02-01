@@ -1,12 +1,11 @@
 "use client";
 
 import { Crown, Plus, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -77,7 +76,7 @@ export default function BulkAddUsersDialog({
   const [isAdding, setIsAdding] = useState(false);
   const [newBatchNumber, setNewBatchNumber] = useState<string>("");
 
-  const fetchPreviewUsers = async () => {
+  const fetchPreviewUsers = useCallback(async () => {
     if (
       criteria.departments.length === 0 &&
       criteria.roles.length === 0 &&
@@ -113,13 +112,13 @@ export default function BulkAddUsersDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [groupId, criteria]);
 
   useEffect(() => {
     if (isOpen) {
       fetchPreviewUsers();
     }
-  }, [criteria, isOpen]);
+  }, [isOpen, fetchPreviewUsers]);
 
   const handleAddCriteria = (
     type: keyof UserCriteria,
@@ -142,8 +141,8 @@ export default function BulkAddUsersDialog({
   };
 
   const handleAddBatchNumber = () => {
-    const num = parseInt(newBatchNumber);
-    if (!isNaN(num) && num > 0 && !criteria.batchNumbers.includes(num)) {
+    const num = parseInt(newBatchNumber, 10);
+    if (!Number.isNaN(num) && num > 0 && !criteria.batchNumbers.includes(num)) {
       handleAddCriteria("batchNumbers", num);
       setNewBatchNumber("");
     }
@@ -279,7 +278,9 @@ export default function BulkAddUsersDialog({
                 type="button"
                 size="sm"
                 onClick={handleAddBatchNumber}
-                disabled={!newBatchNumber || isNaN(parseInt(newBatchNumber))}
+                disabled={
+                  !newBatchNumber || Number.isNaN(parseInt(newBatchNumber, 10))
+                }
               >
                 Add
               </Button>

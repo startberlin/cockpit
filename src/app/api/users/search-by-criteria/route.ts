@@ -2,12 +2,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import db from "@/db";
-import {
-  department,
-  role,
-  user,
-  userStatus,
-} from "@/db/schema/auth";
+import { department, role, user, userStatus } from "@/db/schema/auth";
 import { usersToGroups } from "@/db/schema/group";
 
 const requestSchema = z.object({
@@ -41,9 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (roles?.length) {
-      const roleConditions = roles.map(
-        (r) => sql`${r} = ANY(${user.roles})`,
-      );
+      const roleConditions = roles.map((r) => sql`${r} = ANY(${user.roles})`);
       conditions.push(or(...roleConditions));
     }
 
@@ -77,12 +70,7 @@ export async function POST(request: NextRequest) {
           eq(usersToGroups.groupId, groupId),
         ),
       )
-      .where(
-        and(
-          sql`${usersToGroups.userId} IS NULL`,
-          or(...conditions),
-        ),
-      )
+      .where(and(sql`${usersToGroups.userId} IS NULL`, or(...conditions)))
       .orderBy(user.firstName, user.lastName);
 
     return NextResponse.json(usersNotInGroup);
