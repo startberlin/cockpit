@@ -45,7 +45,7 @@ Opens at [http://localhost:3000](http://localhost:3000). This runs both Next.js 
 
 | Command | Description |
 |---------|-------------|
-| `npm run db:studio` | Open Drizzle Studio |
+| `npm run db:studio` | Open Drizzle Studio (allow local connections in browser if prompted) |
 | `npm run db:generate` | Generate migrations |
 | `npm run email:dev` | Preview emails |
 | `npm run lint` | Run Biome linter |
