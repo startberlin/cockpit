@@ -40,7 +40,7 @@ export function ContactCard({ user }: ContactCardProps) {
         <div className="space-y-4">
           <DetailField
             icon={Mail}
-            label="Company Email"
+            label="START Email"
             value={user.email}
             copyValue={user.email}
             copyLabel="Copy email"
