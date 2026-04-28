@@ -2,6 +2,7 @@ import type { Role } from "@/db/schema/auth";
 
 export const PERMISSIONS = {
   "users.manage": ["admin"],
+  "users.complete_onboarding": ["admin", "board", "department_lead"],
   "users.create": ["admin"],
   "groups.view_all": ["admin", "board", "department_lead"],
   "groups.create": ["admin"],

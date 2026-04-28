@@ -1,0 +1,41 @@
+meta {
+  name: Membership Webhook Example
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{cockpit_url}}/api/gocardless/webhooks
+  body: json
+  auth: none
+}
+
+headers {
+  Webhook-Signature: {{gocardless_webhook_signature}}
+}
+
+body:json {
+  {
+    "events": [
+      {
+        "id": "EVTESTMEMBERSHIP",
+        "action": "customer_approval_granted",
+        "resource_type": "subscriptions",
+        "links": {
+          "customer": "CU123",
+          "subscription": "SB123",
+          "mandate": "MD123"
+        },
+        "metadata": {
+          "start_cockpit_user_id": "usr_example",
+          "start_cockpit_user_email": "member@example.com"
+        }
+      }
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

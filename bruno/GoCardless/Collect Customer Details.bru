@@ -1,0 +1,47 @@
+meta {
+  name: Collect Customer Details
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{gocardless_base_url}}/billing_requests/{{billing_request_id}}/actions/collect_customer_details
+  body: json
+  auth: bearer
+}
+
+headers {
+  GoCardless-Version: 2015-07-06
+}
+
+auth:bearer {
+  token: {{gocardless_api_key}}
+}
+
+body:json {
+  {
+    "billing_requests": {
+      "payment_request": {
+        "description": "First Payment",
+        "amount": "500",
+        "currency": "EUR",
+        "app_fee": "50"
+      },
+      "mandate_request": {
+        "currency": "EUR"
+      },
+      "links": {
+        "customer": "CU01KF12YW58WK5XVS7B08ZXBS3R"
+      }
+    }
+  }
+}
+
+vars:pre-request {
+  billing_request_id: BRQ01KQ5J3SZ7MTJGDE4EFT62V2MZ
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -9,11 +9,20 @@ import {
   usersToGroups,
   usersToGroupsRelations,
 } from "./group";
+import {
+  membershipPayment,
+  membershipPaymentRelations,
+  membershipPaymentStatus,
+} from "./membership";
 
 // Define user relations here to avoid circular dependency
 export const usersRelations = relations(user, ({ one, many }) => ({
   batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
   usersToGroups: many(usersToGroups),
+  membershipPayment: one(membershipPayment, {
+    fields: [user.id],
+    references: [membershipPayment.userId],
+  }),
 }));
 
 export const schema = {
@@ -30,4 +39,7 @@ export const schema = {
   groupRelations,
   groupCriteriaRelations,
   usersToGroupsRelations,
+  membershipPayment,
+  membershipPaymentRelations,
+  membershipPaymentStatus,
 };

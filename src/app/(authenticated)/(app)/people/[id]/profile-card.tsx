@@ -17,6 +17,8 @@ interface ProfileCardProps {
 
 export function ProfileCard({ user }: ProfileCardProps) {
   const statusInfo = USER_STATUS_INFO[user.status];
+  const isPaymentPending = user.membershipViewState === "payment_pending";
+  const isPaymentProcessing = user.membershipViewState === "payment_processing";
 
   return (
     <Card>
@@ -34,8 +36,24 @@ export function ProfileCard({ user }: ProfileCardProps) {
                 Status
               </p>
               <Badge variant="outline" className="capitalize">
-                {statusInfo.label}
+                {isPaymentProcessing
+                  ? "Payment processing"
+                  : isPaymentPending
+                    ? "Payment pending"
+                    : statusInfo.label}
               </Badge>
+              {isPaymentProcessing && (
+                <p className="text-sm text-muted-foreground">
+                  Payment setup was started. GoCardless confirmation is still
+                  pending.
+                </p>
+              )}
+              {isPaymentPending && (
+                <p className="text-sm text-muted-foreground">
+                  Profile onboarding is complete. Membership payment is still
+                  pending.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5 text-right">
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">

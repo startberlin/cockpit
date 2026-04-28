@@ -19,7 +19,7 @@ export const metadata = createMetadata({
 });
 
 function ErrorCard({ error }: { error: string }) {
-  if (error === "unable_to_create_user") {
+  if (error === "signup_disabled" || error === "unable_to_create_user") {
     return (
       <Card className="border-red-500">
         <CardHeader>

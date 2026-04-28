@@ -1,4 +1,9 @@
 import { actionClient } from "@/lib/action-client";
+import {
+  getMembershipViewState,
+  isProfileOnboardingComplete,
+  type MembershipViewState,
+} from "@/lib/membership-status";
 import db from ".";
 import type { Department, Role, UserStatus } from "./schema/auth";
 
@@ -10,6 +15,9 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number;
   status: UserStatus;
+  membershipViewState?: MembershipViewState;
+  profileOnboardingComplete?: boolean;
+  hasMembershipPayment?: boolean;
 }
 
 export interface UserDetail {
@@ -27,6 +35,9 @@ export interface UserDetail {
   department: Department | null;
   batchNumber: number;
   status: UserStatus;
+  membershipViewState: MembershipViewState;
+  profileOnboardingComplete: boolean;
+  hasMembershipPayment: boolean;
   roles: Role[];
   createdAt: Date;
   groups: Array<{
@@ -41,14 +52,29 @@ export const getAllUserPublicData = actionClient.action(
     const allUsers = await db.query.user.findMany({
       columns: {
         id: true,
+        name: true,
         firstName: true,
         lastName: true,
         email: true,
+        emailVerified: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+        street: true,
+        state: true,
+        city: true,
+        zip: true,
+        country: true,
+        personalEmail: true,
+        batchNumber: true,
+        phone: true,
         status: true,
+        roles: true,
         department: true,
       },
       with: {
         batch: true,
+        membershipPayment: true,
       },
     });
 
@@ -65,6 +91,12 @@ export const getAllUserPublicData = actionClient.action(
         department: user.department ?? null,
         batchNumber: user.batch.number,
         status: user.status,
+        membershipViewState: getMembershipViewState(
+          user,
+          user.membershipPayment,
+        ),
+        profileOnboardingComplete: isProfileOnboardingComplete(user),
+        hasMembershipPayment: !!user.membershipPayment,
       };
     });
   },
@@ -80,6 +112,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
           group: true,
         },
       },
+      membershipPayment: true,
     },
   });
 
@@ -106,6 +139,9 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     department: user.department ?? null,
     batchNumber: user.batch.number,
     status: user.status,
+    membershipViewState: getMembershipViewState(user, user.membershipPayment),
+    profileOnboardingComplete: isProfileOnboardingComplete(user),
+    hasMembershipPayment: !!user.membershipPayment,
     roles: user.roles,
     createdAt: user.createdAt,
     groups: user.usersToGroups.map((utg) => ({
