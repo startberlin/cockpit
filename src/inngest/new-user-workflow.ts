@@ -3,6 +3,7 @@ import slugify from "slugify";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
+import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
@@ -99,6 +100,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
             companyEmail,
             personalEmail: null,
             password: null,
+            googleUserCreated: false,
           };
         }
 
@@ -109,6 +111,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         companyEmail,
         personalEmail,
         password,
+        googleUserCreated: true,
       };
     });
 
@@ -143,16 +146,27 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         .returning({ id: userTable.id });
     });
 
-    if (user.password && user.personalEmail) {
+    if (user.googleUserCreated && user.password && user.personalEmail) {
       await step.run("send-welcome-email", async () => {
         return await resend.emails.send({
-          from: "START Berlin <notifications@emails.start-berlin.com>",
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
           to: personalEmail,
           subject: "Welcome to START Berlin!",
           react: SignInInstructionsEmail({
             firstName,
             companyEmail: user.companyEmail,
             initialPassword: user.password,
+          }),
+        });
+      });
+    } else {
+      await step.run("send-start-cockpit-enabled-email", async () => {
+        return await resend.emails.send({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: user.companyEmail,
+          subject: "You can now use START Cockpit",
+          react: StartCockpitEnabledEmail({
+            firstName,
           }),
         });
       });

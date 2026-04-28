@@ -14,8 +14,19 @@ import {
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
+import { toast } from "sonner";
+import { completeUserOnboardingAction } from "@/app/(authenticated)/(app)/people/complete-onboarding-action";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,14 +89,29 @@ const columns: ColumnDef<PublicUser>[] = [
     header: "Status",
     cell: ({ row }) => {
       const info = USER_STATUS_INFO[row.original.status];
+      const isPaymentPending =
+        row.original.membershipViewState === "payment_pending";
+      const isPaymentProcessing =
+        row.original.membershipViewState === "payment_processing";
+      const label = isPaymentProcessing
+        ? "Payment processing"
+        : isPaymentPending
+          ? "Payment pending"
+          : info.label;
+      const description = isPaymentProcessing
+        ? "The member has started payment setup and GoCardless confirmation is pending."
+        : isPaymentPending
+          ? "Profile onboarding is complete, but the membership payment is still pending."
+          : info.description;
+
       return (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="capitalize">
-              {info.label}
+              {label}
             </Badge>
           </TooltipTrigger>
-          <TooltipContent side="top">{info.description}</TooltipContent>
+          <TooltipContent side="top">{description}</TooltipContent>
         </Tooltip>
       );
     },
@@ -110,17 +136,86 @@ const columns: ColumnDef<PublicUser>[] = [
             >
               Copy email
             </DropdownMenuItem>
-            {user.status === "onboarding" && (
-              <Can permission="users.manage">
-                <DropdownMenuItem>Complete onboarding</DropdownMenuItem>
-              </Can>
-            )}
+            {user.status === "onboarding" &&
+              user.profileOnboardingComplete &&
+              !user.hasMembershipPayment && (
+                <Can permission="users.complete_onboarding">
+                  <CompleteOnboardingMenuItem user={user} />
+                </Can>
+              )}
           </DropdownMenuContent>
         </DropdownMenu>
       );
     },
   },
 ];
+
+function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const { execute, isPending } = useAction(completeUserOnboardingAction, {
+    onSuccess: ({ data }) => {
+      setOpen(false);
+      router.refresh();
+      toast.success(
+        data?.alreadyCompleted
+          ? "Onboarding was already completed"
+          : "Onboarding completed",
+        {
+          description: data?.alreadyCompleted
+            ? "The member can already set up their payment."
+            : "The member has been emailed and can now set up payment.",
+        },
+      );
+    },
+    onError: () => {
+      toast.error("Failed to complete onboarding");
+    },
+  });
+
+  return (
+    <>
+      <DropdownMenuItem
+        disabled={isPending}
+        onSelect={(event) => {
+          event.preventDefault();
+          setOpen(true);
+        }}
+      >
+        Complete onboarding
+      </DropdownMenuItem>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete onboarding?</DialogTitle>
+            <DialogDescription>
+              This will mark {user.firstName} {user.lastName}'s onboarding as
+              complete and send an email to {user.email} so they can finalize
+              their membership and set up the membership payment.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending}
+              onClick={() => execute({ userId: user.id })}
+            >
+              {isPending ? "Completing..." : "Complete onboarding"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export function PeopleTable({ data, onCreateUserClick }: PeopleTableProps) {
   const router = useRouter();

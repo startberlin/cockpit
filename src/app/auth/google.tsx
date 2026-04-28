@@ -23,11 +23,10 @@ export default function Google() {
     try {
       setIsLoading(true);
 
-      console.log(`URL: ${env.NEXT_PUBLIC_COCKPIT_URL}/auth/error`);
-
       const result = await authClient.signIn.social({
         provider: "google",
         callbackURL: callbackURL ?? undefined,
+        errorCallbackURL: `${env.NEXT_PUBLIC_COCKPIT_URL}/auth`,
       });
 
       if (!result.error) return;

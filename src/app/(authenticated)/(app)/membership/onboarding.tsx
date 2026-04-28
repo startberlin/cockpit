@@ -1,3 +1,4 @@
+import { Loader2Icon } from "lucide-react";
 import Image from "next/image";
 import NotionIcon from "@/assets/notion-logo.svg";
 import SlackIcon from "@/assets/slack-icon.svg";
@@ -9,19 +10,51 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { NotionDialog } from "./notion-dialog";
+import { PaymentButton } from "./payment-button";
+import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
 
-export function MembershipOnboarding() {
+interface MembershipOnboardingProps {
+  mode?: "profile_onboarding" | "payment_pending" | "payment_processing";
+}
+
+export function MembershipOnboarding({
+  mode = "profile_onboarding",
+}: MembershipOnboardingProps) {
+  const isPaymentPending = mode === "payment_pending";
+  const isPaymentProcessing = mode === "payment_processing";
+
   return (
     <div className="flex flex-col gap-10">
       <Card>
         <CardHeader>
-          <CardTitle>You're in the onboarding phase.</CardTitle>
+          <CardTitle>
+            {isPaymentProcessing
+              ? "Confirming your payment setup."
+              : isPaymentPending
+                ? "Finalize your membership."
+                : "You're in the onboarding phase."}
+          </CardTitle>
           <CardDescription>
-            We're glad to have you on board. After the onboarding phase, you'll
-            see your membership details here.
+            {isPaymentProcessing
+              ? "We're waiting for GoCardless to confirm your membership payment setup. This usually takes a moment."
+              : isPaymentPending
+                ? "Your onboarding details are complete. Set up your yearly membership payment to become a full member."
+                : "We're glad to have you on board. After the onboarding phase, you'll see your membership details here."}
           </CardDescription>
         </CardHeader>
+        {isPaymentProcessing && (
+          <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
+            <Loader2Icon className="h-4 w-4 animate-spin" />
+            Updating your membership status...
+            <PaymentProcessingRefresh />
+          </CardFooter>
+        )}
+        {isPaymentPending && (
+          <CardFooter>
+            <PaymentButton />
+          </CardFooter>
+        )}
       </Card>
       <div className="flex flex-col gap-6">
         <span className="flex flex-col gap-1">

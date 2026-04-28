@@ -1,0 +1,43 @@
+meta {
+  name: Create Billing Request
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{gocardless_base_url}}/billing_requests
+  body: json
+  auth: bearer
+}
+
+headers {
+  GoCardless-Version: 2015-07-06
+}
+
+auth:bearer {
+  token: {{gocardless_api_key}}
+}
+
+body:json {
+  {
+    "billing_requests": {
+      "payment_request": {
+        "description": "First Payment",
+        "amount": "500",
+        "currency": "EUR",
+        "app_fee": "50"
+      },
+      "mandate_request": {
+        "currency": "EUR"
+      },
+      "links": {
+        "customer": "CU01KF12YW58WK5XVS7B08ZXBS3R"
+      }
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

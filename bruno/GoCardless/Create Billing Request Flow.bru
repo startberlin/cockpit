@@ -1,0 +1,36 @@
+meta {
+  name: Create Billing Request Flow
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{gocardless_base_url}}/billing_request_flows
+  body: json
+  auth: bearer
+}
+
+headers {
+  GoCardless-Version: 2015-07-06
+}
+
+auth:bearer {
+  token: {{gocardless_api_key}}
+}
+
+body:json {
+  {
+    "billing_request_flows": {
+      "redirect_uri": "https://cockpit.start-berlin.com/redirected",
+      "exit_uri": "https://cockpit.start-berlin.com/exitt",
+      "links": {
+        "billing_request": "BRQ01KGCWB7G22WEM65MHV04Q6C5Z"
+      }
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
