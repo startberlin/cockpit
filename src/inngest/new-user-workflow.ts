@@ -1,44 +1,13 @@
 import { Common, google } from "googleapis";
-import slugify from "slugify";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
 import { createGoogleAuth } from "@/lib/google-auth";
+import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
-
-// Join multi-part names with hyphens, transliterate special chars, lowercase, keep only [a-z0-9.-]
-// For details: https://github.com/simov/slugify#custom-replacements
-const customReplacements = [
-  ["ä", "ae"],
-  ["ö", "oe"],
-  ["ü", "ue"],
-  ["ß", "ss"],
-  ["æ", "ae"],
-  ["ø", "oe"],
-  ["å", "aa"],
-  ["Ä", "ae"],
-  ["Ö", "oe"],
-  ["Ü", "ue"],
-  ["Æ", "ae"],
-  ["Ø", "oe"],
-  ["Å", "aa"],
-];
-
-function generateCompanyEmail(firstName: string, lastName: string) {
-  const slugOptions = {
-    lower: true,
-    strict: true,
-    customReplacements,
-  } as const;
-
-  const firstSlug = slugify(firstName.replace(/\s+/g, "-"), slugOptions);
-  const lastSlug = slugify(lastName.replace(/\s+/g, "-"), slugOptions);
-
-  return `${firstSlug}.${lastSlug}@start-berlin.com`;
-}
 
 function generateRandomPassword(length = 15) {
   // Simple secure password generator with all required charsets.

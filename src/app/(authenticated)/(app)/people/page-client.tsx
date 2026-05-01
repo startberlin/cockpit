@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { PeopleTable } from "@/components/people-table";
 import type { PublicUser } from "@/db/people";
 import { CreateUserDialog } from "./create-user-dialog";
+import { ImportGoogleUserDialog } from "./import-google-user-dialog";
 
 interface PeoplePageClientProps {
   users: PublicUser[];
@@ -17,7 +18,8 @@ export default function PeoplePageClient({
   batches,
 }: PeoplePageClientProps) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
 
   const handleSuccess = React.useCallback(() => {
     router.refresh();
@@ -30,12 +32,25 @@ export default function PeoplePageClient({
 
   return (
     <>
-      <PeopleTable data={users} onCreateUserClick={() => setOpen(true)} />
+      <PeopleTable
+        data={users}
+        onCreateUserClick={() => setCreateOpen(true)}
+        onImportUserClick={() => setImportOpen(true)}
+      />
       <CreateUserDialog
-        open={open}
-        onOpenChange={setOpen}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
         batches={batches}
         onSuccess={handleSuccess}
+      />
+      <ImportGoogleUserDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        batches={batches}
+        onSuccess={() => {
+          router.refresh();
+          toast.success("Google Workspace user imported");
+        }}
       />
     </>
   );

@@ -9,100 +9,145 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { UserStatus } from "@/db/schema/auth";
+import type { MembershipViewState } from "@/lib/membership-status";
+import {
+  getMembershipBillingCopy,
+  getMembershipToolsCopy,
+} from "./billing-copy";
 import { NotionDialog } from "./notion-dialog";
 import { PaymentButton } from "./payment-button";
 import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
 
-interface MembershipOnboardingProps {
-  mode?: "profile_onboarding" | "payment_pending" | "payment_processing";
+interface MembershipPageContentProps {
+  membershipState: MembershipViewState;
+  userStatus: UserStatus;
+  paidThroughAt?: Date | null;
 }
 
-export function MembershipOnboarding({
-  mode = "profile_onboarding",
-}: MembershipOnboardingProps) {
-  const isPaymentPending = mode === "payment_pending";
-  const isPaymentProcessing = mode === "payment_processing";
+export function MembershipPageContent({
+  membershipState,
+  userStatus,
+  paidThroughAt,
+}: MembershipPageContentProps) {
+  const tools = getMembershipToolsCopy(userStatus);
 
   return (
     <div className="flex flex-col gap-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isPaymentProcessing
-              ? "Confirming your payment setup."
-              : isPaymentPending
-                ? "Finalize your membership."
-                : "You're in the onboarding phase."}
-          </CardTitle>
-          <CardDescription>
-            {isPaymentProcessing
-              ? "We're waiting for GoCardless to confirm your membership payment setup. This usually takes a moment."
-              : isPaymentPending
-                ? "Your onboarding details are complete. Set up your yearly membership payment to become a full member."
-                : "We're glad to have you on board. After the onboarding phase, you'll see your membership details here."}
-          </CardDescription>
-        </CardHeader>
-        {isPaymentProcessing && (
-          <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
-            <Loader2Icon className="h-4 w-4 animate-spin" />
-            Updating your membership status...
-            <PaymentProcessingRefresh />
+      <MembershipSection
+        membershipState={membershipState}
+        userStatus={userStatus}
+        paidThroughAt={paidThroughAt}
+      />
+      {tools.visible && (
+        <ToolsSection
+          title={tools.title}
+          description={tools.description}
+          actionLabel={tools.actionLabel}
+        />
+      )}
+    </div>
+  );
+}
+
+function MembershipSection({
+  membershipState,
+  userStatus,
+  paidThroughAt,
+}: MembershipPageContentProps) {
+  const isPaymentPending = membershipState === "payment_pending";
+  const isPaymentProcessing = membershipState === "payment_processing";
+  const copy = getMembershipBillingCopy({
+    mode: membershipState,
+    userStatus,
+    paidThroughAt,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{copy.title}</CardTitle>
+        <CardDescription>{copy.description}</CardDescription>
+      </CardHeader>
+      {isPaymentProcessing && (
+        <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
+          <Loader2Icon className="h-4 w-4 animate-spin" />
+          Updating your membership status...
+          <PaymentProcessingRefresh />
+        </CardFooter>
+      )}
+      {isPaymentPending && (
+        <CardFooter className="flex-col items-start gap-3">
+          <PaymentButton />
+          {copy.paymentNote && (
+            <p className="text-sm text-muted-foreground">{copy.paymentNote}</p>
+          )}
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
+
+function ToolsSection({
+  title,
+  description,
+  actionLabel,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+}) {
+  const slackTitle = `${actionLabel} Slack`;
+  const notionTitle = `${actionLabel} Notion`;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <span className="flex flex-col gap-1">
+        <h2 className="text-md font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </span>
+      <div className="grid md:grid-cols-3 grid-cols-1 sm:grid-cols-2 gap-2">
+        <Card className="@container/card">
+          <CardHeader className="gap-2">
+            <Image
+              src={SlackIcon}
+              className="mb-3"
+              alt="Slack"
+              width={24}
+              height={24}
+            />
+            <CardTitle>{slackTitle}</CardTitle>
+            <CardDescription>
+              {actionLabel === "Join"
+                ? "Set up your Slack account to stay updated with the latest news and announcements."
+                : "Open Slack to stay updated with the latest news and announcements."}
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <SlackDialog actionLabel={actionLabel} />
           </CardFooter>
-        )}
-        {isPaymentPending && (
-          <CardFooter>
-            <PaymentButton />
+        </Card>
+        <Card className="@container/card">
+          <CardHeader className="gap-2">
+            <Image
+              src={NotionIcon}
+              className="mb-3"
+              alt="Notion"
+              width={24}
+              height={24}
+            />
+            <CardTitle>{notionTitle}</CardTitle>
+            <CardDescription>
+              {actionLabel === "Join"
+                ? "Set up your Notion account to collaborate on projects, task management, and more."
+                : "Open Notion to collaborate on projects, task management, and more."}
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <NotionDialog actionLabel={actionLabel} />
           </CardFooter>
-        )}
-      </Card>
-      <div className="flex flex-col gap-6">
-        <span className="flex flex-col gap-1">
-          <h2 className="text-md font-semibold">First steps</h2>
-          <p className="text-sm text-muted-foreground">
-            Set up your most important software accounts
-          </p>
-        </span>
-        <div className="grid md:grid-cols-3 grid-cols-1 sm:grid-cols-2 gap-2">
-          <Card className="@container/card">
-            <CardHeader className="gap-2">
-              <Image
-                src={SlackIcon}
-                className="mb-3"
-                alt="Slack"
-                width={24}
-                height={24}
-              />
-              <CardTitle>Join Slack</CardTitle>
-              <CardDescription>
-                Set up your Slack account to stay updated with the latest news
-                and announcements.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter className="flex-col items-start gap-1.5 text-sm">
-              <SlackDialog />
-            </CardFooter>
-          </Card>
-          <Card className="@container/card">
-            <CardHeader className="gap-2">
-              <Image
-                src={NotionIcon}
-                className="mb-3"
-                alt="Notion"
-                width={24}
-                height={24}
-              />
-              <CardTitle>Join Notion</CardTitle>
-              <CardDescription>
-                Set up your Notion account to collaborate on projects, tasks
-                management and more.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter className="flex-col items-start gap-1.5 text-sm">
-              <NotionDialog />
-            </CardFooter>
-          </Card>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
+  membershipSubscriptionStartDate,
   prefilledCustomerFromMembershipInput,
 } from "./membership-flow-helpers";
 import type { MembershipFlowInput } from "./types";
@@ -49,5 +50,35 @@ describe("membership GoCardless flow helpers", () => {
       postal_code: "10115",
       country_code: "DE",
     });
+  });
+
+  it("derives the first subscription charge date after paid-through coverage", () => {
+    assert.equal(
+      membershipSubscriptionStartDate(
+        new Date("2026-09-30T23:59:59.999Z"),
+        new Date("2026-04-29T10:00:00.000Z"),
+      ),
+      "2026-10-01",
+    );
+  });
+
+  it("omits a delayed subscription charge date without paid-through coverage", () => {
+    assert.equal(
+      membershipSubscriptionStartDate(
+        null,
+        new Date("2026-04-29T10:00:00.000Z"),
+      ),
+      null,
+    );
+  });
+
+  it("omits a delayed subscription charge date for expired coverage", () => {
+    assert.equal(
+      membershipSubscriptionStartDate(
+        new Date("2026-01-01T23:59:59.999Z"),
+        new Date("2026-04-29T10:00:00.000Z"),
+      ),
+      null,
+    );
   });
 });

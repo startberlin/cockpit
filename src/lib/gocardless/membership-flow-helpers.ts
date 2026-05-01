@@ -34,6 +34,25 @@ export function customerMetadata(input: MembershipFlowInput) {
   };
 }
 
+export function membershipSubscriptionStartDate(
+  paidThroughAt: Date | null | undefined,
+  now = new Date(),
+) {
+  if (!paidThroughAt || paidThroughAt < now) {
+    return null;
+  }
+
+  const startDate = new Date(
+    Date.UTC(
+      paidThroughAt.getUTCFullYear(),
+      paidThroughAt.getUTCMonth(),
+      paidThroughAt.getUTCDate() + 1,
+    ),
+  );
+
+  return startDate.toISOString().slice(0, 10);
+}
+
 function stripEmptyValues(
   values: Record<string, string | Record<string, string> | null | undefined>,
 ) {

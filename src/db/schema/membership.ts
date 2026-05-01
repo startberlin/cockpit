@@ -28,6 +28,7 @@ export const membershipPayment = pgTable("membership_payment", {
   ).unique(),
   gocardlessSubscriptionId: text("gocardless_subscription_id").unique(),
   gocardlessMandateId: text("gocardless_mandate_id").unique(),
+  paidThroughAt: timestamp("paid_through_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

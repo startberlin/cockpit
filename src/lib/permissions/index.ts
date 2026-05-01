@@ -4,6 +4,7 @@ export const PERMISSIONS = {
   "users.manage": ["admin"],
   "users.complete_onboarding": ["admin", "board", "department_lead"],
   "users.create": ["admin"],
+  "users.import": ["admin"],
   "groups.view_all": ["admin", "board", "department_lead"],
   "groups.create": ["admin"],
   "groups.manage_members": ["admin"],

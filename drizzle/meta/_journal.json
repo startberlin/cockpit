@@ -57,6 +57,13 @@
       "when": 1777326025097,
       "tag": "0007_harmonize_gocardless_membership_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777402633466,
+      "tag": "0008_lowly_jubilee",
+      "breakpoints": true
     }
   ]
 }

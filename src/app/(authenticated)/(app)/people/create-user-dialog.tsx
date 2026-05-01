@@ -3,6 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { AlertCircleIcon } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
+import * as React from "react";
 import { Controller } from "react-hook-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,7 +35,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEPARTMENTS } from "@/lib/enums";
+import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { handleError } from "@/lib/utils";
+import { checkWorkspaceEmailAction } from "./check-workspace-email-action";
 import { createUserAction } from "./create-user-action";
 import { createUserSchema } from "./create-user-schema";
 
@@ -73,6 +77,39 @@ export function CreateUserDialog({
       },
     },
   );
+  const firstName = form.watch("firstName");
+  const lastName = form.watch("lastName");
+  const companyEmail = React.useMemo(() => {
+    if (!firstName || !lastName) {
+      return null;
+    }
+
+    return generateCompanyEmail(firstName, lastName);
+  }, [firstName, lastName]);
+  const emailCheck = useAction(checkWorkspaceEmailAction, {
+    onError: handleError,
+  });
+
+  React.useEffect(() => {
+    if (!companyEmail) {
+      emailCheck.reset();
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      emailCheck.execute({ email: companyEmail });
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [companyEmail, emailCheck.execute, emailCheck.reset]);
+
+  const emailConflict =
+    !!companyEmail &&
+    emailCheck.result.data?.email === companyEmail &&
+    !emailCheck.result.data.available;
+  const emailCheckUnavailable =
+    !!companyEmail && !!emailCheck.result.serverError;
+  const emailCheckPending = !!companyEmail && emailCheck.status === "executing";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,7 +157,9 @@ export function CreateUserDialog({
                 </Field>
               </div>
               <Field>
-                <FieldLabel htmlFor="personalEmail">Email address</FieldLabel>
+                <FieldLabel htmlFor="personalEmail">
+                  Personal email address
+                </FieldLabel>
                 <Input
                   id="personalEmail"
                   type="email"
@@ -134,6 +173,23 @@ export function CreateUserDialog({
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.personalEmail]} />
               </Field>
+              {companyEmail && (
+                <Field>
+                  <FieldLabel>START email</FieldLabel>
+                  <div className="rounded-md border px-3 py-2 text-sm">
+                    {companyEmail}
+                  </div>
+                  <FieldDescription className="pt-0.5 text-xs">
+                    {emailCheckPending
+                      ? "Checking Google Workspace..."
+                      : emailConflict
+                        ? "This Google Workspace account already exists. Import the existing user instead."
+                        : emailCheckUnavailable
+                          ? "Could not check Google Workspace right now. Try again before creating the user."
+                          : "This is the Google Workspace email START Cockpit will create."}
+                  </FieldDescription>
+                </Field>
+              )}
             </FieldGroup>
           </FieldSet>
 
@@ -246,7 +302,13 @@ export function CreateUserDialog({
           <div className="flex justify-end gap-2">
             <Button
               type="submit"
-              disabled={!form.formState.isValid || action.isPending}
+              disabled={
+                !form.formState.isValid ||
+                action.isPending ||
+                emailCheckPending ||
+                emailConflict ||
+                emailCheckUnavailable
+              }
             >
               Create
             </Button>

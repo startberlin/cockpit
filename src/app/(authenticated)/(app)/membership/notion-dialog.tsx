@@ -30,20 +30,25 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-export function NotionDialog() {
+export function NotionDialog({
+  actionLabel = "Join",
+}: {
+  actionLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const title = `${actionLabel} Notion`;
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="default">Join Notion</Button>
+          <Button variant="default">{title}</Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Join Notion</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               Set up your Notion account to stay updated with the latest news
               and announcements.
@@ -78,11 +83,11 @@ export function NotionDialog() {
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button variant="default">Join Notion</Button>
+        <Button variant="default">{title}</Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="text-left">
-          <DrawerTitle>Join Notion</DrawerTitle>
+          <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>
             Set up your Notion account to stay updated with the latest news and
             announcements.

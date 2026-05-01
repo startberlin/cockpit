@@ -218,11 +218,13 @@ export async function createMembershipSubscription({
   userId,
   email,
   localSessionId,
+  startDate,
 }: {
   mandateId: string;
   userId: string;
   email: string;
   localSessionId: string;
+  startDate?: string | null;
 }) {
   const metadata = {
     start_cockpit_user_id: userId,
@@ -240,6 +242,7 @@ export async function createMembershipSubscription({
         interval: 1,
         interval_unit: "yearly",
         name: MEMBERSHIP_SUBSCRIPTION_NAME,
+        start_date: startDate ?? undefined,
         metadata,
         links: {
           mandate: mandateId,
