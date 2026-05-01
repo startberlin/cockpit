@@ -13,6 +13,7 @@ import {
   getBillingRequest,
   getBillingRequestFlow,
 } from "./membership-flow";
+import { membershipSubscriptionStartDate } from "./membership-flow-helpers";
 
 export type MembershipReconciliationResult =
   | { status: "activated" | "already_active"; hostedRedirect: "/membership" }
@@ -140,6 +141,7 @@ async function reconcileMembershipPayment(
         userId: payment.userId,
         email: member.email,
         localSessionId: payment.id,
+        startDate: membershipSubscriptionStartDate(payment.paidThroughAt),
       })
     ).subscriptions.id;
 

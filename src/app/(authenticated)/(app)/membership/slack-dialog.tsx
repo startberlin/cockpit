@@ -129,7 +129,11 @@ function SlackDialogContent({ exists, isLoading }: SlackDialogContentProps) {
   );
 }
 
-export function SlackDialog() {
+export function SlackDialog({
+  actionLabel = "Join",
+}: {
+  actionLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   const { execute, result, status, reset } = useAction(getSlackStatusAction, {
@@ -159,16 +163,17 @@ export function SlackDialog() {
   const exists = result.data?.exists ?? false;
   const isLoading = status === "executing" || status === "idle";
   const isError = !!result.serverError;
+  const title = `${actionLabel} Slack`;
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-          <Button variant="default">Join Slack</Button>
+          <Button variant="default">{title}</Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Join Slack</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               Set up your Slack account to stay updated with the latest news and
               announcements.
@@ -187,11 +192,11 @@ export function SlackDialog() {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerTrigger asChild>
-        <Button variant="default">Join Slack</Button>
+        <Button variant="default">{title}</Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="text-left">
-          <DrawerTitle>Join Slack</DrawerTitle>
+          <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>
             Set up your Slack account to stay updated with the latest news and
             announcements.

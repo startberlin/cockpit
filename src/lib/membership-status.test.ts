@@ -10,6 +10,7 @@ function user(overrides: Partial<User> = {}): User {
     id: "usr_123",
     name: "Ada Lovelace",
     email: "ada@example.com",
+    googleWorkspaceId: null,
     emailVerified: true,
     image: null,
     createdAt: now,
@@ -32,9 +33,15 @@ function user(overrides: Partial<User> = {}): User {
 }
 
 describe("getMembershipViewState", () => {
+  const now = new Date("2026-04-26T00:00:00.000Z");
+
   it("keeps users with missing profile details in profile onboarding", () => {
     assert.equal(
-      getMembershipViewState(user({ street: null }), { status: "active" }),
+      getMembershipViewState(
+        user({ street: null }),
+        { status: "active", paidThroughAt: new Date("2027-01-01") },
+        now,
+      ),
       "profile_onboarding",
     );
   });
@@ -52,8 +59,135 @@ describe("getMembershipViewState", () => {
 
   it("marks active payment users as full members", () => {
     assert.equal(
-      getMembershipViewState(user(), { status: "active" }),
+      getMembershipViewState(user(), { status: "active" }, now),
       "full_member",
+    );
+  });
+
+  it("keeps delayed-start GoCardless subscriptions full members after coverage date passes", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({ googleWorkspaceId: "google-123", status: "member" }),
+        {
+          status: "active",
+          gocardlessSubscriptionId: "SB123",
+          paidThroughAt: new Date("2026-01-01"),
+        },
+        now,
+      ),
+      "full_member",
+    );
+  });
+
+  it("marks imported members as full members after subscription activation before profile completion", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({
+          googleWorkspaceId: "google-123",
+          personalEmail: "",
+          status: "member",
+        }),
+        {
+          status: "active",
+          gocardlessSubscriptionId: "SB123",
+          paidThroughAt: new Date("2026-12-31"),
+        },
+        now,
+      ),
+      "full_member",
+    );
+  });
+
+  it("marks expired manual coverage without a subscription as payment pending", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({ googleWorkspaceId: "google-123", status: "member" }),
+        { status: "active", paidThroughAt: new Date("2026-01-01") },
+        now,
+      ),
+      "payment_pending",
+    );
+  });
+
+  it("keeps imported users with future paid-through coverage payment pending until billing is set up", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({ googleWorkspaceId: "google-123", status: "member" }),
+        { status: "pending", paidThroughAt: new Date("2026-12-31") },
+        now,
+      ),
+      "payment_pending",
+    );
+  });
+
+  it("lets imported members start payment setup before profile completion", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({
+          googleWorkspaceId: "google-123",
+          personalEmail: "",
+          status: "member",
+        }),
+        { status: "pending", paidThroughAt: new Date("2026-12-31") },
+        now,
+      ),
+      "payment_pending",
+    );
+  });
+
+  it("lets imported supporting alumni start payment setup before profile completion", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({
+          googleWorkspaceId: "google-123",
+          personalEmail: "",
+          status: "supporting_alumni",
+        }),
+        { status: "pending", paidThroughAt: new Date("2026-12-31") },
+        now,
+      ),
+      "payment_pending",
+    );
+  });
+
+  it("keeps imported members in payment processing before profile completion after checkout starts", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({
+          googleWorkspaceId: "google-123",
+          personalEmail: "",
+          status: "member",
+        }),
+        { status: "checkout_started" },
+        now,
+      ),
+      "payment_processing",
+    );
+  });
+
+  it("keeps normal users with incomplete profiles in profile onboarding", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({ personalEmail: "" }),
+        { status: "pending" },
+        now,
+      ),
+      "profile_onboarding",
+    );
+  });
+
+  it("does not show membership payment setup to imported alumni before profile completion", () => {
+    assert.equal(
+      getMembershipViewState(
+        user({
+          googleWorkspaceId: "google-123",
+          personalEmail: "",
+          status: "alumni",
+        }),
+        null,
+        now,
+      ),
+      "profile_onboarding",
     );
   });
 

@@ -50,5 +50,5 @@ next-env.d.ts
 .cursor/skills/
 .claude/skills/
 
-# database
-*.sql
+# database dumps
+/supabase.sql

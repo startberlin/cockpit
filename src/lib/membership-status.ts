@@ -10,17 +10,28 @@ export type MembershipViewState =
 
 export interface MembershipPaymentState {
   status: MembershipPaymentStatus;
+  gocardlessSubscriptionId?: string | null;
+  paidThroughAt?: Date | null;
 }
 
 export function getMembershipViewState(
   user: User,
   payment: MembershipPaymentState | null | undefined,
+  now = new Date(),
 ): MembershipViewState {
-  if (getOnboardingProgress(user) !== "completed") {
+  const profileOnboardingComplete = getOnboardingProgress(user) === "completed";
+  const canContinueImportedBilling = isImportedBillingUser(user) && !!payment;
+
+  if (!profileOnboardingComplete && !canContinueImportedBilling) {
     return "profile_onboarding";
   }
 
-  if (payment?.status === "active") {
+  if (
+    payment?.status === "active" &&
+    (payment.gocardlessSubscriptionId ||
+      !payment.paidThroughAt ||
+      payment.paidThroughAt >= now)
+  ) {
     return "full_member";
   }
 
@@ -41,6 +52,13 @@ export function getMembershipViewState(
 
 export function isProfileOnboardingComplete(user: User) {
   return getOnboardingProgress(user) === "completed";
+}
+
+function isImportedBillingUser(user: User) {
+  return (
+    !!user.googleWorkspaceId &&
+    (user.status === "member" || user.status === "supporting_alumni")
+  );
 }
 
 export function isPaymentPendingState(state: MembershipViewState) {

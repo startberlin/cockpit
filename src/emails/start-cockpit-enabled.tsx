@@ -13,15 +13,28 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
+import type { UserStatus } from "@/db/schema/auth";
 import { env } from "@/env";
+import { USER_STATUS_INFO } from "@/lib/user-status";
+
+type StatusContext = Extract<
+  UserStatus,
+  "member" | "supporting_alumni" | "alumni"
+>;
 
 interface StartCockpitEnabledEmailProps {
   firstName: string;
+  statusContext?: StatusContext;
 }
 
 export const StartCockpitEnabledEmail = ({
   firstName,
+  statusContext,
 }: StartCockpitEnabledEmailProps) => {
+  const statusLabel = statusContext
+    ? USER_STATUS_INFO[statusContext].label
+    : null;
+
   return (
     <Html>
       <Head>
@@ -66,8 +79,17 @@ export const StartCockpitEnabledEmail = ({
               Hello {firstName},
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
-              Your START Berlin account has been enabled for START Cockpit. You
-              can now sign in with this email address and your current password.
+              Your START Berlin Google Account has been enabled for START
+              Cockpit.
+            </Text>
+            {statusLabel && (
+              <Text className="text-[14px] text-black leading-[24px]">
+                You have been added to START Cockpit as {statusLabel}.
+              </Text>
+            )}
+            <Text className="text-[14px] text-black leading-[24px]">
+              Sign in with your START Berlin Google Account. Email and password
+              login is not available.
             </Text>
             <Container className="my-[20px] p-[16px] bg-[#F0F9FF] border border-[#0EA5E9] border-solid rounded-[4px]">
               <Text className="text-[14px] text-black leading-[20px] mt-[8px] mb-0">
@@ -95,6 +117,7 @@ export const StartCockpitEnabledEmail = ({
 
 StartCockpitEnabledEmail.PreviewProps = {
   firstName: "Sönke",
+  statusContext: "supporting_alumni",
 } as StartCockpitEnabledEmailProps;
 
 export default StartCockpitEnabledEmail;
