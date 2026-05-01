@@ -12,13 +12,13 @@ origin: docs/brainstorms/2026-04-28-google-workspace-existing-user-linking-requi
 
 Add a distinct, permission-gated import flow for people who already exist in Google Workspace but not in START Cockpit. Keep the normal create-user flow focused on new users: it should show the calculated START email and block exact Workspace email conflicts, then direct admins to import instead of attempting duplicate Google account creation.
 
-The import flow will search Google Workspace, import one selected unlinked Workspace identity into START Cockpit, persist a durable Workspace identity link, and capture membership coverage timing so imported members are not asked to start a new GoCardless subscription until payment is due.
+The import flow will search Google Workspace, import one selected unlinked Workspace identity into START Cockpit, use the selected Google result only transiently during server-side verification, and capture membership coverage timing so imported members are not asked to start a new GoCardless subscription until payment is due. START Cockpit must not persist a Google Workspace identity link; local `user.email` is the durable correlation key.
 
 ---
 
 ## Problem Frame
 
-START Cockpit currently treats user creation as "create local user plus create Google Workspace account" through `src/inngest/new-user-workflow.ts`. That is correct for new members, but wrong for existing members whose Workspace account already exists. Those members need a local START Cockpit account linked to their existing Workspace identity, and they may already be paid through a future date.
+START Cockpit currently treats user creation as "create local user plus create Google Workspace account" through `src/inngest/new-user-workflow.ts`. That is correct for new members, but wrong for existing members whose Workspace account already exists. Those members need a local START Cockpit account created from their existing Workspace identity, and they may already be paid through a future date.
 
 Planning follows the revised requirements in `docs/brainstorms/2026-04-28-google-workspace-existing-user-linking-requirements.md`: separate import from create, protect the create flow with exact email conflict detection, and add enough membership timing state to delay subscription setup for imported paid-through members.
 
@@ -29,8 +29,8 @@ Planning follows the revised requirements in `docs/brainstorms/2026-04-28-google
 - R1. Provide a distinct import flow for existing Google Workspace users.
 - R2. Gate import with a deliberate admin permission.
 - R3-R4. Search Google Workspace and show enough candidate details for disambiguation.
-- R5, R10. Show already-linked Workspace users and prevent duplicate imports.
-- R6-R9. Lock, import, persist, and display the selected Workspace identity without changing the Google account.
+- R5, R10. Show Workspace users whose primary email already exists locally and prevent duplicate imports.
+- R6-R9. Lock and verify the selected Workspace identity during import without changing the Google account or persisting a Google provider link.
 - R11-R14. Keep normal create-user focused on new accounts, show calculated START email, and block exact conflicts.
 - R15-R18. Capture imported membership coverage timing while preserving immediate payment setup for newly onboarded users.
 - R19-R21. Keep Workspace lookup/import server-side, minimum-disclosure, and verified by stable identity at submit time.
@@ -60,10 +60,10 @@ Planning follows the revised requirements in `docs/brainstorms/2026-04-28-google
 - `src/lib/google-auth.ts` already creates domain-wide delegated Google auth for Admin SDK calls.
 - `src/app/(authenticated)/(app)/people/create-user-dialog.tsx` and `create-user-action.ts` are the current user creation surface.
 - `src/lib/permissions/index.ts` defines action-level role gates; import should add a distinct permission key instead of overloading `users.create`.
-- `src/db/schema/auth.ts` has no durable Google Directory identity field beyond `user.email`.
+- `src/db/schema/auth.ts` must continue to have no durable Google Directory identity field beyond `user.email`.
 - `src/db/schema/membership.ts` and `src/db/membership.ts` have active/pending/checkout state but no explicit paid-through/next-due date.
 - `src/lib/membership-status.ts` gates membership page state and already has focused tests in `src/lib/membership-status.test.ts`.
-- `src/db/people.ts`, `src/components/people-table.tsx`, and `src/app/(authenticated)/(app)/people/[id]/profile-card.tsx` shape the people list and profile display where imported identity should become visible.
+- `src/db/people.ts`, `src/components/people-table.tsx`, and `src/app/(authenticated)/(app)/people/[id]/profile-card.tsx` shape people display. The people table must not show Google connection or payment-provider details.
 
 ### Institutional Learnings
 
@@ -79,7 +79,7 @@ Planning follows the revised requirements in `docs/brainstorms/2026-04-28-google
 ## Key Technical Decisions
 
 - **Separate import and create surfaces:** Build a dedicated import dialog or route on the people page for rare, high-trust imports; keep `CreateUserDialog` small and focused.
-- **Store a durable Google Workspace identity on `user`:** Add a unique nullable `googleWorkspaceId` and a display email field or verified use of `email` for the Workspace primary email. Use the stable ID for duplicate import prevention and submit-time verification.
+- **Do not store a durable Google Workspace identity:** Use `user.email` as the durable Workspace correlation key. Google provider IDs may be used transiently during search and submit-time verification, but they must not be persisted.
 - **Extract START email generation:** Move the slug/transliteration logic out of `src/inngest/new-user-workflow.ts` into a shared utility so the create dialog, create action, and workflow use the same rules.
 - **Use paid-through membership coverage for imports:** Add a nullable `paidThroughAt`-style field to membership payment state. For GoCardless active subscriptions, null paid-through can continue to mean open-ended active provider coverage; for imported manual coverage, the date controls when payment setup becomes due.
 - **Use server actions for import operations:** Match existing `next-safe-action` mutation patterns, keep Google Directory access server-side, and enforce `users.import` before search and import.
@@ -99,7 +99,7 @@ Planning follows the revised requirements in `docs/brainstorms/2026-04-28-google
 ### Deferred to Implementation
 
 - **Exact Google Directory fields shown in results:** Choose the minimum practical set after inspecting Admin SDK response shape in implementation, likely full name, primary email, and stable ID kept hidden from display.
-- **Final schema field names:** Use names consistent with Drizzle conventions during implementation; the plan cares about durable identity and paid-through semantics, not exact identifiers.
+- **Final schema field names:** Use names consistent with Drizzle conventions during implementation; the plan cares about paid-through semantics and explicitly excludes durable Google provider identifiers.
 - **Whether import is a dialog or dedicated page:** Prefer a dialog from the people page if it remains compact; switch to a dedicated route if the form becomes too dense after implementation starts.
 
 ---
@@ -120,11 +120,11 @@ sequenceDiagram
     UI->>Server: Search name/email
     Server->>Server: Check users.import permission
     Server->>Google: Directory users lookup
-    Server->>DB: Check googleWorkspaceId/email linkage
+    Server->>DB: Check local user by primary email
     Server-->>UI: Candidates with linked/unlinked status
     Admin->>UI: Select unlinked candidate and membership timing
-    UI->>Server: Submit selected Google ID + profile/timing
-    Server->>Google: Re-fetch selected user by stable ID
+    UI->>Server: Submit selected Google user handle + profile/timing
+    Server->>Google: Re-fetch selected user server-side
     Server->>DB: Transactionally insert user + membership coverage
     Server-->>UI: Imported user
 ```
@@ -150,8 +150,8 @@ sequenceDiagram
 **Approach:**
 - Move `generateCompanyEmail` and custom replacements out of `src/inngest/new-user-workflow.ts`.
 - Keep the email utility free of server-only Google dependencies so client and server code can share the deterministic calculation if needed.
-- Add a server-only Directory wrapper that creates the Admin SDK client via `src/lib/google-auth.ts`, performs exact primary-email lookups, searches by query for import, and fetches by stable Google user ID.
-- Return a narrow internal candidate shape with stable Google ID, primary email, display name, given/family names, and enough raw status to decide whether the account is usable.
+- Add a server-only Directory wrapper that creates the Admin SDK client via `src/lib/google-auth.ts`, performs exact primary-email lookups, searches by query for import, and re-fetches the selected Google user during submit-time verification.
+- Return a narrow internal candidate shape with a transient Google selection handle, primary email, display name, given/family names, and enough raw status to decide whether the account is usable.
 - Do not expose service-account details, credentials, or full Google payloads outside the wrapper.
 
 **Patterns to follow:**
@@ -171,9 +171,9 @@ sequenceDiagram
 
 ---
 
-- U2. **Persist Workspace identity and membership coverage**
+- U2. **Persist membership coverage without Google identity**
 
-**Goal:** Add database state for imported Workspace identity links and paid-through membership coverage.
+**Goal:** Add database state for paid-through membership coverage without adding a persistent Google identity link.
 
 **Requirements:** R5, R7, R9, R10, R15, R16, R17, R21; supports F1, F3, AE2, AE4
 
@@ -183,13 +183,12 @@ sequenceDiagram
 - Modify: `src/db/schema/auth.ts`
 - Modify: `src/db/schema/membership.ts`
 - Modify: `src/db/schema/index.ts`
-- Create: `drizzle/0008_google_workspace_user_import.sql`
-- Modify: `drizzle/meta/_journal.json`
-- Create/modify: `drizzle/meta/0008_snapshot.json`
+- Create/modify: Drizzle migration for membership coverage only
+- Modify: Drizzle migration metadata
 
 **Approach:**
-- Add nullable Workspace identity fields to the user table, with a unique constraint on the stable Google Workspace ID when present.
-- Keep `user.email` as the START/Workspace login email; imported users should use the selected Google user's primary email.
+- Do not add Workspace identity fields to the user table.
+- Keep `user.email` as the START/Workspace login email and the only durable Workspace correlation key; imported users should use the selected Google user's verified primary email.
 - Add a nullable paid-through/covered-through timestamp to membership payment state.
 - Preserve existing GoCardless active behavior: provider-backed active memberships remain full members even without a paid-through date.
 - For imported manually covered members, use the paid-through date to decide when payment setup becomes due.
@@ -201,12 +200,12 @@ sequenceDiagram
 - Existing `drizzle/0007_harmonize_gocardless_membership_payment.sql` and meta files for migration shape.
 
 **Test scenarios:**
-- Migration expectation: existing users without Google Workspace ID remain valid.
-- Migration expectation: two users cannot share the same non-null Google Workspace ID.
+- Migration expectation: the user table does not gain a Google provider-link column.
+- Migration expectation: two users cannot share the same email.
 - Migration expectation: existing membership rows remain valid when paid-through is null.
 
 **Verification:**
-- Schema exposes durable Workspace identity and paid-through coverage state.
+- Schema exposes paid-through coverage state without durable Workspace identity state.
 - Migration is additive and safe for existing production data.
 
 ---
@@ -318,11 +317,11 @@ sequenceDiagram
   - Require `users.import`.
   - Accept a bounded name/email query.
   - Call the Directory wrapper from U1.
-  - Check local users by `googleWorkspaceId` and primary email.
+  - Check local users by primary email.
   - Return narrow candidates with linked/unlinked status and only fields needed for disambiguation.
 - Import action:
   - Require `users.import`.
-  - Accept selected Google Workspace ID, admin-confirmed profile/org fields, personal email if needed, and membership coverage inputs.
+  - Accept a transient selected Google user handle, admin-confirmed profile/org fields, personal email if needed, and membership coverage inputs.
   - Re-fetch the selected Google user server-side by stable ID.
   - Verify it is still unlinked locally.
   - Create the local `user` and optional/manual membership coverage in one database transaction.
@@ -338,9 +337,9 @@ sequenceDiagram
 **Test scenarios:**
 - Covers AE1. Search returns an unlinked Workspace user and import creates a local user with no Google account creation.
 - Covers AE2. Search returns an already-linked Workspace user as disabled/non-importable.
-- Covers AE2. Import submit fails if another admin imported the same Google ID after search.
+- Covers AE2. Import submit fails if another admin created a local user with the same Google primary email after search.
 - Covers AE4. Import with future paid-through date creates membership coverage that delays payment setup.
-- Error path: import rejects a selected Google ID that cannot be re-fetched.
+- Error path: import rejects a selected Google user handle that cannot be re-fetched.
 - Error path: import rejects client-submitted email/name that does not match the re-fetched Google identity.
 - Permission path: non-import admins cannot search or import.
 
@@ -394,9 +393,9 @@ sequenceDiagram
 
 ---
 
-- U7. **Display imported identity and coverage**
+- U7. **Display imported membership coverage outside the table**
 
-**Goal:** Make imported Workspace identity and membership coverage visible after import.
+**Goal:** Make imported membership coverage understandable after import without displaying Google provider linkage in the people table.
 
 **Requirements:** R9, R15, R16, R17, R20; supports F3, AE4
 
@@ -406,25 +405,24 @@ sequenceDiagram
 - Modify: `src/db/people.ts`
 - Modify: `src/app/(authenticated)/(app)/people/[id]/profile-card.tsx`
 - Modify: `src/app/(authenticated)/(app)/people/[id]/contact-card.tsx`
-- Modify: `src/components/people-table.tsx`
 - Modify: `src/app/(authenticated)/(app)/membership/onboarding.tsx`
 
 **Approach:**
-- Extend people read models with safe Workspace identity display fields and paid-through date.
-- On the user detail page, show linked Google Workspace identity in profile/contact context.
-- In people list status, optionally distinguish imported covered members where useful without turning the table into a billing dashboard.
+- Extend detail read models with paid-through date where needed.
+- Do not show linked Google Workspace identity in profile/contact context; email is the durable user-facing account identifier.
+- In the people list, do not distinguish imported covered members or payment state; keep the table focused on member attributes.
 - On membership surfaces, make the covered-until state understandable when the imported user is still paid through a future date.
-- Keep fields minimum-disclosure: show what admins/users need, avoid stable Google IDs in UI.
+- Keep fields minimum-disclosure: show what admins/users need, avoid Google provider IDs in UI.
 
 **Patterns to follow:**
 - `ProfileCard` status display.
-- `PeopleTable` status badge and tooltip pattern.
+- `PeopleTable` compact user-list pattern.
 - `ContactCard` for email/contact grouping.
 
 **Test scenarios:**
 - Covers AE4. Imported covered member sees membership state indicating they are covered rather than payment pending.
-- Happy path: admin profile view shows linked Workspace email after import.
-- Edge case: user with no imported Workspace identity does not show empty identity chrome.
+- Happy path: admin profile view does not show a Google provider-link field after import.
+- Edge case: user with no paid-through date does not show empty coverage chrome.
 - Edge case: expired paid-through date shows payment-pending state after profile completion.
 
 **Verification:**
@@ -459,7 +457,7 @@ sequenceDiagram
 
 **Test scenarios:**
 - Covers AE1. Import action maps a Google candidate into a local user without invoking Google account creation.
-- Covers AE2. Already-linked Workspace identity cannot be imported twice.
+- Covers AE2. Workspace primary email cannot be imported twice.
 - Covers AE3. Create action blocks exact Workspace email conflict even if UI skipped the check.
 - Covers AE4. Future paid-through date suppresses payment setup until expiry.
 - Covers AE5. Normal complete-onboarding path still creates pending payment setup for new users.
@@ -475,7 +473,7 @@ sequenceDiagram
 
 - **Interaction graph:** People page gains a second admin flow; create-user action gains a preflight exact conflict check; import action creates local users and optional membership coverage without Inngest Google creation.
 - **Error propagation:** Google Directory failures should surface as retryable unavailable states in UI and block conflict-sensitive create/import submissions.
-- **State lifecycle risks:** Duplicate import prevention depends on a stable Google Workspace ID, a database uniqueness constraint, and submit-time revalidation.
+- **State lifecycle risks:** Duplicate import prevention depends on the local email uniqueness constraint and submit-time revalidation against Google primary email.
 - **API surface parity:** Server actions and UI permission wrappers must both respect `users.import`; server action authorization is authoritative.
 - **Integration coverage:** The create/import split needs cross-layer tests or testable domain helpers for Google lookup, database duplicate detection, and membership state.
 - **Unchanged invariants:** New-user onboarding still creates Google Workspace accounts and starts membership payment immediately after onboarding completion. GoCardless active subscriptions remain full memberships.
@@ -486,11 +484,11 @@ sequenceDiagram
 
 | Risk | Mitigation |
 |------|------------|
-| Import links the wrong Google Workspace identity | Lock selected candidate, display disambiguating fields, re-fetch by stable Google ID at submit, and avoid trusting client display fields |
+| Import selects the wrong Google Workspace user | Lock selected candidate during the request, display disambiguating fields, re-fetch server-side at submit, and avoid trusting client display fields |
 | Normal create flow still creates duplicates during races | Check exact conflict in UI and server action; treat workflow-level provider conflict as exceptional |
 | Imported paid-through members become stuck as full members forever | Use paid-through date semantics for manual/imported coverage and tests for expiry |
 | Google Directory search exposes too much PII | Return narrow candidate objects, permission-gate search, avoid logging raw payloads |
-| Database migration breaks existing users or memberships | Add nullable fields and unique constraints on nullable Workspace identity; keep existing GoCardless active semantics |
+| Database migration breaks existing users or memberships | Add only membership coverage state; do not add Google identity columns; keep existing GoCardless active semantics |
 | Lack of existing action/DB test harness slows coverage | Extract core decision logic into testable helpers and keep server actions thin |
 
 ---

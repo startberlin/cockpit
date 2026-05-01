@@ -80,7 +80,7 @@ export function ImportGoogleUserDialog({
       },
       formProps: {
         defaultValues: {
-          googleWorkspaceId: "",
+          googleWorkspaceUserId: "",
           firstName: "",
           lastName: "",
           batchNumber: batches[0]?.number ?? 0,
@@ -172,7 +172,7 @@ export function ImportGoogleUserDialog({
                     className="flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left text-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => {
                       setSelected(result);
-                      form.setValue("googleWorkspaceId", result.id, {
+                      form.setValue("googleWorkspaceUserId", result.id, {
                         shouldValidate: true,
                       });
                       form.setValue("firstName", result.givenName, {
@@ -214,10 +214,10 @@ export function ImportGoogleUserDialog({
         >
           {selected && (
             <Alert>
-              <AlertTitle>Selected Workspace identity</AlertTitle>
+              <AlertTitle>Selected Google Workspace user</AlertTitle>
               <AlertDescription>
-                {selected.name} ({selected.primaryEmail}) will be linked to the
-                imported START Cockpit user.
+                {selected.name} ({selected.primaryEmail}) will be used to create
+                the START Cockpit user.
               </AlertDescription>
             </Alert>
           )}

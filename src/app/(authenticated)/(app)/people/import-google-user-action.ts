@@ -32,31 +32,22 @@ export const searchGoogleWorkspaceUsersAction = actionClient
     }
 
     const localUsers = await db.query.user.findMany({
-      where: (users, { inArray, or }) =>
-        or(
-          inArray(
-            users.googleWorkspaceId,
-            workspaceUsers.map((user) => user.id),
-          ),
-          inArray(
-            users.email,
-            workspaceUsers.map((user) => user.primaryEmail),
-          ),
+      where: (users, { inArray }) =>
+        inArray(
+          users.email,
+          workspaceUsers.map((user) => user.primaryEmail),
         ),
       columns: {
         id: true,
         firstName: true,
         lastName: true,
         email: true,
-        googleWorkspaceId: true,
       },
     });
 
     return workspaceUsers.map((workspaceUser) => {
       const linkedUser = localUsers.find(
-        (user) =>
-          user.googleWorkspaceId === workspaceUser.id ||
-          user.email === workspaceUser.primaryEmail,
+        (user) => user.email === workspaceUser.primaryEmail,
       );
 
       return {
@@ -79,7 +70,9 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("You are not authorized to import Workspace users.");
     }
 
-    const workspaceUser = await getWorkspaceUser(parsedInput.googleWorkspaceId);
+    const workspaceUser = await getWorkspaceUser(
+      parsedInput.googleWorkspaceUserId,
+    );
 
     if (!workspaceUser) {
       throw new Error("The selected Google Workspace user no longer exists.");
@@ -99,11 +92,7 @@ export const importGoogleWorkspaceUserAction = actionClient
     }
 
     const existingUser = await db.query.user.findFirst({
-      where: (users, { eq, or }) =>
-        or(
-          eq(users.googleWorkspaceId, workspaceUser.id),
-          eq(users.email, workspaceUser.primaryEmail),
-        ),
+      where: (users, { eq }) => eq(users.email, workspaceUser.primaryEmail),
       columns: { id: true },
     });
 
@@ -127,7 +116,6 @@ export const importGoogleWorkspaceUserAction = actionClient
           id: newId("user"),
           name: `${parsedInput.firstName} ${parsedInput.lastName}`,
           email: workspaceUser.primaryEmail,
-          googleWorkspaceId: workspaceUser.id,
           firstName: parsedInput.firstName,
           lastName: parsedInput.lastName,
           personalEmail: "",

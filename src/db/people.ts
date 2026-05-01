@@ -12,14 +12,11 @@ export interface PublicUser {
   firstName: string;
   lastName: string;
   email: string;
-  googleWorkspaceId?: string | null;
   department: Department | null;
   batchNumber: number;
   status: UserStatus;
-  membershipViewState?: MembershipViewState;
   profileOnboardingComplete?: boolean;
   hasMembershipPayment?: boolean;
-  paidThroughAt?: Date | null;
 }
 
 export interface UserDetail {
@@ -27,7 +24,6 @@ export interface UserDetail {
   firstName: string;
   lastName: string;
   email: string;
-  googleWorkspaceId: string | null;
   personalEmail: string;
   phone: string | null;
   street: string | null;
@@ -60,7 +56,6 @@ export const getAllUserPublicData = actionClient.action(
         firstName: true,
         lastName: true,
         email: true,
-        googleWorkspaceId: true,
         emailVerified: true,
         image: true,
         createdAt: true,
@@ -93,17 +88,11 @@ export const getAllUserPublicData = actionClient.action(
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        googleWorkspaceId: user.googleWorkspaceId,
         department: user.department ?? null,
         batchNumber: user.batch.number,
         status: user.status,
-        membershipViewState: getMembershipViewState(
-          user,
-          user.membershipPayment,
-        ),
         profileOnboardingComplete: isProfileOnboardingComplete(user),
         hasMembershipPayment: !!user.membershipPayment,
-        paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
       };
     });
   },
@@ -136,7 +125,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
-    googleWorkspaceId: user.googleWorkspaceId,
     personalEmail: user.personalEmail,
     phone: user.phone,
     street: user.street,

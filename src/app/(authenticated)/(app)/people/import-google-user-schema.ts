@@ -22,7 +22,7 @@ export function normalizeImportedDepartment(
 
 export const importGoogleWorkspaceUserSchema = z
   .object({
-    googleWorkspaceId: z.string().min(1),
+    googleWorkspaceUserId: z.string().min(1),
     firstName: z.string().min(1, "Please enter a first name."),
     lastName: z.string().min(1, "Please enter a last name."),
     batchNumber: z.number("Please select a batch."),

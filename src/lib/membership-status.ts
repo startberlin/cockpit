@@ -20,9 +20,11 @@ export function getMembershipViewState(
   now = new Date(),
 ): MembershipViewState {
   const profileOnboardingComplete = getOnboardingProgress(user) === "completed";
-  const canContinueImportedBilling = isImportedBillingUser(user) && !!payment;
+  const canContinueBilling =
+    (user.status === "member" || user.status === "supporting_alumni") &&
+    !!payment;
 
-  if (!profileOnboardingComplete && !canContinueImportedBilling) {
+  if (!profileOnboardingComplete && !canContinueBilling) {
     return "profile_onboarding";
   }
 
@@ -52,13 +54,6 @@ export function getMembershipViewState(
 
 export function isProfileOnboardingComplete(user: User) {
   return getOnboardingProgress(user) === "completed";
-}
-
-function isImportedBillingUser(user: User) {
-  return (
-    !!user.googleWorkspaceId &&
-    (user.status === "member" || user.status === "supporting_alumni")
-  );
 }
 
 export function isPaymentPendingState(state: MembershipViewState) {

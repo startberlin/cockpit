@@ -3,9 +3,12 @@ title: People Org Chart View
 status: active
 created: 2026-04-28
 source: user request on 2026-04-28
+superseded_by: docs/brainstorms/2026-04-28-user-authority-organization-model-requirements.md
 ---
 
 # People Org Chart View Plan
+
+> Note: This plan was created before the broader authority and organization model brainstorm. Use `docs/brainstorms/2026-04-28-user-authority-organization-model-requirements.md` as the source of truth for user attributes, positions, access grants, and permission behavior before planning or implementing the org chart.
 
 ## Problem Frame
 

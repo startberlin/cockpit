@@ -32,7 +32,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
   const statusInfo = USER_STATUS_INFO[user.status];
   const isPaymentPending = user.membershipViewState === "payment_pending";
   const isPaymentProcessing = user.membershipViewState === "payment_processing";
-  const isImportedFromWorkspace = !!user.googleWorkspaceId;
   const hasPaidThroughCoverage = hasFutureCoverage(user.paidThroughAt);
   const paidThroughLabel = user.paidThroughAt
     ? formatDate(user.paidThroughAt)
@@ -60,11 +59,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
                     ? "Payment pending"
                     : statusInfo.label}
               </Badge>
-              {isImportedFromWorkspace && (
-                <Badge variant="secondary">
-                  Imported from Google Workspace
-                </Badge>
-              )}
               {isPaymentProcessing && (
                 <p className="text-sm text-muted-foreground">
                   Payment setup was started. GoCardless confirmation is still
@@ -117,21 +111,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
           </div>
 
           <Separator />
-
-          {isImportedFromWorkspace && (
-            <>
-              <div className="space-y-1.5">
-                <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                  Google Workspace
-                </p>
-                <p className="text-sm font-medium">{user.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  Linked Workspace ID: {user.googleWorkspaceId}
-                </p>
-              </div>
-              <Separator />
-            </>
-          )}
 
           {user.paidThroughAt && (
             <>

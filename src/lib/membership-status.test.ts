@@ -10,7 +10,6 @@ function user(overrides: Partial<User> = {}): User {
     id: "usr_123",
     name: "Ada Lovelace",
     email: "ada@example.com",
-    googleWorkspaceId: null,
     emailVerified: true,
     image: null,
     createdAt: now,
@@ -67,7 +66,7 @@ describe("getMembershipViewState", () => {
   it("keeps delayed-start GoCardless subscriptions full members after coverage date passes", () => {
     assert.equal(
       getMembershipViewState(
-        user({ googleWorkspaceId: "google-123", status: "member" }),
+        user({ status: "member" }),
         {
           status: "active",
           gocardlessSubscriptionId: "SB123",
@@ -83,7 +82,6 @@ describe("getMembershipViewState", () => {
     assert.equal(
       getMembershipViewState(
         user({
-          googleWorkspaceId: "google-123",
           personalEmail: "",
           status: "member",
         }),
@@ -101,7 +99,7 @@ describe("getMembershipViewState", () => {
   it("marks expired manual coverage without a subscription as payment pending", () => {
     assert.equal(
       getMembershipViewState(
-        user({ googleWorkspaceId: "google-123", status: "member" }),
+        user({ status: "member" }),
         { status: "active", paidThroughAt: new Date("2026-01-01") },
         now,
       ),
@@ -112,7 +110,7 @@ describe("getMembershipViewState", () => {
   it("keeps imported users with future paid-through coverage payment pending until billing is set up", () => {
     assert.equal(
       getMembershipViewState(
-        user({ googleWorkspaceId: "google-123", status: "member" }),
+        user({ status: "member" }),
         { status: "pending", paidThroughAt: new Date("2026-12-31") },
         now,
       ),
@@ -124,7 +122,6 @@ describe("getMembershipViewState", () => {
     assert.equal(
       getMembershipViewState(
         user({
-          googleWorkspaceId: "google-123",
           personalEmail: "",
           status: "member",
         }),
@@ -139,7 +136,6 @@ describe("getMembershipViewState", () => {
     assert.equal(
       getMembershipViewState(
         user({
-          googleWorkspaceId: "google-123",
           personalEmail: "",
           status: "supporting_alumni",
         }),
@@ -154,7 +150,6 @@ describe("getMembershipViewState", () => {
     assert.equal(
       getMembershipViewState(
         user({
-          googleWorkspaceId: "google-123",
           personalEmail: "",
           status: "member",
         }),
@@ -180,7 +175,6 @@ describe("getMembershipViewState", () => {
     assert.equal(
       getMembershipViewState(
         user({
-          googleWorkspaceId: "google-123",
           personalEmail: "",
           status: "alumni",
         }),

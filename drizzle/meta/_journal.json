@@ -64,6 +64,13 @@
       "when": 1777402633466,
       "tag": "0008_lowly_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777593600000,
+      "tag": "0009_drop_google_workspace_id",
+      "breakpoints": true
     }
   ]
 }

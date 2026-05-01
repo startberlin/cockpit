@@ -53,15 +53,6 @@ import { USER_STATUS_INFO } from "@/lib/user-status";
 import { Can } from "./can";
 import { Badge } from "./ui/badge";
 
-function formatDate(date: Date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 interface PeopleTableProps {
   data: PublicUser[];
   onCreateUserClick?: () => void;
@@ -99,54 +90,16 @@ const columns: ColumnDef<PublicUser>[] = [
     header: "Status",
     cell: ({ row }) => {
       const info = USER_STATUS_INFO[row.original.status];
-      const isPaymentPending =
-        row.original.membershipViewState === "payment_pending";
-      const isPaymentProcessing =
-        row.original.membershipViewState === "payment_processing";
-      const label = isPaymentProcessing
-        ? "Payment processing"
-        : isPaymentPending
-          ? "Payment pending"
-          : info.label;
-      const description = isPaymentProcessing
-        ? "The member has started payment setup and GoCardless confirmation is pending."
-        : isPaymentPending
-          ? "Membership billing setup is still pending."
-          : info.description;
 
       return (
-        <div className="flex flex-wrap gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className="capitalize">
-                {label}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent side="top">{description}</TooltipContent>
-          </Tooltip>
-          {row.original.googleWorkspaceId && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="secondary">Google</Badge>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                Linked to an existing Google Workspace user
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {row.original.paidThroughAt && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="secondary">
-                  Paid through {formatDate(row.original.paidThroughAt)}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                Imported membership payment coverage
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="capitalize">
+              {info.label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top">{info.description}</TooltipContent>
+        </Tooltip>
       );
     },
   },

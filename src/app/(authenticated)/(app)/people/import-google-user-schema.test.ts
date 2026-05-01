@@ -6,7 +6,7 @@ import {
 } from "./import-google-user-schema";
 
 const baseInput = {
-  googleWorkspaceId: "google_123",
+  googleWorkspaceUserId: "google_123",
   firstName: "Ada",
   lastName: "Lovelace",
   batchNumber: 1,
