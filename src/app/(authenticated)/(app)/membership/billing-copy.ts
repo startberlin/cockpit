@@ -48,7 +48,7 @@ export function getMembershipBillingCopy({
     if (coveredThrough) {
       return {
         title: "Set up your membership billing.",
-        description: `Your membership fee has been paid until ${coveredThrough}. Set up your yearly membership billing now; GoCardless will only charge you after your current membership period has ended.`,
+        description: `Your membership fee has been paid until ${coveredThrough}. Set up your yearly membership billing now. START Berlin will only charge you after your current membership period has ended.`,
         paymentNote: `You will not be charged before ${coveredThrough}.`,
       };
     }
