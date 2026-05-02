@@ -73,15 +73,15 @@ export const MembershipPaymentReadyEmail = ({
               your yearly START Berlin membership payment in START Cockpit.
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
-              The membership fee is 40 EUR and is due once per year for every
-              active member. It helps us cover essential administrative costs
-              for the association, including insurance, our tax advisor, and
-              notary fees.
+              Your START Berlin membership costs 40 EUR per year. It covers the
+              essentials that keep the association running and helps fund
+              internal and external events and member benefits throughout the
+              year.
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
-              To finalize your membership, open START Cockpit and set up the
-              payment through our secure GoCardless checkout. Once the setup is
-              complete, your membership will be activated automatically.
+              To finalize your membership, open START Cockpit and set up your
+              yearly membership payment. Once the setup is complete, your
+              membership will be activated automatically.
             </Text>
             <Section className="my-[24px]">
               <Button

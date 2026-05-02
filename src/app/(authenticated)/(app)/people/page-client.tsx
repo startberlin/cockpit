@@ -24,9 +24,9 @@ export default function PeoplePageClient({
   const handleSuccess = React.useCallback(() => {
     router.refresh();
 
-    toast.success("Creating user...", {
+    toast.success("Adding member...", {
       description:
-        "It may take a few minutes for the user to appear in the list.",
+        "It may take a few minutes for the member to appear in the list.",
     });
   }, [router]);
 
@@ -49,7 +49,7 @@ export default function PeoplePageClient({
         batches={batches}
         onSuccess={() => {
           router.refresh();
-          toast.success("Google Workspace user imported");
+          toast.success("Member imported from Google Workspace");
         }}
       />
     </>

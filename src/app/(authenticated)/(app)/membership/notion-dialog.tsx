@@ -39,6 +39,10 @@ export function NotionDialog({
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const title = `${actionLabel} Notion`;
+  const description =
+    actionLabel === "Join"
+      ? "Join Notion to access START Berlin resources, project docs, and internal information."
+      : "Open Notion to access START Berlin resources, project docs, and internal information.";
 
   if (isDesktop) {
     return (
@@ -49,10 +53,7 @@ export function NotionDialog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
-              Set up your Notion account to stay updated with the latest news
-              and announcements.
-            </DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           <Empty className="h-full bg-gray-50 ring-1 ring-inset ring-gray-200">
             <EmptyHeader>
@@ -88,10 +89,7 @@ export function NotionDialog({
       <DrawerContent>
         <DrawerHeader className="text-left">
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>
-            Set up your Notion account to stay updated with the latest news and
-            announcements.
-          </DrawerDescription>
+          <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
 
         <Empty className="h-full bg-gray-50 ring-1 ring-inset ring-gray-200">

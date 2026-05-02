@@ -5,7 +5,7 @@ import GroupsPageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Groups",
-  description: "View groups you're part of and manage them.",
+  description: "View and manage START Berlin groups.",
 });
 
 export default async function GroupsPage() {

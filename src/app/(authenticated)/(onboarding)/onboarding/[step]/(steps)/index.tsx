@@ -29,21 +29,21 @@ interface StepDefinition {
 export const STEP_DEFINITIONS: Record<OnboardingStep, StepDefinition> = {
   [ONBOARDING_STEPS.WELCOME]: {
     component: StepWelcome,
-    title: "Welcome to START Cockpit",
+    title: "Welcome to START Berlin",
     description:
-      "START Cockpit is your central platform to manage your membership, access software and more. Get started by setting up your account.",
+      "Let's finish the details START needs for your membership. This only takes a few minutes.",
   },
   [ONBOARDING_STEPS.MASTER_DATA]: {
     component: StepMasterData,
-    title: "Set up your account",
+    title: "Your contact details",
     description:
-      "We need to know how to contact you for your START Berlin membership. You can update these details later in case you change your email or phone number.",
+      "Add the email address and phone number START Berlin can use to reach you.",
   },
   [ONBOARDING_STEPS.ADDRESS]: {
     component: StepAddress,
     title: "Your address",
     description:
-      "Provide your current address so we can keep our records up to date.",
+      "Add your current address so START Berlin can keep its membership records up to date.",
   },
 };
 

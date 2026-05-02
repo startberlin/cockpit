@@ -11,7 +11,9 @@ export function PaymentButton() {
   const { execute, status } = useAction(startMembershipPaymentAction, {
     onSuccess: ({ data }) => {
       if (!data?.hostedUrl) {
-        toast.error("Could not start payment setup.");
+        toast.error(
+          "Could not start payment setup. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
         return;
       }
 

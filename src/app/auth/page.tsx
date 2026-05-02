@@ -15,7 +15,8 @@ import Google from "./google";
 
 export const metadata = createMetadata({
   title: "Cockpit",
-  description: "Manage your membership, get access to software and more.",
+  description:
+    "Sign in to START Cockpit with your START Berlin Google account.",
 });
 
 function ErrorCard({ error }: { error: string }) {
@@ -23,19 +24,19 @@ function ErrorCard({ error }: { error: string }) {
     return (
       <Card className="border-red-500">
         <CardHeader>
-          <CardTitle>Something went wrong</CardTitle>
+          <CardTitle>Your account is not ready yet</CardTitle>
           <CardDescription>
-            An admin first needs to enable your account before you can use START
-            Cockpit.
+            A START Berlin admin needs to enable your account before you can
+            sign in.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">
-            Message{" "}
+            If you think this is a mistake, email{" "}
             <a href="mailto:operations@start-berlin.com" className="underline">
               operations@start-berlin.com
-            </a>{" "}
-            for help.
+            </a>
+            .
           </div>
         </CardContent>
       </Card>

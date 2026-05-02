@@ -116,11 +116,11 @@ export default function GroupCriteriaManager({
 
         if (addedUsersCount > 0) {
           toast.success(
-            `Auto-add criteria created successfully! ${addedUsersCount} existing user${addedUsersCount === 1 ? "" : "s"} added to the group.`,
+            `Matching rule created. ${addedUsersCount} existing member${addedUsersCount === 1 ? "" : "s"} added to the group.`,
           );
         } else {
           toast.success(
-            "Auto-add criteria created successfully! No existing users matched the criteria.",
+            "Matching rule created. No existing members matched the rule.",
           );
         }
 
@@ -129,7 +129,9 @@ export default function GroupCriteriaManager({
         onCriteriaChange();
       } catch (error) {
         console.error("Error adding criteria:", error);
-        toast.error("Failed to create auto-add criteria");
+        toast.error(
+          "Could not create matching rule. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
       }
     });
   };
@@ -145,11 +147,13 @@ export default function GroupCriteriaManager({
           throw new Error("Failed to remove criteria");
         }
 
-        toast.success("Auto-add criteria removed");
+        toast.success("Matching rule removed");
         onCriteriaChange();
       } catch (error) {
         console.error("Error removing criteria:", error);
-        toast.error("Failed to remove auto-add criteria");
+        toast.error(
+          "Could not remove matching rule. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
       }
     });
   };
@@ -182,7 +186,7 @@ export default function GroupCriteriaManager({
       parts.push(`Batch: ${criteria.batchNumber}`);
     }
 
-    return parts.length > 0 ? parts.join(" • ") : "No specific criteria";
+    return parts.length > 0 ? parts.join(" • ") : "No specific rule";
   };
 
   return (
@@ -190,22 +194,22 @@ export default function GroupCriteriaManager({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Filter className="h-5 w-5" />
-          <h3 className="text-lg font-semibold">Auto-Add Criteria</h3>
+          <h3 className="text-lg font-semibold">Matching rules</h3>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Add Criteria
+              Add rule
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Add Auto-Add Criteria</DialogTitle>
+              <DialogTitle>Add matching rule</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="criteria-name">Criteria Name</Label>
+                <Label htmlFor="criteria-name">Rule name</Label>
                 <Input
                   id="criteria-name"
                   placeholder="e.g., 'New Community Members'"
@@ -313,7 +317,7 @@ export default function GroupCriteriaManager({
                   onClick={handleAddCriteria}
                   disabled={!formData.name.trim() || isPending}
                 >
-                  {isPending ? "Adding..." : "Add Criteria"}
+                  {isPending ? "Adding..." : "Add rule"}
                 </Button>
               </div>
             </div>
@@ -346,8 +350,8 @@ export default function GroupCriteriaManager({
                   {formatCriteriaDisplay(criteriaItem)}
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Future users matching these criteria will be automatically
-                  added to this group.
+                  Future members matching this rule will be automatically added
+                  to this group.
                 </p>
               </CardContent>
             </Card>
@@ -358,15 +362,15 @@ export default function GroupCriteriaManager({
           <CardContent className="flex flex-col items-center justify-center py-8">
             <Users className="h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No Auto-Add Criteria
+              No matching rules
             </h3>
             <p className="text-sm text-gray-600 text-center max-w-sm mb-4">
-              Set up criteria to automatically add future users to this group
-              when they match specific attributes.
+              Automatically add future members to this group when they match the
+              rule.
             </p>
             <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Your First Criteria
+              Add your first rule
             </Button>
           </CardContent>
         </Card>

@@ -163,8 +163,9 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                   />
                   <FieldDescription className="flex flex-row gap-1.5 pt-0.5 text-xs">
                     <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    Use a personal email you’ll keep long-term (not a school or
-                    work address).
+                    Use a personal email address you’ll keep long-term. Avoid
+                    school or work addresses that you might lose access to
+                    later.
                   </FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
@@ -197,7 +198,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
         {form.formState.errors.root && (
           <Alert className="text-destructive text-sm" variant="destructive">
             <AlertCircleIcon className="h-4 w-4" />
-            <AlertTitle>An error occured</AlertTitle>
+            <AlertTitle>An error occurred</AlertTitle>
             <AlertDescription>
               <p>{form.formState.errors.root.message}</p>
             </AlertDescription>

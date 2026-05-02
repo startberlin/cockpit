@@ -209,7 +209,7 @@ export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No groups match this search.
                 </TableCell>
               </TableRow>
             )}

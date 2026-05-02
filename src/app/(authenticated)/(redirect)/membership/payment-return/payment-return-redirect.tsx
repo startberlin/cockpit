@@ -31,7 +31,7 @@ export function PaymentReturnRedirect({
       setError(
         "message" in result
           ? result.message
-          : "We could not finish setting up your membership payment.",
+          : "Could not finish your membership payment setup. Please try again from the membership page. If this keeps happening, email operations@start-berlin.com.",
       );
     }
 

@@ -7,7 +7,7 @@ import { MembershipPageContent } from "./onboarding";
 
 export const metadata = createMetadata({
   title: "Cockpit",
-  description: "Manage your membership, get access to software and more.",
+  description: "View your START Berlin membership status and tools.",
 });
 
 export default async function Home() {

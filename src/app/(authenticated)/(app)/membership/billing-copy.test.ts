@@ -15,8 +15,9 @@ describe("getMembershipBillingCopy", () => {
       now,
     });
 
-    assert.match(copy.description, /paid until September 30, 2026/);
-    assert.match(copy.description, /only charge you after/);
+    assert.equal(copy.title, "Set up your yearly membership payment");
+    assert.match(copy.description, /covered through September 30, 2026/);
+    assert.match(copy.description, /will not be charged before then/);
     assert.match(copy.paymentNote ?? "", /not be charged before/);
   });
 
@@ -27,8 +28,9 @@ describe("getMembershipBillingCopy", () => {
       now,
     });
 
-    assert.match(copy.description, /Set up your yearly membership billing/);
-    assert.match(copy.description, /collected as soon as GoCardless confirms/);
+    assert.equal(copy.title, "Set up your yearly membership payment");
+    assert.match(copy.description, /40 EUR per year/);
+    assert.match(copy.description, /internal and external events/);
     assert.equal(copy.paymentNote, null);
   });
 
@@ -39,8 +41,8 @@ describe("getMembershipBillingCopy", () => {
       now,
     });
 
-    assert.doesNotMatch(copy.description, /paid until/);
-    assert.doesNotMatch(copy.description, /only charge you after/);
+    assert.doesNotMatch(copy.description, /covered through/);
+    assert.doesNotMatch(copy.description, /not be charged before/);
     assert.equal(copy.paymentNote, null);
   });
 
@@ -51,8 +53,9 @@ describe("getMembershipBillingCopy", () => {
       now,
     });
 
-    assert.equal(copy.title, "Your membership is active.");
-    assert.match(copy.description, /yearly membership billing is active/);
+    assert.equal(copy.title, "Your membership is active");
+    assert.match(copy.description, /yearly membership payment is set up/);
+    assert.match(copy.description, /Thanks for being part/);
   });
 
   it("shows active membership paid-through context when available", () => {
@@ -63,6 +66,30 @@ describe("getMembershipBillingCopy", () => {
     });
 
     assert.match(copy.description, /covered through September 30, 2026/);
+    assert.match(copy.description, /yearly membership payment is set up/);
+  });
+
+  it("thanks supporting alumni for their support", () => {
+    const copy = getMembershipBillingCopy({
+      mode: "full_member",
+      userStatus: "supporting_alumni",
+      paidThroughAt: null,
+      now,
+    });
+
+    assert.equal(copy.title, "Thanks for supporting START Berlin");
+    assert.match(copy.description, /continuing to support the community/);
+  });
+
+  it("uses calm alumni copy without payment setup", () => {
+    const copy = getMembershipBillingCopy({
+      mode: "profile_onboarding",
+      userStatus: "alumni",
+      now,
+    });
+
+    assert.equal(copy.title, "You're listed as alumni");
+    assert.match(copy.description, /No membership payment is needed/);
   });
 
   it("only uses onboarding welcome copy for onboarding users", () => {
@@ -72,8 +99,19 @@ describe("getMembershipBillingCopy", () => {
       now,
     });
 
-    assert.equal(copy.title, "Your alumni status is active.");
+    assert.equal(copy.title, "You're listed as alumni");
     assert.doesNotMatch(copy.description, /onboarding phase/);
+  });
+
+  it("uses simple processing copy", () => {
+    const copy = getMembershipBillingCopy({
+      mode: "payment_processing",
+      now,
+    });
+
+    assert.equal(copy.title, "Finishing your membership setup");
+    assert.match(copy.description, /updating your membership status/);
+    assert.doesNotMatch(copy.description, /GoCardless/);
   });
 });
 
@@ -81,26 +119,29 @@ describe("getMembershipToolsCopy", () => {
   it("uses onboarding tool wording for onboarding users", () => {
     assert.deepEqual(getMembershipToolsCopy("onboarding"), {
       visible: true,
-      title: "First steps",
-      description: "Set up your most important software accounts",
+      title: "Get connected",
+      description:
+        "Join the START Berlin workspaces where members coordinate, share resources, and work on projects.",
       actionLabel: "Join",
     });
   });
 
-  it("uses software wording for members", () => {
+  it("uses workspace wording for members", () => {
     assert.deepEqual(getMembershipToolsCopy("member"), {
       visible: true,
-      title: "Your software & tools",
-      description: "Open the software accounts available to you",
+      title: "Your START Berlin tools",
+      description:
+        "Open the workspaces you use for communication, projects, and resources.",
       actionLabel: "Open",
     });
   });
 
-  it("uses software wording for supporting alumni", () => {
+  it("uses workspace wording for supporting alumni", () => {
     assert.deepEqual(getMembershipToolsCopy("supporting_alumni"), {
       visible: true,
-      title: "Your software & tools",
-      description: "Open the software accounts available to you",
+      title: "Your START Berlin tools",
+      description:
+        "Open the workspaces you use for communication, projects, and resources.",
       actionLabel: "Open",
     });
   });

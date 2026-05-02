@@ -120,7 +120,7 @@ export function ImportGoogleUserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import Google user</DialogTitle>
+          <DialogTitle>Import from Google Workspace</DialogTitle>
           <DialogDescription>
             Add someone who already has a Google Workspace account to START
             Cockpit without creating a new Google account.
@@ -214,7 +214,7 @@ export function ImportGoogleUserDialog({
         >
           {selected && (
             <Alert>
-              <AlertTitle>Selected Google Workspace user</AlertTitle>
+              <AlertTitle>Selected Google Workspace member</AlertTitle>
               <AlertDescription>
                 {selected.name} ({selected.primaryEmail}) will be used to create
                 the START Cockpit user.
@@ -223,7 +223,7 @@ export function ImportGoogleUserDialog({
           )}
 
           <FieldSet>
-            <FieldLegend>Local profile</FieldLegend>
+            <FieldLegend>START Cockpit profile</FieldLegend>
             <FieldGroup>
               <div className="flex gap-4">
                 <Field className="flex-1">
@@ -341,8 +341,8 @@ export function ImportGoogleUserDialog({
               <FieldDescription>
                 If this person has already paid for their active membership
                 period, enter the date their membership is covered through.
-                START Cockpit will schedule the first yearly charge after this
-                date.
+                START Cockpit will schedule the first yearly membership payment
+                after this date.
               </FieldDescription>
               <Field>
                 <FieldLabel htmlFor="paidThroughAt">Paid through</FieldLabel>
@@ -353,7 +353,7 @@ export function ImportGoogleUserDialog({
                   {...form.register("paidThroughAt")}
                 />
                 <FieldDescription>
-                  Leave empty if the member should be billed immediately after
+                  Leave empty if the member should set up payment right after
                   onboarding.
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.paidThroughAt]} />
@@ -364,7 +364,7 @@ export function ImportGoogleUserDialog({
           {form.formState.errors.root && (
             <Alert className="text-destructive text-sm" variant="destructive">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>Could not import user</AlertTitle>
+              <AlertTitle>Could not import member</AlertTitle>
               <AlertDescription>
                 <p>{form.formState.errors.root.message}</p>
               </AlertDescription>
@@ -376,7 +376,7 @@ export function ImportGoogleUserDialog({
               type="submit"
               disabled={!form.formState.isValid || action.isPending}
             >
-              {action.isPending ? "Importing..." : "Import user"}
+              {action.isPending ? "Importing..." : "Import member"}
             </Button>
           </div>
         </form>

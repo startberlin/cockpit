@@ -120,8 +120,8 @@ function ToolsSection({
             <CardTitle>{slackTitle}</CardTitle>
             <CardDescription>
               {actionLabel === "Join"
-                ? "Set up your Slack account to stay updated with the latest news and announcements."
-                : "Open Slack to stay updated with the latest news and announcements."}
+                ? "Join Slack for START Berlin communication, updates, and day-to-day coordination."
+                : "Open Slack for START Berlin communication, updates, and day-to-day coordination."}
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">
@@ -140,8 +140,8 @@ function ToolsSection({
             <CardTitle>{notionTitle}</CardTitle>
             <CardDescription>
               {actionLabel === "Join"
-                ? "Set up your Notion account to collaborate on projects, task management, and more."
-                : "Open Notion to collaborate on projects, task management, and more."}
+                ? "Join Notion to access START Berlin resources, project docs, and internal information."
+                : "Open Notion to access START Berlin resources, project docs, and internal information."}
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex-col items-start gap-1.5 text-sm">

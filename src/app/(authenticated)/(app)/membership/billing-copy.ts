@@ -34,9 +34,9 @@ export function getMembershipBillingCopy({
 }) {
   if (mode === "payment_processing") {
     return {
-      title: "Confirming your payment setup.",
+      title: "Finishing your membership setup",
       description:
-        "We're waiting for GoCardless to confirm your membership payment setup. This usually takes a moment.",
+        "We're updating your membership status. This usually only takes a moment.",
       paymentNote: null,
     };
   }
@@ -47,45 +47,54 @@ export function getMembershipBillingCopy({
 
     if (coveredThrough) {
       return {
-        title: "Set up your membership billing.",
-        description: `Your membership fee has been paid until ${coveredThrough}. Set up your yearly membership billing now. START Berlin will only charge you after your current membership period has ended.`,
+        title: "Set up your yearly membership payment",
+        description: `Your START Berlin membership costs 40 EUR per year. It covers the essentials that keep the association running and helps fund internal and external events and member benefits throughout the year. Your current membership period is covered through ${coveredThrough}, so you will not be charged before then.`,
         paymentNote: `You will not be charged before ${coveredThrough}.`,
       };
     }
 
     return {
-      title: "Set up your membership billing.",
+      title: "Set up your yearly membership payment",
       description:
-        "Set up your yearly membership billing. Your first membership fee will be collected as soon as GoCardless confirms the setup.",
+        "Your START Berlin membership costs 40 EUR per year. It covers the essentials that keep the association running and helps fund internal and external events and member benefits throughout the year.",
       paymentNote: null,
     };
   }
 
   if (mode === "full_member") {
+    if (userStatus === "supporting_alumni") {
+      return {
+        title: "Thanks for supporting START Berlin",
+        description:
+          "Your yearly payment is set up. Thank you for continuing to support the community as alumni.",
+        paymentNote: null,
+      };
+    }
+
     const coveredThrough =
       paidThroughAt && paidThroughAt >= now ? formatDate(paidThroughAt) : null;
 
     if (coveredThrough) {
       return {
-        title: "Your membership is active.",
-        description: `Your current membership period is covered through ${coveredThrough}. Your yearly billing is set up for the following period.`,
+        title: "Your membership is active",
+        description: `Your current membership period is covered through ${coveredThrough}. Your yearly membership payment is set up for the following period.`,
         paymentNote: null,
       };
     }
 
     return {
-      title: "Your membership is active.",
+      title: "Your membership is active",
       description:
-        "Your yearly membership billing is active. Future membership actions will appear here.",
+        "Your yearly membership payment is set up. Thanks for being part of START Berlin.",
       paymentNote: null,
     };
   }
 
   if (userStatus === "alumni") {
     return {
-      title: "Your alumni status is active.",
+      title: "You're listed as alumni",
       description:
-        "You currently do not have an active paid membership. Membership actions will appear here when they are available.",
+        "No membership payment is needed. START Cockpit will show anything relevant to your alumni status here.",
       paymentNote: null,
     };
   }
@@ -113,16 +122,18 @@ export function getMembershipToolsCopy(
   if (status === "onboarding") {
     return {
       visible: true,
-      title: "First steps",
-      description: "Set up your most important software accounts",
+      title: "Get connected",
+      description:
+        "Join the START Berlin workspaces where members coordinate, share resources, and work on projects.",
       actionLabel: "Join",
     };
   }
 
   return {
     visible: true,
-    title: "Your software & tools",
-    description: "Open the software accounts available to you",
+    title: "Your START Berlin tools",
+    description:
+      "Open the workspaces you use for communication, projects, and resources.",
     actionLabel: "Open",
   };
 }

@@ -115,10 +115,10 @@ export function CreateUserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create user</DialogTitle>
+          <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Invite a new user to START Cockpit. This will create a new Google
-            account and send an invite to the user's personal email address.
+            Add a new member to START Cockpit. This will create a START Berlin
+            Google account and send an invite to their personal email address.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -185,8 +185,8 @@ export function CreateUserDialog({
                       : emailConflict
                         ? "This Google Workspace account already exists. Import the existing user instead."
                         : emailCheckUnavailable
-                          ? "Could not check Google Workspace right now. Try again before creating the user."
-                          : "This is the Google Workspace email START Cockpit will create."}
+                          ? "Could not check Google Workspace right now. Try again before adding the member."
+                          : "This will become their START Berlin email address."}
                   </FieldDescription>
                 </Field>
               )}
@@ -292,7 +292,7 @@ export function CreateUserDialog({
           {form.formState.errors.root && (
             <Alert className="text-destructive text-sm" variant="destructive">
               <AlertCircleIcon className="h-4 w-4" />
-              <AlertTitle>An error occured</AlertTitle>
+              <AlertTitle>An error occurred</AlertTitle>
               <AlertDescription>
                 <p>{form.formState.errors.root.message}</p>
               </AlertDescription>
@@ -310,7 +310,7 @@ export function CreateUserDialog({
                 emailCheckUnavailable
               }
             >
-              Create
+              Add member
             </Button>
           </div>
         </form>

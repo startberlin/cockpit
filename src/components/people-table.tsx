@@ -146,17 +146,19 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
       router.refresh();
       toast.success(
         data?.alreadyCompleted
-          ? "Onboarding was already completed"
-          : "Onboarding completed",
+          ? "Member was already invited to finalize membership"
+          : "Member invited to finalize membership",
         {
           description: data?.alreadyCompleted
-            ? "The member can already set up their payment."
-            : "The member has been emailed and can now set up payment.",
+            ? "They can already set up their yearly membership payment."
+            : "They can now set up their yearly membership payment.",
         },
       );
     },
     onError: () => {
-      toast.error("Failed to complete onboarding");
+      toast.error(
+        "Could not invite member to finalize membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     },
   });
 
@@ -169,16 +171,17 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
           setOpen(true);
         }}
       >
-        Complete onboarding
+        Invite to finalize membership
       </DropdownMenuItem>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Complete onboarding?</DialogTitle>
+            <DialogTitle>
+              Invite {user.firstName} {user.lastName} to finalize membership?
+            </DialogTitle>
             <DialogDescription>
-              This will mark {user.firstName} {user.lastName}'s onboarding as
-              complete and send an email to {user.email} so they can finalize
-              their membership and set up the membership payment.
+              This marks their onboarding as complete and asks them to set up
+              their yearly membership payment.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -195,7 +198,7 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
               disabled={isPending}
               onClick={() => execute({ userId: user.id })}
             >
-              {isPending ? "Completing..." : "Complete onboarding"}
+              {isPending ? "Inviting..." : "Invite to finalize membership"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -252,13 +255,13 @@ export function PeopleTable({
             onClick={onCreateUserClick}
           >
             <Plus />
-            Create user
+            Add member
           </Button>
         </Can>
         <Can permission="users.import">
           <Button variant="outline" onClick={onImportUserClick}>
             <Download />
-            Import Google user
+            Import from Google Workspace
           </Button>
         </Can>
       </div>
@@ -313,7 +316,7 @@ export function PeopleTable({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No members match this search.
                 </TableCell>
               </TableRow>
             )}

@@ -107,7 +107,9 @@ export default function BulkAddUsersDialog({
       const users = await response.json();
       setPreviewUsers(users);
     } catch (error) {
-      toast.error("Failed to fetch matching users");
+      toast.error(
+        "Could not load matching members. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -182,7 +184,9 @@ export default function BulkAddUsersDialog({
         `Added ${previewUsers.length} user${previewUsers.length !== 1 ? "s" : ""} to the group`,
       );
     } catch (error) {
-      toast.error("Failed to add users to group");
+      toast.error(
+        "Could not add members to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
       console.error(error);
     } finally {
       setIsAdding(false);
@@ -237,9 +241,9 @@ export default function BulkAddUsersDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Users by Criteria</DialogTitle>
+          <DialogTitle>Add matching members</DialogTitle>
           <DialogDescription>
-            Select criteria to add multiple users to this group at once.
+            Select rules to add multiple matching members to this group at once.
           </DialogDescription>
         </DialogHeader>
 
@@ -358,7 +362,7 @@ export default function BulkAddUsersDialog({
               criteria.statuses.length > 0 ||
               criteria.batchNumbers.length > 0) && (
               <div className="text-center py-4 text-muted-foreground">
-                No users match the selected criteria
+                No members match the selected rules
               </div>
             )}
         </div>

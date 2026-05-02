@@ -77,7 +77,9 @@ export default function GroupDetailClient({
         const result = await searchUsersNotInGroupAction(group.id, query);
         setSearchResults(result);
       } catch (_error) {
-        toast.error("Failed to load users");
+        toast.error(
+          "Could not load members. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
       } finally {
         setIsSearching(false);
       }
@@ -124,7 +126,9 @@ export default function GroupDetailClient({
       setSearchResults([]);
       toast.success(`Added ${user.firstName} ${user.lastName} to the group`);
     } catch (_error) {
-      toast.error("Failed to add member to group");
+      toast.error(
+        "Could not add member to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     }
   };
 
@@ -141,7 +145,9 @@ export default function GroupDetailClient({
         `Removed ${member.firstName} ${member.lastName} from the group`,
       );
     } catch (_error) {
-      toast.error("Failed to remove member from group");
+      toast.error(
+        "Could not remove member from group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     }
   };
 
@@ -168,7 +174,9 @@ export default function GroupDetailClient({
         `Changed ${member.firstName} ${member.lastName}'s role to ${newRole}`,
       );
     } catch (_error) {
-      toast.error("Failed to update member role");
+      toast.error(
+        "Could not update member role. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     }
   };
 
@@ -342,7 +350,7 @@ export default function GroupDetailClient({
         </Card>
       </div>
 
-      {/* Auto-Add Criteria Section */}
+      {/* Matching rules section */}
       <Can permission="groups.manage_members">
         <Card>
           <CardContent className="p-6">

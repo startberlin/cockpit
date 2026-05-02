@@ -31,11 +31,15 @@ export default function Google() {
 
       if (!result.error) return;
 
-      toast.error("Failed Google sign in");
+      toast.error(
+        "Could not sign you in with Google. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     } catch (error) {
       console.error(error);
 
-      toast.error("Failed Google sign in");
+      toast.error(
+        "Could not sign you in with Google. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     } finally {
       setIsLoading(false);
     }

@@ -39,9 +39,14 @@ interface SlackDialogContentProps {
   exists: boolean;
   isLoading: boolean;
   isError: boolean;
+  actionLabel: string;
 }
 
-function SlackDialogContent({ exists, isLoading }: SlackDialogContentProps) {
+function SlackDialogContent({
+  exists,
+  isLoading,
+  actionLabel,
+}: SlackDialogContentProps) {
   if (isLoading) {
     return (
       <div className="flex flex-col w-full items-center">
@@ -106,8 +111,9 @@ function SlackDialogContent({ exists, isLoading }: SlackDialogContentProps) {
                 </EmptyMedia>
                 <EmptyTitle className="text-sm">Open Slack</EmptyTitle>
                 <EmptyDescription>
-                  Open Slack to stay updated with the latest news and
-                  announcements.
+                  {actionLabel === "Join"
+                    ? "Join Slack for START Berlin communication, updates, and day-to-day coordination."
+                    : "Open Slack for START Berlin communication, updates, and day-to-day coordination."}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -164,6 +170,10 @@ export function SlackDialog({
   const isLoading = status === "executing" || status === "idle";
   const isError = !!result.serverError;
   const title = `${actionLabel} Slack`;
+  const description =
+    actionLabel === "Join"
+      ? "Join Slack for START Berlin communication, updates, and day-to-day coordination."
+      : "Open Slack for START Berlin communication, updates, and day-to-day coordination.";
 
   if (isDesktop) {
     return (
@@ -174,15 +184,13 @@ export function SlackDialog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
-              Set up your Slack account to stay updated with the latest news and
-              announcements.
-            </DialogDescription>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           <SlackDialogContent
             exists={exists}
             isLoading={isLoading}
             isError={isError}
+            actionLabel={actionLabel}
           />
         </DialogContent>
       </Dialog>
@@ -197,16 +205,14 @@ export function SlackDialog({
       <DrawerContent>
         <DrawerHeader className="text-left">
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>
-            Set up your Slack account to stay updated with the latest news and
-            announcements.
-          </DrawerDescription>
+          <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
 
         <SlackDialogContent
           exists={exists}
           isLoading={isLoading}
           isError={isError}
+          actionLabel={actionLabel}
         />
       </DrawerContent>
     </Drawer>

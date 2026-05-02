@@ -7,7 +7,7 @@ import PeoplePageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Cockpit",
-  description: "Manage your membership, get access to software and more.",
+  description: "Manage START Berlin members.",
 });
 
 export default async function Home() {
@@ -17,7 +17,7 @@ export default async function Home() {
   });
 
   if (!users.data) {
-    return <p>No users found</p>;
+    return <p>No members found</p>;
   }
 
   return <PeoplePageClient users={users.data} batches={batches} />;

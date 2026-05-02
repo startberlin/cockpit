@@ -63,8 +63,7 @@ export function StepAddress({ user }: StepAddressProps) {
     <div className="p-0">
       <FieldDescription className="flex flex-row gap-1.5 pt-0.5 text-xs mb-6">
         <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Your information is only visible on a need-to-know basis and handled
-        securely.
+        We only show this to people who need it for administration.
       </FieldDescription>
       <form className="flex flex-col gap-y-8" onSubmit={handleSubmitWithAction}>
         <FieldSet>

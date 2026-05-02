@@ -28,7 +28,8 @@ const avenirNext = localFont({
 
 export const metadata = createMetadata({
   title: "Cockpit",
-  description: "Manage your membership, get access to software and more.",
+  description:
+    "Sign in to START Cockpit with your START Berlin Google account.",
 });
 
 export default function RootLayout({
