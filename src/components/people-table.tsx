@@ -50,7 +50,7 @@ import {
 import type { PublicUser } from "@/db/people";
 import { DEPARTMENTS } from "@/lib/enums";
 import { USER_STATUS_INFO } from "@/lib/user-status";
-import { Can } from "./can";
+import { Can, useCan } from "./can";
 import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
@@ -126,7 +126,10 @@ const columns: ColumnDef<PublicUser>[] = [
             {user.status === "onboarding" &&
               user.profileOnboardingComplete &&
               !user.hasMembershipPayment && (
-                <Can permission="users.complete_onboarding">
+                <Can
+                  permission="users.complete_onboarding"
+                  context={{ targetDepartment: user.department }}
+                >
                   <CompleteOnboardingMenuItem user={user} />
                 </Can>
               )}
@@ -213,6 +216,7 @@ export function PeopleTable({
   onImportUserClick,
 }: PeopleTableProps) {
   const router = useRouter();
+  const can = useCan();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -236,6 +240,9 @@ export function PeopleTable({
       rowSelection,
     },
   });
+
+  const canOpenMemberProfile = (member: PublicUser) =>
+    can("users.view_details", { targetDepartment: member.department });
 
   return (
     <div className="w-full">
@@ -285,31 +292,41 @@ export function PeopleTable({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="cursor-pointer"
-                  onClick={() => router.push(`/people/${row.original.id}`)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      onClick={(e) => {
-                        // Prevent navigation when clicking on actions column
-                        if (cell.column.id === "actions") {
-                          e.stopPropagation();
-                        }
-                      }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const canOpenProfile = canOpenMemberProfile(row.original);
+
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={
+                      canOpenProfile ? "cursor-pointer" : "hover:bg-transparent"
+                    }
+                    onClick={
+                      canOpenProfile
+                        ? () => router.push(`/people/${row.original.id}`)
+                        : undefined
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        onClick={(e) => {
+                          // Prevent navigation when clicking on actions column
+                          if (cell.column.id === "actions") {
+                            e.stopPropagation();
+                          }
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell

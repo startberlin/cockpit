@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getGroupDetailRaw } from "@/db/groups";
+import { canViewGroup, getGroupDetailRaw } from "@/db/groups";
 import { createMetadata } from "@/lib/metadata";
 import GroupDetailClient from "./page-client";
 
@@ -9,6 +9,15 @@ interface GroupPageProps {
 
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
+  const mayViewGroup = await canViewGroup(id);
+
+  if (!mayViewGroup) {
+    return createMetadata({
+      title: "Group",
+      description: "View a START Berlin group.",
+    });
+  }
+
   const group = await getGroupDetailRaw(id);
 
   if (!group) {
@@ -26,6 +35,12 @@ export async function generateMetadata({ params }: GroupPageProps) {
 
 export default async function GroupPage({ params }: GroupPageProps) {
   const { id } = await params;
+  const mayViewGroup = await canViewGroup(id);
+
+  if (!mayViewGroup) {
+    notFound();
+  }
+
   const group = await getGroupDetailRaw(id);
 
   if (!group) {

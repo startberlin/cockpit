@@ -4,9 +4,12 @@ type: feat
 status: active
 date: 2026-04-28
 origin: docs/brainstorms/2026-04-28-user-authority-organization-model-requirements.md
+needs_revision: true
 ---
 
 # User Authority and Organization Model
+
+> Revision note: The origin requirements have been updated after this plan was written. Organizational authority should now be modeled with constrained user fields (`board_position` and `leads_department`) rather than arbitrary multi-position assignment rows. This plan's implementation units should be revised before execution.
 
 ## Overview
 

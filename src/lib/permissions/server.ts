@@ -1,14 +1,18 @@
 import "server-only";
 
+import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
-import { type Action, hasAnyRequiredRole, PERMISSIONS } from ".";
+import { type Action, evaluateAuth, type PermissionContext } from ".";
 
-export async function can(action: Action): Promise<boolean> {
+export async function can(
+  action: Action,
+  context: PermissionContext = {},
+): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
 
-  const allowedRoles = PERMISSIONS[action];
-  if (!allowedRoles) return false;
+  const authority = await getUserAuthority(user.id);
+  if (!authority) return false;
 
-  return hasAnyRequiredRole(user.roles, allowedRoles);
+  return evaluateAuth(authority, action, context);
 }

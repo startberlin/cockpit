@@ -124,6 +124,7 @@ The model should separate lifecycle state, organization facts, explicit access g
 ## Key Decisions
 
 - Separate positions from access grants: positions describe real organization structure; access grants describe app-specific permission exceptions.
+- Updated authority model: organizational authority should be represented as constrained fields on the user, not as arbitrary multi-position assignment rows. A user may have one optional `board_position` (`president`, `vice_president`, `head_of_finance`, `board_member`) and one optional `leads_department`. Department membership remains a separate optional `department` field. Board-level status is derived from `board_position != null || leads_department != null`. This matches the domain more directly: there is only one president, one vice president, one head of finance, and one head per department. Flexible scoped access still belongs in separate access grants because those are app-specific permission exceptions rather than organization structure.
 - Keep the central permission map: permissions remain easy to read, but policies can name both positions and grants.
 - Support scope from day one: department-head and people-admin cases require department-aware checks immediately.
 - Keep admin as a global superuser: this preserves a simple operational escape hatch while narrower grants serve least-privilege cases.

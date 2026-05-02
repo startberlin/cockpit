@@ -71,6 +71,7 @@ export function CreateUserDialog({
           lastName: "",
           personalEmail: "",
           batchNumber: batches[0]?.number ?? 0,
+          department: null,
           status: "onboarding",
         },
         mode: "onChange",
@@ -117,8 +118,8 @@ export function CreateUserDialog({
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Add a new member to START Cockpit. This will create a START Berlin
-            Google account and send an invite to their personal email address.
+            Add a member and send their invitation to the personal email address
+            below. START Cockpit will prepare their START Berlin account.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -126,7 +127,7 @@ export function CreateUserDialog({
           onSubmit={handleSubmitWithAction}
         >
           <FieldSet>
-            <FieldLegend>Basic Information</FieldLegend>
+            <FieldLegend>Basic information</FieldLegend>
             <FieldGroup>
               <div className="flex gap-4">
                 <Field className="flex-1">
@@ -169,7 +170,8 @@ export function CreateUserDialog({
                   {...form.register("personalEmail")}
                 />
                 <FieldDescription className="pt-0.5 text-xs">
-                  START Cockpit will send an invite to this email address.
+                  Use a personal email address they can keep long-term. START
+                  Cockpit will send their invitation there.
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.personalEmail]} />
               </Field>
@@ -181,11 +183,11 @@ export function CreateUserDialog({
                   </div>
                   <FieldDescription className="pt-0.5 text-xs">
                     {emailCheckPending
-                      ? "Checking Google Workspace..."
+                      ? "Checking whether this START email is available..."
                       : emailConflict
-                        ? "This Google Workspace account already exists. Import the existing user instead."
+                        ? "This START email already exists. Import the member from Google Workspace instead."
                         : emailCheckUnavailable
-                          ? "Could not check Google Workspace right now. Try again before adding the member."
+                          ? "Could not check this START email right now. Try again before adding the member."
                           : "This will become their START Berlin email address."}
                   </FieldDescription>
                 </Field>
@@ -231,13 +233,16 @@ export function CreateUserDialog({
                     <FieldLabel>Department</FieldLabel>
                     <Select
                       value={field.value ?? ""}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) =>
+                        field.onChange(value === "none" ? null : value)
+                      }
                       disabled={action.isPending}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a department" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">No department yet</SelectItem>
                         {Object.entries(DEPARTMENTS).map(([id, name]) => (
                           <SelectItem key={id} value={id}>
                             {name}
@@ -275,7 +280,7 @@ export function CreateUserDialog({
                           key="supporting_alumni"
                           value="supporting_alumni"
                         >
-                          Supporting Alumni
+                          Supporting alumni
                         </SelectItem>
                         <SelectItem key="alumni" value="alumni">
                           Alumni

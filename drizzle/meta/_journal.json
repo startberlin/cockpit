@@ -71,6 +71,20 @@
       "when": 1777593600000,
       "tag": "0009_drop_google_workspace_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777755945321,
+      "tag": "0010_careless_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777759783744,
+      "tag": "0011_yummy_rhino",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   addUserToGroupRaw,
   removeUserFromGroupRaw,
+  requireGroupMemberManagement,
   searchUsersNotInGroupRaw,
   updateUserGroupRoleRaw,
 } from "@/db/groups";
@@ -13,6 +14,7 @@ export async function searchUsersNotInGroupAction(
   groupId: string,
   query?: string,
 ): Promise<PublicUser[]> {
+  await requireGroupMemberManagement();
   return await searchUsersNotInGroupRaw(groupId, query);
 }
 
@@ -21,6 +23,7 @@ export async function addUserToGroupAction(
   groupId: string,
   role: "admin" | "member" = "member",
 ): Promise<void> {
+  await requireGroupMemberManagement();
   await addUserToGroupRaw(userId, groupId, role);
   revalidatePath(`/groups/${groupId}`);
 }
@@ -29,6 +32,7 @@ export async function removeUserFromGroupAction(
   userId: string,
   groupId: string,
 ): Promise<void> {
+  await requireGroupMemberManagement();
   await removeUserFromGroupRaw(userId, groupId);
   revalidatePath(`/groups/${groupId}`);
 }
@@ -38,6 +42,7 @@ export async function updateUserGroupRoleAction(
   groupId: string,
   role: "admin" | "member",
 ): Promise<void> {
+  await requireGroupMemberManagement();
   await updateUserGroupRoleRaw(userId, groupId, role);
   revalidatePath(`/groups/${groupId}`);
 }

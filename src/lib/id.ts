@@ -6,6 +6,8 @@ export const nanoid = customAlphabet(
 const prefixes = {
   user: "usr",
   group: "gr",
+  authorityPosition: "aup",
+  accessGrant: "aug",
 } as const;
 
 export function generateUUID(): string {

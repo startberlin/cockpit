@@ -15,10 +15,6 @@ import { resend } from "@/lib/resend";
 export const completeUserOnboardingAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
   .action(async ({ parsedInput }) => {
-    if (!(await can("users.complete_onboarding"))) {
-      throw new Error("You are not authorized to complete user onboarding.");
-    }
-
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
       with: {
@@ -28,6 +24,14 @@ export const completeUserOnboardingAction = actionClient
 
     if (!targetUser) {
       throw new Error("User not found.");
+    }
+
+    if (
+      !(await can("users.complete_onboarding", {
+        targetDepartment: targetUser.department,
+      }))
+    ) {
+      throw new Error("You are not authorized to complete user onboarding.");
     }
 
     if (!isProfileOnboardingComplete(targetUser)) {

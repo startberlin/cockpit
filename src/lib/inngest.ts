@@ -10,7 +10,7 @@ type Events = {
       lastName: string;
       personalEmail: string;
       batchNumber: number;
-      department: Department;
+      department?: Department | null;
       status: UserStatus;
     };
   };

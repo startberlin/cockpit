@@ -12,6 +12,7 @@ import {
 import { getUserById } from "@/db/people";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
+import { AuthorityCard } from "./authority-card";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { ProfileCard } from "./profile-card";
@@ -26,8 +27,8 @@ export async function generateMetadata({ params }: PageProps) {
 
   if (!user) {
     return createMetadata({
-      title: "User Not Found",
-      description: "The requested user could not be found.",
+      title: "Member not found",
+      description: "The requested member could not be found.",
     });
   }
 
@@ -38,32 +39,37 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 export default async function UserDetailPage({ params }: PageProps) {
-  const canManageUsers = await can("users.manage");
-  if (!canManageUsers) {
-    return (
-      <Empty className="min-h-[50vh]">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ShieldX />
-          </EmptyMedia>
-          <EmptyTitle>Access Denied</EmptyTitle>
-          <EmptyDescription>
-            You don't have permission to view member details.
-          </EmptyDescription>
-        </EmptyHeader>
-        <Button variant="outline" asChild>
-          <Link href="/people">Back to People</Link>
-        </Button>
-      </Empty>
-    );
-  }
-
   const { id } = await params;
   const user = await getUserById(id);
 
   if (!user) {
     notFound();
   }
+
+  const canViewDetails = await can("users.view_details", {
+    targetDepartment: user.department,
+  });
+  if (!canViewDetails) {
+    return (
+      <Empty className="min-h-[50vh]">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ShieldX />
+          </EmptyMedia>
+          <EmptyTitle>Member details unavailable</EmptyTitle>
+          <EmptyDescription>
+            You can only view member details for members you are allowed to
+            manage.
+          </EmptyDescription>
+        </EmptyHeader>
+        <Button variant="outline" asChild>
+          <Link href="/people">Back to people</Link>
+        </Button>
+      </Empty>
+    );
+  }
+
+  const canManageAuthority = await can("users.manage_authority");
 
   return (
     <div className="w-full space-y-6">
@@ -85,6 +91,7 @@ export default async function UserDetailPage({ params }: PageProps) {
         <ProfileCard user={user} />
         <ContactCard user={user} />
         <GroupsCard groups={user.groups} />
+        <AuthorityCard user={user} canManageAuthority={canManageAuthority} />
       </div>
     </div>
   );
