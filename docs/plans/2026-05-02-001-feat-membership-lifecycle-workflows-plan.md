@@ -10,9 +10,9 @@ origin: docs/brainstorms/2026-05-02-membership-lifecycle-workflows-requirements.
 
 ## Overview
 
-Build the new START Berlin membership lifecycle in staged slices: first replace the overloaded role model with a position/grant authority foundation, then add legal membership state, admission workflows, People action-required work, board voting, member application, payment continuation, document archival, and notifications.
+Build the new START Berlin membership lifecycle in staged slices: first replace the overloaded role model with a roles-and-permissions foundation, then add legal membership state, admission workflows, People action-required work, legal-officer voting, member application, payment continuation, document archival, and notifications.
 
-This is intentionally staged because the workflow depends on reliable answers to "who is on the board?", "who is president/vice president/head of finance?", and "who may propose or vote?". Those questions should be solved through the authority model from `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md` before building board resolutions.
+This is intentionally staged because the workflow depends on reliable answers to "who is president/vice president/head of finance?", "who is a department head?", and "who may propose or vote?". Those questions are solved through the completed Stage 1 authority foundation and the follow-up hardening/refactor plans before building board resolutions.
 
 ---
 
@@ -20,7 +20,7 @@ This is intentionally staged because the workflow depends on reliable answers to
 
 START Cockpit currently treats operational status, profile completion, payment setup, and legal membership evidence as one blended concept. The membership lifecycle requirements separate these concerns: `user.status` remains operational, legal membership becomes durable state, and workflow/task records carry transient progress such as board voting, application submission, payment setup, document generation, and notifications.
 
-The current "Complete onboarding" path creates a membership payment prompt directly. The new product shape replaces that with "Propose for membership", creates an individual board admission workflow, routes Board Members through People action required, lets the affected person complete a profile-completion-like legal application flow, activates legal membership after board approval plus application, and only then continues to payment setup where billing applies.
+The current "Complete onboarding" path creates a membership payment prompt directly. The new product shape replaces that with "Propose for membership", creates an individual board admission workflow, routes the three legal officers through People action required, lets the affected person complete a profile-completion-like legal application flow, activates legal membership after board approval plus application, and only then continues to payment setup where billing applies.
 
 ---
 
@@ -31,9 +31,9 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 - R19-R27. Create board-resolution tasks, dedicated resolution voting, visible vote status, vote rules, post-vote return behavior, resolution finalization, and admission invitation.
 - R28-R39. Build a guided member-facing finalize-membership flow with My membership card, application steps, fee acknowledgement, legal activation before payment, and payment continuation.
 - R40-R43. Base legal privileges on legal membership state and create durable audit/document records.
-- R44-R47. Notify Board Members and affected people at assignment, application readiness, admission confirmation, and completion points.
+- R44-R47. Notify legal officers and affected people at assignment, application readiness, admission confirmation, and completion points.
 
-**Origin actors:** A1 Onboarding user, A2 Existing operational Member or Supporting Alumni, A3 Legal Member or Supporting Alumni, A4 Alumni user, A5 Department Lead, A6 Board Member, A7 Admin, A8 START Cockpit
+**Origin actors:** A1 Onboarding user, A2 Existing operational Member or Supporting Alumni, A3 Legal Member or Supporting Alumni, A4 Alumni user, A5 Department Head, A6 Legal officer, A7 Admin, A8 START Cockpit
 
 **Origin flows:** F1 Status-aware profile completion, F2 Propose onboarding user for legal membership, F3 Import existing operational member with missing documents, F4 Finalize membership
 
@@ -66,9 +66,10 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Relevant Code and Patterns
 
-- `src/db/schema/auth.ts` currently stores operational `status`, address/contact fields, `department`, and overloaded `roles`.
-- `src/lib/permissions/index.ts`, `src/lib/permissions/server.ts`, `src/lib/permissions/roles-context.tsx`, and `src/components/can.tsx` currently gate access from raw role arrays.
-- `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md` defines the position/grant foundation needed for legal officer determination.
+- `src/db/schema/auth.ts` still stores operational `status`, address/contact fields, `department`, and legacy `roles`; `roles` is compatibility data, not an authorization source for new workflow code.
+- `src/lib/authority/model.ts`, `src/lib/authority/assignments.ts`, and `src/lib/authority/board-roster.ts` define the authority domain vocabulary, valid assignment matrix, and strict legal-officer roster setup.
+- `src/lib/permissions/evaluate.ts`, `src/lib/permissions/server.ts`, `src/lib/permissions/authority-context.tsx`, and `src/components/can.tsx` provide the current permission architecture: server enforcement uses typed `can()`, client affordances use `<Can>`/`useCan()`, and the shared pure evaluator is plumbing underneath those APIs.
+- `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md`, `docs/plans/2026-05-02-003-refactor-permission-policy-api-plan.md`, and `docs/plans/2026-05-03-001-refactor-auth-permission-architecture-plan.md` are completed Stage 1 follow-up plans and supersede earlier raw-role and generic-board-seat assumptions.
 - `src/schema/onboarding-progress.ts` currently treats address as part of profile onboarding; this must become status/legal-state-aware.
 - `src/app/(authenticated)/(onboarding)/onboarding/[step]/` already has a focused multi-step profile completion shell that the membership application flow should mirror.
 - `src/components/people-table.tsx` currently hosts the "Invite to finalize membership" action and is the natural place to add People action required.
@@ -96,9 +97,10 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ## Key Technical Decisions
 
-- Build the authority foundation first: board/officer lookup, proposal permissions, and voting eligibility should use positions/grants, not legacy `roles`.
-- Snapshot the eligible board roster when a resolution is created: a resolution should preserve each voter's board function and eligibility from the moment the board task is assigned, so later authority changes do not rewrite legal history.
-- Block v1 resolution creation unless the authority model can identify exactly three eligible Board Members and the officer functions needed for documentation. The board-vote rule is explicitly two of three, so a two-person or four-person roster should be an admin setup error, not a silently different legal process.
+- Build on the completed roles-and-permissions foundation: officer lookup, proposal permissions, and voting eligibility should use authority positions/grants plus typed permission checks, not legacy `roles`.
+- Snapshot the eligible legal-officer roster when a resolution is created: a resolution should preserve each voter's board function and eligibility from the moment the board task is assigned, so later authority changes do not rewrite legal history.
+- Block v1 resolution creation unless `getBoardRosterSetup()` can identify exactly three distinct legal officers: president, vice president, and head of finance. The board-vote rule is explicitly two of three, so a two-person, four-person, missing-officer, duplicate-officer, or overlapping-officer setup should be an admin setup error, not a silently different legal process.
+- Keep authorization API boundaries explicit: server actions/routes/pages enforce with `can()`, client UI hides or enables affordances with `<Can>`/`useCan()`, and new workflow code should only call `evaluateAuth()` inside permission infrastructure or tests.
 - Keep legal membership state intentionally small: `not_member`, `active_member`, and `former_member`.
 - Store admission workflow progress separately from legal state: proposal, board vote, application, document, and payment task states belong to workflow/task tables.
 - Keep tasks contextual: My membership owns member-facing task cards; People owns board/admin member-scoped action required.
@@ -114,7 +116,7 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Resolved During Planning
 
-- How should current legal board voters and officer functions be determined? Use the position/grant authority model from `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md`: president, vice president, and head of finance identify the eligible legal board participants, while permissions remain explicit policy rules.
+- How should current legal board voters and officer functions be determined? Use the completed authority model: president, vice president, and head of finance are the three eligible legal officers, while permissions remain explicit policy rules.
 - Should the authority plan be folded into this plan? Yes, the authority foundation is the first stage. Org-chart-specific work from that plan is not required for this membership lifecycle path.
 - Where should board/admin task work live? In People action required, not a universal top-level Tasks inbox.
 - Where should member task work live? In a single prominent My membership task card.
@@ -122,7 +124,7 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Deferred to Implementation
 
-- Exact Drizzle migration filenames and generated SQL details.
+- Exact Drizzle migration filenames and generated SQL details for Stage 2+ schema work. Stage 1 authority constraints already exist in the completed hardening migrations.
 - Exact route segment names for resolution and application pages, as long as the user-facing surfaces match the plan.
 - Exact PDF layout details. The renderer choice is resolved for v1: use `@react-pdf/renderer` behind the server-side document rendering adapter, rendering only from immutable snapshots.
 - Exact final legal copy for resolution text, membership declarations, and fee acknowledgement after legal/Satzung/Finanzordnung review.
@@ -135,9 +137,9 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Stage 1: Authority Foundation
 
-Land enough of the authority/org model to determine Board Members, named officers, scoped Department Leads, and admins without relying on legacy `roles`.
+Land enough of the authority/org model to determine named legal officers, scoped Department Heads, and admins without relying on legacy `roles`.
 
-Stage 1 is not considered ready for Stage 2 until `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md` is complete. Board-resolution workflows depend on server-enforced group/admin authority, valid authority assignment combinations, singleton officer constraints, and strict legal officer roster validation.
+Stage 1 has been completed through the authority hardening and permission architecture refactors listed in Context & Research. Board-resolution workflows can now depend on server-enforced group/admin authority, valid authority assignment combinations, singleton officer constraints, strict legal-officer roster validation, typed `can()` checks, and client-only `<Can>`/`useCan()` affordances. The remaining P2 gap is boundary-test coverage for the group API/server-action authorization paths and the authority update denial path; Stage 2 implementation should add those tests before or alongside the first workflow code that depends on those boundaries.
 
 ### Stage 2: Legal Membership And Workflow Core
 
@@ -167,11 +169,11 @@ Generate legal PDFs, archive them in Drive, store hashes/references, complete le
 
 ```mermaid
 flowchart TD
-  Authority["Authority model\npositions + grants"] --> Propose["Propose for membership"]
+  Authority["Roles + permissions\npositions + grants + typed checks"] --> Propose["Propose for membership"]
   Profile["Status-aware profile completion"] --> AppShell["App access"]
   Propose --> Workflow["Admission workflow\none person"]
   Import["Import missing docs"] --> Workflow
-  Workflow --> BoardTask["People action required\nboard vote"]
+  Workflow --> BoardTask["People action required\nlegal-officer vote"]
   BoardTask --> Resolution["Resolution detail/vote"]
   Resolution -->|approved| ApplicationTask["My membership\napplication ready"]
   Resolution -->|objected/rejected| Manual["Manual/offline handling"]
@@ -197,7 +199,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TB
-  U1["U1 Authority schema/domain"] --> U2["U2 Authority callers/admin editing"]
+  U1["U1 Authority baseline/readiness"] --> U2["U2 Permission callers/admin editing"]
   U1 --> U3["U3 Legal workflow schema"]
   U3 --> U4["U4 Profile completion"]
   U2 --> U5["U5 Proposal/import workflow creation"]
@@ -218,9 +220,9 @@ flowchart TB
   U12 --> U13
 ```
 
-- U1. **Authority Schema And Domain Foundation**
+- U1. **Authority Baseline And Workflow Readiness**
 
-**Goal:** Treat the Stage 1 authority implementation as the baseline, verify it against the membership workflow needs, and add any remaining membership-specific helpers without rebuilding existing authority files.
+**Goal:** Treat the completed Stage 1 authority and permission implementation as the baseline, verify it against the membership workflow needs, and add any remaining membership-specific helpers without rebuilding existing authority files.
 
 **Requirements:** Membership requirements supported: R8-R9, R19, R27, R40; authority plan R1-R13, R20-R24
 
@@ -229,34 +231,39 @@ flowchart TB
 **Files:**
 - Existing baseline: `src/db/schema/authority.ts`
 - Existing baseline: `src/db/authority.ts`
+- Existing baseline: `src/lib/authority/model.ts`
+- Existing baseline: `src/lib/authority/assignments.ts`
+- Existing baseline: `src/lib/authority/board-roster.ts`
 - Modify: `src/db/schema/index.ts`
 - Modify: `src/db/schema/auth.ts`
 - Modify: `src/db/people.ts`
-- Modify: `src/lib/permissions/index.ts`
+- Existing baseline: `src/lib/permissions/evaluate.ts`
+- Existing baseline: `src/lib/permissions/index.ts`
 - Modify: `src/lib/permissions/server.ts`
 - Existing baseline replacement: `src/lib/permissions/authority-context.tsx`
 - Modify: `src/components/can.tsx`
 - Modify: `src/app/(authenticated)/(app)/layout.tsx`
 - Existing generated baseline: `drizzle/0010_careless_jack_murdock.sql`
+- Existing generated baseline: `drizzle/0011_yummy_rhino.sql`
 - Test: `src/lib/permissions/permissions.test.ts`
+- Test: `src/lib/authority/assignments.test.ts`
+- Test: `src/lib/permissions/permissions.typecheck.ts`
 
 **Approach:**
-- Adapt the schema, helper, and policy approach from `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md`.
-- Add persisted position assignments for `president`, `vice_president`, `head_of_finance`, and `department_head`.
-- Add persisted access grants for `admin`.
-- Support global and department scope for assignments where applicable.
-- Replace role-array permission checks with a central policy evaluator over positions, grants, and optional context.
+- Use the Stage 1 authority model from `src/lib/authority/*`: persisted global officer positions are `president`, `vice_president`, and `head_of_finance`; persisted department position is `department_head`; persisted access grant is global `admin`.
+- Support global and department scope only where the shared assignment schema and database constraints allow them.
+- Keep legacy role-array permission checks out of workflow code. Permission checks go through server `can()` or client `<Can>`/`useCan()`; `evaluateAuth()` remains shared evaluator plumbing.
 - Keep admin explicit in permission policies rather than as an invisible bypass.
 - Add helpers for current legal officers and board functions. These helpers are used later by board resolution creation/finalization.
 - Add the membership-specific permission vocabulary needed by later units, such as `membership.propose`, `membership.vote_resolution`, `membership.view_resolution`, and `membership.manage_workflows`.
-- Allow Department Leads to propose only within their scoped department context, while legal officers and Admins can propose according to explicit policy.
-- Add a board roster validation helper that returns the three eligible Board Members plus officer functions or a typed setup error when the authority data is incomplete or over-complete for the v1 two-of-three procedure.
-- Backfill legacy `roles` into positions/grants and remove permission dependence on `user.roles`.
+- Allow Department Heads to propose only within their scoped department context, while legal officers and Admins can propose according to explicit policy.
+- Use `getBoardRosterSetup()` as the workflow preflight. It returns the three eligible legal officer IDs plus officer functions, or a typed setup error when the authority data is incomplete, duplicated, overlapping, or over-complete for the v1 two-of-three procedure.
+- Backfill legacy `roles` only where there is a valid one-to-one mapping: legacy `admin` becomes global admin grant, legacy `department_lead` with department becomes scoped department-head position, and legacy `member` creates no authority assignment. Legacy generic `board` must not create a generic board seat; admins should assign president, vice president, or head of finance explicitly.
 
-**Execution note:** The authority foundation has been implemented first. Future work should verify the existing schema/API/migration names and add only missing membership-specific helpers rather than creating parallel authority tables or a second migration path.
+**Execution note:** The authority foundation, hardening, predicate policy API, and module split have been implemented first. Future work should verify the existing schema/API/migration names and add only missing membership-specific helpers rather than creating parallel authority tables or a second migration path.
 
 **Patterns to follow:**
-- `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md` for the authority model and policy matrix.
+- `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md`, `docs/plans/2026-05-02-003-refactor-permission-policy-api-plan.md`, and `docs/plans/2026-05-03-001-refactor-auth-permission-architecture-plan.md` for the current authority model and permission API.
 - `src/db/schema/membership.ts` for separate domain schema structure.
 - `src/lib/membership-status.ts` and `src/lib/membership-status.test.ts` for focused pure-helper style.
 
@@ -264,21 +271,21 @@ flowchart TB
 - Happy path: global admin grant allows actions where the policy lists admin.
 - Happy path: department-head position scoped to Events grants a scoped action for an Events target.
 - Edge case: department-head position scoped to Events denies the same action for a Growth target.
-- Edge case: board-member position grants no user-management permissions unless a policy explicitly lists it.
+- Edge case: legal officer positions grant only the permissions explicitly listed in policy and do not imply admin/user-management access.
 - Edge case: scoped permission without target department fails closed.
-- Migration: legacy `admin` becomes global admin grant, `department_lead` with department becomes scoped department-head position, `board` becomes board-member position, and `member` creates no authority assignment.
-- Edge case: board roster validation fails when there are fewer than three or more than three eligible Board Members.
+- Migration: legacy `admin` becomes global admin grant, `department_lead` with department becomes scoped department-head position, generic `board` creates no authority assignment, and `member` creates no authority assignment.
+- Edge case: board roster validation fails when there are fewer than three or more than three eligible legal officers.
 - Edge case: board roster validation fails when required officer functions for resolution documentation cannot be determined.
-- Integration: server `can` and client `Can` consume the same policy vocabulary.
+- Integration: server `can()`, client `<Can>`, and client `useCan()` consume the same typed policy vocabulary.
 
 **Verification:**
 - Current app permission callers compile against the new authority API.
-- Board/officer lookup can return current president, vice president, head of finance, and board-member participants.
+- Legal-officer lookup can return current president, vice president, head of finance, and legal-officer participant IDs.
 - `user.roles` is no longer an authorization source.
 
 ---
 
-- U2. **Authority Caller Migration And Admin Editing**
+- U2. **Permission Caller Migration And Admin Editing**
 
 **Goal:** Treat the Stage 1 caller migration and admin authority editor as the baseline, then close any remaining membership-specific gaps before workflows depend on them.
 
@@ -302,11 +309,12 @@ flowchart TB
 - Test: `src/lib/permissions/permissions.test.ts`
 
 **Approach:**
-- Verify existing server actions and route/page guards use the new `can(action, context?)` shape.
+- Verify existing server actions and route/page guards use the new typed `can(action, context?)` shape, including department context for target-scoped actions.
 - Verify the admin-only member-detail UI can edit positions and grants needed by membership workflows.
 - Keep group-local `users_to_groups.role` separate from authority positions/grants.
 - Stop creating/evaluating legacy auth-role group criteria or convert them deliberately if implementation finds a safe one-to-one path.
 - Make create-user department optional where needed by the authority model.
+- Keep client components on `<Can>` or `useCan()` for affordance checks. Do not import the low-level evaluator into feature components.
 
 **Patterns to follow:**
 - `src/app/(authenticated)/(app)/people/[id]/profile-card.tsx` for detail-page card composition.
@@ -314,14 +322,15 @@ flowchart TB
 - Existing permission gate patterns, but with the new authority context.
 
 **Test scenarios:**
-- Happy path: admin can add president, vice president, head of finance, board-member, department-head, and admin/people-admin assignments where valid.
+- Happy path: admin can add president, vice president, head of finance, department-head, and admin assignments where valid.
 - Error path: non-admin direct authority update action is denied.
 - Edge case: department-scoped assignment without department is rejected.
 - Regression: group membership admin/member role still works as a group-local concept.
 - Regression: user creation no longer depends on `roles` for permissions and still checks exact Google Workspace email conflicts.
+- Regression: group API/server-action authorization boundaries deny unauthorized callers before data access or mutation.
 
 **Verification:**
-- Admins can maintain board/officer assignments before creating membership resolutions.
+- Admins can maintain legal-officer assignments before creating membership resolutions.
 - Existing people/groups permissions still behave through the new authority model.
 
 ---
@@ -352,7 +361,7 @@ flowchart TB
 - Use an explicit migration/import classification instead of deriving legal membership from `user.status` alone:
   - Operational `onboarding` users start as `not_member`.
   - Operational `alumni` users start as `former_member`.
-  - Operational `member` and `supporting_alumni` users become `active_member` when an authorized admin or people-admin import/backfill decision says sufficient existing membership documents are available.
+  - Operational `member` and `supporting_alumni` users become `active_member` when an authorized admin import/backfill decision says sufficient existing membership documents are available.
   - Operational `member` and `supporting_alumni` users with missing or unknown documents remain `not_member`; admins can create or import them into the same admission workflow used for onboarding users.
   - Unknown document state must never silently grant `active_member`.
 - Add an individual admission workflow record tied to exactly one affected user in v1, and allow a lightweight payment-setup workflow/task for legal members who do not need an admission workflow but still need billing setup.
@@ -386,7 +395,7 @@ erDiagram
 **Test scenarios:**
 - Covers AE1. An affected user with a pending workflow remains legally `not_member`.
 - Happy path: creating an admission workflow creates a taskable workflow tied to one affected user.
-- Happy path: a document-verified imported Member or Supporting Alumni becomes `active_member` through an authorized admin/people-admin import decision and receives a payment setup task when billing applies.
+- Happy path: a document-verified imported Member or Supporting Alumni becomes `active_member` through an authorized admin import decision and receives a payment setup task when billing applies.
 - Happy path: application snapshot can be tied to its workflow and board resolution.
 - Edge case: v1 rejects or prevents workflows with more than one affected user.
 - Edge case: finalized legal document records are append-only through domain helpers.
@@ -466,17 +475,17 @@ erDiagram
 
 **Approach:**
 - Rename/reframe "Complete onboarding" to "Propose for membership".
-- The action should require the authority policy allowing Department Leads, Board Members, or Admins to propose according to the new authority model.
-- Proposal creates an individual admission workflow and board-resolution task for all current eligible Board Members.
-- Proposal/import workflow creation must validate and snapshot exactly three eligible Board Members before tasks are assigned. If authority data is missing or over-complete, return an admin-facing setup error and do not create a partial resolution.
+- The action should call `can("membership.propose", { targetDepartment })` so Department Heads can propose only within their scoped department, while legal officers and Admins can propose according to explicit policy.
+- Proposal creates an individual admission workflow and board-resolution task for all current eligible legal officers.
+- Proposal/import workflow creation must validate and snapshot exactly three eligible legal officers before tasks are assigned. If authority data is missing, duplicated, overlapping, or over-complete, return an admin-facing setup error and do not create a partial resolution.
 - Proposal must not create a membership payment row or send payment-ready email.
 - Proposal/import transitions should enqueue durable Inngest events for notification/task side effects. React Email templates and exact copy land in U12, but the workflow/event boundary should be introduced with the domain transition so retries are available from the start.
 - Importing Members or Supporting Alumni as already documented legal members must be limited to explicit authority policy, e.g. global Admins. This is a trusted administrative decision in v1, not a document-upload or attestation workflow.
 - Import flow must ask whether sufficient membership documents exist for imported Members and Supporting Alumni with a required "Membership documents" control:
-  - `Documents verified`: authorized admin/people-admin confirms START Berlin has sufficient existing membership documents for this person.
+  - `Documents verified`: authorized admin confirms START Berlin has sufficient existing membership documents for this person.
   - `Documents missing or unsure`: treat as missing documents; do not grant legal membership from operational status.
 - If documents exist, set legal membership state to `active_member`, require address through profile completion, create or reuse the current `membership_payment` record, and create a payment-required workflow/task when billing applies. This path skips board/application admission workflow because legal membership already exists.
-- If documents are missing, set legal state to `not_member`, keep operational status, and immediately create the same board admission workflow and Board Member tasks.
+- If documents are missing, set legal state to `not_member`, keep operational status, and immediately create the same board admission workflow and legal-officer tasks.
 - Alumni imports stay out of active membership/legal admission unless a separate future product decision changes that.
 - Use the wording solution doc for action labels, descriptions, errors, and email tone.
 
@@ -486,15 +495,15 @@ erDiagram
 - Existing email build pattern in `src/app/(authenticated)/(app)/people/import-google-user-email.ts`.
 
 **Test scenarios:**
-- Covers AE4. Department Lead proposes an onboarding user and one individual board-resolution workflow appears in Board Members' action-required state.
-- Covers AE5 except email delivery, which is completed in U12. Importing Supporting Alumni with missing documents preserves operational status, sets legal state `not_member`, and creates admission workflow plus Board Member tasks.
+- Covers AE4. Department Head proposes an onboarding user and one individual board-resolution workflow appears in legal officers' action-required state.
+- Covers AE5 except email delivery, which is completed in U12. Importing Supporting Alumni with missing documents preserves operational status, sets legal state `not_member`, and creates admission workflow plus legal-officer tasks.
 - Happy path: importing Member with documents sets legal state `active_member` and does not create admission workflow.
 - Happy path: importing Member or Supporting Alumni with documents and billing requirements creates the payment setup state/task without requiring a board/application workflow.
 - Edge case: choosing "documents missing or unsure" is treated as missing documents and cannot activate legal membership.
 - Edge case: proposing the same user twice reuses or blocks duplicate active workflow.
 - Edge case: proposal fails without creating workflow rows when board roster validation fails.
 - Error path: unauthorized user cannot propose membership.
-- Error path: import submit is rejected when Member/Supporting Alumni document status is missing or the actor lacks admin/people-admin authority.
+- Error path: import submit is rejected when Member/Supporting Alumni document status is missing or the actor lacks admin authority.
 - Regression: payment row is not created by proposal.
 - Regression: imported Alumni still does not require membership billing.
 
@@ -529,12 +538,12 @@ erDiagram
 - Show an action count in the `Action required` tab using `Badge`. Keep the badge hidden or zero-muted when no actions exist.
 - The Action required tab should reuse the existing table pattern (`Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell`) rather than cards. Columns should be: member, operational/legal status summary, workflow/task, due/created date if available, and primary action.
 - Use `Button` for primary row actions such as "Vote" or "Review"; row click can also navigate to the dedicated screen, but the button must remain keyboard accessible.
-- Use the existing `Empty` component for the no-actions state and `Alert` for admin-facing setup errors such as incomplete board authority data.
-- Query member-scoped workflow tasks assigned to the current user and return person rows with task summary and primary action. Board vote tasks should be assigned to the concrete roster snapshot participants, not inferred from live board positions on every page load.
+- Use the existing `Empty` component for the no-actions state and `Alert` for admin-facing setup errors such as incomplete legal-officer authority data.
+- Query member-scoped workflow tasks assigned to the current user and return person rows with task summary and primary action. Board vote tasks should be assigned to the concrete legal-officer roster snapshot participants, not inferred from live authority positions on every page load.
 - Keep the existing People directory view intact.
 - Each action row should include person name, operational status/legal state summary where useful, workflow type, current task summary, and a primary action such as "Vote".
 - Action row click/primary action should route to the appropriate dedicated screen, starting with resolution detail/vote.
-- Non-board/non-admin users should not see board/admin-only tasks.
+- Users who are neither snapshotted legal officers nor assigned admins should not see board/admin-only tasks.
 
 **Patterns to follow:**
 - Existing `src/components/people-table.tsx` table shape and row navigation.
@@ -542,9 +551,9 @@ erDiagram
 - Existing copy conventions from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
 
 **Test scenarios:**
-- Covers AE4. Board Member sees a proposed onboarding user in Action required with board vote needed.
+- Covers AE4. Legal officer sees a proposed onboarding user in Action required with board vote needed.
 - Happy path: Admin sees relevant member-scoped admin tasks if assigned/eligible.
-- Edge case: Board Member who already voted no longer sees that row if no further action is needed from them.
+- Edge case: legal officer who already voted no longer sees that row if no further action is needed from them.
 - Edge case: regular member sees no board/admin action-required rows.
 - Edge case: `?view=actions` with zero actions shows the empty state and keeps Directory one click away.
 - Error path: stale task for deleted/missing user does not crash People page and is omitted or marked unavailable.
@@ -573,13 +582,13 @@ erDiagram
 - Test: `src/db/member-workflows.test.ts`
 
 **Approach:**
-- The detail screen shows affected person context, resolution text, status, all Board Member vote states, legal/confirmation copy, and vote actions: yes, no, abstain, procedure objection.
-- Board Members see current vote status by person/function/timestamp before finalization.
+- The detail screen shows affected person context, resolution text, status, all legal-officer vote states, legal/confirmation copy, and vote actions: yes, no, abstain, procedure objection.
+- Snapshotted legal officers see current vote status by person/function/timestamp before finalization.
 - The resolution record uses the board roster/function snapshot created when the resolution was assigned; each vote records the voter, vote value, timestamp, and displayed text/version.
-- Resolution view/vote access must bind to the resolution's roster snapshot, not only to live authority state. Only the user IDs snapshotted as eligible voters for that resolution, with an open vote task for that resolution, may vote. A person who becomes a Board Member after the resolution was created, or who is a Board Member in live authority data but absent from that resolution snapshot, cannot vote on that resolution. Admins may view/admin-handle according to explicit policy but must not be counted as voters unless they are in the snapshot.
-- Board votes are immutable in v1. A snapshotted Board Member can cast exactly one vote; duplicate vote submissions are rejected and the UI shows the submitted vote state instead of active vote buttons.
+- Resolution view/vote access must bind to the resolution's roster snapshot, not only to live authority state. Only the user IDs snapshotted as eligible voters for that resolution, with an open vote task for that resolution, may vote. A person who becomes a legal officer after the resolution was created, or who is a legal officer in live authority data but absent from that resolution snapshot, cannot vote on that resolution. Admins may view/admin-handle according to explicit policy but must not be counted as voters unless they are in the snapshot.
+- Board votes are immutable in v1. A snapshotted legal officer can cast exactly one vote; duplicate vote submissions are rejected and the UI shows the submitted vote state instead of active vote buttons.
 - After a vote, redirect back to People action required and show confirmation toast.
-- Resolution passes only when at least two of three Board Members vote yes and nobody has objected to the electronic procedure.
+- Resolution passes only when at least two of three snapshotted legal officers vote yes and nobody has objected to the electronic procedure.
 - Procedure objection stops electronic finalization and leaves workflow in manual/offline handling state.
 - On approval, determine chair/procedure-lead and minute-taker from officer functions according to the requirements/spec logic and persist the final assignment.
 - On approval, create/advance the member application task and record or enqueue the application-ready notification transition. The actual email template/send wiring lands in U12.
@@ -588,18 +597,18 @@ erDiagram
 **Patterns to follow:**
 - Existing server action style in `src/app/(authenticated)/(app)/groups/[id]/actions.ts`.
 - Existing `sonner` toast pattern in `src/components/people-table.tsx`.
-- Authority helper from U1 for current board/officer lookup.
+- Authority helper from U1 for current legal-officer lookup.
 
 **Test scenarios:**
-- Covers AE6. Board Member opens resolution detail and sees person, resolution text, status, all Board Member vote states, legal copy, and four vote options.
-- Covers AE6. After voting, Board Member returns to People action required and receives a confirmation toast.
+- Covers AE6. Legal officer opens resolution detail and sees person, resolution text, status, all legal-officer vote states, legal copy, and four vote options.
+- Covers AE6. After voting, legal officer returns to People action required and receives a confirmation toast.
 - Covers AE7. Two yes votes and no objection approves the resolution.
 - Covers AE7. Any procedure objection stops electronic finalization.
 - Edge case: one yes plus one abstain plus one no does not approve.
 - Edge case: silence never counts as yes.
-- Edge case: same Board Member changing/revoting is rejected because v1 votes are immutable.
-- Edge case: a current Board Member who is not part of this resolution's roster snapshot cannot vote on that resolution.
-- Error path: non-Board Member cannot access or vote on the resolution.
+- Edge case: same legal officer changing/revoting is rejected because v1 votes are immutable.
+- Edge case: a current legal officer who is not part of this resolution's roster snapshot cannot vote on that resolution.
+- Error path: non-legal-officer cannot access or vote on the resolution.
 - Error path: voting on finalized resolution is rejected.
 
 **Verification:**
@@ -629,7 +638,7 @@ erDiagram
 **Approach:**
 - Create a membership task view-state helper that considers legal membership, workflow/application task state, and payment state.
 - Preserve the tools section behavior independently from membership task state.
-- Board-pending members see a waiting state only: no vote details, no Board Member names, no vote progress.
+- Board-pending members see a waiting state only: no vote details, no legal-officer names, no vote progress.
 - Procedure-objected, rejected, or manual/offline workflows should show a calm waiting/manual-handling state for the affected member and an admin-facing follow-up state in People. Member-facing copy must not expose individual vote details.
 - Application-ready state links to the dedicated application flow.
 - Submitted-processing state tells the user the application is being completed and hides payment/all-done until the Inngest admission-completion workflow finishes.
@@ -845,7 +854,7 @@ erDiagram
 - Board task email includes affected person context and direct link to the resolution detail/vote screen.
 - Application-ready email tells the affected person that the board approved admission and the application is ready, linking to My membership or the application flow.
 - Admission-confirmed email tells the person legal membership is active and, when applicable, payment setup is the next required step.
-- Board completion notification tells Board Members that the person completed the application and legal membership is active.
+- Board completion notification tells legal officers that the person completed the application and legal membership is active.
 - Email sends should be Inngest steps triggered by durable lifecycle events, not best-effort sends directly inside server actions. Use idempotency keys based on workflow/task/notification type so retries do not send duplicate emails.
 - Follow tone and support-path guidance from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
 - Do not put sensitive vote details in member-facing emails.
@@ -856,7 +865,7 @@ erDiagram
 - Existing email render tests.
 
 **Test scenarios:**
-- Covers AE5. Missing-document import sends board task email to eligible Board Members.
+- Covers AE5. Missing-document import sends board task email to eligible legal officers.
 - Covers AE11. Approved resolution sends application-ready email with correct link.
 - Covers AE10. Application submission with billing required sends confirmation that payment setup remains required.
 - Happy path: board completion email renders affected person and completed workflow context.
@@ -889,7 +898,7 @@ erDiagram
 - Add helpers for legal-member eligibility, voting/election eligibility, and formal legal member lists based on `legal_membership_state = active_member`.
 - Show legal membership state and relevant workflow/document status to admins where useful, without exposing unnecessary legal internals to members.
 - Add migration/backfill notes for classifying existing Members and Supporting Alumni as `active_member` only when documents exist, or `not_member` with admission workflow when documents are missing.
-- Add a setup/operations doc covering authority prerequisites, board/officer assignments, legal review, Drive configuration, import decisions, and rollout order.
+- Add a setup/operations doc covering authority prerequisites, legal-officer assignments, legal review, Drive configuration, import decisions, and rollout order.
 - Keep legal/Satzung review as a launch prerequisite, not a code-level assumption.
 
 **Patterns to follow:**
@@ -912,10 +921,10 @@ erDiagram
 
 ## System-Wide Impact
 
-- **Interaction graph:** Authority assignments feed permissions, proposal eligibility, board/officer lookup, People action required, and resolution finalization. Legal membership state feeds profile completion, member task state, legal privileges, and import cleanup. Workflow state feeds People action required, My membership, notifications, documents, and payment continuation.
+- **Interaction graph:** Authority assignments feed typed permission checks, proposal eligibility, legal-officer lookup, People action required, and resolution finalization. Legal membership state feeds profile completion, member task state, legal privileges, and import cleanup. Workflow state feeds People action required, My membership, notifications, documents, and payment continuation.
 - **Error propagation:** Permission denials should fail closed. Workflow transition failures should not partially mark legal membership active without application/audit/document records. Inngest should own retryable Drive/email/document/payment-task side effects with idempotent steps and durable status updates.
-- **State lifecycle risks:** Duplicate workflows, stale board membership snapshots, revotes, failed document uploads, and payment return retries all need explicit domain handling.
-- **API surface parity:** Server `can`, client `Can`, People action queries, import actions, proposal actions, application submit, and payment actions must share authority/legal/workflow semantics.
+- **State lifecycle risks:** Duplicate workflows, stale legal-officer roster snapshots, revotes, failed document uploads, and payment return retries all need explicit domain handling.
+- **API surface parity:** Server `can()`, client `<Can>`/`useCan()`, People action queries, import actions, proposal actions, application submit, and payment actions must share authority/legal/workflow semantics. Client checks remain UI affordances only; every mutation and sensitive read needs a server-side guard.
 - **Integration coverage:** Unit tests cover pure rules; cross-layer tests should cover proposal -> board task, vote -> application task, application -> legal active -> payment, and import missing docs -> board task.
 - **Unchanged invariants:** Operational status remains separate from legal membership; tools access remains operational-status driven; payment remains GoCardless-based; batch admission remains out of scope.
 
@@ -925,7 +934,7 @@ erDiagram
 
 | Risk | Mitigation |
 |------|------------|
-| Authority migration accidentally grants or removes access | Land authority policy tests first, backfill carefully, and verify current admins/board/officers before workflow rollout. |
+| Authority migration accidentally grants or removes access | Keep authority policy/type tests green, backfill carefully, verify current admins/legal officers before workflow rollout, and add the remaining boundary tests for protected group and authority-update paths. |
 | Board resolution legal assumptions do not match Satzung | Treat legal/Satzung review as a launch prerequisite and keep final legal wording configurable/versioned. |
 | Payment activation overwrites operational Supporting Alumni status | Explicitly update payment reconciliation so payment completion does not change legal state and does not blindly set `user.status = "member"`. |
 | Members see board vote details they should not see | Keep board progress only on board/admin resolution screens; My membership board-pending card is a waiting state only. |
@@ -938,8 +947,8 @@ erDiagram
 ## Documentation / Operational Notes
 
 - Update or create `docs/membership-lifecycle-setup.md` before production rollout.
-- Document the required authority assignments: president, vice president, head of finance, board members, department heads, and admins.
-- Document the preflight check for exactly three eligible Board Members and required officer functions before admission workflows can be created.
+- Document the required authority assignments: president, vice president, head of finance, department heads, and admins.
+- Document the preflight check for exactly three eligible legal officers and required officer functions before admission workflows can be created.
 - Document how admins decide whether imported Members/Supporting Alumni have sufficient membership documents.
 - Document required Google Drive configuration, private legal archive folder ownership, allowed operator access, and how to verify generated files are not public or anyone-with-link.
 - Document legal review checkpoints for resolution text, application declarations, fee acknowledgement, electronic procedure wording, and generated PDFs.
@@ -951,12 +960,18 @@ erDiagram
 
 - **Origin document:** `docs/brainstorms/2026-05-02-membership-lifecycle-workflows-requirements.md`
 - Authority foundation plan: `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md`
+- Stage 1 authority hardening: `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md`
+- Permission policy API refactor: `docs/plans/2026-05-02-003-refactor-permission-policy-api-plan.md`
+- Auth permission architecture refactor: `docs/plans/2026-05-03-001-refactor-auth-permission-architecture-plan.md`
 - Wording conventions: `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`
 - React-PDF Node API: `https://react-pdf.org/node`
 - React-PDF advanced features: `https://react-pdf.org/advanced`
 - React-PDF components and metadata: `https://react-pdf.org/components`
 - Related code: `src/db/schema/auth.ts`
-- Related code: `src/lib/permissions/index.ts`
+- Related code: `src/lib/authority/model.ts`
+- Related code: `src/lib/authority/board-roster.ts`
+- Related code: `src/lib/permissions/evaluate.ts`
+- Related code: `src/lib/permissions/server.ts`
 - Related code: `src/schema/onboarding-progress.ts`
 - Related code: `src/components/people-table.tsx`
 - Related code: `src/app/(authenticated)/(app)/membership/page.tsx`

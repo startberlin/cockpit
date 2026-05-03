@@ -26,9 +26,9 @@ const globalActions = [
   "groups.view_all",
   "groups.create",
   "groups.manage_members",
-] as const
+] as const;
 
-export type GlobalAction =  typeof globalActions[number];
+export type GlobalAction = (typeof globalActions)[number];
 
 export function isGlobalAction(action: Action): action is GlobalAction {
   return (globalActions as readonly Action[]).includes(action);
