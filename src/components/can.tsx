@@ -4,37 +4,58 @@ import { useCallback } from "react";
 import {
   type Action,
   evaluateAuth,
-  type PermissionContext,
+  type PermissionContextArg,
+  type PermissionContexts,
 } from "@/lib/permissions";
 import { useAuthority } from "@/lib/permissions/authority-context";
 
-interface CanProps {
+type CanCheck = <ActionName extends Action>(
+  permission: ActionName,
+  ...contextArg: PermissionContextArg<ActionName>
+) => boolean;
+
+interface CanComponentProps<ActionName extends Action> {
   children: React.ReactNode;
-  permission: Action;
-  context?: PermissionContext;
+  permission: ActionName;
   className?: string;
 }
 
-type CanCheck = (permission: Action, context?: PermissionContext) => boolean;
+type CanPropsWithContext<ActionName extends Action> =
+  CanComponentProps<ActionName> &
+    (PermissionContexts[ActionName] extends undefined
+      ? { context?: never }
+      : { context: PermissionContexts[ActionName] });
 
 export function useCan(): CanCheck;
-export function useCan(
-  permission: Action,
-  context?: PermissionContext,
+export function useCan<ActionName extends Action>(
+  permission: ActionName,
+  ...contextArg: PermissionContextArg<ActionName>
 ): boolean;
-export function useCan(permission?: Action, context: PermissionContext = {}) {
+export function useCan<ActionName extends Action>(
+  permission?: ActionName,
+  ...contextArg: PermissionContextArg<ActionName>
+) {
   const authority = useAuthority();
   const check = useCallback<CanCheck>(
-    (action, checkContext = {}) =>
-      authority ? evaluateAuth(authority, action, checkContext) : false,
+    (action, ...checkContextArg) =>
+      authority ? evaluateAuth(authority, action, ...checkContextArg) : false,
     [authority],
   );
 
-  return permission ? check(permission, context) : check;
+  return permission ? check(permission, ...contextArg) : check;
 }
 
-export function Can({ children, permission, context }: CanProps) {
-  const can = useCan(permission, context);
+export function Can<ActionName extends Action>({
+  children,
+  permission,
+  context,
+}: CanPropsWithContext<ActionName>) {
+  const can = useCan(
+    permission,
+    ...((context === undefined
+      ? []
+      : [context]) as PermissionContextArg<ActionName>),
+  );
 
   return can ? children : null;
 }

@@ -80,6 +80,7 @@ describe("permissions", () => {
           ],
         }),
         "users.view_details",
+        undefined as unknown as { targetDepartment: null },
       ),
       false,
     );
@@ -105,8 +106,57 @@ describe("permissions", () => {
           positions: [{ position: "president", scope: "global" }],
         }),
         "membership.propose",
+        { targetDepartment: "events" },
       ),
       true,
+    );
+  });
+
+  it("allows any department head to view all groups without target context", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [
+            {
+              position: "department_head",
+              scope: "department",
+              department: "events",
+            },
+          ],
+        }),
+        "groups.view_all",
+      ),
+      true,
+    );
+  });
+
+  it("does not let department heads vote on legal membership resolutions", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [
+            {
+              position: "department_head",
+              scope: "department",
+              department: "events",
+            },
+          ],
+        }),
+        "membership.vote_resolution",
+      ),
+      false,
+    );
+  });
+
+  it("does not allow legal officers to perform admin-only actions", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "president", scope: "global" }],
+        }),
+        "groups.manage_members",
+      ),
+      false,
     );
   });
 

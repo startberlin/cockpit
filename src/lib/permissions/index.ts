@@ -21,69 +21,50 @@ export interface UserAuthority {
   grants: GrantAssignment[];
 }
 
-export interface PermissionContext {
-  targetDepartment?: Department | null;
+export interface TargetDepartmentContext {
+  targetDepartment: Department | null;
 }
 
-interface PermissionRule {
-  globalGrants?: AccessGrant[];
-  globalPositions?: OrganizationPosition[];
-  departmentPositions?: OrganizationPosition[];
+export interface PermissionContexts {
+  "users.create": undefined;
+  "users.import": undefined;
+  "users.view_details": TargetDepartmentContext;
+  "users.edit": TargetDepartmentContext;
+  "users.manage_authority": undefined;
+  "users.complete_onboarding": TargetDepartmentContext;
+  "membership.propose": TargetDepartmentContext;
+  "membership.vote_resolution": undefined;
+  "membership.view_resolution": undefined;
+  "membership.manage_workflows": undefined;
+  "groups.view_all": undefined;
+  "groups.create": undefined;
+  "groups.manage_members": undefined;
 }
 
-export const PERMISSIONS = {
-  "users.create": {
-    globalGrants: ["admin"],
-  },
-  "users.import": {
-    globalGrants: ["admin"],
-  },
-  "users.view_details": {
-    globalGrants: ["admin"],
-    globalPositions: ["department_head"],
-    departmentPositions: ["department_head"],
-  },
-  "users.edit": {
-    globalGrants: ["admin"],
-    departmentPositions: ["department_head"],
-  },
-  "users.manage_authority": {
-    globalGrants: ["admin"],
-  },
-  "users.complete_onboarding": {
-    globalGrants: ["admin"],
-    globalPositions: ["president", "vice_president", "head_of_finance"],
-    departmentPositions: ["department_head"],
-  },
-  "membership.propose": {
-    globalGrants: ["admin"],
-    globalPositions: ["president", "vice_president", "head_of_finance"],
-    departmentPositions: ["department_head"],
-  },
-  "membership.vote_resolution": {
-    globalPositions: ["president", "vice_president", "head_of_finance"],
-  },
-  "membership.view_resolution": {
-    globalGrants: ["admin"],
-    globalPositions: ["president", "vice_president", "head_of_finance"],
-  },
-  "membership.manage_workflows": {
-    globalGrants: ["admin"],
-  },
-  "groups.view_all": {
-    globalGrants: ["admin"],
-    globalPositions: ["president", "vice_president", "head_of_finance"],
-    departmentPositions: ["department_head"],
-  },
-  "groups.create": {
-    globalGrants: ["admin"],
-  },
-  "groups.manage_members": {
-    globalGrants: ["admin"],
-  },
-} as const satisfies Record<string, PermissionRule>;
+export type Action = keyof PermissionContexts;
+export type PermissionContext<A extends Action = Action> =
+  PermissionContexts[A];
+export type PermissionContextArg<A extends Action> =
+  PermissionContexts[A] extends undefined
+    ? []
+    : [context: PermissionContexts[A]];
 
-export type Action = keyof typeof PERMISSIONS;
+export interface AuthPredicate<Context> {
+  name: string;
+  evaluate: (authority: UserAuthority, context: Context) => boolean;
+}
+
+interface PermissionRule<ActionName extends Action> {
+  action: ActionName;
+  predicates: AuthPredicate<PermissionContexts[ActionName]>[];
+}
+
+function predicate<Context>(
+  name: string,
+  evaluate: (authority: UserAuthority, context: Context) => boolean,
+): AuthPredicate<Context> {
+  return { name, evaluate };
+}
 
 function hasGlobalGrant(authority: UserAuthority, grants: AccessGrant[] = []) {
   return authority.grants.some(
@@ -102,41 +83,133 @@ function hasGlobalPosition(
   );
 }
 
-function matchesDepartment(
-  assignmentDepartment: Department | null | undefined,
-  targetDepartment: Department | null | undefined,
+function hasAnyDepartmentPosition(
+  authority: UserAuthority,
+  positions: OrganizationPosition[],
 ) {
-  return !!assignmentDepartment && assignmentDepartment === targetDepartment;
+  return authority.positions.some(
+    (assignment) =>
+      assignment.scope === "department" &&
+      positions.includes(assignment.position),
+  );
 }
 
-function hasDepartmentPosition(
+function hasTargetDepartmentPosition(
   authority: UserAuthority,
-  positions: OrganizationPosition[] = [],
-  context: PermissionContext = {},
+  context: TargetDepartmentContext,
+  positions: OrganizationPosition[],
 ) {
   return authority.positions.some(
     (assignment) =>
       assignment.scope === "department" &&
       positions.includes(assignment.position) &&
-      matchesDepartment(assignment.department, context.targetDepartment),
+      !!assignment.department &&
+      assignment.department === context?.targetDepartment,
   );
 }
 
-export function evaluateAuth(
+export const authPredicates = {
+  isAdmin: () =>
+    predicate("isAdmin", (authority: UserAuthority) =>
+      hasGlobalGrant(authority, ["admin"]),
+    ),
+  isLegalOfficer: () =>
+    predicate("isLegalOfficer", (authority: UserAuthority) =>
+      hasGlobalPosition(authority, [
+        "president",
+        "vice_president",
+        "head_of_finance",
+      ]),
+    ),
+  isAnyDepartmentHead: () =>
+    predicate("isAnyDepartmentHead", (authority: UserAuthority) =>
+      hasAnyDepartmentPosition(authority, ["department_head"]),
+    ),
+  isHeadOfTargetDepartment: () =>
+    predicate(
+      "isHeadOfTargetDepartment",
+      (authority: UserAuthority, context: TargetDepartmentContext) =>
+        hasTargetDepartmentPosition(authority, context, ["department_head"]),
+    ),
+} as const;
+
+export function definePermission<ActionName extends Action>(
+  action: ActionName,
+  ...predicates: AuthPredicate<PermissionContexts[ActionName]>[]
+): PermissionRule<ActionName> {
+  return { action, predicates };
+}
+
+const {
+  isAdmin,
+  isAnyDepartmentHead,
+  isHeadOfTargetDepartment,
+  isLegalOfficer,
+} = authPredicates;
+
+export const PERMISSIONS = {
+  "users.create": definePermission("users.create", isAdmin()),
+  "users.import": definePermission("users.import", isAdmin()),
+  "users.view_details": definePermission(
+    "users.view_details",
+    isAdmin(),
+    isHeadOfTargetDepartment(),
+  ),
+  "users.edit": definePermission(
+    "users.edit",
+    isAdmin(),
+    isHeadOfTargetDepartment(),
+  ),
+  "users.manage_authority": definePermission(
+    "users.manage_authority",
+    isAdmin(),
+  ),
+  "users.complete_onboarding": definePermission(
+    "users.complete_onboarding",
+    isAdmin(),
+    isLegalOfficer(),
+    isHeadOfTargetDepartment(),
+  ),
+  "membership.propose": definePermission(
+    "membership.propose",
+    isAdmin(),
+    isLegalOfficer(),
+    isHeadOfTargetDepartment(),
+  ),
+  "membership.vote_resolution": definePermission(
+    "membership.vote_resolution",
+    isLegalOfficer(),
+  ),
+  "membership.view_resolution": definePermission(
+    "membership.view_resolution",
+    isAdmin(),
+    isLegalOfficer(),
+  ),
+  "membership.manage_workflows": definePermission(
+    "membership.manage_workflows",
+    isAdmin(),
+  ),
+  "groups.view_all": definePermission(
+    "groups.view_all",
+    isAdmin(),
+    isLegalOfficer(),
+    isAnyDepartmentHead(),
+  ),
+  "groups.create": definePermission("groups.create", isAdmin()),
+  "groups.manage_members": definePermission("groups.manage_members", isAdmin()),
+} as const satisfies { [ActionName in Action]: PermissionRule<ActionName> };
+
+export function evaluateAuth<ActionName extends Action>(
   authority: UserAuthority,
-  action: Action,
-  context: PermissionContext = {},
+  action: ActionName,
+  ...contextArg: PermissionContextArg<ActionName>
 ): boolean {
-  const rule = PERMISSIONS[action] as PermissionRule | undefined;
-  if (!rule) return false;
+  const rule = PERMISSIONS[action] as unknown as PermissionRule<ActionName>;
+  const context = contextArg[0] as PermissionContexts[ActionName];
 
-  if (hasGlobalGrant(authority, rule.globalGrants)) return true;
-  if (hasGlobalPosition(authority, rule.globalPositions)) return true;
-  if (hasDepartmentPosition(authority, rule.departmentPositions, context)) {
-    return true;
-  }
-
-  return false;
+  return rule.predicates.some((rulePredicate) =>
+    rulePredicate.evaluate(authority, context),
+  );
 }
 
 export function legacyRolesToAuthorityAssignments(

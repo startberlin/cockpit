@@ -1,7 +1,7 @@
 ---
 title: Refactor Permission Policy API
 type: refactor
-status: active
+status: completed
 date: 2026-05-02
 origin: docs/brainstorms/2026-05-02-permission-policy-api-requirements.md
 ---
