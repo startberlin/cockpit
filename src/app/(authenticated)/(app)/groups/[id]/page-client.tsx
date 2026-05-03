@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Can } from "@/components/can";
+import { Can, useCan } from "@/components/can";
 import GroupCriteriaManager from "@/components/group-criteria-manager";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +43,6 @@ import {
 import { Input } from "@/components/ui/input";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
-import { hasAnyRequiredRole, PERMISSIONS } from "@/lib/permissions";
-import { useRoles } from "@/lib/permissions/roles-context";
 import {
   addUserToGroupAction,
   removeUserFromGroupAction,
@@ -59,13 +57,9 @@ interface GroupDetailClientProps {
 export default function GroupDetailClient({
   group: initialGroup,
 }: GroupDetailClientProps) {
+  const can = useCan();
   const [group, setGroup] = useState(initialGroup);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
-  const roles = useRoles();
-  const _canManageUsers = hasAnyRequiredRole(
-    roles,
-    PERMISSIONS["users.manage"],
-  );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PublicUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -212,6 +206,8 @@ export default function GroupDetailClient({
 
   const adminCount = group.members.filter((m) => m.role === "admin").length;
   const _memberCount = group.members.filter((m) => m.role === "member").length;
+  const canViewMemberProfile = (member: GroupMember) =>
+    can("users.view_details", { targetDepartment: member.department });
 
   return (
     <div className="w-full space-y-6">
@@ -378,86 +374,96 @@ export default function GroupDetailClient({
             </div>
           ) : (
             <div className="space-y-4">
-              {group.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>
-                        {member.firstName[0]}
-                        {member.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/people/${member.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {member.firstName} {member.lastName}
-                        </Link>
-                        <Badge
-                          variant={
-                            member.role === "admin" ? "default" : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {member.role === "admin" && (
-                            <Crown className="h-3 w-3 mr-1" />
-                          )}
-                          {member.role}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {member.email}
-                      </div>
-                      {member.department && (
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {member.department}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {group.members.map((member) => {
+                const canViewProfile = canViewMemberProfile(member);
 
-                  <Can permission="groups.manage_members">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {member.role === "member" ? (
-                          <DropdownMenuItem
-                            onClick={() => handleRoleChange(member, "admin")}
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {member.firstName[0]}
+                          {member.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          {canViewProfile ? (
+                            <Link
+                              href={`/people/${member.id}`}
+                              className="font-medium hover:underline"
+                            >
+                              {member.firstName} {member.lastName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">
+                              {member.firstName} {member.lastName}
+                            </span>
+                          )}
+                          <Badge
+                            variant={
+                              member.role === "admin" ? "default" : "secondary"
+                            }
+                            className="text-xs"
                           >
-                            <Crown className="h-4 w-4 mr-2" />
-                            Make Admin
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleRoleChange(member, "member")}
-                          >
-                            <Users className="h-4 w-4 mr-2" />
-                            Make Member
-                          </DropdownMenuItem>
+                            {member.role === "admin" && (
+                              <Crown className="h-3 w-3 mr-1" />
+                            )}
+                            {member.role}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {member.email}
+                        </div>
+                        {member.department && (
+                          <div className="text-xs text-muted-foreground capitalize">
+                            {member.department}
+                          </div>
                         )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleRemoveMember(member)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove from Group
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </Can>
-                </div>
-              ))}
+                      </div>
+                    </div>
+
+                    <Can permission="groups.manage_members">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {member.role === "member" ? (
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member, "admin")}
+                            >
+                              <Crown className="h-4 w-4 mr-2" />
+                              Make Admin
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(member, "member")}
+                            >
+                              <Users className="h-4 w-4 mr-2" />
+                              Make Member
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleRemoveMember(member)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove from Group
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </Can>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

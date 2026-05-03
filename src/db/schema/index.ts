@@ -1,5 +1,14 @@
 import { relations } from "drizzle-orm";
 import { account, session, user, verification } from "./auth";
+import {
+  accessGrant,
+  authorityScope,
+  organizationPosition,
+  userAccessGrant,
+  userAccessGrantRelations,
+  userOrganizationPosition,
+  userOrganizationPositionRelations,
+} from "./authority";
 import { batch, batchRelations } from "./batch";
 import {
   group,
@@ -19,6 +28,8 @@ import {
 export const usersRelations = relations(user, ({ one, many }) => ({
   batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
   usersToGroups: many(usersToGroups),
+  organizationPositions: many(userOrganizationPosition),
+  accessGrants: many(userAccessGrant),
   membershipPayment: one(membershipPayment, {
     fields: [user.id],
     references: [membershipPayment.userId],
@@ -30,6 +41,13 @@ export const schema = {
   session,
   account,
   verification,
+  organizationPosition,
+  accessGrant,
+  authorityScope,
+  userOrganizationPosition,
+  userAccessGrant,
+  userOrganizationPositionRelations,
+  userAccessGrantRelations,
   batch,
   usersRelations,
   batchRelations,

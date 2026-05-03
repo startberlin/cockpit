@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getGroupDetailRaw } from "@/db/groups";
+import {
+  getGroupDetailRaw,
+  isGroupAuthorizationError,
+  requireGroupView,
+} from "@/db/groups";
 
 export async function GET(
   _request: NextRequest,
@@ -7,6 +11,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    await requireGroupView(id);
+
     const group = await getGroupDetailRaw(id);
 
     if (!group) {
@@ -15,6 +21,13 @@ export async function GET(
 
     return NextResponse.json(group);
   } catch (error) {
+    if (isGroupAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     console.error("Error fetching group details:", error);
     return NextResponse.json(
       { error: "Failed to fetch group details" },

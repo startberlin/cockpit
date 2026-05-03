@@ -32,7 +32,6 @@ interface BulkAddUsersDialogProps {
 
 interface UserCriteria {
   departments: string[];
-  roles: string[];
   statuses: string[];
   batchNumbers: number[];
 }
@@ -45,19 +44,19 @@ const DEPARTMENTS = [
   { value: "events", label: "Events" },
 ];
 
-const ROLES = [
-  { value: "member", label: "Member" },
-  { value: "board", label: "Board" },
-  { value: "department_lead", label: "Department Lead" },
-  { value: "admin", label: "Admin" },
-];
-
 const STATUSES = [
   { value: "onboarding", label: "Onboarding" },
   { value: "member", label: "Member" },
-  { value: "supporting_alumni", label: "Supporting Alumni" },
+  { value: "supporting_alumni", label: "Supporting alumni" },
   { value: "alumni", label: "Alumni" },
 ];
+
+function findLabel(
+  options: Array<{ value: string; label: string }>,
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
 export default function BulkAddUsersDialog({
   groupId,
@@ -67,7 +66,6 @@ export default function BulkAddUsersDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [criteria, setCriteria] = useState<UserCriteria>({
     departments: [],
-    roles: [],
     statuses: [],
     batchNumbers: [],
   });
@@ -79,7 +77,6 @@ export default function BulkAddUsersDialog({
   const fetchPreviewUsers = useCallback(async () => {
     if (
       criteria.departments.length === 0 &&
-      criteria.roles.length === 0 &&
       criteria.statuses.length === 0 &&
       criteria.batchNumbers.length === 0
     ) {
@@ -175,13 +172,12 @@ export default function BulkAddUsersDialog({
       setIsOpen(false);
       setCriteria({
         departments: [],
-        roles: [],
         statuses: [],
         batchNumbers: [],
       });
       setPreviewUsers([]);
       toast.success(
-        `Added ${previewUsers.length} user${previewUsers.length !== 1 ? "s" : ""} to the group`,
+        `Added ${previewUsers.length} member${previewUsers.length !== 1 ? "s" : ""} to the group.`,
       );
     } catch (error) {
       toast.error(
@@ -203,7 +199,7 @@ export default function BulkAddUsersDialog({
       <label className="text-sm font-medium">{title}</label>
       <Select onValueChange={(value) => handleAddCriteria(type, value)}>
         <SelectTrigger>
-          <SelectValue placeholder={`Select ${title.toLowerCase()}...`} />
+          <SelectValue placeholder={`Choose ${title.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
           {options
@@ -243,7 +239,8 @@ export default function BulkAddUsersDialog({
         <DialogHeader>
           <DialogTitle>Add matching members</DialogTitle>
           <DialogDescription>
-            Select rules to add multiple matching members to this group at once.
+            Choose the department, status, or batch that should be added to this
+            group now.
           </DialogDescription>
         </DialogHeader>
 
@@ -254,7 +251,6 @@ export default function BulkAddUsersDialog({
             DEPARTMENTS,
             criteria.departments,
           )}
-          {renderCriteriaSection("Roles", "roles", ROLES, criteria.roles)}
           {renderCriteriaSection(
             "Statuses",
             "statuses",
@@ -263,11 +259,11 @@ export default function BulkAddUsersDialog({
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Batch Numbers</label>
+            <label className="text-sm font-medium">Batches</label>
             <div className="flex gap-2">
               <input
                 type="number"
-                placeholder="Enter batch number..."
+                placeholder="Batch number"
                 value={newBatchNumber}
                 onChange={(e) => setNewBatchNumber(e.target.value)}
                 onKeyDown={(e) => {
@@ -286,7 +282,7 @@ export default function BulkAddUsersDialog({
                   !newBatchNumber || Number.isNaN(parseInt(newBatchNumber, 10))
                 }
               >
-                Add
+                Add batch
               </Button>
             </div>
             {criteria.batchNumbers.length > 0 && (
@@ -312,7 +308,7 @@ export default function BulkAddUsersDialog({
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="font-medium">
-              Matching Users ({previewUsers.length})
+              Matching members ({previewUsers.length})
             </span>
             {isLoading && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2"></div>
@@ -340,14 +336,14 @@ export default function BulkAddUsersDialog({
                   <div className="flex gap-1">
                     {user.department && (
                       <Badge variant="outline" className="text-xs">
-                        {user.department}
+                        {findLabel(DEPARTMENTS, user.department)}
                       </Badge>
                     )}
                     <Badge variant="outline" className="text-xs">
                       Batch {user.batchNumber}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {user.status}
+                      {findLabel(STATUSES, user.status)}
                     </Badge>
                   </div>
                 </div>
@@ -358,7 +354,6 @@ export default function BulkAddUsersDialog({
           {!isLoading &&
             previewUsers.length === 0 &&
             (criteria.departments.length > 0 ||
-              criteria.roles.length > 0 ||
               criteria.statuses.length > 0 ||
               criteria.batchNumbers.length > 0) && (
               <div className="text-center py-4 text-muted-foreground">
@@ -379,14 +374,14 @@ export default function BulkAddUsersDialog({
                 disabled={isAdding}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add as Members
+                Add as group members
               </Button>
               <Button
                 onClick={() => handleBulkAdd("admin")}
                 disabled={isAdding}
               >
                 <Crown className="h-4 w-4 mr-2" />
-                Add as Admins
+                Add as group admins
               </Button>
             </div>
           )}

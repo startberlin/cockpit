@@ -5,7 +5,12 @@ import {
   type MembershipViewState,
 } from "@/lib/membership-status";
 import db from ".";
-import type { Department, Role, UserStatus } from "./schema/auth";
+import type { Department, UserStatus } from "./schema/auth";
+import type {
+  AccessGrant,
+  AuthorityScope,
+  OrganizationPosition,
+} from "./schema/authority";
 
 export interface PublicUser {
   id: string;
@@ -38,7 +43,18 @@ export interface UserDetail {
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
   paidThroughAt: Date | null;
-  roles: Role[];
+  organizationPositions: Array<{
+    id: string;
+    position: OrganizationPosition;
+    scope: AuthorityScope;
+    department: Department | null;
+  }>;
+  accessGrants: Array<{
+    id: string;
+    grant: AccessGrant;
+    scope: AuthorityScope;
+    department: Department | null;
+  }>;
   createdAt: Date;
   groups: Array<{
     id: string;
@@ -109,6 +125,8 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
         },
       },
       membershipPayment: true,
+      organizationPositions: true,
+      accessGrants: true,
     },
   });
 
@@ -139,7 +157,18 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     profileOnboardingComplete: isProfileOnboardingComplete(user),
     hasMembershipPayment: !!user.membershipPayment,
     paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
-    roles: user.roles,
+    organizationPositions: user.organizationPositions.map((assignment) => ({
+      id: assignment.id,
+      position: assignment.position,
+      scope: assignment.scope,
+      department: assignment.department,
+    })),
+    accessGrants: user.accessGrants.map((assignment) => ({
+      id: assignment.id,
+      grant: assignment.grant,
+      scope: assignment.scope,
+      department: assignment.department,
+    })),
     createdAt: user.createdAt,
     groups: user.usersToGroups.map((utg) => ({
       id: utg.group.id,

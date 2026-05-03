@@ -1,10 +1,16 @@
 import { revalidatePath } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import db from "@/db";
+import {
+  isGroupAuthorizationError,
+  requireGroupMemberManagement,
+} from "@/db/groups";
 import { usersToGroups } from "@/db/schema/group";
 
 export async function POST(request: NextRequest) {
   try {
+    await requireGroupMemberManagement();
+
     const body = await request.json();
     const { groupId, userIds, role = "member" } = body;
 
@@ -45,6 +51,13 @@ export async function POST(request: NextRequest) {
       added: userIds.length,
     });
   } catch (error) {
+    if (isGroupAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     console.error("Error bulk adding users to group:", error);
 
     // Check if it's a unique constraint violation (user already in group)

@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import Logo from "@/app/logo-white.png";
 import Navigation from "@/components/navigation";
 import { UserAvatar } from "@/components/user-avatar";
+import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
-import { RolesProvider } from "@/lib/permissions/roles-context";
+import { AuthorityProvider } from "@/lib/permissions/authority-context";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 interface AppLayoutProps {
@@ -24,8 +25,14 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     return redirect("/onboarding");
   }
 
+  const authority = await getUserAuthority(user.id);
+
+  if (!authority) {
+    return redirect("/auth");
+  }
+
   return (
-    <RolesProvider roles={user.roles}>
+    <AuthorityProvider authority={authority}>
       <div className="flex flex-col">
         <div className="w-full bg-brand">
           <div className="w-full flex flex-col gap-14 max-w-4xl mx-auto pt-6 px-6">
@@ -43,6 +50,6 @@ export default async function AppLayout({ children }: AppLayoutProps) {
         </div>
         <main className="max-w-4xl w-full mx-auto px-6 py-6">{children}</main>
       </div>
-    </RolesProvider>
+    </AuthorityProvider>
   );
 }

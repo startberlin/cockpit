@@ -2,14 +2,17 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import db from "@/db";
-import { department, role, user, userStatus } from "@/db/schema/auth";
+import {
+  isGroupAuthorizationError,
+  requireGroupMemberManagement,
+} from "@/db/groups";
+import { department, user, userStatus } from "@/db/schema/auth";
 import { usersToGroups } from "@/db/schema/group";
 
 const requestSchema = z.object({
   groupId: z.string(),
   criteria: z.object({
     departments: z.array(z.enum(department.enumValues)).optional(),
-    roles: z.array(z.enum(role.enumValues)).optional(),
     statuses: z.array(z.enum(userStatus.enumValues)).optional(),
     batchNumbers: z.array(z.number()).optional(),
   }),
@@ -17,6 +20,8 @@ const requestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    await requireGroupMemberManagement();
+
     const parsed = requestSchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -27,17 +32,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { groupId, criteria } = parsed.data;
-    const { departments, roles, statuses, batchNumbers } = criteria;
+    const { departments, statuses, batchNumbers } = criteria;
 
     const conditions = [];
 
     if (departments?.length) {
       conditions.push(inArray(user.department, departments));
-    }
-
-    if (roles?.length) {
-      const roleConditions = roles.map((r) => sql`${r} = ANY(${user.roles})`);
-      conditions.push(or(...roleConditions));
     }
 
     if (statuses?.length) {
@@ -75,6 +75,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(usersNotInGroup);
   } catch (error) {
+    if (isGroupAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     console.error("Error searching users by criteria:", error);
     return NextResponse.json(
       { error: "Internal server error" },

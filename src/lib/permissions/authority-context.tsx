@@ -2,17 +2,16 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useContext, useState } from "react";
+import type { UserAuthority } from ".";
 
-import type { RoleList } from ".";
+const AuthorityContext = createContext<UserAuthority | null>(null);
 
-const RolesContext = createContext<RoleList>([]);
-
-export function RolesProvider({
+export function AuthorityProvider({
+  authority,
   children,
-  roles,
 }: {
+  authority: UserAuthority;
   children: React.ReactNode;
-  roles: RoleList;
 }) {
   const [queryClient] = useState(
     () =>
@@ -27,11 +26,13 @@ export function RolesProvider({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RolesContext.Provider value={roles}>{children}</RolesContext.Provider>
+      <AuthorityContext.Provider value={authority}>
+        {children}
+      </AuthorityContext.Provider>
     </QueryClientProvider>
   );
 }
 
-export function useRoles(): RoleList {
-  return useContext(RolesContext);
+export function useAuthority(): UserAuthority | null {
+  return useContext(AuthorityContext);
 }

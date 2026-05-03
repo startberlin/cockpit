@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -32,7 +33,6 @@ interface GroupCriteriaManagerProps {
 interface CriteriaFormData {
   name: string;
   department?: string;
-  roles?: string[];
   status?: string;
   batchNumber?: string;
 }
@@ -45,19 +45,19 @@ const DEPARTMENTS = [
   { value: "events", label: "Events" },
 ];
 
-const ROLES = [
-  { value: "member", label: "Member" },
-  { value: "board", label: "Board" },
-  { value: "department_lead", label: "Department Lead" },
-  { value: "admin", label: "Admin" },
-];
-
 const STATUSES = [
   { value: "onboarding", label: "Onboarding" },
   { value: "member", label: "Member" },
-  { value: "supporting_alumni", label: "Supporting Alumni" },
+  { value: "supporting_alumni", label: "Supporting alumni" },
   { value: "alumni", label: "Alumni" },
 ];
+
+function findLabel(
+  options: Array<{ value: string; label: string }>,
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
 export default function GroupCriteriaManager({
   groupId,
@@ -69,7 +69,6 @@ export default function GroupCriteriaManager({
   const [formData, setFormData] = useState<CriteriaFormData>({
     name: "",
     department: undefined,
-    roles: [],
     status: undefined,
     batchNumber: undefined,
   });
@@ -78,7 +77,6 @@ export default function GroupCriteriaManager({
     setFormData({
       name: "",
       department: undefined,
-      roles: [],
       status: undefined,
       batchNumber: undefined,
     });
@@ -93,8 +91,6 @@ export default function GroupCriteriaManager({
         };
 
         if (formData.department) data.department = formData.department;
-        if (formData.roles && formData.roles.length > 0)
-          data.roles = formData.roles;
         if (formData.status) data.status = formData.status;
         if (formData.batchNumber) {
           const batchNum = parseInt(formData.batchNumber, 10);
@@ -147,7 +143,7 @@ export default function GroupCriteriaManager({
           throw new Error("Failed to remove criteria");
         }
 
-        toast.success("Matching rule removed");
+        toast.success("Matching rule removed.");
         onCriteriaChange();
       } catch (error) {
         console.error("Error removing criteria:", error);
@@ -158,35 +154,23 @@ export default function GroupCriteriaManager({
     });
   };
 
-  const handleRoleToggle = (role: string) => {
-    const currentRoles = formData.roles || [];
-    if (currentRoles.includes(role)) {
-      setFormData({
-        ...formData,
-        roles: currentRoles.filter((r) => r !== role),
-      });
-    } else {
-      setFormData({ ...formData, roles: [...currentRoles, role] });
-    }
-  };
-
   const formatCriteriaDisplay = (criteria: GroupCriteria) => {
     const parts: string[] = [];
 
     if (criteria.department) {
-      parts.push(`Department: ${criteria.department}`);
+      parts.push(`Department: ${findLabel(DEPARTMENTS, criteria.department)}`);
     }
     if (criteria.roles && criteria.roles.length > 0) {
-      parts.push(`Roles: ${criteria.roles.join(", ")}`);
+      parts.push("Old role condition no longer applies");
     }
     if (criteria.status) {
-      parts.push(`Status: ${criteria.status}`);
+      parts.push(`Status: ${findLabel(STATUSES, criteria.status)}`);
     }
     if (criteria.batchNumber) {
       parts.push(`Batch: ${criteria.batchNumber}`);
     }
 
-    return parts.length > 0 ? parts.join(" • ") : "No specific rule";
+    return parts.length > 0 ? parts.join(" • ") : "All future members";
   };
 
   return (
@@ -206,13 +190,17 @@ export default function GroupCriteriaManager({
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add matching rule</DialogTitle>
+              <DialogDescription>
+                Choose which future members should be added to this group
+                automatically.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
                 <Label htmlFor="criteria-name">Rule name</Label>
                 <Input
                   id="criteria-name"
-                  placeholder="e.g., 'New Community Members'"
+                  placeholder="e.g. Community members"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -221,7 +209,7 @@ export default function GroupCriteriaManager({
               </div>
 
               <div>
-                <Label>Department (Optional)</Label>
+                <Label>Department</Label>
                 <Select
                   value={formData.department || "any"}
                   onValueChange={(value) =>
@@ -232,10 +220,10 @@ export default function GroupCriteriaManager({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Choose a department" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any Department</SelectItem>
+                    <SelectItem value="any">Any department</SelectItem>
                     {DEPARTMENTS.map((dept) => (
                       <SelectItem key={dept.value} value={dept.value}>
                         {dept.label}
@@ -246,28 +234,7 @@ export default function GroupCriteriaManager({
               </div>
 
               <div>
-                <Label>Roles (Optional)</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {ROLES.map((role) => (
-                    <div
-                      key={role.value}
-                      className="flex items-center space-x-2"
-                    >
-                      <input
-                        type="checkbox"
-                        id={role.value}
-                        checked={formData.roles?.includes(role.value) || false}
-                        onChange={() => handleRoleToggle(role.value)}
-                        className="rounded"
-                      />
-                      <Label htmlFor={role.value}>{role.label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label>Status (Optional)</Label>
+                <Label>Status</Label>
                 <Select
                   value={formData.status || "any"}
                   onValueChange={(value) =>
@@ -278,10 +245,10 @@ export default function GroupCriteriaManager({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Choose a status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any Status</SelectItem>
+                    <SelectItem value="any">Any status</SelectItem>
                     {STATUSES.map((status) => (
                       <SelectItem key={status.value} value={status.value}>
                         {status.label}
@@ -292,11 +259,11 @@ export default function GroupCriteriaManager({
               </div>
 
               <div>
-                <Label htmlFor="batch-number">Batch Number (Optional)</Label>
+                <Label htmlFor="batch-number">Batch</Label>
                 <Input
                   id="batch-number"
                   type="number"
-                  placeholder="Enter batch number"
+                  placeholder="Batch number"
                   value={formData.batchNumber || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, batchNumber: e.target.value })
@@ -350,8 +317,8 @@ export default function GroupCriteriaManager({
                   {formatCriteriaDisplay(criteriaItem)}
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Future members matching this rule will be automatically added
-                  to this group.
+                  Future members who match this rule will be added to this group
+                  automatically.
                 </p>
               </CardContent>
             </Card>
@@ -365,8 +332,8 @@ export default function GroupCriteriaManager({
               No matching rules
             </h3>
             <p className="text-sm text-gray-600 text-center max-w-sm mb-4">
-              Automatically add future members to this group when they match the
-              rule.
+              Create a rule to add future members automatically when their
+              department, status, or batch matches.
             </p>
             <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />

@@ -1,22 +1,17 @@
-import type { Role } from "@/db/schema/auth";
-
-export const PERMISSIONS = {
-  "users.manage": ["admin"],
-  "users.complete_onboarding": ["admin", "board", "department_lead"],
-  "users.create": ["admin"],
-  "users.import": ["admin"],
-  "groups.view_all": ["admin", "board", "department_lead"],
-  "groups.create": ["admin"],
-  "groups.manage_members": ["admin"],
-} as const satisfies Record<string, readonly Role[]>;
-
-export type Action = keyof typeof PERMISSIONS;
-
-export type RoleList = readonly Role[];
-
-export function hasAnyRequiredRole(
-  userRoles: RoleList,
-  requiredRoles: RoleList,
-): boolean {
-  return requiredRoles.some((role) => userRoles.includes(role));
-}
+export {
+  type BoardRosterSetup,
+  getBoardRosterSetup,
+} from "@/lib/authority/board-roster";
+export type {
+  GrantAssignment,
+  PositionAssignment,
+  UserAuthority,
+} from "@/lib/authority/model";
+export {
+  type Action,
+  type DepartmentScope,
+  type DepartmentScopedAction,
+  evaluateAuth,
+  type GlobalAction,
+  isGlobalAction,
+} from "./evaluate";

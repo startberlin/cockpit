@@ -97,21 +97,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
             </>
           )}
 
-          <div className="space-y-1.5">
-            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              Roles
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {user.roles.map((role) => (
-                <Badge key={role} variant="secondary" className="capitalize">
-                  {role.replace(/_/g, " ")}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
           {user.paidThroughAt && (
             <>
               <div className="space-y-1.5">
