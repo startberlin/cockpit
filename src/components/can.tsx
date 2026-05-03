@@ -3,59 +3,87 @@
 import { useCallback } from "react";
 import {
   type Action,
+  type DepartmentScope,
+  type DepartmentScopedAction,
   evaluateAuth,
-  type PermissionContextArg,
-  type PermissionContexts,
+  type GlobalAction,
+  isGlobalAction,
 } from "@/lib/permissions";
 import { useAuthority } from "@/lib/permissions/authority-context";
 
-type CanCheck = <ActionName extends Action>(
-  permission: ActionName,
-  ...contextArg: PermissionContextArg<ActionName>
-) => boolean;
+export type CanCheck = {
+  (permission: GlobalAction): boolean;
+  (permission: DepartmentScopedAction, scope: DepartmentScope): boolean;
+};
 
-interface CanComponentProps<ActionName extends Action> {
+interface CanComponentProps {
   children: React.ReactNode;
-  permission: ActionName;
   className?: string;
 }
 
-type CanPropsWithContext<ActionName extends Action> =
-  CanComponentProps<ActionName> &
-    (PermissionContexts[ActionName] extends undefined
-      ? { context?: never }
-      : { context: PermissionContexts[ActionName] });
+type CanProps =
+  | (CanComponentProps & {
+      permission: GlobalAction;
+      context?: never;
+    })
+  | (CanComponentProps & {
+      permission: DepartmentScopedAction;
+      context: DepartmentScope;
+    });
 
 export function useCan(): CanCheck;
-export function useCan<ActionName extends Action>(
-  permission: ActionName,
-  ...contextArg: PermissionContextArg<ActionName>
+export function useCan(permission: GlobalAction): boolean;
+export function useCan(
+  permission: DepartmentScopedAction,
+  scope: DepartmentScope,
 ): boolean;
-export function useCan<ActionName extends Action>(
-  permission?: ActionName,
-  ...contextArg: PermissionContextArg<ActionName>
-) {
+export function useCan(permission?: Action, scope?: DepartmentScope) {
   const authority = useAuthority();
   const check = useCallback<CanCheck>(
-    (action, ...checkContextArg) =>
-      authority ? evaluateAuth(authority, action, ...checkContextArg) : false,
+    (action: Action, checkScope?: DepartmentScope) => {
+      if (!authority) {
+        return false;
+      }
+
+      if (isGlobalAction(action)) {
+        return evaluateAuth(authority, action);
+      }
+
+      if (!checkScope) {
+        return false;
+      }
+
+      return evaluateAuth(authority, action, checkScope);
+    },
     [authority],
   );
 
-  return permission ? check(permission, ...contextArg) : check;
+  if (!permission) {
+    return check;
+  }
+
+  if (isGlobalAction(permission)) {
+    return check(permission);
+  }
+
+  if (!scope) {
+    return false;
+  }
+
+  return check(permission, scope);
 }
 
-export function Can<ActionName extends Action>({
-  children,
-  permission,
-  context,
-}: CanPropsWithContext<ActionName>) {
-  const can = useCan(
-    permission,
-    ...((context === undefined
-      ? []
-      : [context]) as PermissionContextArg<ActionName>),
-  );
+export function Can(props: CanProps) {
+  const check = useCan();
 
-  return can ? children : null;
+  if (isGlobalAction(props.permission)) {
+    const can = check(props.permission);
+    return can ? props.children : null;
+  }
+
+  const can = check(
+    props.permission as DepartmentScopedAction,
+    props.context as DepartmentScope,
+  );
+  return can ? props.children : null;
 }

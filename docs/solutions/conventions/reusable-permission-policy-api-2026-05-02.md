@@ -25,9 +25,11 @@ applies_when:
 
 ## Context
 
-START Cockpit separates member lifecycle state, organization roles, app permissions, and effective authorization. Permission rules should read as business policy, not as storage details.
+START Cockpit separates member lifecycle state, organization positions, app access grants, and effective authorization. Permission rules should read as business policy, not as storage details.
 
-The permission policy lives in `src/lib/permissions/index.ts`. It uses named predicates such as admin, legal officer, any department head, and head of the target department. This avoids ambiguous buckets like "global positions" versus "department positions" and makes it clear whether a rule compares against a target member's department.
+The permission policy lives in the explicit evaluator in `src/lib/permissions/evaluate.ts`. It uses `GlobalAction` for actions with no target department argument and `DepartmentScopedAction` for actions that require a target department scope. `GlobalAction` does not mean only global authorities can perform the action; it means the action itself is not scoped to one target department.
+
+`src/lib/permissions/index.ts` is only the public export surface. Do not add new domain helpers there. Authority vocabulary belongs in `src/lib/authority/model.ts`; assignment validation belongs in `src/lib/authority/assignments.ts`; board roster logic belongs in `src/lib/authority/board-roster.ts`. Legacy `user.roles` values are not part of the permission surface.
 
 ## Core Rules
 
@@ -39,23 +41,30 @@ Do not import the low-level evaluator directly in app UI. Client checks should g
 
 Client checks are only UI affordances. Sensitive reads and mutations still need server-side `can()` checks.
 
-## Predicate Vocabulary
+## Evaluator Vocabulary
 
-Use target-aware predicates when the rule depends on the resource being acted on. For example, member profile access for department heads should compare the department head's department with the target member's department.
+Use plain switch cases in `evaluateAuth()` for permission behavior. A case should read like the business rule, using small local helpers only for obvious domain checks.
 
-Use context-free predicates when the rule does not depend on the target. For example, "any department head can view the groups page" should use the any-department-head predicate rather than pretending `department_head` is a global role.
+For department-scoped permissions, keep the target comparison visible. Prefer `isDepartmentHead(authority, scope.targetDepartment)` over hiding the comparison behind a broader predicate name.
 
-Use legal-officer predicates for President, Vice President, and Head of Finance when the permission relates to legal membership decisions. Department heads should not receive legal board access unless a policy explicitly says so.
+Use local legal-officer checks for President, Vice President, and Head of Finance when the permission relates to legal membership decisions. Department heads should not receive legal board access unless an evaluator case explicitly says so.
 
 ## Adding Permissions
 
 When adding a permission:
 
-- Add the action and its context shape first.
-- Choose predicates that describe the business rule directly.
+- Add the action to either `GlobalAction` or `DepartmentScopedAction`.
+- Add an explicit `evaluateAuth()` switch case with plain boolean logic.
 - Add runtime tests for allowed and denied authorities.
-- Add type-level coverage when the permission introduces a new context shape or predicate combination.
+- Add type-level coverage when the permission changes action scope or call-site requirements.
 - Check both server enforcement and client affordances when a permission affects UI navigation or visibility.
+
+When adding an authority assignment kind:
+
+- Add the position or grant to `src/lib/authority/model.ts`.
+- Update assignment validation in `src/lib/authority/assignments.ts`.
+- Update persistence constraints in `src/db/schema/authority.ts` if the scope or uniqueness rules change.
+- Add tests that prove the domain model, validation, and evaluator vocabulary still agree.
 
 ## Examples
 

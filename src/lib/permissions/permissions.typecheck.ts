@@ -1,28 +1,9 @@
-import {
-  authPredicates,
-  definePermission,
-  evaluateAuth,
-  type UserAuthority,
-} from "./index";
+import type { CanCheck } from "@/components/can";
+import { evaluateAuth, type UserAuthority } from "./index";
+import { can } from "./server";
 
 declare const authority: UserAuthority;
-
-definePermission(
-  "users.view_details",
-  authPredicates.isAdmin(),
-  authPredicates.isHeadOfTargetDepartment(),
-);
-
-definePermission(
-  "groups.view_all",
-  authPredicates.isAdmin(),
-  authPredicates.isAnyDepartmentHead(),
-);
-
-definePermission("users.view_details", authPredicates.isAnyDepartmentHead());
-
-// @ts-expect-error target-department predicates require target-department context.
-definePermission("groups.view_all", authPredicates.isHeadOfTargetDepartment());
+declare const check: CanCheck;
 
 evaluateAuth(authority, "groups.view_all");
 evaluateAuth(authority, "users.view_details", { targetDepartment: "events" });
@@ -32,3 +13,21 @@ evaluateAuth(authority, "users.view_details");
 
 // @ts-expect-error contextless permissions do not accept target-department context.
 evaluateAuth(authority, "groups.view_all", { targetDepartment: "events" });
+
+can("groups.view_all");
+can("users.view_details", { targetDepartment: "events" });
+
+// @ts-expect-error department-scoped server checks require scope.
+can("users.view_details");
+
+// @ts-expect-error global server checks do not accept department scope.
+can("groups.view_all", { targetDepartment: "events" });
+
+check("groups.view_all");
+check("users.view_details", { targetDepartment: "events" });
+
+// @ts-expect-error department-scoped client checks require scope.
+check("users.view_details");
+
+// @ts-expect-error global client checks do not accept department scope.
+check("groups.view_all", { targetDepartment: "events" });

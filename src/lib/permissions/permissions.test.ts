@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  evaluateAuth,
-  getBoardRosterSetup,
-  legacyRolesToAuthorityAssignments,
-  type UserAuthority,
-} from "./index";
+import { evaluateAuth, getBoardRosterSetup, type UserAuthority } from "./index";
 
 function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
   return {
@@ -160,45 +155,35 @@ describe("permissions", () => {
     );
   });
 
-  it("maps legacy roles to authority assignments for migration", () => {
-    assert.deepEqual(
-      legacyRolesToAuthorityAssignments(["admin", "department_lead", "board"], {
-        department: "operations",
-      }),
-      {
-        positions: [
-          {
-            position: "department_head",
-            scope: "department",
-            department: "operations",
-          },
-        ],
-        grants: [{ grant: "admin", scope: "global" }],
-      },
-    );
+  it("denies ordinary permissions for inactive statuses even with grants", () => {
+    for (const status of [
+      "onboarding",
+      "supporting_alumni",
+      "alumni",
+    ] as const) {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            status,
+            grants: [{ grant: "admin", scope: "global" }],
+          }),
+          "groups.manage_members",
+        ),
+        false,
+      );
+    }
   });
 
-  it("does not map legacy member role to authority assignments", () => {
-    assert.deepEqual(
-      legacyRolesToAuthorityAssignments(["member"], {
-        department: "operations",
-      }),
-      {
-        positions: [],
-        grants: [],
-      },
-    );
-  });
-
-  it("does not map legacy department lead without a department", () => {
-    assert.deepEqual(
-      legacyRolesToAuthorityAssignments(["department_lead"], {
-        department: null,
-      }),
-      {
-        positions: [],
-        grants: [],
-      },
+  it("allows ordinary permissions for active members with grants", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          status: "member",
+          grants: [{ grant: "admin", scope: "global" }],
+        }),
+        "groups.manage_members",
+      ),
+      true,
     );
   });
 

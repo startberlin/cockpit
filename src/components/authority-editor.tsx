@@ -19,8 +19,8 @@ import type {
   AuthorityScope,
   OrganizationPosition,
 } from "@/db/schema/authority";
+import type { GlobalOrganizationPosition } from "@/lib/authority/model";
 import { DEPARTMENTS } from "@/lib/enums";
-import type { GlobalOrganizationPosition } from "@/lib/permissions/authority-assignments";
 
 interface ExistingPosition {
   position: OrganizationPosition;

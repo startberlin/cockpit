@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import db from "@/db";
 import { schema } from "@/db/schema";
+import { betterAuthUserAdditionalFields } from "@/db/schema/auth-fields";
 import { env } from "@/env";
 
 export const auth = betterAuth({
@@ -11,41 +12,7 @@ export const auth = betterAuth({
     schema,
   }),
   user: {
-    additionalFields: {
-      firstName: {
-        type: "string",
-      },
-      lastName: {
-        type: "string",
-      },
-      roles: {
-        type: "string[]",
-      },
-      street: {
-        type: "string",
-      },
-      city: {
-        type: "string",
-      },
-      state: {
-        type: "string",
-      },
-      zip: {
-        type: "string",
-      },
-      country: {
-        type: "string",
-      },
-      phone: {
-        type: "string",
-      },
-      personalEmail: {
-        type: "string",
-      },
-      status: {
-        type: "string",
-      },
-    },
+    additionalFields: betterAuthUserAdditionalFields,
   },
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,

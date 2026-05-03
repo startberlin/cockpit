@@ -2,11 +2,23 @@ import "server-only";
 
 import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
-import { type Action, evaluateAuth, type PermissionContextArg } from ".";
+import {
+  type Action,
+  type DepartmentScope,
+  type DepartmentScopedAction,
+  evaluateAuth,
+  type GlobalAction,
+  isGlobalAction,
+} from ".";
 
-export async function can<ActionName extends Action>(
-  action: ActionName,
-  ...contextArg: PermissionContextArg<ActionName>
+export function can(action: GlobalAction): Promise<boolean>;
+export function can(
+  action: DepartmentScopedAction,
+  scope: DepartmentScope,
+): Promise<boolean>;
+export async function can(
+  action: Action,
+  scope?: DepartmentScope,
 ): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
@@ -14,5 +26,13 @@ export async function can<ActionName extends Action>(
   const authority = await getUserAuthority(user.id);
   if (!authority) return false;
 
-  return evaluateAuth(authority, action, ...contextArg);
+  if (isGlobalAction(action)) {
+    return evaluateAuth(authority, action);
+  }
+
+  if (!scope) {
+    return false;
+  }
+
+  return evaluateAuth(authority, action, scope);
 }

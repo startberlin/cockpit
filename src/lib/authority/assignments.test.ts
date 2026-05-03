@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { authorityUpdateInputSchema } from "./authority-assignments";
+import { authorityUpdateInputSchema } from "./assignments";
 
 describe("authority assignment validation", () => {
-  it("accepts valid global positions, department positions, and grants", () => {
+  it("accepts valid global positions, department-head assignments, and grants", () => {
     const result = authorityUpdateInputSchema.safeParse({
       userId: "usr_test",
       positions: [

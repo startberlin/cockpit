@@ -8,26 +8,26 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import {
+  accessGrants,
+  authorityScopes,
+  organizationPositions,
+} from "@/lib/authority/model";
 import { department, user } from "./auth";
 
-export const organizationPosition = pgEnum("organization_position", [
-  "president",
-  "vice_president",
-  "head_of_finance",
-  "department_head",
-]);
+export const organizationPosition = pgEnum(
+  "organization_position",
+  organizationPositions,
+);
 
 export type OrganizationPosition =
   (typeof organizationPosition.enumValues)[number];
 
-export const accessGrant = pgEnum("access_grant", ["admin"]);
+export const accessGrant = pgEnum("access_grant", accessGrants);
 
 export type AccessGrant = (typeof accessGrant.enumValues)[number];
 
-export const authorityScope = pgEnum("authority_scope", [
-  "global",
-  "department",
-]);
+export const authorityScope = pgEnum("authority_scope", authorityScopes);
 
 export type AuthorityScope = (typeof authorityScope.enumValues)[number];
 

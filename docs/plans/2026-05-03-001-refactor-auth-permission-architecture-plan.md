@@ -1,7 +1,7 @@
 ---
 title: Refactor Auth Permission Architecture
 type: refactor
-status: active
+status: completed
 date: 2026-05-03
 origin: docs/brainstorms/2026-05-02-permission-policy-api-requirements.md
 ---
@@ -10,7 +10,7 @@ origin: docs/brainstorms/2026-05-02-permission-policy-api-requirements.md
 
 ## Overview
 
-Clean up the current auth and permission implementation so the authorization policy remains readable, harder to misuse, and easier to extend. The current predicate-based model works and is the right direction, but the code still spreads authority concepts across Better Auth config, Drizzle schema constraints, Zod validation, permission predicates, legacy migration helpers, and board roster helpers.
+Clean up the current auth and permission implementation so the authorization policy remains readable, harder to misuse, and easier to extend. The current predicate-based model works and is the right direction, but the code still spreads authority concepts across Better Auth config, Drizzle schema constraints, Zod validation, permission predicates, historical role compatibility, and board roster helpers.
 
 This plan keeps the product behavior mostly stable while addressing the review findings:
 
@@ -59,7 +59,7 @@ Because this is authorization code, readability is not cosmetic. OWASP's access-
 - This plan is a readability and authorization-architecture refactor, not a redesign of START's product permissions.
 - This plan does not add `people_admin` or arbitrary resource scopes.
 - This plan does not add a visual permission editor or access audit page.
-- This plan does not remove legacy `user.roles` from the database unless implementation confirms it is already fully unused and migration-safe; it should first be isolated from permission-facing code.
+- This plan does not remove legacy `user.roles` from the database; it removes legacy role compatibility from permission-facing code.
 - This plan does not turn client-side checks into a security boundary.
 - This plan should not change the current ability of admins, legal officers, and department heads unless called out in the status-gating unit.
 
@@ -79,7 +79,7 @@ Because this is authorization code, readability is not cosmetic. OWASP's access-
 - `src/lib/auth-client.ts` uses Better Auth's `inferAdditionalFields<typeof auth>()` pattern.
 - `src/db/schema/auth.ts` defines the Drizzle `user`, `session`, `account`, and `verification` tables.
 - `src/db/user.ts` wraps `auth.api.getSession()` in a cached `getCurrentUser()`.
-- `src/lib/permissions/index.ts` currently defines authority DTOs, permission contexts, predicates, `PERMISSIONS`, `evaluateAuth`, legacy role mapping, and board roster setup.
+- `src/lib/permissions/index.ts` currently defines authority DTOs, permission contexts, predicates, `PERMISSIONS`, `evaluateAuth`, historical role compatibility, and board roster setup.
 - `src/lib/permissions/server.ts` is the server-side enforcement wrapper around the evaluator.
 - `src/components/can.tsx` and `src/lib/permissions/authority-context.tsx` provide client affordance checks from server-loaded authority.
 - `src/lib/permissions/authority-assignments.ts` validates assignment input today, but it lives under the permission layer.
@@ -126,7 +126,7 @@ Because this is authorization code, readability is not cosmetic. OWASP's access-
 
 - Exact file names for the authority domain module: the plan proposes names, but implementation may choose clearer local names if the dependency graph demands it.
 - Exact shape of the single permission registry: implementation should choose the simplest TypeScript form that preserves readability and type tests.
-- Whether `user.roles` can be removed from non-test code immediately: implementation should verify actual production usage before deleting compatibility helpers or planning a migration.
+- Whether `user.roles` can be removed from the database: plan separately if persisted role cleanup requires a migration.
 - Whether people-directory access and metadata disclosure are handled in this PR or a follow-up hardening issue: implementation should decide based on blast radius after the auth architecture modules are separated.
 
 ---
@@ -139,7 +139,6 @@ This illustrates the likely target layout. The per-unit file lists are authorita
 src/lib/authority/
   model.ts
   assignments.ts
-  legacy-roles.ts
   board-roster.ts
 src/lib/permissions/
   index.ts
@@ -293,7 +292,7 @@ flowchart TB
 - Move Zod assignment validation into `src/lib/authority/assignments.ts` or another neutral authority module, no longer under `src/lib/permissions`.
 
 **Patterns to follow:**
-- Existing `globalOrganizationPositions`, `departmentOrganizationPositions`, and `globalAccessGrants` in `src/lib/permissions/authority-assignments.ts`.
+- Existing `globalOrganizationPositions`, `department_head`, and `globalAccessGrants` in `src/lib/permissions/authority-assignments.ts`.
 - Existing authority constraints in `src/db/schema/authority.ts`.
 
 **Test scenarios:**
@@ -304,7 +303,7 @@ flowchart TB
 - Error path: assignment validation rejects scope/department combinations not allowed by the shared model.
 
 **Verification:**
-- Adding a future position or grant has one primary domain location and clear downstream tests.
+- Adding a future global position or access grant has one primary domain location and clear downstream tests. Department authority intentionally remains fixed to `department_head`.
 
 ---
 
@@ -321,16 +320,14 @@ flowchart TB
 - Create: `src/lib/permissions/predicates.ts`
 - Create: `src/lib/permissions/policy.ts`
 - Create: `src/lib/permissions/evaluate.ts`
-- Create: `src/lib/authority/legacy-roles.ts`
 - Create: `src/lib/authority/board-roster.ts`
 - Modify: `src/lib/permissions/index.ts`
 - Modify: `src/lib/permissions/permissions.test.ts`
-- Test: `src/lib/authority/legacy-roles.test.ts`
 - Test: `src/lib/authority/board-roster.test.ts`
 
 **Approach:**
 - Move authority DTO types that are not specifically permission policy into `src/lib/authority/model.ts`.
-- Move legacy role mapping out of the permission index. If it is still needed, keep it in `src/lib/authority/legacy-roles.ts` with a compatibility-oriented name.
+- Delete legacy role mapping from the permission index and do not expose legacy roles as authorization input.
 - Move `getBoardRosterSetup` and related officer helpers into `src/lib/authority/board-roster.ts`.
 - Move predicate definitions into `src/lib/permissions/predicates.ts`.
 - Move policy rows into `src/lib/permissions/policy.ts`.
@@ -343,13 +340,10 @@ flowchart TB
 
 **Test scenarios:**
 - Regression: all existing permission runtime tests still pass after module split.
-- Regression: legacy `admin` roles map to global admin grants if the compatibility mapper remains.
-- Regression: legacy `department_lead` with a department maps to a department-head position.
-- Regression: legacy `member` maps to no authority assignment.
 - Regression: board roster setup still handles missing, duplicate, and overlapping officer cases.
 
 **Verification:**
-- `src/lib/permissions/index.ts` is easy to scan and no longer owns board roster or legacy role behavior.
+- `src/lib/permissions/index.ts` is easy to scan and no longer owns board roster behavior or legacy role compatibility.
 
 ---
 
@@ -542,7 +536,7 @@ flowchart TB
 - State where to add a new permission action, a new predicate, a new authority assignment kind, and a new server guard.
 - Document that `src/lib/permissions/index.ts` is a public surface, not a dumping ground for new authority helpers.
 - Add or preserve tests that make the module boundaries meaningful: runtime policy examples, type-level invalid policy examples, assignment validation, and status gating.
-- If legacy role mapping remains, document it as compatibility/migration support and not the source of authorization truth.
+- Document that legacy roles are not part of the permission surface.
 
 **Patterns to follow:**
 - Existing concise convention style in `docs/solutions/conventions/reusable-permission-policy-api-2026-05-02.md`.
@@ -597,7 +591,7 @@ flowchart TB
 | Type-level registry becomes too clever to read | Prefer explicit context/status markers in each policy row over maximal inference. Readability is a requirement, not a nice-to-have. |
 | Domain model and Drizzle enums still drift | Add focused tests or compile-time assertions comparing model value lists to schema enum values. |
 | Status gating blocks legitimate onboarding or membership flows | Add explicit per-action exceptions and tests before enabling the default gate broadly. |
-| `user.roles` removal creates migration risk | Treat roles as compatibility input first; remove persisted roles only in a separate migration plan if usage is gone. |
+| `user.roles` removal creates migration risk | Keep persisted role cleanup as a separate migration plan; do not use roles as permission input. |
 | Better Auth additional-field tightening breaks session typing | Keep `inferAdditionalFields<typeof auth>()` and add a small type/config test before changing client assumptions. |
 | Large module split makes review noisy | Sequence units so behavior-preserving moves land before policy-shape changes; keep barrels temporarily stable. |
 

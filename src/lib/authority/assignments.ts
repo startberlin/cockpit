@@ -1,23 +1,10 @@
 import { z } from "zod";
 import { department } from "@/db/schema/auth";
-
-export const globalOrganizationPositions = [
-  "president",
-  "vice_president",
-  "head_of_finance",
-] as const;
-
-export type GlobalOrganizationPosition =
-  (typeof globalOrganizationPositions)[number];
-
-export const departmentOrganizationPositions = ["department_head"] as const;
-
-export type DepartmentOrganizationPosition =
-  (typeof departmentOrganizationPositions)[number];
-
-export const globalAccessGrants = ["admin"] as const;
-
-export type GlobalAccessGrant = (typeof globalAccessGrants)[number];
+import {
+  departmentHeadPosition,
+  globalAccessGrants,
+  globalOrganizationPositions,
+} from "./model";
 
 const departmentValue = z.enum(department.enumValues);
 
@@ -28,7 +15,7 @@ export const positionAssignmentSchema = z.union([
     department: z.null().optional(),
   }),
   z.object({
-    position: z.enum(departmentOrganizationPositions),
+    position: z.literal(departmentHeadPosition),
     scope: z.literal("department"),
     department: departmentValue,
   }),

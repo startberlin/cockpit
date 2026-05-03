@@ -8,8 +8,6 @@ import type { User } from "./schema/auth";
 export const getCurrentUser = cache(async () => {
   const user = await auth.api.getSession({ headers: await headers() });
 
-  console.log(user);
-
   if (!user) {
     return null;
   }

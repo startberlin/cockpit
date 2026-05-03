@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { replaceUserAuthority } from "@/db/authority";
 import { actionClient } from "@/lib/action-client";
-import { authorityUpdateInputSchema } from "@/lib/permissions/authority-assignments";
+import { authorityUpdateInputSchema } from "@/lib/authority/assignments";
 import { can } from "@/lib/permissions/server";
 
 export const updateAuthorityAction = actionClient
