@@ -15,20 +15,3 @@ export type MembershipPaymentSetupMetadata = z.infer<
   typeof membershipPaymentSetupMetadataSchema
 >;
 
-export function createMembershipPaymentSetupMetadata({
-  subjectUserId,
-  createdByUserId,
-  billingApplies = true,
-}: {
-  subjectUserId: string;
-  createdByUserId?: string | null;
-  billingApplies?: boolean;
-}) {
-  return membershipPaymentSetupMetadataSchema.parse({
-    subjectUserId,
-    createdByUserId: createdByUserId ?? null,
-    reason: "membership_payment_setup",
-    billingApplies,
-    step: "payment_required",
-  });
-}

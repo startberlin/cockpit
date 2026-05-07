@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { user } from "@/db/schema/auth";
-import {
-  betterAuthUserAdditionalFields,
-  serverOwnedAuthUserFields,
-} from "@/db/schema/auth-fields";
+import { betterAuthUserAdditionalFields } from "@/db/schema/auth-fields";
 
 describe("Better Auth user fields", () => {
-  it("derives the additional field map from the canonical server-owned list", () => {
+  it("defines the expected set of server-owned additional fields", () => {
     assert.deepEqual(Object.keys(betterAuthUserAdditionalFields), [
       "firstName",
       "lastName",
@@ -20,11 +17,6 @@ describe("Better Auth user fields", () => {
       "personalEmail",
       "status",
     ]);
-
-    assert.deepEqual(
-      serverOwnedAuthUserFields.map(([name]) => name),
-      Object.keys(betterAuthUserAdditionalFields),
-    );
   });
 
   it("marks server-owned additional fields as non-input", () => {
@@ -40,7 +32,7 @@ describe("Better Auth user fields", () => {
   });
 
   it("only lists fields that exist on the user schema", () => {
-    for (const [fieldName] of serverOwnedAuthUserFields) {
+    for (const fieldName of Object.keys(betterAuthUserAdditionalFields)) {
       assert.equal(
         fieldName in user,
         true,

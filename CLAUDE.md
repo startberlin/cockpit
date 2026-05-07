@@ -56,7 +56,7 @@ Routes use Next.js 15+ App Router with route groups:
 
 Uses Better Auth (`src/lib/auth.ts`) with Google OAuth only:
 - Social provider: Google Workspace (signup disabled, must pre-exist in system)
-- User schema extended with custom fields (firstName, lastName, roles, address, phone, status)
+- User schema extended with custom fields (firstName, lastName, address, phone, status)
 - Drizzle adapter connects auth to PostgreSQL
 - Session managed via cookies with `nextCookies()` plugin
 
@@ -136,4 +136,4 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `grp_`, `bat_`, `ses_`, `acc_`, `ver_`
+Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `lms_`, `wfl_`, `aud_`

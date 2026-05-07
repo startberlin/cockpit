@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 import { ZodError } from "zod";
 import {
   createMembershipAdmissionMetadata,
-  createMembershipPaymentSetupMetadata,
   parseWorkflowMetadata,
   recordBoardVoteInMetadata,
   submitApplicationInMetadata,
@@ -51,21 +50,6 @@ describe("workflow metadata schemas", () => {
     );
   });
 
-  it("parses standalone payment setup metadata", () => {
-    const metadata = createMembershipPaymentSetupMetadata({
-      subjectUserId: "usr_affected",
-      createdByUserId: "usr_admin",
-    });
-
-    assert.deepEqual(metadata, {
-      subjectUserId: "usr_affected",
-      createdByUserId: "usr_admin",
-      reason: "membership_payment_setup",
-      billingApplies: true,
-      step: "payment_required",
-    });
-  });
-
   it("rejects unknown workflow kinds", () => {
     assert.throws(
       () =>
@@ -82,7 +66,7 @@ describe("workflow metadata schemas", () => {
         recordBoardVoteInMetadata(admissionMetadata(), {
           voterUserId: "usr_president",
           value: "maybe" as never,
-          displayedTextHash: "sha256:displayed-text",
+          displayedTextHash: "sha256:resolution",
         }),
       ZodError,
     );
@@ -102,13 +86,13 @@ describe("workflow metadata schemas", () => {
     const firstVote = recordBoardVoteInMetadata(admissionMetadata(), {
       voterUserId: "usr_president",
       value: "yes",
-      displayedTextHash: "sha256:displayed-text",
+      displayedTextHash: "sha256:resolution",
       decidedAt: "2026-05-04T12:00:00.000Z",
     });
     const secondVote = recordBoardVoteInMetadata(firstVote, {
       voterUserId: "usr_vp",
       value: "yes",
-      displayedTextHash: "sha256:displayed-text",
+      displayedTextHash: "sha256:resolution",
       decidedAt: "2026-05-04T12:01:00.000Z",
     });
 
@@ -119,7 +103,7 @@ describe("workflow metadata schemas", () => {
     const updated = recordBoardVoteInMetadata(admissionMetadata(), {
       voterUserId: "usr_president",
       value: "procedure_objection",
-      displayedTextHash: "sha256:displayed-text",
+      displayedTextHash: "sha256:resolution",
     });
 
     assert.equal(updated.step, "manual_followup");
@@ -131,14 +115,26 @@ describe("workflow metadata schemas", () => {
         recordBoardVoteInMetadata(admissionMetadata(), {
           voterUserId: "usr_outsider",
           value: "yes",
-          displayedTextHash: "sha256:displayed-text",
+          displayedTextHash: "sha256:resolution",
         }),
       /workflow participant/,
     );
   });
 
   it("stores application snapshots and document references in metadata", () => {
-    const updated = submitApplicationInMetadata(admissionMetadata(), {
+    const afterFirstVote = recordBoardVoteInMetadata(admissionMetadata(), {
+      voterUserId: "usr_president",
+      value: "yes",
+      displayedTextHash: "sha256:resolution",
+      decidedAt: "2026-05-04T12:00:00.000Z",
+    });
+    const afterApproval = recordBoardVoteInMetadata(afterFirstVote, {
+      voterUserId: "usr_vp",
+      value: "yes",
+      displayedTextHash: "sha256:resolution",
+      decidedAt: "2026-05-04T12:01:00.000Z",
+    });
+    const updated = submitApplicationInMetadata(afterApproval, {
       address: {
         street: "Main Street 1",
         city: "Berlin",
@@ -163,10 +159,42 @@ describe("workflow metadata schemas", () => {
     assert.equal(updated.application?.documents[0]?.sha256, "sha256:document");
   });
 
-  it("rejects application submissions without fee acknowledgement", () => {
+  it("rejects application submission before board approval", () => {
     assert.throws(
       () =>
         submitApplicationInMetadata(admissionMetadata(), {
+          address: {
+            street: "Main Street 1",
+            city: "Berlin",
+            zip: "10115",
+            country: "DE",
+          },
+          declarations: { bylawsAccepted: true },
+          feeAcknowledged: true,
+          applicationVersion: "application:v1",
+          feeTextVersion: "fee:v1",
+          documents: [],
+        }),
+      /application.*step/,
+    );
+  });
+
+  it("rejects application submissions without fee acknowledgement", () => {
+    const afterFirstVote = recordBoardVoteInMetadata(admissionMetadata(), {
+      voterUserId: "usr_president",
+      value: "yes",
+      displayedTextHash: "sha256:resolution",
+      decidedAt: "2026-05-04T12:00:00.000Z",
+    });
+    const afterApproval = recordBoardVoteInMetadata(afterFirstVote, {
+      voterUserId: "usr_vp",
+      value: "yes",
+      displayedTextHash: "sha256:resolution",
+      decidedAt: "2026-05-04T12:01:00.000Z",
+    });
+    assert.throws(
+      () =>
+        submitApplicationInMetadata(afterApproval, {
           address: {
             street: "Main Street 1",
             city: "Berlin",

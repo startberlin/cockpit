@@ -98,10 +98,6 @@ export function getStructuredMembershipState(
   };
 }
 
-export function isProfileOnboardingComplete(user: MembershipStatusUser) {
-  return getOnboardingProgress(user) === "completed";
-}
-
 function getPaymentViewState(
   user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
@@ -123,7 +119,7 @@ function getPaymentViewState(
     return "failed";
   }
 
-  if (isFullMemberPaymentState(user, payment, now)) {
+  if (isFullMemberPaymentState(payment, now)) {
     return "active";
   }
 
@@ -134,10 +130,6 @@ function getPaymentViewState(
   return "pending";
 }
 
-function requiresMembershipBilling(user: MembershipStatusUser) {
-  return user.status === "member" || user.status === "supporting_alumni";
-}
-
 function canSetUpPayment(
   user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
@@ -146,11 +138,14 @@ function canSetUpPayment(
     return false;
   }
 
-  return !!payment || requiresMembershipBilling(user);
+  return (
+    !!payment ||
+    user.status === "member" ||
+    user.status === "supporting_alumni"
+  );
 }
 
 function isFullMemberPaymentState(
-  _user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
   now: Date,
 ) {

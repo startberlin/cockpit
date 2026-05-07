@@ -10,15 +10,6 @@ import {
   membershipPaymentSetupWorkflowKind,
 } from "./membership-payment-setup";
 
-export const workflowStatusSchema = z.enum([
-  "open",
-  "completed",
-  "manual_followup",
-  "cancelled",
-]);
-
-export type WorkflowStatus = z.infer<typeof workflowStatusSchema>;
-
 export const workflowKindSchema = z.enum([
   membershipAdmissionWorkflowKind,
   membershipPaymentSetupWorkflowKind,
@@ -31,10 +22,6 @@ export type WorkflowMetadataByKind = {
   membership_payment_setup: MembershipPaymentSetupMetadata;
 };
 
-export function parseWorkflowKind(kind: string): WorkflowKind {
-  return workflowKindSchema.parse(kind);
-}
-
 function assertNever(value: never): never {
   throw new Error(`Unsupported workflow kind: ${value}`);
 }
@@ -43,7 +30,7 @@ export function parseWorkflowMetadata<K extends WorkflowKind>(
   kind: K,
   metadata: unknown,
 ): WorkflowMetadataByKind[K] {
-  const parsedKind = parseWorkflowKind(kind);
+  const parsedKind = workflowKindSchema.parse(kind);
 
   switch (parsedKind) {
     case "membership_admission":
@@ -57,18 +44,4 @@ export function parseWorkflowMetadata<K extends WorkflowKind>(
     default:
       return assertNever(parsedKind);
   }
-}
-
-export function parseWorkflowRecord({
-  kind,
-  metadata,
-}: {
-  kind: string;
-  metadata: unknown;
-}) {
-  const parsedKind = parseWorkflowKind(kind);
-  return {
-    kind: parsedKind,
-    metadata: parseWorkflowMetadata(parsedKind, metadata),
-  };
 }

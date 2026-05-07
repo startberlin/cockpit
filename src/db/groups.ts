@@ -262,13 +262,11 @@ export async function addGroupCriteria(
   return newCriteria;
 }
 
-export const removeGroupCriteriaSchema = z.object({
+const removeGroupCriteriaSchema = z.object({
   criteriaId: z.string(),
 });
 
-export type RemoveGroupCriteriaInput = z.infer<
-  typeof removeGroupCriteriaSchema
->;
+type RemoveGroupCriteriaInput = z.infer<typeof removeGroupCriteriaSchema>;
 
 export async function removeGroupCriteria({
   criteriaId,

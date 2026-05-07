@@ -60,39 +60,6 @@ export async function createOrReuseMembershipPayment(userId: string) {
   return created;
 }
 
-export async function createImportedMembershipPayment({
-  userId,
-  userStatus,
-  paidThroughAt,
-}: {
-  userId: string;
-  userStatus: UserStatus;
-  paidThroughAt?: Date | null;
-}) {
-  if (!requiresMembershipBilling(userStatus)) {
-    return null;
-  }
-
-  const existing = await getMembershipPaymentByUserId(userId);
-
-  if (existing) {
-    const [updated] = await db
-      .update(membershipPayment)
-      .set(importedMembershipPaymentCoverage(paidThroughAt))
-      .where(eq(membershipPayment.id, existing.id))
-      .returning();
-
-    return updated;
-  }
-
-  const [created] = await db
-    .insert(membershipPayment)
-    .values(importedMembershipPaymentValues({ userId, paidThroughAt }))
-    .returning();
-
-  return created;
-}
-
 export function importedMembershipPaymentValues({
   userId,
   paidThroughAt,

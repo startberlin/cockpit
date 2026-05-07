@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   type AuthorityUpdateInput,
   authorityUpdateInputSchema,
@@ -134,48 +134,6 @@ export async function getUserAuthority(
   return mapAuthorityUser(authorityUser);
 }
 
-export async function getUsersAuthority(
-  userIds: string[],
-): Promise<UserAuthority[]> {
-  if (userIds.length === 0) {
-    return [];
-  }
-
-  const users = await db.query.user.findMany({
-    where: inArray(user.id, userIds),
-    columns: {
-      id: true,
-      status: true,
-      department: true,
-    },
-    with: {
-      organizationPositions: true,
-      accessGrants: true,
-    },
-  });
-
-  return users.map((authorityUser) =>
-    mapAuthorityUser(authorityUser as AuthorityUserRow),
-  );
-}
-
-export async function listUserAuthorities(): Promise<UserAuthority[]> {
-  const users = await db.query.user.findMany({
-    columns: {
-      id: true,
-      status: true,
-      department: true,
-    },
-    with: {
-      organizationPositions: true,
-      accessGrants: true,
-    },
-  });
-
-  return users.map((authorityUser) =>
-    mapAuthorityUser(authorityUser as AuthorityUserRow),
-  );
-}
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {
   const authorityInput = authorityUpdateInputSchema.parse(input);

@@ -190,6 +190,19 @@ export function recordBoardVoteInMetadata(
   },
 ) {
   const parsed = membershipAdmissionMetadataSchema.parse(metadata);
+
+  if (parsed.step !== "board_resolution") {
+    throw new Error(
+      `Board votes can only be recorded at the "board_resolution" step, but current step is "${parsed.step}".`,
+    );
+  }
+
+  if (displayedTextHash !== parsed.board.resolutionTextHash) {
+    throw new Error(
+      "Board vote displayedTextHash does not match the stored resolution text hash.",
+    );
+  }
+
   const participant = parsed.board.participants.find(
     ({ userId }) => userId === voterUserId,
   );
@@ -239,6 +252,13 @@ export function submitApplicationInMetadata(
   },
 ) {
   const parsed = membershipAdmissionMetadataSchema.parse(metadata);
+
+  if (parsed.step !== "application") {
+    throw new Error(
+      `Application can only be submitted from the "application" step, but current step is "${parsed.step}".`,
+    );
+  }
+
   const submittedApplication = membershipApplicationSnapshotSchema.parse({
     ...application,
     submittedAt: application.submittedAt ?? new Date().toISOString(),

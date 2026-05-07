@@ -1,6 +1,6 @@
+import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import {
   getStructuredMembershipState,
-  isProfileOnboardingComplete,
   type StructuredMembershipState,
 } from "@/lib/membership-status";
 import db from ".";
@@ -104,7 +104,7 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       department: user.department ?? null,
       batchNumber: user.batch.number,
       status: user.status,
-      profileOnboardingComplete: isProfileOnboardingComplete(user),
+      profileOnboardingComplete: getOnboardingProgress(user) === "completed",
       hasMembershipPayment: !!user.membershipPayment,
     };
   });
@@ -150,7 +150,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     batchNumber: user.batch.number,
     status: user.status,
     membershipState: getStructuredMembershipState(user, user.membershipPayment),
-    profileOnboardingComplete: isProfileOnboardingComplete(user),
+    profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.membershipPayment,
     paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
     organizationPositions: user.organizationPositions.map((assignment) => ({

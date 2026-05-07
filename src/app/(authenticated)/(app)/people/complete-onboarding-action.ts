@@ -5,10 +5,8 @@ import db from "@/db";
 import { createOrReuseMembershipPayment } from "@/db/membership";
 import { MembershipPaymentReadyEmail } from "@/emails/membership-payment-ready";
 import { actionClient } from "@/lib/action-client";
-import {
-  getStructuredMembershipState,
-  isProfileOnboardingComplete,
-} from "@/lib/membership-status";
+import { getOnboardingProgress } from "@/schema/onboarding-progress";
+import { getStructuredMembershipState } from "@/lib/membership-status";
 import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
 
@@ -34,7 +32,7 @@ export const completeUserOnboardingAction = actionClient
       throw new Error("You are not authorized to complete user onboarding.");
     }
 
-    if (!isProfileOnboardingComplete(targetUser)) {
+    if (getOnboardingProgress(targetUser) !== "completed") {
       throw new Error("The user has not completed their profile onboarding.");
     }
 
