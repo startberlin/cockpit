@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  createOrReuseMembershipPayment,
   getMembershipPaymentByUserId,
   markMembershipCheckoutStarted,
   newMembershipSessionId,
@@ -9,27 +10,25 @@ import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
 import { reconcileMembershipPaymentForUser } from "@/lib/gocardless/membership-reconciliation";
-import { getMembershipViewState } from "@/lib/membership-status";
+import { getStructuredMembershipState } from "@/lib/membership-status";
 
 export const startMembershipPaymentAction = actionClient.action(
   async ({ ctx }) => {
-    const payment = await getMembershipPaymentByUserId(ctx.user.id);
-    const membershipState = getMembershipViewState(ctx.user, payment);
+    let payment = await getMembershipPaymentByUserId(ctx.user.id);
+    const membershipState = getStructuredMembershipState(ctx.user, payment);
 
-    if (membershipState === "profile_onboarding") {
+    if (!membershipState.paymentSetupAllowed) {
       throw new Error(
         "An admin needs to complete your onboarding before you can set up payment.",
       );
     }
 
-    if (membershipState === "full_member") {
+    if (membershipState.payment === "active") {
       return { hostedUrl: "/membership" };
     }
 
     if (!payment) {
-      throw new Error(
-        "An admin needs to complete your onboarding before you can set up payment.",
-      );
+      payment = await createOrReuseMembershipPayment(ctx.user.id);
     }
 
     let existingBillingRequestId = payment.gocardlessBillingRequestId;

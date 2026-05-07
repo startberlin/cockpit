@@ -1,4 +1,5 @@
-import { getAllGroups, getMyGroups } from "@/db/groups";
+import { listGroupsForViewer, listMemberGroupsForViewer } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import GroupsPageClient from "./page-client";
@@ -9,13 +10,16 @@ export const metadata = createMetadata({
 });
 
 export default async function GroupsPage() {
-  const canViewAll = await can("groups.view_all");
-
-  const groupsResult = canViewAll ? await getAllGroups() : await getMyGroups();
-
-  if (!groupsResult.data) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
     return <p>No groups found</p>;
   }
 
-  return <GroupsPageClient groups={groupsResult.data} />;
+  const canViewAll = await can("groups.view_all");
+
+  const groups = canViewAll
+    ? await listGroupsForViewer(currentUser.id)
+    : await listMemberGroupsForViewer(currentUser.id);
+
+  return <GroupsPageClient groups={groups} />;
 }

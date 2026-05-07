@@ -1,66 +1,54 @@
 import { revalidatePath } from "next/cache";
-import { type NextRequest, NextResponse } from "next/server";
-import db from "@/db";
-import {
-  isGroupAuthorizationError,
-  requireGroupMemberManagement,
-} from "@/db/groups";
-import { usersToGroups } from "@/db/schema/group";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { addUsersToGroup } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
+import { can } from "@/lib/permissions/server";
 
-export async function POST(request: NextRequest) {
+const bulkAddUsersRequestSchema = z.object({
+  groupId: z.string(),
+  userIds: z.array(z.string()).min(1),
+  role: z.enum(["admin", "member"]).default("member"),
+});
+
+export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  if (!(await can("groups.manage_members"))) {
+    return NextResponse.json(
+      { error: "You are not authorized to manage group members." },
+      { status: 403 },
+    );
+  }
+
   try {
-    await requireGroupMemberManagement();
-
-    const body = await request.json();
-    const { groupId, userIds, role = "member" } = body;
-
-    if (
-      !groupId ||
-      !userIds ||
-      !Array.isArray(userIds) ||
-      userIds.length === 0
-    ) {
+    const parsed = bulkAddUsersRequestSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
         { error: "Missing or invalid groupId, userIds, or role" },
         { status: 400 },
       );
     }
 
-    if (!["admin", "member"].includes(role)) {
-      return NextResponse.json(
-        { error: "Invalid role. Must be 'admin' or 'member'" },
-        { status: 400 },
-      );
-    }
+    const { groupId, userIds, role } = parsed.data;
+    const added = await addUsersToGroup({ groupId, userIds, role });
 
-    // Prepare bulk insert data
-    const insertData = userIds.map((userId: string) => ({
-      userId,
-      groupId,
-      role,
-    }));
-
-    // Bulk insert all users to the group
-    await db.insert(usersToGroups).values(insertData);
-
-    // Revalidate the group page
     revalidatePath(`/groups/${groupId}`);
 
     return NextResponse.json({
       success: true,
-      added: userIds.length,
+      added,
     });
   } catch (error) {
-    if (isGroupAuthorizationError(error)) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
-
     console.error("Error bulk adding users to group:", error);
 
-    // Check if it's a unique constraint violation (user already in group)
     if (error instanceof Error && error.message.includes("unique")) {
       return NextResponse.json(
         { error: "One or more users are already in this group" },

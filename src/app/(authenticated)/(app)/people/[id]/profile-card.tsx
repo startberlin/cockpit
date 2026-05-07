@@ -30,8 +30,9 @@ function hasFutureCoverage(date: Date | null, now = new Date()) {
 
 export function ProfileCard({ user }: ProfileCardProps) {
   const statusInfo = USER_STATUS_INFO[user.status];
-  const isPaymentPending = user.membershipViewState === "payment_pending";
-  const isPaymentProcessing = user.membershipViewState === "payment_processing";
+  const isPaymentProcessing = user.membershipState.payment === "processing";
+  const isPaymentPending =
+    user.membershipState.paymentSetupAllowed && !isPaymentProcessing;
   const hasPaidThroughCoverage = hasFutureCoverage(user.paidThroughAt);
   const paidThroughLabel = user.paidThroughAt
     ? formatDate(user.paidThroughAt)

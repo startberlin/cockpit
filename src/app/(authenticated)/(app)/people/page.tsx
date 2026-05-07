@@ -16,9 +16,9 @@ export default async function Home() {
     batches: async () => db.select().from(batch).orderBy(batch.number),
   });
 
-  if (!users.data) {
+  if (!users.length) {
     return <p>No members found</p>;
   }
 
-  return <PeoplePageClient users={users.data} batches={batches} />;
+  return <PeoplePageClient users={users} batches={batches} />;
 }

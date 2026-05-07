@@ -11,7 +11,7 @@ export const updateAuthorityAction = actionClient
   .action(async ({ parsedInput }) => {
     if (!(await can("users.manage_authority"))) {
       throw new Error(
-        "You are not authorized to update roles and permissions.",
+        "You are not authorized to update positions and permissions.",
       );
     }
 

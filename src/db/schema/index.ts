@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { auditLog, auditLogRelations } from "./audit-log";
 import { account, session, user, verification } from "./auth";
 import {
   accessGrant,
@@ -19,10 +20,17 @@ import {
   usersToGroupsRelations,
 } from "./group";
 import {
+  legalMembership,
+  legalMembershipDocumentStatus,
+  legalMembershipRelations,
+  legalMembershipState,
+} from "./legal-membership";
+import {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
 } from "./membership";
+import { workflow, workflowRelations, workflowStatus } from "./workflow";
 
 // Define user relations here to avoid circular dependency
 export const usersRelations = relations(user, ({ one, many }) => ({
@@ -30,10 +38,22 @@ export const usersRelations = relations(user, ({ one, many }) => ({
   usersToGroups: many(usersToGroups),
   organizationPositions: many(userOrganizationPosition),
   accessGrants: many(userAccessGrant),
+  legalMembership: one(legalMembership, {
+    fields: [user.id],
+    references: [legalMembership.userId],
+  }),
   membershipPayment: one(membershipPayment, {
     fields: [user.id],
     references: [membershipPayment.userId],
   }),
+  subjectWorkflows: many(workflow, {
+    relationName: "workflowSubjectUser",
+  }),
+  createdWorkflows: many(workflow, {
+    relationName: "workflowCreator",
+  }),
+  actorAuditLogs: many(auditLog, { relationName: "auditLogActor" }),
+  targetAuditLogs: many(auditLog, { relationName: "auditLogTarget" }),
 }));
 
 export const schema = {
@@ -60,4 +80,13 @@ export const schema = {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
+  legalMembership,
+  legalMembershipRelations,
+  legalMembershipState,
+  legalMembershipDocumentStatus,
+  workflow,
+  workflowStatus,
+  workflowRelations,
+  auditLog,
+  auditLogRelations,
 };

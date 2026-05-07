@@ -1,8 +1,7 @@
-import { actionClient } from "@/lib/action-client";
 import {
-  getMembershipViewState,
+  getStructuredMembershipState,
   isProfileOnboardingComplete,
-  type MembershipViewState,
+  type StructuredMembershipState,
 } from "@/lib/membership-status";
 import db from ".";
 import type { Department, UserStatus } from "./schema/auth";
@@ -39,7 +38,7 @@ export interface UserDetail {
   department: Department | null;
   batchNumber: number;
   status: UserStatus;
-  membershipViewState: MembershipViewState;
+  membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
   paidThroughAt: Date | null;
@@ -63,56 +62,53 @@ export interface UserDetail {
   }>;
 }
 
-export const getAllUserPublicData = actionClient.action(
-  async (): Promise<PublicUser[]> => {
-    const allUsers = await db.query.user.findMany({
-      columns: {
-        id: true,
-        name: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        emailVerified: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        street: true,
-        state: true,
-        city: true,
-        zip: true,
-        country: true,
-        personalEmail: true,
-        batchNumber: true,
-        phone: true,
-        status: true,
-        roles: true,
-        department: true,
-      },
-      with: {
-        batch: true,
-        membershipPayment: true,
-      },
-    });
+export async function getAllUserPublicData(): Promise<PublicUser[]> {
+  const allUsers = await db.query.user.findMany({
+    columns: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      emailVerified: true,
+      image: true,
+      createdAt: true,
+      updatedAt: true,
+      street: true,
+      state: true,
+      city: true,
+      zip: true,
+      country: true,
+      personalEmail: true,
+      batchNumber: true,
+      phone: true,
+      status: true,
+      department: true,
+    },
+    with: {
+      batch: true,
+      membershipPayment: true,
+    },
+  });
 
-    return allUsers.map((user): PublicUser => {
-      if (!user.batch) {
-        throw new Error("User has no batch");
-      }
+  return allUsers.map((user): PublicUser => {
+    if (!user.batch) {
+      throw new Error("User has no batch");
+    }
 
-      return {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        department: user.department ?? null,
-        batchNumber: user.batch.number,
-        status: user.status,
-        profileOnboardingComplete: isProfileOnboardingComplete(user),
-        hasMembershipPayment: !!user.membershipPayment,
-      };
-    });
-  },
-);
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      department: user.department ?? null,
+      batchNumber: user.batch.number,
+      status: user.status,
+      profileOnboardingComplete: isProfileOnboardingComplete(user),
+      hasMembershipPayment: !!user.membershipPayment,
+    };
+  });
+}
 
 export async function getUserById(id: string): Promise<UserDetail | null> {
   const user = await db.query.user.findFirst({
@@ -153,7 +149,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     department: user.department ?? null,
     batchNumber: user.batch.number,
     status: user.status,
-    membershipViewState: getMembershipViewState(user, user.membershipPayment),
+    membershipState: getStructuredMembershipState(user, user.membershipPayment),
     profileOnboardingComplete: isProfileOnboardingComplete(user),
     hasMembershipPayment: !!user.membershipPayment,
     paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,

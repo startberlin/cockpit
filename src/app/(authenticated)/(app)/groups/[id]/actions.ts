@@ -2,20 +2,25 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  addUserToGroupRaw,
-  removeUserFromGroupRaw,
-  requireGroupMemberManagement,
-  searchUsersNotInGroupRaw,
-  updateUserGroupRoleRaw,
+  addUserToGroup,
+  removeUserFromGroup,
+  searchUsersNotInGroup,
+  updateUserGroupRole,
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
+import { getCurrentUser } from "@/db/user";
+import { can } from "@/lib/permissions/server";
 
 export async function searchUsersNotInGroupAction(
   groupId: string,
   query?: string,
 ): Promise<PublicUser[]> {
-  await requireGroupMemberManagement();
-  return await searchUsersNotInGroupRaw(groupId, query);
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("groups.manage_members"))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  return await searchUsersNotInGroup(groupId, query);
 }
 
 export async function addUserToGroupAction(
@@ -23,8 +28,12 @@ export async function addUserToGroupAction(
   groupId: string,
   role: "admin" | "member" = "member",
 ): Promise<void> {
-  await requireGroupMemberManagement();
-  await addUserToGroupRaw(userId, groupId, role);
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("groups.manage_members"))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await addUserToGroup(userId, groupId, role);
   revalidatePath(`/groups/${groupId}`);
 }
 
@@ -32,8 +41,12 @@ export async function removeUserFromGroupAction(
   userId: string,
   groupId: string,
 ): Promise<void> {
-  await requireGroupMemberManagement();
-  await removeUserFromGroupRaw(userId, groupId);
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("groups.manage_members"))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await removeUserFromGroup(userId, groupId);
   revalidatePath(`/groups/${groupId}`);
 }
 
@@ -42,7 +55,11 @@ export async function updateUserGroupRoleAction(
   groupId: string,
   role: "admin" | "member",
 ): Promise<void> {
-  await requireGroupMemberManagement();
-  await updateUserGroupRoleRaw(userId, groupId, role);
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("groups.manage_members"))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await updateUserGroupRole(userId, groupId, role);
   revalidatePath(`/groups/${groupId}`);
 }

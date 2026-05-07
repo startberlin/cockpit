@@ -1,11 +1,7 @@
 import type { UserStatus } from "@/db/schema/auth";
-import type { MembershipViewState } from "@/lib/membership-status";
+import type { MembershipPaymentViewState } from "@/lib/membership-status";
 
-type MembershipOnboardingMode =
-  | MembershipViewState
-  | "profile_onboarding"
-  | "payment_pending"
-  | "payment_processing";
+type MembershipBillingMode = MembershipPaymentViewState;
 
 type MembershipToolsCopy =
   | {
@@ -27,12 +23,12 @@ export function getMembershipBillingCopy({
   paidThroughAt,
   now = new Date(),
 }: {
-  mode: MembershipOnboardingMode;
+  mode: MembershipBillingMode;
   userStatus?: UserStatus;
   paidThroughAt?: Date | null;
   now?: Date;
 }) {
-  if (mode === "payment_processing") {
+  if (mode === "processing") {
     return {
       title: "Finishing your membership setup",
       description:
@@ -41,7 +37,12 @@ export function getMembershipBillingCopy({
     };
   }
 
-  if (mode === "payment_pending") {
+  if (
+    mode === "not_started" ||
+    mode === "pending" ||
+    mode === "failed" ||
+    mode === "covered_until_date"
+  ) {
     const coveredThrough =
       paidThroughAt && paidThroughAt >= now ? formatDate(paidThroughAt) : null;
 
@@ -61,7 +62,7 @@ export function getMembershipBillingCopy({
     };
   }
 
-  if (mode === "full_member") {
+  if (mode === "active") {
     if (userStatus === "supporting_alumni") {
       return {
         title: "Thanks for supporting START Berlin",
@@ -90,7 +91,7 @@ export function getMembershipBillingCopy({
     };
   }
 
-  if (userStatus === "alumni") {
+  if (mode === "not_required" || userStatus === "alumni") {
     return {
       title: "You're listed as alumni",
       description:

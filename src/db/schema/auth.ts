@@ -31,15 +31,6 @@ export type Department = (typeof department.enumValues)[number];
 
 export const departmentSchema = createSelectSchema(department);
 
-export const role = pgEnum("role", [
-  "member",
-  "board",
-  "department_lead",
-  "admin",
-]);
-
-export type Role = (typeof role.enumValues)[number];
-
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -64,7 +55,6 @@ export const user = pgTable("user", {
     .references(() => batch.number, { onDelete: "cascade" }),
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
-  roles: role("roles").array().notNull().default(["member"]),
   department: department("department"),
 });
 

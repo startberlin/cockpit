@@ -26,8 +26,13 @@ export function isOnboardedUser(
   );
 }
 
+type OnboardingProgressUser = Pick<
+  User,
+  "personalEmail" | "phone" | "street" | "city" | "state" | "zip" | "country"
+>;
+
 export function getOnboardingProgress(
-  user: User,
+  user: OnboardingProgressUser,
 ): "master-data" | "address" | "completed" {
   const masterDataValidation = stepMasterDataSchema.safeParse({
     personalEmail: user.personalEmail,

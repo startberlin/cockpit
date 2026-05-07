@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { UserStatus } from "@/db/schema/auth";
-import type { MembershipViewState } from "@/lib/membership-status";
+import type { StructuredMembershipState } from "@/lib/membership-status";
 import {
   getMembershipBillingCopy,
   getMembershipToolsCopy,
@@ -21,7 +21,7 @@ import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
 
 interface MembershipPageContentProps {
-  membershipState: MembershipViewState;
+  membershipState: StructuredMembershipState;
   userStatus: UserStatus;
   paidThroughAt?: Date | null;
 }
@@ -56,10 +56,11 @@ function MembershipSection({
   userStatus,
   paidThroughAt,
 }: MembershipPageContentProps) {
-  const isPaymentPending = membershipState === "payment_pending";
-  const isPaymentProcessing = membershipState === "payment_processing";
+  const isPaymentProcessing = membershipState.payment === "processing";
+  const showPaymentButton =
+    membershipState.paymentSetupAllowed && !isPaymentProcessing;
   const copy = getMembershipBillingCopy({
-    mode: membershipState,
+    mode: membershipState.payment,
     userStatus,
     paidThroughAt,
   });
@@ -77,7 +78,7 @@ function MembershipSection({
           <PaymentProcessingRefresh />
         </CardFooter>
       )}
-      {isPaymentPending && (
+      {showPaymentButton && (
         <CardFooter className="flex-col items-start gap-3">
           <PaymentButton />
           {copy.paymentNote && (

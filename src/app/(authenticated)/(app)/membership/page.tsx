@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getMembershipPaymentByUserId } from "@/db/membership";
 import { getCurrentUser } from "@/db/user";
-import { getMembershipViewState } from "@/lib/membership-status";
+import { getStructuredMembershipState } from "@/lib/membership-status";
 import { createMetadata } from "@/lib/metadata";
 import { MembershipPageContent } from "./onboarding";
 
@@ -18,7 +18,7 @@ export default async function Home() {
   }
 
   const payment = await getMembershipPaymentByUserId(user.id);
-  const membershipState = getMembershipViewState(user, payment);
+  const membershipState = getStructuredMembershipState(user, payment);
 
   return (
     <MembershipPageContent

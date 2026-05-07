@@ -35,6 +35,12 @@ type Events = {
       };
     };
   };
+  "membership/admission-application.submitted": {
+    data: {
+      workflowId: string;
+      userId: string;
+    };
+  };
 };
 
 export const inngest = new Inngest({

@@ -58,7 +58,7 @@ export function AuthorityCard({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              START roles
+              START positions
             </p>
             <div className="flex flex-wrap gap-2">
               {user.organizationPositions.length > 0 ? (
@@ -72,7 +72,7 @@ export function AuthorityCard({
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No START roles assigned.
+                  No START positions assigned.
                 </p>
               )}
             </div>

@@ -1,46 +1,37 @@
-export const betterAuthUserAdditionalFields = {
-  firstName: {
-    type: "string",
-    input: false,
-  },
-  lastName: {
-    type: "string",
-    input: false,
-  },
-  roles: {
-    type: "string[]",
-    input: false,
-  },
-  street: {
-    type: "string",
-    input: false,
-  },
-  city: {
-    type: "string",
-    input: false,
-  },
-  state: {
-    type: "string",
-    input: false,
-  },
-  zip: {
-    type: "string",
-    input: false,
-  },
-  country: {
-    type: "string",
-    input: false,
-  },
-  phone: {
-    type: "string",
-    input: false,
-  },
-  personalEmail: {
-    type: "string",
-    input: false,
-  },
-  status: {
-    type: "string",
-    input: false,
-  },
-} as const;
+import type { user } from "./auth";
+
+type UserFieldName = keyof typeof user.$inferSelect;
+type BetterAuthFieldType = "string";
+
+export const serverOwnedAuthUserFields = [
+  ["firstName", "string"],
+  ["lastName", "string"],
+  ["street", "string"],
+  ["city", "string"],
+  ["state", "string"],
+  ["zip", "string"],
+  ["country", "string"],
+  ["phone", "string"],
+  ["personalEmail", "string"],
+  ["status", "string"],
+] as const satisfies readonly (readonly [UserFieldName, BetterAuthFieldType])[];
+
+type ServerOwnedAuthUserField = (typeof serverOwnedAuthUserFields)[number][0];
+
+export const betterAuthUserAdditionalFields = Object.fromEntries(
+  serverOwnedAuthUserFields.map(([name, type]) => [
+    name,
+    {
+      type,
+      input: false,
+    },
+  ]),
+) as {
+  [K in ServerOwnedAuthUserField]: {
+    type: Extract<
+      (typeof serverOwnedAuthUserFields)[number],
+      readonly [K, BetterAuthFieldType]
+    >[1];
+    input: false;
+  };
+};

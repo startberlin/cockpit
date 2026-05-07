@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { User } from "@/db/schema/auth";
-import { getMembershipViewState } from "./membership-status";
+import { getStructuredMembershipState } from "./membership-status";
 
 function user(overrides: Partial<User> = {}): User {
   const now = new Date("2026-04-26T00:00:00.000Z");
@@ -25,177 +25,130 @@ function user(overrides: Partial<User> = {}): User {
     batchNumber: 1,
     phone: "+491234567890",
     status: "onboarding",
-    roles: ["member"],
     department: null,
     ...overrides,
   };
 }
 
-describe("getMembershipViewState", () => {
+describe("getStructuredMembershipState", () => {
   const now = new Date("2026-04-26T00:00:00.000Z");
 
-  it("keeps users with missing profile details in profile onboarding", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({ street: null }),
-        { status: "active", paidThroughAt: new Date("2027-01-01") },
-        now,
-      ),
-      "profile_onboarding",
+  it("keeps legal state explicit when it has not been loaded", () => {
+    assert.deepEqual(
+      getStructuredMembershipState(user(), { status: "pending" }, { now })
+        .legal,
+      {
+        status: "unknown",
+        source: "not_loaded",
+      },
     );
   });
 
-  it("keeps completed profile users without admin approval in profile onboarding", () => {
-    assert.equal(getMembershipViewState(user(), null), "profile_onboarding");
+  it("keeps incomplete normal onboarding users away from payment setup", () => {
+    const state = getStructuredMembershipState(
+      user({ personalEmail: "" }),
+      { status: "pending" },
+      { now },
+    );
+
+    assert.equal(state.profile, "incomplete");
+    assert.equal(state.payment, "pending");
+    assert.equal(state.nextAction, "complete_profile");
+    assert.equal(state.paymentSetupAllowed, false);
   });
 
-  it("marks admin-approved profile users as payment pending", () => {
-    assert.equal(
-      getMembershipViewState(user(), { status: "pending" }),
-      "payment_pending",
+  it("lets completed onboarding users with payment rows set up payment", () => {
+    const state = getStructuredMembershipState(
+      user(),
+      { status: "pending" },
+      { now },
     );
+
+    assert.equal(state.profile, "complete");
+    assert.equal(state.payment, "pending");
+    assert.equal(state.nextAction, "set_up_payment");
+    assert.equal(state.paymentSetupAllowed, true);
   });
 
-  it("marks active payment users as full members", () => {
-    assert.equal(
-      getMembershipViewState(user(), { status: "active" }, now),
-      "full_member",
+  it("lets imported members continue payment setup before profile completion", () => {
+    const state = getStructuredMembershipState(
+      user({
+        personalEmail: "",
+        status: "member",
+      }),
+      { status: "pending", paidThroughAt: new Date("2026-12-31") },
+      { now },
     );
+
+    assert.equal(state.profile, "incomplete");
+    assert.equal(state.payment, "covered_until_date");
+    assert.equal(state.nextAction, "set_up_payment");
+    assert.equal(state.paymentSetupAllowed, true);
   });
 
-  it("keeps delayed-start GoCardless subscriptions full members after coverage date passes", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({ status: "member" }),
-        {
-          status: "active",
-          gocardlessSubscriptionId: "SB123",
-          paidThroughAt: new Date("2026-01-01"),
-        },
-        now,
-      ),
-      "full_member",
+  it("represents checkout-started payments as processing", () => {
+    const state = getStructuredMembershipState(
+      user({ status: "supporting_alumni" }),
+      { status: "checkout_started" },
+      { now },
     );
+
+    assert.equal(state.profile, "complete");
+    assert.equal(state.operational, "supporting_alumni");
+    assert.equal(state.payment, "processing");
+    assert.equal(state.nextAction, "set_up_payment");
+    assert.equal(state.paymentSetupAllowed, true);
   });
 
-  it("marks imported members as full members after subscription activation before profile completion", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({
-          personalEmail: "",
-          status: "member",
-        }),
-        {
-          status: "active",
-          gocardlessSubscriptionId: "SB123",
-          paidThroughAt: new Date("2026-12-31"),
-        },
-        now,
-      ),
-      "full_member",
+  it("does not treat a member without a payment row as active", () => {
+    const state = getStructuredMembershipState(
+      user({ status: "member" }),
+      null,
+      { now },
     );
+
+    assert.equal(state.payment, "not_started");
+    assert.equal(state.nextAction, "set_up_payment");
+    assert.equal(state.paymentSetupAllowed, true);
   });
 
-  it("marks expired manual coverage without a subscription as payment pending", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({ status: "member" }),
-        { status: "active", paidThroughAt: new Date("2026-01-01") },
-        now,
-      ),
-      "payment_pending",
+  it("keeps alumni without payment as not required", () => {
+    const state = getStructuredMembershipState(
+      user({ status: "alumni" }),
+      null,
+      { now },
     );
+
+    assert.equal(state.payment, "not_required");
+    assert.equal(state.nextAction, "none");
+    assert.equal(state.paymentSetupAllowed, false);
   });
 
-  it("keeps imported users with future paid-through coverage payment pending until billing is set up", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({ status: "member" }),
-        { status: "pending", paidThroughAt: new Date("2026-12-31") },
-        now,
-      ),
-      "payment_pending",
+  it("marks active subscriptions as active with no next action", () => {
+    const state = getStructuredMembershipState(
+      user({ status: "member" }),
+      {
+        status: "active",
+        gocardlessSubscriptionId: "SB123",
+        paidThroughAt: new Date("2026-01-01"),
+      },
+      { now },
     );
+
+    assert.equal(state.payment, "active");
+    assert.equal(state.nextAction, "none");
+    assert.equal(state.paymentSetupAllowed, false);
   });
 
-  it("lets imported members start payment setup before profile completion", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({
-          personalEmail: "",
-          status: "member",
-        }),
-        { status: "pending", paidThroughAt: new Date("2026-12-31") },
-        now,
-      ),
-      "payment_pending",
+  it("marks expired manual coverage without a subscription as pending", () => {
+    const state = getStructuredMembershipState(
+      user({ status: "member" }),
+      { status: "active", paidThroughAt: new Date("2026-01-01") },
+      { now },
     );
-  });
 
-  it("lets imported supporting alumni start payment setup before profile completion", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({
-          personalEmail: "",
-          status: "supporting_alumni",
-        }),
-        { status: "pending", paidThroughAt: new Date("2026-12-31") },
-        now,
-      ),
-      "payment_pending",
-    );
-  });
-
-  it("keeps imported members in payment processing before profile completion after checkout starts", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({
-          personalEmail: "",
-          status: "member",
-        }),
-        { status: "checkout_started" },
-        now,
-      ),
-      "payment_processing",
-    );
-  });
-
-  it("keeps normal users with incomplete profiles in profile onboarding", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({ personalEmail: "" }),
-        { status: "pending" },
-        now,
-      ),
-      "profile_onboarding",
-    );
-  });
-
-  it("does not show membership payment setup to imported alumni before profile completion", () => {
-    assert.equal(
-      getMembershipViewState(
-        user({
-          personalEmail: "",
-          status: "alumni",
-        }),
-        null,
-        now,
-      ),
-      "profile_onboarding",
-    );
-  });
-
-  it("treats legacy member users without payment rows as full members", () => {
-    assert.equal(
-      getMembershipViewState(user({ status: "member" }), null),
-      "full_member",
-    );
-  });
-
-  it("marks checkout-started users as payment processing", () => {
-    assert.equal(
-      getMembershipViewState(user(), { status: "checkout_started" }),
-      "payment_processing",
-    );
+    assert.equal(state.payment, "pending");
+    assert.equal(state.nextAction, "set_up_payment");
+    assert.equal(state.paymentSetupAllowed, true);
   });
 });

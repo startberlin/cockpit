@@ -1,27 +1,33 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
-import { type NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import db from "@/db";
-import {
-  isGroupAuthorizationError,
-  requireGroupMemberManagement,
-} from "@/db/groups";
-import { department, user, userStatus } from "@/db/schema/auth";
-import { usersToGroups } from "@/db/schema/group";
+import { NextResponse } from "next/server";
+import { findUsersNotInGroupByCriteria } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
+import { normalizedGroupCriteriaSchema } from "@/lib/groups/criteria";
+import { can } from "@/lib/permissions/server";
 
-const requestSchema = z.object({
-  groupId: z.string(),
-  criteria: z.object({
-    departments: z.array(z.enum(department.enumValues)).optional(),
-    statuses: z.array(z.enum(userStatus.enumValues)).optional(),
-    batchNumbers: z.array(z.number()).optional(),
-  }),
-});
+const requestSchema = normalizedGroupCriteriaSchema
+  .omit({ match: true })
+  .extend({
+    match: normalizedGroupCriteriaSchema.shape.match.optional(),
+  });
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  if (!(await can("groups.manage_members"))) {
+    return NextResponse.json(
+      { error: "You are not authorized to manage group members." },
+      { status: 403 },
+    );
+  }
+
   try {
-    await requireGroupMemberManagement();
-
     const parsed = requestSchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -31,57 +37,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { groupId, criteria } = parsed.data;
-    const { departments, statuses, batchNumbers } = criteria;
-
-    const conditions = [];
-
-    if (departments?.length) {
-      conditions.push(inArray(user.department, departments));
-    }
-
-    if (statuses?.length) {
-      conditions.push(inArray(user.status, statuses));
-    }
-
-    if (batchNumbers?.length) {
-      conditions.push(inArray(user.batchNumber, batchNumbers));
-    }
-
-    if (conditions.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    const usersNotInGroup = await db
-      .select({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        department: user.department,
-        status: user.status,
-        batchNumber: user.batchNumber,
-      })
-      .from(user)
-      .leftJoin(
-        usersToGroups,
-        and(
-          eq(usersToGroups.userId, user.id),
-          eq(usersToGroups.groupId, groupId),
-        ),
-      )
-      .where(and(sql`${usersToGroups.userId} IS NULL`, or(...conditions)))
-      .orderBy(user.firstName, user.lastName);
+    const usersNotInGroup = await findUsersNotInGroupByCriteria({
+      ...parsed.data,
+      match: parsed.data.match ?? "any",
+    });
 
     return NextResponse.json(usersNotInGroup);
   } catch (error) {
-    if (isGroupAuthorizationError(error)) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
-
     console.error("Error searching users by criteria:", error);
     return NextResponse.json(
       { error: "Internal server error" },

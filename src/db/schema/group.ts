@@ -7,7 +7,7 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { department, role, user, userStatus } from "./auth";
+import { department, user, userStatus } from "./auth";
 
 export const groupRole = pgEnum("group_role", ["admin", "member"]);
 
@@ -29,7 +29,6 @@ export const groupCriteria = pgTable("group_criteria", {
     .references(() => group.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   department: department("department"),
-  roles: role("roles").array(),
   status: userStatus("status"),
   batchNumber: integer("batch_number"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

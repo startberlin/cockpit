@@ -160,9 +160,6 @@ export default function GroupCriteriaManager({
     if (criteria.department) {
       parts.push(`Department: ${findLabel(DEPARTMENTS, criteria.department)}`);
     }
-    if (criteria.roles && criteria.roles.length > 0) {
-      parts.push("Old role condition no longer applies");
-    }
     if (criteria.status) {
       parts.push(`Status: ${findLabel(STATUSES, criteria.status)}`);
     }

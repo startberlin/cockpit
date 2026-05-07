@@ -1,46 +1,55 @@
-import { type NextRequest, NextResponse } from "next/server";
-import {
-  addGroupCriteria,
-  addUsersMatchingCriteria,
-  isGroupAuthorizationError,
-  requireGroupMemberManagement,
-} from "@/db/groups";
+import { NextResponse } from "next/server";
+import { addGroupCriteria, addUsersMatchingCriteria } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
+import { addGroupCriteriaSchema } from "@/lib/groups/criteria";
+import { can } from "@/lib/permissions/server";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  if (!(await can("groups.manage_members"))) {
+    return NextResponse.json(
+      { error: "You are not authorized to manage group members." },
+      { status: 403 },
+    );
+  }
+
   try {
-    await requireGroupMemberManagement();
+    const parsed = addGroupCriteriaSchema.safeParse(await request.json());
 
-    const body = await request.json();
-    const result = await addGroupCriteria(body);
-
-    // Auto-add existing users that match the criteria
-    if (result.data) {
-      const criteriaFilter = {
-        department: body.department,
-        status: body.status,
-        batchNumber: body.batchNumber,
-      };
-
-      const addedUsersCount = await addUsersMatchingCriteria(
-        body.groupId,
-        criteriaFilter,
-      );
-
-      return NextResponse.json({
-        criteria: result.data,
-        addedUsersCount,
-      });
-    }
-
-    return NextResponse.json({ criteria: result.data });
-  } catch (error) {
-    if (isGroupAuthorizationError(error)) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
+        { error: "Invalid request body" },
+        { status: 400 },
       );
     }
 
+    const criteria = await addGroupCriteria({
+      ...parsed.data,
+      createdBy: currentUser.id,
+    });
+
+    const addedUsersCount = await addUsersMatchingCriteria(
+      parsed.data.groupId,
+      {
+        department: parsed.data.department,
+        status: parsed.data.status,
+        batchNumber: parsed.data.batchNumber,
+      },
+    );
+
+    return NextResponse.json({
+      criteria,
+      addedUsersCount,
+    });
+  } catch (error) {
     console.error("Error adding group criteria:", error);
     return NextResponse.json(
       { error: "Failed to add group criteria" },

@@ -6,7 +6,7 @@ import { createOrReuseMembershipPayment } from "@/db/membership";
 import { MembershipPaymentReadyEmail } from "@/emails/membership-payment-ready";
 import { actionClient } from "@/lib/action-client";
 import {
-  getMembershipViewState,
+  getStructuredMembershipState,
   isProfileOnboardingComplete,
 } from "@/lib/membership-status";
 import { can } from "@/lib/permissions/server";
@@ -38,12 +38,12 @@ export const completeUserOnboardingAction = actionClient
       throw new Error("The user has not completed their profile onboarding.");
     }
 
-    const membershipState = getMembershipViewState(
+    const membershipState = getStructuredMembershipState(
       targetUser,
       targetUser.membershipPayment,
     );
 
-    if (membershipState === "full_member") {
+    if (membershipState.payment === "active") {
       throw new Error("This user is already a full member.");
     }
 
