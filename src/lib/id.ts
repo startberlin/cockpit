@@ -8,7 +8,6 @@ const prefixes = {
   group: "gr",
   authorityPosition: "aup",
   accessGrant: "aug",
-  legalMembership: "lms",
   workflow: "wfl",
   auditLog: "aud",
 } as const;

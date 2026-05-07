@@ -136,4 +136,4 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `lms_`, `wfl_`, `aud_`
+Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `wfl_`, `aud_`

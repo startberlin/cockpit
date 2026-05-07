@@ -17,8 +17,6 @@ describe("user deletion hardening migration", () => {
     for (const constraintName of [
       "audit_log_actor_user_id_user_id_fk",
       "audit_log_target_user_id_user_id_fk",
-      "legal_membership_user_id_user_id_fk",
-      "legal_membership_classified_by_user_id_user_id_fk",
       "workflow_subject_user_id_user_id_fk",
       "workflow_created_by_user_id_user_id_fk",
     ]) {

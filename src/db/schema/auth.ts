@@ -10,6 +10,15 @@ import {
 import { createSelectSchema } from "drizzle-zod";
 import { batch } from "./batch";
 
+export const legalMembershipState = pgEnum("legal_membership_state", [
+  "not_member",
+  "active_member",
+  "former_member",
+]);
+
+export type LegalMembershipState =
+  (typeof legalMembershipState.enumValues)[number];
+
 export const userStatus = pgEnum("user_status", [
   "onboarding",
   "member",
@@ -56,6 +65,9 @@ export const user = pgTable("user", {
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
   department: department("department"),
+  legalMembershipState: legalMembershipState("legal_membership_state")
+    .notNull()
+    .default("not_member"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

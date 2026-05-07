@@ -1,5 +1,4 @@
-import type { User } from "@/db/schema/auth";
-import type { LegalMembershipState } from "@/db/schema/legal-membership";
+import type { LegalMembershipState, User } from "@/db/schema/auth";
 import type { MembershipPaymentStatus } from "@/db/schema/membership";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
@@ -10,20 +9,6 @@ export interface MembershipPaymentState {
 }
 
 export type MembershipProfileState = "incomplete" | "complete";
-
-export type MembershipLegalState =
-  | {
-      status: "unknown";
-      source: "not_loaded";
-    }
-  | {
-      status: "not_applicable";
-      source: "not_applicable";
-    }
-  | {
-      status: LegalMembershipState;
-      source: "loaded";
-    };
 
 export type MembershipPaymentViewState =
   | "not_required"
@@ -42,7 +27,7 @@ export type MembershipNextAction =
 export interface StructuredMembershipState {
   profile: MembershipProfileState;
   operational: MembershipStatusUser["status"];
-  legal: MembershipLegalState;
+  legal: LegalMembershipState;
   payment: MembershipPaymentViewState;
   nextAction: MembershipNextAction;
   paymentSetupAllowed: boolean;
@@ -58,18 +43,13 @@ type MembershipStatusUser = Pick<
   | "zip"
   | "country"
   | "status"
+  | "legalMembershipState"
 >;
 
 export function getStructuredMembershipState(
   user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
-  {
-    now = new Date(),
-    legal = { status: "unknown", source: "not_loaded" },
-  }: {
-    now?: Date;
-    legal?: MembershipLegalState;
-  } = {},
+  { now = new Date() }: { now?: Date } = {},
 ): StructuredMembershipState {
   const profileOnboardingComplete = getOnboardingProgress(user) === "completed";
   const canContinueBilling =
@@ -88,7 +68,7 @@ export function getStructuredMembershipState(
   return {
     profile,
     operational: user.status,
-    legal,
+    legal: user.legalMembershipState,
     payment: paymentState,
     nextAction: getNextAction({
       paymentSetupAllowed,

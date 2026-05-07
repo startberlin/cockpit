@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { auditLog, auditLogRelations } from "./audit-log";
-import { account, session, user, verification } from "./auth";
+import { account, legalMembershipState, session, user, verification } from "./auth";
 import {
   accessGrant,
   authorityScope,
@@ -20,12 +20,6 @@ import {
   usersToGroupsRelations,
 } from "./group";
 import {
-  legalMembership,
-  legalMembershipDocumentStatus,
-  legalMembershipRelations,
-  legalMembershipState,
-} from "./legal-membership";
-import {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
@@ -38,10 +32,6 @@ export const usersRelations = relations(user, ({ one, many }) => ({
   usersToGroups: many(usersToGroups),
   organizationPositions: many(userOrganizationPosition),
   accessGrants: many(userAccessGrant),
-  legalMembership: one(legalMembership, {
-    fields: [user.id],
-    references: [legalMembership.userId],
-  }),
   membershipPayment: one(membershipPayment, {
     fields: [user.id],
     references: [membershipPayment.userId],
@@ -80,10 +70,7 @@ export const schema = {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
-  legalMembership,
-  legalMembershipRelations,
   legalMembershipState,
-  legalMembershipDocumentStatus,
   workflow,
   workflowStatus,
   workflowRelations,
