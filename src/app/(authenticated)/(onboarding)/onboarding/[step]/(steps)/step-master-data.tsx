@@ -46,14 +46,22 @@ export function StepMasterData({ user }: StepMasterDataProps) {
   const session = authClient.useSession();
   const router = useRouter();
 
+  const needsAddress =
+    user.legalMembershipState === "active_member" ||
+    user.legalMembershipState === "former_member";
+
   const onCompletedStep = useCallback(() => {
     if (!session || !session.data || !session.data.user) {
       console.error("User not loaded/signed in. Can't refresh page.");
       return;
     }
 
-    router.push(`/onboarding/${ONBOARDING_STEPS.ADDRESS}`);
-  }, [router, session]);
+    if (needsAddress) {
+      router.push(`/onboarding/${ONBOARDING_STEPS.ADDRESS}`);
+    } else {
+      router.push("/");
+    }
+  }, [router, session, needsAddress]);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     completeOnboardingMasterDataStep,
