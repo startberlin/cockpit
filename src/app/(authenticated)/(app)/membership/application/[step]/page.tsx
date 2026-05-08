@@ -26,15 +26,19 @@ export default async function ApplicationStepPage({
   const { step } = await params;
 
   if (step === "address") {
-    return <StepAddress />;
+    return (
+      <StepAddress user={user} legalMembershipId={activeLegalMembership.id} />
+    );
   }
 
   if (step === "declarations") {
-    return <StepDeclarations />;
+    return <StepDeclarations legalMembershipId={activeLegalMembership.id} />;
   }
 
   if (step === "review") {
-    return <StepReview />;
+    return (
+      <StepReview user={user} legalMembershipId={activeLegalMembership.id} />
+    );
   }
 
   redirect("/membership/application/address");
