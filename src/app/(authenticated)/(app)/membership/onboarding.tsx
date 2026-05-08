@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { UserStatus } from "@/db/schema/auth";
+import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
 import {
   getMembershipBillingCopy,
@@ -19,26 +20,32 @@ import { NotionDialog } from "./notion-dialog";
 import { PaymentButton } from "./payment-button";
 import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
+import { MembershipTaskCard } from "./task-card";
 
 interface MembershipPageContentProps {
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
   paidThroughAt?: Date | null;
+  activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
 }
 
 export function MembershipPageContent({
   membershipState,
   userStatus,
   paidThroughAt,
+  activeLegalMembership,
 }: MembershipPageContentProps) {
   const tools = getMembershipToolsCopy(userStatus);
 
   return (
     <div className="flex flex-col gap-10">
-      <MembershipSection
+      <MembershipTaskCard
+        legalMembershipStatus={activeLegalMembership?.status ?? null}
+        legalMembershipState={membershipState.legal}
+        hasPayment={membershipState.payment !== "not_started"}
+        paidThroughAt={paidThroughAt ?? null}
         membershipState={membershipState}
         userStatus={userStatus}
-        paidThroughAt={paidThroughAt}
       />
       {tools.visible && (
         <ToolsSection
@@ -51,7 +58,7 @@ export function MembershipPageContent({
   );
 }
 
-function MembershipSection({
+export function MembershipSection({
   membershipState,
   userStatus,
   paidThroughAt,

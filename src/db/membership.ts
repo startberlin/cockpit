@@ -1,5 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { UserStatus } from "@/db/schema/auth";
+import {
+  type LegalMembershipStatus,
+  legalMembership,
+} from "@/db/schema/legal-membership";
 import { nanoid } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
@@ -7,6 +11,28 @@ import {
   type MembershipPaymentStatus,
   membershipPayment,
 } from "./schema/membership";
+
+const ACTIVE_LEGAL_MEMBERSHIP_STATUSES: LegalMembershipStatus[] = [
+  "admission_pending",
+  "application_pending",
+  "processing",
+  "active",
+  "manual_followup",
+];
+
+export async function getActiveLegalMembership(
+  userId: string,
+): Promise<{ id: string; status: LegalMembershipStatus } | null> {
+  const row = await db.query.legalMembership.findFirst({
+    where: and(
+      eq(legalMembership.userId, userId),
+      inArray(legalMembership.status, ACTIVE_LEGAL_MEMBERSHIP_STATUSES),
+    ),
+    columns: { id: true, status: true },
+  });
+
+  return row ?? null;
+}
 
 export function newMembershipPaymentId() {
   return `mmp_${nanoid(16)}`;
