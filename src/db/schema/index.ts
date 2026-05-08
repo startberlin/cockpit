@@ -17,7 +17,16 @@ import {
   userOrganizationPositionRelations,
 } from "./authority";
 import { batch, batchRelations } from "./batch";
-import { admissionParticipant, boardVote } from "./board-admission";
+import {
+  admissionParticipant,
+  admissionParticipantRelations,
+  boardResolution,
+  boardResolutionRelations,
+  boardVote,
+  boardVoteRelations,
+  boardVoteValue,
+  officerFunction,
+} from "./board-admission";
 import {
   group,
   groupCriteria,
@@ -26,17 +35,44 @@ import {
   usersToGroups,
   usersToGroupsRelations,
 } from "./group";
-import { legalMembership } from "./legal-membership";
+import { legalDocument, legalDocumentRelations } from "./legal-document";
+import { legalMembership, legalMembershipStatus } from "./legal-membership";
 import {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
 } from "./membership";
-import { membershipApplication } from "./membership-application";
-import { task } from "./task";
+import {
+  membershipApplication,
+  membershipApplicationRelations,
+} from "./membership-application";
+import { task, taskRelations, taskStatus } from "./task";
 import { workflow, workflowRelations, workflowStatus } from "./workflow";
 
-// Define user relations here to avoid circular dependency
+// Define relations here to avoid circular dependencies between schema files
+
+export const legalMembershipRelations = relations(
+  legalMembership,
+  ({ one, many }) => ({
+    user: one(user, {
+      fields: [legalMembership.userId],
+      references: [user.id],
+    }),
+    boardResolution: one(boardResolution, {
+      fields: [legalMembership.id],
+      references: [boardResolution.legalMembershipId],
+    }),
+    admissionParticipants: many(admissionParticipant),
+    boardVotes: many(boardVote),
+    membershipApplication: one(membershipApplication, {
+      fields: [legalMembership.id],
+      references: [membershipApplication.legalMembershipId],
+    }),
+    tasks: many(task),
+    legalDocuments: many(legalDocument),
+  }),
+);
+
 export const usersRelations = relations(user, ({ one, many }) => ({
   batch: one(batch, { fields: [user.batchNumber], references: [batch.number] }),
   usersToGroups: many(usersToGroups),
@@ -86,6 +122,24 @@ export const schema = {
   membershipPaymentRelations,
   membershipPaymentStatus,
   legalMembershipState,
+  legalMembership,
+  legalMembershipStatus,
+  legalMembershipRelations,
+  boardResolution,
+  boardResolutionRelations,
+  admissionParticipant,
+  admissionParticipantRelations,
+  boardVote,
+  boardVoteRelations,
+  officerFunction,
+  boardVoteValue,
+  membershipApplication,
+  membershipApplicationRelations,
+  task,
+  taskStatus,
+  taskRelations,
+  legalDocument,
+  legalDocumentRelations,
   workflow,
   workflowStatus,
   workflowRelations,

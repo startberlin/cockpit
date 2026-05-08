@@ -14,4 +14,3 @@ export const membershipPaymentSetupMetadataSchema = z.object({
 export type MembershipPaymentSetupMetadata = z.infer<
   typeof membershipPaymentSetupMetadataSchema
 >;
-

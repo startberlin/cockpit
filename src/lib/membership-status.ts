@@ -119,9 +119,7 @@ function canSetUpPayment(
   }
 
   return (
-    !!payment ||
-    user.status === "member" ||
-    user.status === "supporting_alumni"
+    !!payment || user.status === "member" || user.status === "supporting_alumni"
   );
 }
 

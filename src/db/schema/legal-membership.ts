@@ -1,4 +1,3 @@
-import { relations } from "drizzle-orm";
 import { pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
@@ -34,13 +33,4 @@ export const legalMembership = pgTable("legal_membership", {
 // Note: A partial unique index is added in the migration:
 // CREATE UNIQUE INDEX "legal_membership_active_tenure_idx" ON "legal_membership" ("user_id")
 // WHERE status IN ('admission_pending', 'application_pending', 'processing', 'active');
-
-export const legalMembershipRelations = relations(
-  legalMembership,
-  ({ one }) => ({
-    user: one(user, {
-      fields: [legalMembership.userId],
-      references: [user.id],
-    }),
-  }),
-);
+// Relations defined in schema/index.ts to avoid circular imports.

@@ -5,10 +5,10 @@ import db from "@/db";
 import { createOrReuseMembershipPayment } from "@/db/membership";
 import { MembershipPaymentReadyEmail } from "@/emails/membership-payment-ready";
 import { actionClient } from "@/lib/action-client";
-import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
+import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 export const completeUserOnboardingAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))

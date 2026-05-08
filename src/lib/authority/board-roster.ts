@@ -35,9 +35,14 @@ const officerPositions = [
   "head_of_finance",
 ] as const satisfies OfficerPosition[];
 
-function idsWithPosition(boardMembers: UserAuthority[], position: OfficerPosition) {
+function idsWithPosition(
+  boardMembers: UserAuthority[],
+  position: OfficerPosition,
+) {
   return boardMembers
-    .filter((a) => a.positions.some((p) => p.scope === "global" && p.position === position))
+    .filter((a) =>
+      a.positions.some((p) => p.scope === "global" && p.position === position),
+    )
     .map((a) => a.userId);
 }
 
