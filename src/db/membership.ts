@@ -165,10 +165,24 @@ export async function activateMembershipPayment({
       .where(eq(membershipPayment.id, membershipPaymentId))
       .returning();
 
-    await tx
-      .update(user)
-      .set({ status: "member" })
+    const [currentUser] = await tx
+      .select()
+      .from(user)
       .where(eq(user.id, payment.userId));
+
+    if (currentUser.legalMembershipState !== "active_member") {
+      console.warn(
+        `activateMembershipPayment: skipping status advancement for user ${currentUser.id} — legalMembershipState is "${currentUser.legalMembershipState}", expected "active_member"`,
+      );
+      return payment;
+    }
+
+    if (currentUser.status === "onboarding") {
+      await tx
+        .update(user)
+        .set({ status: "member" })
+        .where(eq(user.id, payment.userId));
+    }
 
     return payment;
   });

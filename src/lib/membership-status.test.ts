@@ -65,7 +65,7 @@ describe("getStructuredMembershipState", () => {
 
   it("lets completed onboarding users with payment rows set up payment", () => {
     const state = getStructuredMembershipState(
-      user(),
+      user({ legalMembershipState: "active_member" }),
       { status: "pending" },
       { now },
     );
@@ -76,11 +76,24 @@ describe("getStructuredMembershipState", () => {
     assert.equal(state.paymentSetupAllowed, true);
   });
 
+  it("blocks payment setup for completed-profile users whose legal admission has not finished", () => {
+    const state = getStructuredMembershipState(
+      user({ legalMembershipState: "not_member" }),
+      { status: "pending" },
+      { now },
+    );
+
+    assert.equal(state.profile, "complete");
+    assert.equal(state.payment, "pending");
+    assert.equal(state.paymentSetupAllowed, false);
+  });
+
   it("lets imported members continue payment setup before profile completion", () => {
     const state = getStructuredMembershipState(
       user({
         personalEmail: "",
         status: "member",
+        legalMembershipState: "active_member",
       }),
       { status: "pending", paidThroughAt: new Date("2026-12-31") },
       { now },
@@ -94,7 +107,10 @@ describe("getStructuredMembershipState", () => {
 
   it("represents checkout-started payments as processing", () => {
     const state = getStructuredMembershipState(
-      user({ status: "supporting_alumni" }),
+      user({
+        status: "supporting_alumni",
+        legalMembershipState: "active_member",
+      }),
       { status: "checkout_started" },
       { now },
     );
@@ -108,7 +124,7 @@ describe("getStructuredMembershipState", () => {
 
   it("does not treat a member without a payment row as active", () => {
     const state = getStructuredMembershipState(
-      user({ status: "member" }),
+      user({ status: "member", legalMembershipState: "active_member" }),
       null,
       { now },
     );
@@ -132,7 +148,7 @@ describe("getStructuredMembershipState", () => {
 
   it("marks active subscriptions as active with no next action", () => {
     const state = getStructuredMembershipState(
-      user({ status: "member" }),
+      user({ status: "member", legalMembershipState: "active_member" }),
       {
         status: "active",
         gocardlessSubscriptionId: "SB123",
@@ -148,7 +164,7 @@ describe("getStructuredMembershipState", () => {
 
   it("marks expired manual coverage without a subscription as pending", () => {
     const state = getStructuredMembershipState(
-      user({ status: "member" }),
+      user({ status: "member", legalMembershipState: "active_member" }),
       { status: "active", paidThroughAt: new Date("2026-01-01") },
       { now },
     );
@@ -156,5 +172,42 @@ describe("getStructuredMembershipState", () => {
     assert.equal(state.payment, "pending");
     assert.equal(state.nextAction, "set_up_payment");
     assert.equal(state.paymentSetupAllowed, true);
+  });
+
+  describe("legalMembershipState gate on paymentSetupAllowed", () => {
+    it("blocks payment setup when legalMembershipState is not_member even if status is member", () => {
+      const state = getStructuredMembershipState(
+        user({ status: "member", legalMembershipState: "not_member" }),
+        { status: "pending" },
+        { now },
+      );
+
+      assert.equal(state.paymentSetupAllowed, false);
+    });
+
+    it("allows payment setup when legalMembershipState is active_member and payment is not_started", () => {
+      const state = getStructuredMembershipState(
+        user({ status: "member", legalMembershipState: "active_member" }),
+        null,
+        { now },
+      );
+
+      assert.equal(state.payment, "not_started");
+      assert.equal(state.paymentSetupAllowed, true);
+    });
+
+    it("allows payment setup for supporting_alumni with active_member legal state and pending payment", () => {
+      const state = getStructuredMembershipState(
+        user({
+          status: "supporting_alumni",
+          legalMembershipState: "active_member",
+        }),
+        { status: "pending" },
+        { now },
+      );
+
+      assert.equal(state.payment, "pending");
+      assert.equal(state.paymentSetupAllowed, true);
+    });
   });
 });

@@ -69,6 +69,18 @@ describe("getMembershipBillingCopy", () => {
     assert.match(copy.description, /yearly membership payment is set up/);
   });
 
+  it("shows active title for member with future paid-through coverage", () => {
+    const copy = getMembershipBillingCopy({
+      mode: "active",
+      userStatus: "member",
+      paidThroughAt: new Date("2026-12-31T23:59:59.999Z"),
+      now,
+    });
+
+    assert.match(copy.title, /active/);
+    assert.match(copy.description, /covered through December 31, 2026/);
+  });
+
   it("thanks supporting alumni for their support", () => {
     const copy = getMembershipBillingCopy({
       mode: "active",

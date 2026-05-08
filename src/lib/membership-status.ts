@@ -61,6 +61,7 @@ export function getStructuredMembershipState(
     : "incomplete";
   const paymentState = getPaymentViewState(user, payment, now);
   const paymentSetupAllowed =
+    user.legalMembershipState === "active_member" &&
     (profileOnboardingComplete || canContinueBilling) &&
     canSetUpPayment(user, payment) &&
     isPaymentSetupState(paymentState);
