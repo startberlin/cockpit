@@ -1,12 +1,24 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { boardVote } from "@/db/schema/board-admission";
+import { user } from "@/db/schema/auth";
+import {
+  admissionParticipant,
+  boardResolution,
+  boardVote,
+} from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
 import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
 import { inngest } from "@/lib/inngest";
+import {
+  archiveLegalDocument,
+  hasArchivedDocument,
+} from "@/lib/legal-documents/drive-archive";
+import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
+import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
+import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
@@ -136,32 +148,196 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(legalMembership.id, legalMembershipId));
     });
 
-    // Step 9: Render and archive legal documents (stubs — filled in U11).
-    await step.run("stub-render-board-resolution-pdf", async () => {
-      console.log(
-        `[stub] Render board resolution PDF for legal membership ${legalMembershipId}`,
+    // Step 9a: Render and archive board resolution PDF.
+    await step.run("archive-board-resolution", async () => {
+      if (await hasArchivedDocument(legalMembershipId, "board_resolution")) {
+        return;
+      }
+
+      const [resolution] = await db
+        .select({
+          id: boardResolution.id,
+          resolutionText: boardResolution.resolutionText,
+          resolutionTextHash: boardResolution.resolutionTextHash,
+        })
+        .from(boardResolution)
+        .where(eq(boardResolution.legalMembershipId, legalMembershipId));
+
+      const participants = await db
+        .select({
+          userId: admissionParticipant.userId,
+          officerFunction: admissionParticipant.officerFunction,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(admissionParticipant)
+        .innerJoin(user, eq(user.id, admissionParticipant.userId))
+        .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
+
+      const votes = await db
+        .select({
+          voterUserId: boardVote.voterUserId,
+          value: boardVote.value,
+          castAt: boardVote.castAt,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        })
+        .from(boardVote)
+        .innerJoin(user, eq(user.id, boardVote.voterUserId))
+        .where(eq(boardVote.legalMembershipId, legalMembershipId));
+
+      const subjectUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+        columns: { firstName: true, lastName: true },
+      });
+
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const element = renderBoardResolutionTemplate({
+        legalMembershipId,
+        resolutionId: resolution.id,
+        resolutionText: resolution.resolutionText,
+        resolutionTextHash: resolution.resolutionTextHash,
+        subjectName: subjectUser
+          ? `${subjectUser.firstName} ${subjectUser.lastName}`
+          : subjectUserId,
+        participants: participants.map((p) => ({
+          name: `${p.firstName} ${p.lastName}`,
+          officerFunction: p.officerFunction,
+        })),
+        votes: votes.map((v) => ({
+          voterName: `${v.firstName} ${v.lastName}`,
+          value: v.value,
+          castAt: v.castAt,
+        })),
+        renderedAt: new Date(),
+      });
+
+      const buffer = Buffer.from(
+        await renderToBuffer(
+          element as import("react").ReactElement<
+            import("@react-pdf/renderer").DocumentProps
+          >,
+        ),
       );
+
+      await archiveLegalDocument({
+        legalMembershipId,
+        documentType: "board_resolution",
+        buffer,
+        fileName: `board-resolution-${legalMembershipId}.pdf`,
+      });
     });
 
-    await step.run("stub-render-membership-application-pdf", async () => {
-      console.log(
-        `[stub] Render membership application PDF for legal membership ${legalMembershipId}`,
+    // Step 9b: Render and archive membership application PDF.
+    await step.run("archive-membership-application", async () => {
+      if (
+        await hasArchivedDocument(legalMembershipId, "membership_application")
+      ) {
+        return;
+      }
+
+      const application = await db.query.membershipApplication.findFirst({
+        where: (ma, { eq: eqFn }) =>
+          eqFn(ma.legalMembershipId, legalMembershipId),
+      });
+
+      if (!application) {
+        throw new Error(
+          `No membership_application found for ${legalMembershipId}`,
+        );
+      }
+
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const element = renderMembershipApplicationTemplate({
+        legalMembershipId,
+        applicationId: application.id,
+        subjectName:
+          `${(await db.query.user.findFirst({ where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId), columns: { firstName: true, lastName: true } }))?.firstName ?? ""} ${(await db.query.user.findFirst({ where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId), columns: { firstName: true, lastName: true } }))?.lastName ?? ""}`.trim(),
+        address: {
+          street: application.street,
+          city: application.city,
+          state: application.state,
+          zip: application.zip,
+          country: application.country,
+        },
+        declarations: application.declarations as Record<string, boolean>,
+        feeTextVersion: application.feeTextVersion,
+        applicationVersion: application.applicationVersion,
+        submittedAt: application.submittedAt,
+        renderedAt: new Date(),
+      });
+
+      const buffer = Buffer.from(
+        await renderToBuffer(
+          element as import("react").ReactElement<
+            import("@react-pdf/renderer").DocumentProps
+          >,
+        ),
       );
+
+      await archiveLegalDocument({
+        legalMembershipId,
+        documentType: "membership_application",
+        buffer,
+        fileName: `membership-application-${legalMembershipId}.pdf`,
+      });
     });
 
-    await step.run("stub-archive-to-drive", async () => {
-      console.log(
-        `[stub] Archive documents to Google Drive for legal membership ${legalMembershipId}`,
-      );
-    });
+    // Step 10: Activate the legal membership and set legalMembershipState.
+    // Only reached after all documents are archived.
+    const activatedAt = await step.run(
+      "activate-legal-membership",
+      async () => {
+        const now = new Date();
+        await db
+          .update(legalMembership)
+          .set({ status: "active", activatedAt: now })
+          .where(eq(legalMembership.id, legalMembershipId));
+        await db
+          .update(user)
+          .set({ legalMembershipState: "active_member" })
+          .where(eq(user.id, subjectUserId));
+        return now.toISOString();
+      },
+    );
 
-    // Step 10: Activate the legal membership.
-    await step.run("activate-legal-membership", async () => {
-      const now = new Date();
-      await db
-        .update(legalMembership)
-        .set({ status: "active", activatedAt: now })
-        .where(eq(legalMembership.id, legalMembershipId));
+    // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
+    await step.run("archive-admission-confirmation", async () => {
+      if (
+        await hasArchivedDocument(legalMembershipId, "admission_confirmation")
+      ) {
+        return;
+      }
+
+      const subjectUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+        columns: { firstName: true, lastName: true },
+      });
+
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const element = renderAdmissionConfirmationTemplate({
+        legalMembershipId,
+        subjectName: subjectUser
+          ? `${subjectUser.firstName} ${subjectUser.lastName}`
+          : subjectUserId,
+        activatedAt: new Date(activatedAt),
+        renderedAt: new Date(),
+      });
+
+      const buffer = Buffer.from(
+        await renderToBuffer(
+          element as import("react").ReactElement<
+            import("@react-pdf/renderer").DocumentProps
+          >,
+        ),
+      );
+
+      await archiveLegalDocument({
+        legalMembershipId,
+        documentType: "admission_confirmation",
+        buffer,
+        fileName: `admission-confirmation-${legalMembershipId}.pdf`,
+      });
     });
 
     // Step 11: Send activation notifications (stubs — filled in U12).
