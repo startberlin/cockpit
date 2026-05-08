@@ -16,7 +16,7 @@ import {
 } from "@/lib/authority/model";
 import { newId } from "@/lib/id";
 import db from ".";
-import { type Department, user } from "./schema/auth";
+import type { Department } from "./schema/auth";
 import { userAccessGrant, userOrganizationPosition } from "./schema/authority";
 
 type AuthorityUserRow = NonNullable<
@@ -134,6 +134,21 @@ export async function getUserAuthority(
   return mapAuthorityUser(authorityUser);
 }
 
+export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
+  const authorityUsers = await db.query.user.findMany({
+    columns: {
+      id: true,
+      status: true,
+      department: true,
+    },
+    with: {
+      organizationPositions: true,
+      accessGrants: true,
+    },
+  });
+
+  return authorityUsers.map(mapAuthorityUser);
+}
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {
   const authorityInput = authorityUpdateInputSchema.parse(input);

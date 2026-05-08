@@ -1,8 +1,8 @@
-import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import {
   getStructuredMembershipState,
   type StructuredMembershipState,
 } from "@/lib/membership-status";
+import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import db from ".";
 import type { Department, UserStatus } from "./schema/auth";
 import type {
@@ -21,6 +21,7 @@ export interface PublicUser {
   status: UserStatus;
   profileOnboardingComplete?: boolean;
   hasMembershipPayment?: boolean;
+  hasActiveTenure?: boolean;
 }
 
 export interface UserDetail {
@@ -62,6 +63,13 @@ export interface UserDetail {
   }>;
 }
 
+const ACTIVE_TENURE_STATUSES = [
+  "admission_pending",
+  "application_pending",
+  "processing",
+  "active",
+] as const;
+
 export async function getAllUserPublicData(): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
     columns: {
@@ -84,10 +92,14 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       phone: true,
       status: true,
       department: true,
+      legalMembershipState: true,
     },
     with: {
       batch: true,
       membershipPayment: true,
+      legalMemberships: {
+        columns: { status: true },
+      },
     },
   });
 
@@ -95,6 +107,10 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
     if (!user.batch) {
       throw new Error("User has no batch");
     }
+
+    const hasActiveTenure = user.legalMemberships.some((lm) =>
+      (ACTIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
+    );
 
     return {
       id: user.id,
@@ -106,6 +122,7 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       status: user.status,
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
       hasMembershipPayment: !!user.membershipPayment,
+      hasActiveTenure,
     };
   });
 }

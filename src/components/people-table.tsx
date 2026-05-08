@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
-import { completeUserOnboardingAction } from "@/app/(authenticated)/(app)/people/complete-onboarding-action";
+import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -125,12 +125,12 @@ const columns: ColumnDef<PublicUser>[] = [
             </DropdownMenuItem>
             {user.status === "onboarding" &&
               user.profileOnboardingComplete &&
-              !user.hasMembershipPayment && (
+              !user.hasActiveTenure && (
                 <Can
-                  permission="users.complete_onboarding"
+                  permission="membership.propose"
                   context={{ targetDepartment: user.department }}
                 >
-                  <CompleteOnboardingMenuItem user={user} />
+                  <ProposeMembershipMenuItem user={user} />
                 </Can>
               )}
           </DropdownMenuContent>
@@ -140,27 +140,21 @@ const columns: ColumnDef<PublicUser>[] = [
   },
 ];
 
-function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
+function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { execute, isPending } = useAction(completeUserOnboardingAction, {
-    onSuccess: ({ data }) => {
+  const { execute, isPending } = useAction(proposeMembershipAction, {
+    onSuccess: () => {
       setOpen(false);
       router.refresh();
-      toast.success(
-        data?.alreadyCompleted
-          ? "Member was already invited to finalize membership"
-          : "Member invited to finalize membership",
-        {
-          description: data?.alreadyCompleted
-            ? "They can already set up their yearly membership payment."
-            : "They can now set up their yearly membership payment.",
-        },
-      );
+      toast.success("Membership proposed", {
+        description:
+          "The board admission workflow has been started for this member.",
+      });
     },
     onError: () => {
       toast.error(
-        "Could not invite member to finalize membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     },
   });
@@ -174,17 +168,17 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
           setOpen(true);
         }}
       >
-        Invite to finalize membership
+        Propose for membership
       </DropdownMenuItem>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Invite {user.firstName} {user.lastName} to finalize membership?
+              Propose {user.firstName} {user.lastName} for membership?
             </DialogTitle>
             <DialogDescription>
-              This marks their onboarding as complete and asks them to set up
-              their yearly membership payment.
+              This starts the board admission workflow for this member. The
+              board will be asked to vote on their admission.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -201,7 +195,7 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
               disabled={isPending}
               onClick={() => execute({ userId: user.id })}
             >
-              {isPending ? "Inviting..." : "Invite to finalize membership"}
+              {isPending ? "Proposing..." : "Propose for membership"}
             </Button>
           </DialogFooter>
         </DialogContent>

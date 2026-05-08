@@ -14,11 +14,23 @@ const baseInput = {
 };
 
 describe("importGoogleWorkspaceUserSchema", () => {
-  it("accepts member imports with a department", () => {
+  it("accepts member imports with a department and documentsVerified", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
       department: "operations",
+      documentsVerified: true,
+    });
+
+    assert.equal(result.success, true);
+  });
+
+  it("accepts member imports with documentsVerified false (starts admission)", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "member",
+      department: "operations",
+      documentsVerified: false,
     });
 
     assert.equal(result.success, true);
@@ -28,21 +40,42 @@ describe("importGoogleWorkspaceUserSchema", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
+      documentsVerified: true,
     });
 
     assert.equal(result.success, false);
   });
 
-  it("accepts supporting alumni imports without a department", () => {
+  it("rejects member imports without documentsVerified", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "member",
+      department: "operations",
+    });
+
+    assert.equal(result.success, false);
+  });
+
+  it("accepts supporting alumni imports without a department when documentsVerified is set", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "supporting_alumni",
+      documentsVerified: false,
     });
 
     assert.equal(result.success, true);
   });
 
-  it("accepts alumni imports without a department", () => {
+  it("rejects supporting alumni imports without documentsVerified", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "supporting_alumni",
+    });
+
+    assert.equal(result.success, false);
+  });
+
+  it("accepts alumni imports without a department or documentsVerified", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "alumni",
@@ -56,6 +89,7 @@ describe("importGoogleWorkspaceUserSchema", () => {
       ...baseInput,
       status: "onboarding",
       department: "operations",
+      documentsVerified: true,
     });
 
     assert.equal(result.success, false);

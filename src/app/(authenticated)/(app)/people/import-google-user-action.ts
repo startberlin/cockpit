@@ -1,15 +1,24 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import db from "@/db";
+import { getAllUserAuthorities } from "@/db/authority";
 import { importedMembershipPaymentValues } from "@/db/membership";
 import { user as userTable } from "@/db/schema/auth";
+import {
+  admissionParticipant,
+  boardResolution,
+} from "@/db/schema/board-admission";
+import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipPayment } from "@/db/schema/membership";
 import { actionClient } from "@/lib/action-client";
+import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import {
   getWorkspaceUser,
   searchWorkspaceUsers,
 } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
+import { inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
@@ -109,7 +118,36 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("Paid-through date must be today or in the future.");
     }
 
+    const requiresAdmissionWorkflow =
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      !parsedInput.documentsVerified;
+
+    const documentsVerified =
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      !!parsedInput.documentsVerified;
+
+    // For admission workflow path, validate board roster before creating any DB rows
+    let boardRoster: Awaited<ReturnType<typeof getBoardRosterSetup>> | null =
+      null;
+    if (requiresAdmissionWorkflow) {
+      const allAuthorities = await getAllUserAuthorities();
+      boardRoster = getBoardRosterSetup(allAuthorities);
+
+      if (!boardRoster.ok) {
+        throw new Error(
+          `Board roster is not properly configured: ${boardRoster.reason}`,
+        );
+      }
+    }
+
     const createdUser = await db.transaction(async (tx) => {
+      // Determine legalMembershipState for the user
+      const legalMembershipState = documentsVerified
+        ? "active_member"
+        : "not_member";
+
       const [createdUser] = await tx
         .insert(userTable)
         .values({
@@ -126,10 +164,80 @@ export const importGoogleWorkspaceUserAction = actionClient
           ),
           status: parsedInput.status,
           emailVerified: true,
+          legalMembershipState,
         })
         .returning({ id: userTable.id });
 
-      if (parsedInput.status !== "alumni") {
+      if (documentsVerified) {
+        // Documents verified: create active legal_membership and membershipPayment
+        await tx.insert(legalMembership).values({
+          id: newId("legalMembership"),
+          userId: createdUser.id,
+          status: "active",
+          activatedAt: new Date(),
+        });
+
+        await tx.insert(membershipPayment).values(
+          importedMembershipPaymentValues({
+            userId: createdUser.id,
+            paidThroughAt,
+          }),
+        );
+      } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
+        // Documents missing/unsure: start admission tenure
+        const legalMembershipId = newId("legalMembership");
+
+        const [createdLm] = await tx
+          .insert(legalMembership)
+          .values({
+            id: legalMembershipId,
+            userId: createdUser.id,
+            status: "admission_pending",
+          })
+          .returning({ id: legalMembership.id });
+
+        const resolutionText = `Der Vorstand beschließt die Aufnahme von ${parsedInput.firstName} ${parsedInput.lastName} als ordentliches Mitglied des Vereins START Berlin e.V.`;
+        const resolutionTextVersion = "v1";
+        const resolutionTextHash = createHash("sha256")
+          .update(resolutionText)
+          .digest("hex");
+
+        await tx.insert(boardResolution).values({
+          id: newId("boardResolution"),
+          legalMembershipId: createdLm.id,
+          resolutionText,
+          resolutionTextVersion,
+          resolutionTextHash,
+          billingApplies: true,
+        });
+
+        const { presidentId, vicePresidentId, headOfFinanceId } =
+          boardRoster.officers;
+
+        await tx.insert(admissionParticipant).values([
+          {
+            id: newId("admissionParticipant"),
+            legalMembershipId: createdLm.id,
+            userId: presidentId,
+            officerFunction: "president",
+          },
+          {
+            id: newId("admissionParticipant"),
+            legalMembershipId: createdLm.id,
+            userId: vicePresidentId,
+            officerFunction: "vice_president",
+          },
+          {
+            id: newId("admissionParticipant"),
+            legalMembershipId: createdLm.id,
+            userId: headOfFinanceId,
+            officerFunction: "head_of_finance",
+          },
+        ]);
+      } else if (parsedInput.status === "alumni") {
+        // Alumni: no legal admission, no payment
+      } else {
+        // Fallback for non-alumni without documentsVerified flag: create membershipPayment only
         await tx.insert(membershipPayment).values(
           importedMembershipPaymentValues({
             userId: createdUser.id,
@@ -138,8 +246,27 @@ export const importGoogleWorkspaceUserAction = actionClient
         );
       }
 
-      return createdUser;
+      return {
+        id: createdUser.id,
+        legalMembershipId: requiresAdmissionWorkflow ? null : null,
+      };
     });
+
+    // Send Inngest event for admission workflow after transaction commits
+    if (requiresAdmissionWorkflow && boardRoster?.ok) {
+      // Re-fetch the created legal membership id
+      const lm = await db.query.legalMembership.findFirst({
+        where: (lm, { eq }) => eq(lm.userId, createdUser.id),
+        columns: { id: true },
+      });
+
+      if (lm) {
+        await inngest.send({
+          name: "membership/admission-workflow.started",
+          data: { legalMembershipId: lm.id, subjectUserId: createdUser.id },
+        });
+      }
+    }
 
     await resend.emails.send(
       buildImportedUserNotificationEmail({
@@ -149,5 +276,5 @@ export const importGoogleWorkspaceUserAction = actionClient
       }),
     );
 
-    return createdUser;
+    return { id: createdUser.id };
   });

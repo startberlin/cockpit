@@ -9,6 +9,7 @@ import { Controller } from "react-hook-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +87,7 @@ export function ImportGoogleUserDialog({
           batchNumber: batches[0]?.number ?? 0,
           status: "member",
           paidThroughAt: "",
+          documentsVerified: false,
         },
         mode: "onChange",
       },
@@ -97,6 +99,8 @@ export function ImportGoogleUserDialog({
   const selectedStatus = form.watch("status");
   const shouldShowDepartment = selectedStatus === "member";
   const shouldShowMembershipTiming = selectedStatus !== "alumni";
+  const shouldShowDocumentsVerified =
+    selectedStatus === "member" || selectedStatus === "supporting_alumni";
 
   const runSearch = () => {
     if (query.trim().length < 2) {
@@ -114,7 +118,16 @@ export function ImportGoogleUserDialog({
     if (!shouldShowMembershipTiming) {
       form.setValue("paidThroughAt", "", { shouldValidate: true });
     }
-  }, [form, shouldShowDepartment, shouldShowMembershipTiming]);
+
+    if (!shouldShowDocumentsVerified) {
+      form.setValue("documentsVerified", undefined, { shouldValidate: true });
+    }
+  }, [
+    form,
+    shouldShowDepartment,
+    shouldShowMembershipTiming,
+    shouldShowDocumentsVerified,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -358,6 +371,42 @@ export function ImportGoogleUserDialog({
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.paidThroughAt]} />
               </Field>
+            </FieldSet>
+          )}
+
+          {shouldShowDocumentsVerified && (
+            <FieldSet>
+              <FieldLegend>Documents</FieldLegend>
+              <FieldDescription>
+                Indicate whether the legal membership documents (application
+                form, etc.) exist and have been verified for this person.
+              </FieldDescription>
+              <Controller
+                name="documentsVerified"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="documentsVerified"
+                        checked={field.value ?? false}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                      <FieldLabel htmlFor="documentsVerified">
+                        Documents verified
+                      </FieldLabel>
+                    </div>
+                    <FieldDescription>
+                      Check this if documents exist and have been verified.
+                      Leave unchecked if documents are missing or you are unsure
+                      — this will start the board admission workflow.
+                    </FieldDescription>
+                    <FieldError errors={[fieldState.error]} />
+                  </Field>
+                )}
+              />
             </FieldSet>
           )}
 
