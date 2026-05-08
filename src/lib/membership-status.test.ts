@@ -26,6 +26,7 @@ function user(overrides: Partial<User> = {}): User {
     phone: "+491234567890",
     status: "onboarding",
     department: null,
+    legalMembershipState: "not_member",
     ...overrides,
   };
 }
@@ -33,14 +34,19 @@ function user(overrides: Partial<User> = {}): User {
 describe("getStructuredMembershipState", () => {
   const now = new Date("2026-04-26T00:00:00.000Z");
 
-  it("keeps legal state explicit when it has not been loaded", () => {
-    assert.deepEqual(
+  it("surfaces the user legal membership state directly", () => {
+    assert.equal(
       getStructuredMembershipState(user(), { status: "pending" }, { now })
         .legal,
-      {
-        status: "unknown",
-        source: "not_loaded",
-      },
+      "not_member",
+    );
+    assert.equal(
+      getStructuredMembershipState(
+        user({ legalMembershipState: "active_member" }),
+        { status: "pending" },
+        { now },
+      ).legal,
+      "active_member",
     );
   });
 

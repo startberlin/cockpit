@@ -35,10 +35,23 @@ type Events = {
       };
     };
   };
-  "membership/admission-application.submitted": {
+  "membership/admission-workflow.started": {
     data: {
-      workflowId: string;
-      userId: string;
+      legalMembershipId: string;
+      subjectUserId: string;
+    };
+  };
+  "membership/board-vote.cast": {
+    data: {
+      legalMembershipId: string;
+      voterId: string;
+      value: "yes" | "no" | "abstain" | "procedure_objection";
+      castAt: string;
+    };
+  };
+  "membership/application.submitted": {
+    data: {
+      legalMembershipId: string;
     };
   };
 };
