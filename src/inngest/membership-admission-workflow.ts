@@ -2,30 +2,11 @@ import { eq } from "drizzle-orm";
 import db from "@/db";
 import { boardVote } from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
+import {
+  computeVoteOutcome,
+  type VoteOutcome,
+} from "@/lib/board-resolution-rules";
 import { inngest } from "@/lib/inngest";
-
-// Resolution is reached when at least 2 board members vote "yes" and no one
-// casts a "procedure_objection". Any "procedure_objection" immediately moves
-// to manual_followup regardless of other votes.
-function evaluateVotes(
-  votes: { value: string }[],
-): "approved" | "rejected" | "pending" | "procedure_objection" {
-  const hasProcedureObjection = votes.some(
-    (v) => v.value === "procedure_objection",
-  );
-  if (hasProcedureObjection) return "procedure_objection";
-
-  const yesCount = votes.filter((v) => v.value === "yes").length;
-  const noCount = votes.filter((v) => v.value === "no").length;
-
-  if (yesCount >= 2) return "approved";
-  if (noCount >= 2) return "rejected";
-
-  // Not enough votes cast yet, but all 3 officers have voted
-  if (votes.length >= 3) return "rejected";
-
-  return "pending";
-}
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
@@ -49,11 +30,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     // officer). We allow up to 3 rounds so each officer gets one event. The
     // loop exits early once a resolution is reached.
     let voteRound = 0;
-    let resolution:
-      | "approved"
-      | "rejected"
-      | "pending"
-      | "procedure_objection" = "pending";
+    let resolution: VoteOutcome = "pending";
 
     while (voteRound < 3 && resolution === "pending") {
       voteRound++;
@@ -79,7 +56,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         return { outcome: "timeout", legalMembershipId };
       }
 
-      // Check all votes cast so far for this legal membership.
+      // Read all votes cast so far for this legal membership from the DB and
+      // evaluate — this is robust to out-of-order delivery and Inngest replays.
       resolution = await step.run(
         `evaluate-votes-round-${voteRound}`,
         async () => {
@@ -87,20 +65,20 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             .select({ value: boardVote.value })
             .from(boardVote)
             .where(eq(boardVote.legalMembershipId, legalMembershipId));
-          return evaluateVotes(votes);
+          return computeVoteOutcome(votes.map((v) => v.value));
         },
       );
     }
 
     // Step 5: Act on the vote resolution.
-    if (resolution === "procedure_objection" || resolution === "rejected") {
+    if (resolution === "manual_followup") {
       await step.run("reject-to-manual-followup", async () => {
         await db
           .update(legalMembership)
           .set({ status: "manual_followup" })
           .where(eq(legalMembership.id, legalMembershipId));
       });
-      return { outcome: resolution, legalMembershipId };
+      return { outcome: "manual_followup", legalMembershipId };
     }
 
     if (resolution !== "approved") {
