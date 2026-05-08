@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 import * as React from "react";
 import { toast } from "sonner";
 import { PeopleTable } from "@/components/people-table";
@@ -86,17 +87,14 @@ export default function PeoplePageClient({
   hasPendingActions,
 }: PeoplePageClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [view, setView] = useQueryState(
+    "view",
+    parseAsStringLiteral(["actions", "directory"] as const).withDefault(
+      hasPendingActions ? "actions" : "directory",
+    ),
+  );
   const [createOpen, setCreateOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
-
-  const viewParam = searchParams.get("view");
-  const defaultTab =
-    viewParam === "actions" || viewParam === "directory"
-      ? viewParam
-      : hasPendingActions
-        ? "actions"
-        : "directory";
 
   const handleSuccess = React.useCallback(() => {
     router.refresh();
@@ -109,7 +107,10 @@ export default function PeoplePageClient({
 
   return (
     <>
-      <Tabs defaultValue={defaultTab}>
+      <Tabs
+        value={view}
+        onValueChange={(v) => setView(v as "actions" | "directory")}
+      >
         <TabsList>
           <TabsTrigger value="actions">
             Action required
