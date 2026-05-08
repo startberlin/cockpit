@@ -4,7 +4,11 @@ import {
 } from "@/lib/membership-status";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import db from ".";
-import type { Department, UserStatus } from "./schema/auth";
+import type {
+  Department,
+  LegalMembershipState,
+  UserStatus,
+} from "./schema/auth";
 import type {
   AccessGrant,
   AuthorityScope,
@@ -39,6 +43,7 @@ export interface UserDetail {
   department: Department | null;
   batchNumber: number;
   status: UserStatus;
+  legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
@@ -130,6 +135,23 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
 export async function getUserById(id: string): Promise<UserDetail | null> {
   const user = await db.query.user.findFirst({
     where: (users, { eq }) => eq(users.id, id),
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      personalEmail: true,
+      phone: true,
+      street: true,
+      city: true,
+      state: true,
+      zip: true,
+      country: true,
+      department: true,
+      status: true,
+      legalMembershipState: true,
+      createdAt: true,
+    },
     with: {
       batch: true,
       usersToGroups: {
@@ -166,6 +188,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     department: user.department ?? null,
     batchNumber: user.batch.number,
     status: user.status,
+    legalMembershipState: user.legalMembershipState,
     membershipState: getStructuredMembershipState(user, user.membershipPayment),
     profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.membershipPayment,
