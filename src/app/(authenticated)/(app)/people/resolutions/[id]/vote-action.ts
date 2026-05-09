@@ -14,6 +14,7 @@ import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
+import { can } from "@/lib/permissions/server";
 
 const voteInputSchema = z.object({
   resolutionId: z.string().min(1),
@@ -26,6 +27,12 @@ export const castVoteAction = actionClient
   .action(async ({ parsedInput, ctx }) => {
     const { resolutionId, value, displayedResolutionHash } = parsedInput;
     const currentUser = ctx.user;
+
+    if (!(await can("membership.vote_resolution"))) {
+      throw new Error(
+        "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
 
     // Load resolution + legal_membership in one query
     const rows = await db

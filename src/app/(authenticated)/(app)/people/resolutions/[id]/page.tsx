@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getResolutionDetail } from "@/db/board-resolutions";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
+import { can } from "@/lib/permissions/server";
 import ResolutionVoteClient from "./resolution-vote-client";
 
 export const metadata = createMetadata({
@@ -15,6 +16,10 @@ export default async function ResolutionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  if (!(await can("membership.view_resolution"))) {
+    notFound();
+  }
 
   const [currentUser, resolution] = await Promise.all([
     getCurrentUser(),
