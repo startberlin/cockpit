@@ -2,6 +2,7 @@ import "server-only";
 
 import { type admin_directory_v1, Common, google } from "googleapis";
 import { createGoogleAuth } from "@/lib/google-auth";
+import { collectAllPages } from "./directory-helpers";
 
 const DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user";
 
@@ -66,27 +67,20 @@ export async function getWorkspaceUser(
 
 export async function listAllWorkspaceUsers(): Promise<WorkspaceUserCandidate[]> {
   const admin = getDirectoryClient();
-  const candidates: WorkspaceUserCandidate[] = [];
-  let pageToken: string | undefined;
 
-  do {
-    const res = await admin.users.list({
-      customer: "my_customer",
-      maxResults: 500,
-      orderBy: "email",
-      projection: "basic",
-      pageToken,
-    });
-
-    for (const user of res.data.users ?? []) {
-      const candidate = toCandidate(user);
-      if (candidate) candidates.push(candidate);
-    }
-
-    pageToken = res.data.nextPageToken ?? undefined;
-  } while (pageToken);
-
-  return candidates;
+  return collectAllPages(
+    async (pageToken) => {
+      const res = await admin.users.list({
+        customer: "my_customer",
+        maxResults: 500,
+        orderBy: "email",
+        projection: "basic",
+        pageToken,
+      });
+      return { users: res.data.users ?? [], nextPageToken: res.data.nextPageToken };
+    },
+    toCandidate,
+  );
 }
 
 export async function findWorkspaceUserByEmail(email: string) {
