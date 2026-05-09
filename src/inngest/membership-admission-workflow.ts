@@ -44,8 +44,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(legalMembership.id, legalMembershipId));
     });
 
-    // Step 1b: Notify each board participant that a vote is required.
-    await step.run("send-board-task-emails", async () => {
+    // Step 1b: Load board notification data — participants, subject name, resolution URL.
+    const boardTaskData = await step.run("load-board-task-data", async () => {
       const resolution = await db.query.boardResolution.findFirst({
         where: (br, { eq: eqFn }) =>
           eqFn(br.legalMembershipId, legalMembershipId),
@@ -58,32 +58,42 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
 
       const participants = await db
-        .select({ email: user.email, firstName: user.firstName })
+        .select({
+          userId: admissionParticipant.userId,
+          email: user.email,
+          firstName: user.firstName,
+        })
         .from(admissionParticipant)
         .innerJoin(user, eq(user.id, admissionParticipant.userId))
         .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
 
-      const subjectName = subjectUser
-        ? `${subjectUser.firstName} ${subjectUser.lastName}`
-        : subjectUserId;
+      return {
+        subjectName: subjectUser
+          ? `${subjectUser.firstName} ${subjectUser.lastName}`
+          : subjectUserId,
+        resolutionUrl: resolution
+          ? `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${resolution.id}`
+          : `${env.NEXT_PUBLIC_COCKPIT_URL}/people`,
+        participants,
+      };
+    });
 
-      const resolutionUrl = resolution
-        ? `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${resolution.id}`
-        : `${env.NEXT_PUBLIC_COCKPIT_URL}/people`;
-
-      for (const participant of participants) {
+    // Step 1c: Send one email per board participant — each in its own step so a
+    // Resend failure only retries that participant's send, not the entire fan-out.
+    for (const participant of boardTaskData.participants) {
+      await step.run(`send-board-task-email-${participant.userId}`, async () => {
         await resend.emails.send({
           from: "START Berlin <notifications@cockpit.start-berlin.com>",
           to: participant.email,
-          subject: `Action required: vote on ${subjectName}'s membership`,
+          subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
           react: BoardResolutionTaskAssignedEmail({
             firstName: participant.firstName ?? "",
-            subjectName,
-            resolutionUrl,
+            subjectName: boardTaskData.subjectName,
+            resolutionUrl: boardTaskData.resolutionUrl,
           }),
         });
-      }
-    });
+      });
+    }
 
     // Steps 2–4: Vote loop — wait for up to 3 individual board votes (one per
     // officer). We allow up to 3 rounds so each officer gets one event. The
@@ -100,7 +110,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         {
           event: "membership/board-vote.cast",
           timeout: "90d",
-          match: "data.legalMembershipId",
+          if: "async.data.legalMembershipId == event.data.legalMembershipId",
         },
       );
 
@@ -185,7 +195,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       {
         event: "membership/application.submitted",
         timeout: "90d",
-        match: "data.legalMembershipId",
+        if: "async.data.legalMembershipId == event.data.legalMembershipId",
       },
     );
 
@@ -426,36 +436,54 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 11b: Notify board participants that admission is complete.
-    await step.run("send-board-completion-emails", async () => {
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, lastName: true },
-      });
-
-      const subjectName = subjectUser
-        ? `${subjectUser.firstName} ${subjectUser.lastName}`
-        : subjectUserId;
-
-      const participants = await db
-        .select({ email: user.email, firstName: user.firstName })
-        .from(admissionParticipant)
-        .innerJoin(user, eq(user.id, admissionParticipant.userId))
-        .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
-
-      for (const participant of participants) {
-        await resend.emails.send({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: participant.email,
-          subject: `Admission complete: ${subjectName}`,
-          react: MembershipAdmissionCompletedBoardEmail({
-            firstName: participant.firstName ?? "",
-            subjectName,
-            legalMembershipId,
-          }),
+    // Step 11b: Load board completion notification data.
+    const boardCompletionData = await step.run(
+      "load-board-completion-data",
+      async () => {
+        const subjectUser = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+          columns: { firstName: true, lastName: true },
         });
-      }
-    });
+
+        const participants = await db
+          .select({
+            userId: admissionParticipant.userId,
+            email: user.email,
+            firstName: user.firstName,
+          })
+          .from(admissionParticipant)
+          .innerJoin(user, eq(user.id, admissionParticipant.userId))
+          .where(
+            eq(admissionParticipant.legalMembershipId, legalMembershipId),
+          );
+
+        return {
+          subjectName: subjectUser
+            ? `${subjectUser.firstName} ${subjectUser.lastName}`
+            : subjectUserId,
+          participants,
+        };
+      },
+    );
+
+    // Step 11c: Send one completion email per board participant.
+    for (const participant of boardCompletionData.participants) {
+      await step.run(
+        `send-board-completion-email-${participant.userId}`,
+        async () => {
+          await resend.emails.send({
+            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            to: participant.email,
+            subject: `Admission complete: ${boardCompletionData.subjectName}`,
+            react: MembershipAdmissionCompletedBoardEmail({
+              firstName: participant.firstName ?? "",
+              subjectName: boardCompletionData.subjectName,
+              legalMembershipId,
+            }),
+          });
+        },
+      );
+    }
 
     return { outcome: "activated", legalMembershipId };
   },

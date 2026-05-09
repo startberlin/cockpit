@@ -25,7 +25,7 @@ export async function archiveLegalDocument({
   const sha256 = sha256Hex(buffer);
 
   const auth = createServiceAccountAuth(DRIVE_SCOPE);
-  const drive = google.drive({ version: "v3", auth });
+  const drive = google.drive({ version: "v3", auth, timeout: 30_000 });
 
   const stream = Readable.from(buffer);
 
