@@ -2,7 +2,7 @@ import {
   stepAddressDataSchema,
   stepMasterDataSchema,
 } from "@/app/(authenticated)/(onboarding)/onboarding/[step]/onboarding-validation";
-import type { LegalMembershipState, User } from "../db/schema/auth";
+import type { LegalMembershipState, User } from "@/db/schema/auth";
 
 export interface OnboardedUser extends User {
   street: NonNullable<User["street"]>;

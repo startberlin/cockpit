@@ -32,26 +32,39 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
   async ({ event, step, runId }) => {
     const { legalMembershipId, subjectUserId } = event.data;
 
-    // Step 1: Store the Inngest run ID on the legal_membership row so operators
-    // can look up the live run in the Inngest dashboard.
-    await step.run("store-inngest-run-id", async () => {
+    // Step 1: Store the Inngest run ID and load the subject user in one step so
+    // downstream steps can reference firstName/lastName/email/status without
+    // redundant DB round-trips.
+    const subject = await step.run("store-inngest-run-id", async () => {
       await db
         .update(legalMembership)
         .set({ inngestRunId: runId, status: "admission_pending" })
         .where(eq(legalMembership.id, legalMembershipId));
+
+      const subjectUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+        columns: { firstName: true, lastName: true, email: true, status: true },
+      });
+
+      return {
+        firstName: subjectUser?.firstName ?? "",
+        lastName: subjectUser?.lastName ?? "",
+        email: subjectUser?.email ?? "",
+        status: subjectUser?.status,
+      };
     });
 
-    // Step 1b: Load board notification data — participants, subject name, resolution URL.
+    const subjectName =
+      subject.firstName || subject.lastName
+        ? `${subject.firstName} ${subject.lastName}`.trim()
+        : subjectUserId;
+
+    // Step 1b: Load board notification data — participants and resolution URL.
     const boardTaskData = await step.run("load-board-task-data", async () => {
       const resolution = await db.query.boardResolution.findFirst({
         where: (br, { eq: eqFn }) =>
           eqFn(br.legalMembershipId, legalMembershipId),
         columns: { id: true },
-      });
-
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, lastName: true },
       });
 
       const participants = await db
@@ -65,9 +78,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
 
       return {
-        subjectName: subjectUser
-          ? `${subjectUser.firstName} ${subjectUser.lastName}`
-          : subjectUserId,
+        subjectName,
         resolutionUrl: resolution
           ? `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${resolution.id}`
           : `${env.NEXT_PUBLIC_COCKPIT_URL}/people`,
@@ -168,18 +179,13 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Notify the applicant that they can now submit their membership application.
     await step.run("notify-applicant-board-approved", async () => {
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, email: true },
-      });
-      if (!subjectUser) return;
-
+      if (!subject.email) return;
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: subjectUser.email,
+        to: subject.email,
         subject: "Complete your membership application",
         react: MembershipApplicationReadyEmail({
-          firstName: subjectUser.firstName ?? "",
+          firstName: subject.firstName,
           applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
       });
@@ -255,20 +261,13 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .innerJoin(user, eq(user.id, boardVote.voterUserId))
         .where(eq(boardVote.legalMembershipId, legalMembershipId));
 
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, lastName: true },
-      });
-
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderBoardResolutionTemplate({
         legalMembershipId,
         resolutionId: resolution.id,
         resolutionText: resolution.resolutionText,
         resolutionTextHash: resolution.resolutionTextHash,
-        subjectName: subjectUser
-          ? `${subjectUser.firstName} ${subjectUser.lastName}`
-          : subjectUserId,
+        subjectName,
         participants: participants.map((p) => ({
           userId: p.userId,
           name: `${p.firstName} ${p.lastName}`,
@@ -310,8 +309,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const element = renderMembershipApplicationTemplate({
         legalMembershipId,
         applicationId: application.id,
-        subjectName:
-          `${(await db.query.user.findFirst({ where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId), columns: { firstName: true, lastName: true } }))?.firstName ?? ""} ${(await db.query.user.findFirst({ where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId), columns: { firstName: true, lastName: true } }))?.lastName ?? ""}`.trim(),
+        subjectName,
         address: {
           street: application.street,
           city: application.city,
@@ -360,17 +358,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
     await step.run("archive-admission-confirmation", async () => {
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, lastName: true },
-      });
-
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderAdmissionConfirmationTemplate({
         legalMembershipId,
-        subjectName: subjectUser
-          ? `${subjectUser.firstName} ${subjectUser.lastName}`
-          : subjectUserId,
+        subjectName,
         activatedAt: new Date(activatedAt),
         renderedAt: new Date(),
       });
@@ -387,25 +378,21 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 11: Send admission confirmation to the new member.
     await step.run("send-admission-confirmed-email", async () => {
-      const subjectUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { firstName: true, email: true, status: true },
-      });
-      if (!subjectUser) return;
+      if (!subject.email) return;
 
       const payment = await db.query.membershipPayment.findFirst({
         where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectUserId),
         columns: { id: true },
       });
 
-      const includesPaymentCta = subjectUser.status === "member" && !payment;
+      const includesPaymentCta = subject.status === "member" && !payment;
 
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: subjectUser.email,
+        to: subject.email,
         subject: "Welcome to START Berlin",
         react: MembershipAdmissionConfirmedEmail({
-          firstName: subjectUser.firstName ?? "",
+          firstName: subject.firstName,
           includesPaymentCta,
           membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
@@ -416,11 +403,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const boardCompletionData = await step.run(
       "load-board-completion-data",
       async () => {
-        const subjectUser = await db.query.user.findFirst({
-          where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-          columns: { firstName: true, lastName: true },
-        });
-
         const participants = await db
           .select({
             userId: admissionParticipant.userId,
@@ -433,12 +415,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             eq(admissionParticipant.legalMembershipId, legalMembershipId),
           );
 
-        return {
-          subjectName: subjectUser
-            ? `${subjectUser.firstName} ${subjectUser.lastName}`
-            : subjectUserId,
-          participants,
-        };
+        return { subjectName, participants };
       },
     );
 

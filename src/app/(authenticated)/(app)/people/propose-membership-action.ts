@@ -1,14 +1,10 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import db from "@/db";
+import { createAdmissionWorkflow } from "@/db/admission";
 import { getAllUserAuthorities } from "@/db/authority";
-import {
-  admissionParticipant,
-  boardResolution,
-} from "@/db/schema/board-admission";
 import {
   legalMembership,
   LIVE_TENURE_STATUSES,
@@ -70,16 +66,6 @@ export const proposeMembershipAction = actionClient
       );
     }
 
-    const { presidentId, vicePresidentId, headOfFinanceId } =
-      boardRoster.officers;
-
-    // Build the resolution text
-    const resolutionText = `Der Vorstand beschließt die Aufnahme von ${targetUser.firstName} ${targetUser.lastName} als ordentliches Mitglied des Vereins START Berlin e.V.`;
-    const resolutionTextVersion = "v1";
-    const resolutionTextHash = createHash("sha256")
-      .update(resolutionText)
-      .digest("hex");
-
     // Create all rows in a transaction
     const lm = await db.transaction(async (tx) => {
       const legalMembershipId = newId("legalMembership");
@@ -93,35 +79,15 @@ export const proposeMembershipAction = actionClient
         })
         .returning({ id: legalMembership.id });
 
-      await tx.insert(boardResolution).values({
-        id: newId("boardResolution"),
+      await createAdmissionWorkflow(tx, {
         legalMembershipId: createdLm.id,
-        resolutionText,
-        resolutionTextVersion,
-        resolutionTextHash,
+        subjectUser: {
+          firstName: targetUser.firstName ?? "",
+          lastName: targetUser.lastName ?? "",
+        },
+        officers: boardRoster.officers,
         billingApplies: true,
       });
-
-      await tx.insert(admissionParticipant).values([
-        {
-          id: newId("admissionParticipant"),
-          legalMembershipId: createdLm.id,
-          userId: presidentId,
-          officerFunction: "president",
-        },
-        {
-          id: newId("admissionParticipant"),
-          legalMembershipId: createdLm.id,
-          userId: vicePresidentId,
-          officerFunction: "vice_president",
-        },
-        {
-          id: newId("admissionParticipant"),
-          legalMembershipId: createdLm.id,
-          userId: headOfFinanceId,
-          officerFunction: "head_of_finance",
-        },
-      ]);
 
       return createdLm;
     });

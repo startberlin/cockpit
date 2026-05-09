@@ -1,14 +1,10 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import db from "@/db";
+import { createAdmissionWorkflow } from "@/db/admission";
 import { getAllUserAuthorities } from "@/db/authority";
 import { importedMembershipPaymentValues } from "@/db/membership";
 import { user as userTable } from "@/db/schema/auth";
-import {
-  admissionParticipant,
-  boardResolution,
-} from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipPayment } from "@/db/schema/membership";
 import { actionClient } from "@/lib/action-client";
@@ -198,44 +194,15 @@ export const importGoogleWorkspaceUserAction = actionClient
 
         createdLegalMembershipId = createdLm.id;
 
-        const resolutionText = `Der Vorstand beschließt die Aufnahme von ${parsedInput.firstName} ${parsedInput.lastName} als ordentliches Mitglied des Vereins START Berlin e.V.`;
-        const resolutionTextVersion = "v1";
-        const resolutionTextHash = createHash("sha256")
-          .update(resolutionText)
-          .digest("hex");
-
-        await tx.insert(boardResolution).values({
-          id: newId("boardResolution"),
+        await createAdmissionWorkflow(tx, {
           legalMembershipId: createdLm.id,
-          resolutionText,
-          resolutionTextVersion,
-          resolutionTextHash,
+          subjectUser: {
+            firstName: parsedInput.firstName,
+            lastName: parsedInput.lastName,
+          },
+          officers: boardRoster.officers,
           billingApplies: true,
         });
-
-        const { presidentId, vicePresidentId, headOfFinanceId } =
-          boardRoster.officers;
-
-        await tx.insert(admissionParticipant).values([
-          {
-            id: newId("admissionParticipant"),
-            legalMembershipId: createdLm.id,
-            userId: presidentId,
-            officerFunction: "president",
-          },
-          {
-            id: newId("admissionParticipant"),
-            legalMembershipId: createdLm.id,
-            userId: vicePresidentId,
-            officerFunction: "vice_president",
-          },
-          {
-            id: newId("admissionParticipant"),
-            legalMembershipId: createdLm.id,
-            userId: headOfFinanceId,
-            officerFunction: "head_of_finance",
-          },
-        ]);
       } else if (parsedInput.status === "alumni") {
         // Alumni: no legal admission, no payment
       } else {
