@@ -283,13 +283,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         renderedAt: new Date(),
       });
 
-      const buffer = Buffer.from(
-        await renderToBuffer(
-          element as import("react").ReactElement<
-            import("@react-pdf/renderer").DocumentProps
-          >,
-        ),
-      );
+      const buffer = Buffer.from(await renderToBuffer(element));
 
       await archiveLegalDocument({
         legalMembershipId,
@@ -325,20 +319,14 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           zip: application.zip,
           country: application.country,
         },
-        declarations: application.declarations as Record<string, boolean>,
+        declarations: application.declarations,
         feeTextVersion: application.feeTextVersion,
         applicationVersion: application.applicationVersion,
         submittedAt: application.submittedAt,
         renderedAt: new Date(),
       });
 
-      const buffer = Buffer.from(
-        await renderToBuffer(
-          element as import("react").ReactElement<
-            import("@react-pdf/renderer").DocumentProps
-          >,
-        ),
-      );
+      const buffer = Buffer.from(await renderToBuffer(element));
 
       await archiveLegalDocument({
         legalMembershipId,
@@ -387,13 +375,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         renderedAt: new Date(),
       });
 
-      const buffer = Buffer.from(
-        await renderToBuffer(
-          element as import("react").ReactElement<
-            import("@react-pdf/renderer").DocumentProps
-          >,
-        ),
-      );
+      const buffer = Buffer.from(await renderToBuffer(element));
 
       await archiveLegalDocument({
         legalMembershipId,

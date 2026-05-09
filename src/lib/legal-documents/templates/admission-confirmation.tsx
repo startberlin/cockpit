@@ -1,4 +1,12 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  type DocumentProps,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
+import type { ReactElement } from "react";
 import { BRAND } from "./brand";
 
 const styles = StyleSheet.create({
@@ -66,7 +74,7 @@ export interface AdmissionConfirmationTemplateData {
 
 export function renderAdmissionConfirmationTemplate(
   data: AdmissionConfirmationTemplateData,
-) {
+): ReactElement<DocumentProps> {
   return (
     <Document>
       <Page size="A4" style={styles.page}>

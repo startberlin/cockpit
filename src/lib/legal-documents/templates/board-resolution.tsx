@@ -1,4 +1,12 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  type DocumentProps,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
+import type { ReactElement } from "react";
 import { BRAND } from "./brand";
 
 const styles = StyleSheet.create({
@@ -95,7 +103,7 @@ export interface BoardResolutionTemplateData {
 
 export function renderBoardResolutionTemplate(
   data: BoardResolutionTemplateData,
-) {
+): ReactElement<DocumentProps> {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
