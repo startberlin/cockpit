@@ -47,7 +47,6 @@ import {
   membershipApplicationRelations,
 } from "./membership-application";
 import { task, taskRelations, taskStatus } from "./task";
-import { workflow, workflowRelations, workflowStatus } from "./workflow";
 
 // Define relations here to avoid circular dependencies between schema files
 
@@ -87,12 +86,6 @@ export const usersRelations = relations(user, ({ one, many }) => ({
   boardVotes: many(boardVote),
   membershipApplications: many(membershipApplication),
   tasks: many(task),
-  subjectWorkflows: many(workflow, {
-    relationName: "workflowSubjectUser",
-  }),
-  createdWorkflows: many(workflow, {
-    relationName: "workflowCreator",
-  }),
   actorAuditLogs: many(auditLog, { relationName: "auditLogActor" }),
   targetAuditLogs: many(auditLog, { relationName: "auditLogTarget" }),
 }));
@@ -140,9 +133,6 @@ export const schema = {
   taskRelations,
   legalDocument,
   legalDocumentRelations,
-  workflow,
-  workflowStatus,
-  workflowRelations,
   auditLog,
   auditLogRelations,
 };
@@ -158,4 +148,3 @@ export * from "./legal-membership";
 export * from "./membership";
 export * from "./membership-application";
 export * from "./task";
-export * from "./workflow";
