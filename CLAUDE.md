@@ -69,6 +69,13 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 - Custom ID prefixes using `newId()` from `src/lib/id.ts` (e.g., `usr_`, `grp_`)
 - Relations defined in schema for type-safe queries
 
+**CRITICAL: Migration rules — never violate these:**
+1. **Never manually edit migration files** in `src/db/migrations/`. They are auto-generated and must not be touched by hand.
+2. **Always modify schema files** in `src/db/schema/*` to make database changes.
+3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
+4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
+5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
+
 ### Server Actions
 
 Server-side mutations use `next-safe-action`:
@@ -136,4 +143,4 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `wfl_`, `aud_`
+Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`

@@ -96,5 +96,4 @@ ALTER TABLE "membership_application" ADD CONSTRAINT "membership_application_lega
 ALTER TABLE "membership_application" ADD CONSTRAINT "membership_application_subject_user_id_user_id_fk" FOREIGN KEY ("subject_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_assignee_user_id_user_id_fk" FOREIGN KEY ("assignee_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_completed_by_user_id_user_id_fk" FOREIGN KEY ("completed_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task" ADD CONSTRAINT "task_legal_membership_id_legal_membership_id_fk" FOREIGN KEY ("legal_membership_id") REFERENCES "public"."legal_membership"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "legal_membership_active_tenure_idx" ON "legal_membership" ("user_id") WHERE status IN ('admission_pending', 'application_pending', 'processing', 'active');
+ALTER TABLE "task" ADD CONSTRAINT "task_legal_membership_id_legal_membership_id_fk" FOREIGN KEY ("legal_membership_id") REFERENCES "public"."legal_membership"("id") ON DELETE no action ON UPDATE no action;

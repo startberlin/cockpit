@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   pgEnum,
   pgTable,
   text,
@@ -40,17 +41,25 @@ export const boardResolution = pgTable("board_resolution", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const admissionParticipant = pgTable("admission_participant", {
-  id: text("id").primaryKey(),
-  legalMembershipId: text("legal_membership_id")
-    .notNull()
-    .references(() => legalMembership.id, { onDelete: "no action" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "no action" }),
-  officerFunction: officerFunction("officer_function").notNull(),
-  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
-});
+export const admissionParticipant = pgTable(
+  "admission_participant",
+  {
+    id: text("id").primaryKey(),
+    legalMembershipId: text("legal_membership_id")
+      .notNull()
+      .references(() => legalMembership.id, { onDelete: "no action" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "no action" }),
+    officerFunction: officerFunction("officer_function").notNull(),
+    assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("admission_participant_legal_membership_id_idx").on(
+      t.legalMembershipId,
+    ),
+  ],
+);
 
 export const boardVote = pgTable(
   "board_vote",

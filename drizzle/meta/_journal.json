@@ -120,6 +120,13 @@
       "when": 1778286818219,
       "tag": "0016_lyrical_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1778322319254,
+      "tag": "0017_military_wildside",
+      "breakpoints": true
     }
   ]
 }
