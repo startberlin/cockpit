@@ -49,10 +49,7 @@ export const castVoteAction = actionClient
 
     // Validate that voting is still open
     if (legalMembershipStatus !== "admission_pending") {
-      throw new Error(
-        "Voting is no longer open for this resolution. Current status: " +
-          legalMembershipStatus,
-      );
+      throw new Error("Voting is no longer open for this resolution.");
     }
 
     // Validate that the user is an admission participant
@@ -67,7 +64,9 @@ export const castVoteAction = actionClient
       );
 
     if (participantRows.length === 0) {
-      throw new Error("Not authorized to vote on this resolution.");
+      throw new Error(
+        "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     }
 
     // Check that the user hasn't already voted

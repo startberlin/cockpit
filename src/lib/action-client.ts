@@ -6,7 +6,8 @@ import { getCurrentUser } from "@/db/user";
 
 export const actionClient = createSafeActionClient({
   handleServerError: (error) => {
-    console.log(error);
+    console.error(error);
+    return "Something went wrong. Please try again. If this keeps happening, email operations@start-berlin.com.";
   },
 }).use(async ({ next }) => {
   const user = await getCurrentUser();

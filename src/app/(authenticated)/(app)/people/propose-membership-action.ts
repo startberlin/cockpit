@@ -40,7 +40,9 @@ export const proposeMembershipAction = actionClient
         targetDepartment: targetUser.department,
       }))
     ) {
-      throw new Error("You are not authorized to propose membership.");
+      throw new Error(
+        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
     }
 
     if (getOnboardingProgress(targetUser) !== "completed") {
