@@ -33,7 +33,6 @@ export default async function Home() {
       users={users}
       batches={batches}
       pendingActions={pendingActions}
-      hasPendingActions={pendingActions.length > 0}
     />
   );
 }
