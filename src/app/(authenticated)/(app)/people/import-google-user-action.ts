@@ -168,6 +168,8 @@ export const importGoogleWorkspaceUserAction = actionClient
         })
         .returning({ id: userTable.id });
 
+      let createdLegalMembershipId: string | null = null;
+
       if (documentsVerified) {
         // Documents verified: create active legal_membership and membershipPayment
         await tx.insert(legalMembership).values({
@@ -185,16 +187,16 @@ export const importGoogleWorkspaceUserAction = actionClient
         );
       } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
         // Documents missing/unsure: start admission tenure
-        const legalMembershipId = newId("legalMembership");
-
         const [createdLm] = await tx
           .insert(legalMembership)
           .values({
-            id: legalMembershipId,
+            id: newId("legalMembership"),
             userId: createdUser.id,
             status: "admission_pending",
           })
           .returning({ id: legalMembership.id });
+
+        createdLegalMembershipId = createdLm.id;
 
         const resolutionText = `Der Vorstand beschließt die Aufnahme von ${parsedInput.firstName} ${parsedInput.lastName} als ordentliches Mitglied des Vereins START Berlin e.V.`;
         const resolutionTextVersion = "v1";
@@ -246,26 +248,25 @@ export const importGoogleWorkspaceUserAction = actionClient
         );
       }
 
-      return {
-        id: createdUser.id,
-        legalMembershipId: requiresAdmissionWorkflow ? null : null,
-      };
+      return { id: createdUser.id, createdLegalMembershipId };
     });
 
-    // Send Inngest event for admission workflow after transaction commits
-    if (requiresAdmissionWorkflow && boardRoster?.ok) {
-      // Re-fetch the created legal membership id
-      const lm = await db.query.legalMembership.findFirst({
-        where: (lm, { eq }) => eq(lm.userId, createdUser.id),
-        columns: { id: true },
-      });
-
-      if (lm) {
-        await inngest.send({
-          name: "membership/admission-workflow.started",
-          data: { legalMembershipId: lm.id, subjectUserId: createdUser.id },
-        });
+    // Send Inngest event for admission workflow after transaction commits.
+    // inngest.send() is intentionally not guarded — if the transaction committed,
+    // the legal_membership row exists. Failures surface as thrown errors.
+    if (requiresAdmissionWorkflow) {
+      if (!createdUser.createdLegalMembershipId) {
+        throw new Error(
+          "Could not start admission workflow. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
       }
+      await inngest.send({
+        name: "membership/admission-workflow.started",
+        data: {
+          legalMembershipId: createdUser.createdLegalMembershipId,
+          subjectUserId: createdUser.id,
+        },
+      });
     }
 
     await resend.emails.send(
