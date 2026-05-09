@@ -1,6 +1,6 @@
 {
-  "id": "4cdd1c02-3502-42c9-acd8-d4d4f5301a7f",
-  "prevId": "8fe94ba9-ed93-4a7d-a01d-92d96c0a6bb8",
+  "id": "b600b981-17db-4199-b4a1-d1b1345156b8",
+  "prevId": "836d92c9-b9e2-465f-9b2f-dc7f3090a8f1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -64,8 +64,12 @@
           "name": "audit_log_actor_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": ["actor_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -73,8 +77,12 @@
           "name": "audit_log_target_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": ["target_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "target_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -175,8 +183,12 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -247,8 +259,12 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -258,7 +274,9 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {},
@@ -404,8 +422,12 @@
           "name": "user_batch_number_batch_number_fk",
           "tableFrom": "user",
           "tableTo": "batch",
-          "columnsFrom": ["batch_number"],
-          "columnsTo": ["number"],
+          "columnsFrom": [
+            "batch_number"
+          ],
+          "columnsTo": [
+            "number"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -415,7 +437,9 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         }
       },
       "policies": {},
@@ -531,8 +555,12 @@
           "name": "user_access_grant_user_id_user_id_fk",
           "tableFrom": "user_access_grant",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -542,7 +570,12 @@
         "user_grant_scope_department_unique": {
           "name": "user_grant_scope_department_unique",
           "nullsNotDistinct": true,
-          "columns": ["user_id", "grant", "scope", "department"]
+          "columns": [
+            "user_id",
+            "grant",
+            "scope",
+            "department"
+          ]
         }
       },
       "policies": {},
@@ -677,8 +710,12 @@
           "name": "user_organization_position_user_id_user_id_fk",
           "tableFrom": "user_organization_position",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -688,7 +725,12 @@
         "user_position_scope_department_unique": {
           "name": "user_position_scope_department_unique",
           "nullsNotDistinct": true,
-          "columns": ["user_id", "position", "scope", "department"]
+          "columns": [
+            "user_id",
+            "position",
+            "scope",
+            "department"
+          ]
         }
       },
       "policies": {},
@@ -725,6 +767,244 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.admission_participant": {
+      "name": "admission_participant",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "officer_function": {
+          "name": "officer_function",
+          "type": "officer_function",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "admission_participant_legal_membership_id_legal_membership_id_fk": {
+          "name": "admission_participant_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "admission_participant",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admission_participant_user_id_user_id_fk": {
+          "name": "admission_participant_user_id_user_id_fk",
+          "tableFrom": "admission_participant",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.board_resolution": {
+      "name": "board_resolution",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolution_text": {
+          "name": "resolution_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolution_text_version": {
+          "name": "resolution_text_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolution_text_hash": {
+          "name": "resolution_text_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "billing_applies": {
+          "name": "billing_applies",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "board_resolution_legal_membership_id_legal_membership_id_fk": {
+          "name": "board_resolution_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "board_resolution",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "board_resolution_legal_membership_id_unique": {
+          "name": "board_resolution_legal_membership_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "legal_membership_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.board_vote": {
+      "name": "board_vote",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "voter_user_id": {
+          "name": "voter_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "board_vote_value",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "displayed_resolution_hash": {
+          "name": "displayed_resolution_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cast_at": {
+          "name": "cast_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "board_vote_legal_membership_id_legal_membership_id_fk": {
+          "name": "board_vote_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "board_vote",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "board_vote_voter_user_id_user_id_fk": {
+          "name": "board_vote_voter_user_id_user_id_fk",
+          "tableFrom": "board_vote",
+          "tableTo": "user",
+          "columnsFrom": [
+            "voter_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "board_vote_legal_membership_id_voter_user_id_unique": {
+          "name": "board_vote_legal_membership_id_voter_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "legal_membership_id",
+            "voter_user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.group": {
       "name": "group",
       "schema": "",
@@ -755,7 +1035,9 @@
         "group_slug_unique": {
           "name": "group_slug_unique",
           "nullsNotDistinct": false,
-          "columns": ["slug"]
+          "columns": [
+            "slug"
+          ]
         }
       },
       "policies": {},
@@ -824,8 +1106,12 @@
           "name": "group_criteria_group_id_group_id_fk",
           "tableFrom": "group_criteria",
           "tableTo": "group",
-          "columnsFrom": ["group_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -833,8 +1119,12 @@
           "name": "group_criteria_created_by_user_id_fk",
           "tableFrom": "group_criteria",
           "tableTo": "user",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -876,8 +1166,12 @@
           "name": "users_to_groups_user_id_user_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -885,8 +1179,12 @@
           "name": "users_to_groups_group_id_group_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "group",
-          "columnsFrom": ["group_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -894,9 +1192,182 @@
       "compositePrimaryKeys": {
         "users_to_groups_user_id_group_id_pk": {
           "name": "users_to_groups_user_id_group_id_pk",
-          "columns": ["user_id", "group_id"]
+          "columns": [
+            "user_id",
+            "group_id"
+          ]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.legal_document": {
+      "name": "legal_document",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_type": {
+          "name": "document_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drive_file_id": {
+          "name": "drive_file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drive_url": {
+          "name": "drive_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "renderer": {
+          "name": "renderer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "legal_document_legal_membership_id_legal_membership_id_fk": {
+          "name": "legal_document_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "legal_document",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "legal_document_legal_membership_id_document_type_unique": {
+          "name": "legal_document_legal_membership_id_document_type_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "legal_membership_id",
+            "document_type"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.legal_membership": {
+      "name": "legal_membership",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "legal_membership_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inngest_run_id": {
+          "name": "inngest_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "activated_at": {
+          "name": "activated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "legal_membership_user_id_user_id_fk": {
+          "name": "legal_membership_user_id_user_id_fk",
+          "tableFrom": "legal_membership",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -996,8 +1467,12 @@
           "name": "membership_payment_user_id_user_id_fk",
           "tableFrom": "membership_payment",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1007,34 +1482,296 @@
         "membership_payment_user_id_unique": {
           "name": "membership_payment_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["user_id"]
+          "columns": [
+            "user_id"
+          ]
         },
         "membership_payment_gocardless_customer_id_unique": {
           "name": "membership_payment_gocardless_customer_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["gocardless_customer_id"]
+          "columns": [
+            "gocardless_customer_id"
+          ]
         },
         "membership_payment_gocardless_billing_request_id_unique": {
           "name": "membership_payment_gocardless_billing_request_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["gocardless_billing_request_id"]
+          "columns": [
+            "gocardless_billing_request_id"
+          ]
         },
         "membership_payment_gocardless_billing_request_flow_id_unique": {
           "name": "membership_payment_gocardless_billing_request_flow_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["gocardless_billing_request_flow_id"]
+          "columns": [
+            "gocardless_billing_request_flow_id"
+          ]
         },
         "membership_payment_gocardless_subscription_id_unique": {
           "name": "membership_payment_gocardless_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["gocardless_subscription_id"]
+          "columns": [
+            "gocardless_subscription_id"
+          ]
         },
         "membership_payment_gocardless_mandate_id_unique": {
           "name": "membership_payment_gocardless_mandate_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["gocardless_mandate_id"]
+          "columns": [
+            "gocardless_mandate_id"
+          ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.membership_application": {
+      "name": "membership_application",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_user_id": {
+          "name": "subject_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "street": {
+          "name": "street",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "zip": {
+          "name": "zip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "declarations": {
+          "name": "declarations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee_text_version": {
+          "name": "fee_text_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "application_version": {
+          "name": "application_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "membership_application_legal_membership_id_legal_membership_id_fk": {
+          "name": "membership_application_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "membership_application",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "membership_application_subject_user_id_user_id_fk": {
+          "name": "membership_application_subject_user_id_user_id_fk",
+          "tableFrom": "membership_application",
+          "tableTo": "user",
+          "columnsFrom": [
+            "subject_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "membership_application_legal_membership_id_unique": {
+          "name": "membership_application_legal_membership_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "legal_membership_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.task": {
+      "name": "task",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assignee_user_id": {
+          "name": "assignee_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "task_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_by_user_id": {
+          "name": "completed_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "legal_membership_id": {
+          "name": "legal_membership_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "task_assignee_user_id_user_id_fk": {
+          "name": "task_assignee_user_id_user_id_fk",
+          "tableFrom": "task",
+          "tableTo": "user",
+          "columnsFrom": [
+            "assignee_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "task_completed_by_user_id_user_id_fk": {
+          "name": "task_completed_by_user_id_user_id_fk",
+          "tableFrom": "task",
+          "tableTo": "user",
+          "columnsFrom": [
+            "completed_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "task_legal_membership_id_legal_membership_id_fk": {
+          "name": "task_legal_membership_id_legal_membership_id_fk",
+          "tableFrom": "task",
+          "tableTo": "legal_membership",
+          "columnsFrom": [
+            "legal_membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1115,8 +1852,12 @@
           "name": "workflow_subject_user_id_user_id_fk",
           "tableFrom": "workflow",
           "tableTo": "user",
-          "columnsFrom": ["subject_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "subject_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1124,8 +1865,12 @@
           "name": "workflow_created_by_user_id_user_id_fk",
           "tableFrom": "workflow",
           "tableTo": "user",
-          "columnsFrom": ["created_by_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1141,27 +1886,47 @@
     "public.department": {
       "name": "department",
       "schema": "public",
-      "values": ["partnerships", "operations", "community", "growth", "events"]
+      "values": [
+        "partnerships",
+        "operations",
+        "community",
+        "growth",
+        "events"
+      ]
     },
     "public.legal_membership_state": {
       "name": "legal_membership_state",
       "schema": "public",
-      "values": ["not_member", "active_member", "former_member"]
+      "values": [
+        "not_member",
+        "active_member",
+        "former_member"
+      ]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": ["onboarding", "member", "supporting_alumni", "alumni"]
+      "values": [
+        "onboarding",
+        "member",
+        "supporting_alumni",
+        "alumni"
+      ]
     },
     "public.access_grant": {
       "name": "access_grant",
       "schema": "public",
-      "values": ["admin"]
+      "values": [
+        "admin"
+      ]
     },
     "public.authority_scope": {
       "name": "authority_scope",
       "schema": "public",
-      "values": ["global", "department"]
+      "values": [
+        "global",
+        "department"
+      ]
     },
     "public.organization_position": {
       "name": "organization_position",
@@ -1173,20 +1938,74 @@
         "department_head"
       ]
     },
+    "public.board_vote_value": {
+      "name": "board_vote_value",
+      "schema": "public",
+      "values": [
+        "yes",
+        "no",
+        "abstain",
+        "procedure_objection"
+      ]
+    },
+    "public.officer_function": {
+      "name": "officer_function",
+      "schema": "public",
+      "values": [
+        "president",
+        "vice_president",
+        "head_of_finance"
+      ]
+    },
     "public.group_role": {
       "name": "group_role",
       "schema": "public",
-      "values": ["admin", "member"]
+      "values": [
+        "admin",
+        "member"
+      ]
+    },
+    "public.legal_membership_status": {
+      "name": "legal_membership_status",
+      "schema": "public",
+      "values": [
+        "admission_pending",
+        "application_pending",
+        "processing",
+        "active",
+        "manual_followup",
+        "cancelled"
+      ]
     },
     "public.membership_payment_status": {
       "name": "membership_payment_status",
       "schema": "public",
-      "values": ["pending", "checkout_started", "active", "failed", "cancelled"]
+      "values": [
+        "pending",
+        "checkout_started",
+        "active",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "public.task_status": {
+      "name": "task_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "completed",
+        "cancelled"
+      ]
     },
     "public.workflow_status": {
       "name": "workflow_status",
       "schema": "public",
-      "values": ["open", "completed", "manual_followup", "cancelled"]
+      "values": [
+        "open",
+        "completed",
+        "manual_followup",
+        "cancelled"
+      ]
     }
   },
   "schemas": {},

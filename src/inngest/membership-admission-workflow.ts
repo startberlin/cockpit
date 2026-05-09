@@ -17,10 +17,7 @@ import {
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
 import { inngest } from "@/lib/inngest";
-import {
-  archiveLegalDocument,
-  hasArchivedDocument,
-} from "@/lib/legal-documents/drive-archive";
+import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
@@ -218,11 +215,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     });
 
     // Step 9a: Render and archive board resolution PDF.
+    // archiveLegalDocument handles idempotency internally via the DB UNIQUE constraint.
     await step.run("archive-board-resolution", async () => {
-      if (await hasArchivedDocument(legalMembershipId, "board_resolution")) {
-        return;
-      }
-
       const [resolution] = await db
         .select({
           id: boardResolution.id,
@@ -299,12 +293,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 9b: Render and archive membership application PDF.
     await step.run("archive-membership-application", async () => {
-      if (
-        await hasArchivedDocument(legalMembershipId, "membership_application")
-      ) {
-        return;
-      }
-
       const application = await db.query.membershipApplication.findFirst({
         where: (ma, { eq: eqFn }) =>
           eqFn(ma.legalMembershipId, legalMembershipId),
@@ -376,12 +364,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
     await step.run("archive-admission-confirmation", async () => {
-      if (
-        await hasArchivedDocument(legalMembershipId, "admission_confirmation")
-      ) {
-        return;
-      }
-
       const subjectUser = await db.query.user.findFirst({
         where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
         columns: { firstName: true, lastName: true },
