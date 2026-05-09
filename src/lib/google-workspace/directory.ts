@@ -64,41 +64,57 @@ export async function getWorkspaceUser(
   }
 }
 
-export async function searchWorkspaceUsers(
-  query: string,
-): Promise<WorkspaceUserCandidate[]> {
-  const trimmed = query.trim();
-
-  if (trimmed.length < 2) {
-    return [];
-  }
-
+export async function listAllWorkspaceUsers(): Promise<WorkspaceUserCandidate[]> {
   const admin = getDirectoryClient();
-  const res = await admin.users.list({
-    customer: "my_customer",
-    maxResults: 10,
-    orderBy: "email",
-    projection: "basic",
-    query: buildDirectoryQuery(trimmed),
-  });
+  const candidates: WorkspaceUserCandidate[] = [];
+  let pageToken: string | undefined;
 
-  return (res.data.users ?? [])
-    .map(toCandidate)
-    .filter((user): user is WorkspaceUserCandidate => !!user);
+  do {
+    const res = await admin.users.list({
+      customer: "my_customer",
+      maxResults: 500,
+      orderBy: "email",
+      projection: "basic",
+      pageToken,
+    });
+
+    for (const user of res.data.users ?? []) {
+      const candidate = toCandidate(user);
+      if (candidate) candidates.push(candidate);
+    }
+
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return candidates;
 }
 
 export async function findWorkspaceUserByEmail(email: string) {
   return await getWorkspaceUser(email.toLowerCase());
 }
 
-function buildDirectoryQuery(query: string) {
-  if (query.includes("@")) {
-    return `email='${escapeQueryValue(query)}'`;
+export async function updateWorkspaceUserName(
+  userKey: string,
+  {
+    givenName,
+    familyName,
+  }: {
+    givenName: string;
+    familyName: string;
+  },
+) {
+  const admin = getDirectoryClient();
+
+  const res = await admin.users.update({
+    userKey,
+    requestBody: {
+      name: { givenName, familyName },
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Failed to update Workspace name for ${userKey}: ${res.statusText}`,
+    );
   }
-
-  return `name:'${escapeQueryValue(query)}'`;
-}
-
-function escapeQueryValue(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }

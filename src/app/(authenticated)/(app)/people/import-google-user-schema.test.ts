@@ -84,7 +84,7 @@ describe("importGoogleWorkspaceUserSchema", () => {
     assert.equal(result.success, true);
   });
 
-  it("rejects onboarding status for imports", () => {
+  it("accepts onboarding imports without a department or documentsVerified", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "onboarding",
@@ -92,7 +92,7 @@ describe("importGoogleWorkspaceUserSchema", () => {
       documentsVerified: true,
     });
 
-    assert.equal(result.success, false);
+    assert.equal(result.success, true);
   });
 });
 
@@ -113,5 +113,9 @@ describe("normalizeImportedDepartment", () => {
 
   it("drops stale department values for alumni imports", () => {
     assert.equal(normalizeImportedDepartment("alumni", "operations"), null);
+  });
+
+  it("drops stale department values for onboarding imports", () => {
+    assert.equal(normalizeImportedDepartment("onboarding", "operations"), null);
   });
 });

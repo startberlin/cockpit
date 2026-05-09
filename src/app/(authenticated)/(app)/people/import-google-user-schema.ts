@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { type Department, departmentSchema } from "@/db/schema/auth";
 
-export const searchGoogleWorkspaceUsersSchema = z.object({
-  query: z.string().trim().min(2, "Enter at least two characters."),
-});
-
 export const importableUserStatus = z.enum([
   "member",
   "supporting_alumni",
   "alumni",
+  "onboarding",
 ]);
 
 export type ImportableUserStatus = z.infer<typeof importableUserStatus>;
