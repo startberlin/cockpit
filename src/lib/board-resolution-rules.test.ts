@@ -43,4 +43,14 @@ describe("computeVoteOutcome", () => {
     const votes: BoardVoteValue[] = ["yes"];
     assert.strictEqual(computeVoteOutcome(votes), "pending");
   });
+
+  it("returns pending for 3 no votes (unresolved after 3 rounds)", () => {
+    const votes: BoardVoteValue[] = ["no", "no", "no"];
+    assert.strictEqual(computeVoteOutcome(votes), "pending");
+  });
+
+  it("returns pending for 3 abstain votes (unresolved after 3 rounds)", () => {
+    const votes: BoardVoteValue[] = ["abstain", "abstain", "abstain"];
+    assert.strictEqual(computeVoteOutcome(votes), "pending");
+  });
 });
