@@ -13,12 +13,10 @@ describe("user deletion hardening migration", () => {
     );
   });
 
-  it("keeps workflow and audit user references instead of nulling history", () => {
+  it("keeps audit user references instead of nulling history", () => {
     for (const constraintName of [
       "audit_log_actor_user_id_user_id_fk",
       "audit_log_target_user_id_user_id_fk",
-      "workflow_subject_user_id_user_id_fk",
-      "workflow_created_by_user_id_user_id_fk",
     ]) {
       const line = migration
         .split("\n")

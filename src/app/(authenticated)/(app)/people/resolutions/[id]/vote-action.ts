@@ -105,7 +105,7 @@ export const castVoteAction = actionClient
         "code" in error &&
         error.code === "23505"
       ) {
-        returnValidationErrors(voteInputSchema, {
+        return returnValidationErrors(voteInputSchema, {
           value: { _errors: ["You have already voted on this resolution."] },
         });
       }

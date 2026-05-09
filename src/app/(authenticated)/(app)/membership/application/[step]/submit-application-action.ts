@@ -22,7 +22,7 @@ export const submitApplicationAction = actionClient
     });
 
     if (!membership || membership.userId !== user.id) {
-      returnValidationErrors(submitApplicationSchema, {
+      return returnValidationErrors(submitApplicationSchema, {
         legalMembershipId: {
           _errors: ["Legal membership not found."],
         },
@@ -30,56 +30,75 @@ export const submitApplicationAction = actionClient
     }
 
     if (membership.status !== "application_pending") {
-      returnValidationErrors(submitApplicationSchema, {
+      return returnValidationErrors(submitApplicationSchema, {
         legalMembershipId: {
           _errors: ["Application is not in the expected state."],
         },
       });
     }
 
-    const existing = await db.query.membershipApplication.findFirst({
-      where: eq(
-        membershipApplication.legalMembershipId,
-        parsedInput.legalMembershipId,
-      ),
-      columns: { id: true },
-    });
+    // Duplicate check and INSERT are in the same transaction so concurrent
+    // submissions cannot both pass the check. The DB unique constraint on
+    // legalMembershipId is the final guard; 23505 is caught below.
+    try {
+      await db.transaction(async (tx) => {
+        const existing = await tx.query.membershipApplication.findFirst({
+          where: eq(
+            membershipApplication.legalMembershipId,
+            parsedInput.legalMembershipId,
+          ),
+          columns: { id: true },
+        });
 
-    if (existing) {
-      returnValidationErrors(submitApplicationSchema, {
-        legalMembershipId: {
-          _errors: ["Application already submitted."],
-        },
-      });
-    }
+        if (existing) {
+          return returnValidationErrors(submitApplicationSchema, {
+            legalMembershipId: {
+              _errors: ["Application already submitted."],
+            },
+          });
+        }
 
-    await db.transaction(async (tx) => {
-      await tx.insert(membershipApplication).values({
-        id: newId("membershipApplication"),
-        legalMembershipId: parsedInput.legalMembershipId,
-        subjectUserId: user.id,
-        street: parsedInput.address.street,
-        city: parsedInput.address.city,
-        state: parsedInput.address.state,
-        zip: parsedInput.address.zip,
-        country: parsedInput.address.country,
-        declarations: parsedInput.declarations,
-        feeTextVersion: "v1",
-        applicationVersion: "v1",
-        submittedAt: new Date(),
-      });
-
-      await tx
-        .update(userTable)
-        .set({
+        await tx.insert(membershipApplication).values({
+          id: newId("membershipApplication"),
+          legalMembershipId: parsedInput.legalMembershipId,
+          subjectUserId: user.id,
           street: parsedInput.address.street,
           city: parsedInput.address.city,
           state: parsedInput.address.state,
           zip: parsedInput.address.zip,
           country: parsedInput.address.country,
-        })
-        .where(eq(userTable.id, user.id));
-    });
+          declarations: parsedInput.declarations,
+          feeTextVersion: "v1",
+          applicationVersion: "v1",
+          submittedAt: new Date(),
+        });
+
+        await tx
+          .update(userTable)
+          .set({
+            street: parsedInput.address.street,
+            city: parsedInput.address.city,
+            state: parsedInput.address.state,
+            zip: parsedInput.address.zip,
+            country: parsedInput.address.country,
+          })
+          .where(eq(userTable.id, user.id));
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      ) {
+        return returnValidationErrors(submitApplicationSchema, {
+          legalMembershipId: {
+            _errors: ["Application already submitted."],
+          },
+        });
+      }
+      throw error;
+    }
 
     await inngest.send({
       name: "membership/application.submitted",

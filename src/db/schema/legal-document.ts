@@ -14,7 +14,7 @@ export const legalDocument = pgTable(
     legalMembershipId: text("legal_membership_id")
       .notNull()
       .references(() => legalMembership.id, { onDelete: "no action" }),
-    documentType: text("document_type").notNull(),
+    documentType: text("document_type").notNull().$type<LegalDocumentType>(),
     sha256: text("sha256").notNull(),
     driveFileId: text("drive_file_id").notNull(),
     driveUrl: text("drive_url").notNull(),

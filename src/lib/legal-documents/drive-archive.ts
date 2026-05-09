@@ -3,7 +3,10 @@ import { Readable } from "node:stream";
 import { and, eq } from "drizzle-orm";
 import { google } from "googleapis";
 import db from "@/db";
-import { legalDocument } from "@/db/schema/legal-document";
+import {
+  legalDocument,
+  type LegalDocumentType,
+} from "@/db/schema/legal-document";
 import { env } from "@/env";
 import { createServiceAccountAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
@@ -18,13 +21,15 @@ export async function archiveLegalDocument({
   fileName,
 }: {
   legalMembershipId: string;
-  documentType: string;
+  documentType: LegalDocumentType;
   buffer: Buffer;
   fileName: string;
 }): Promise<{ driveFileId: string; driveUrl: string; sha256: string }> {
-  // Check DB first — if a record already exists, skip the Drive upload entirely.
-  // The UNIQUE(legal_membership_id, document_type) constraint is the authoritative
-  // idempotency gate; this pre-flight avoids redundant Drive API calls on retries.
+  // Check DB first — if a record already exists, return it without uploading.
+  // This handles the success-then-retry path (Drive uploaded and DB row committed).
+  // In the failure-then-retry path (Drive succeeded but DB insert failed), the
+  // pre-flight finds no row and a second Drive upload occurs; the DB constraint
+  // prevents a duplicate row and the final SELECT below returns the stored values.
   const existing = await db.query.legalDocument.findFirst({
     where: (d, { and: andFn, eq: eqFn }) =>
       andFn(
@@ -78,14 +83,34 @@ export async function archiveLegalDocument({
       driveUrl,
       renderer: "react-pdf-v4",
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing({
+      target: [legalDocument.legalMembershipId, legalDocument.documentType],
+    });
 
-  return { driveFileId, driveUrl, sha256 };
+  // Return the authoritative DB row — may differ from the current upload's values
+  // if a conflict occurred (a prior run uploaded but its DB insert failed, causing
+  // a second Drive upload on this retry before the insert succeeded).
+  const stored = await db.query.legalDocument.findFirst({
+    where: (d, { and: andFn, eq: eqFn }) =>
+      andFn(
+        eqFn(d.legalMembershipId, legalMembershipId),
+        eqFn(d.documentType, documentType),
+      ),
+    columns: { driveFileId: true, driveUrl: true, sha256: true },
+  });
+
+  if (!stored) {
+    throw new Error(
+      `legalDocument row missing after insert for ${legalMembershipId}/${documentType}`,
+    );
+  }
+
+  return { driveFileId: stored.driveFileId, driveUrl: stored.driveUrl, sha256: stored.sha256 };
 }
 
 export async function hasArchivedDocument(
   legalMembershipId: string,
-  documentType: string,
+  documentType: LegalDocumentType,
 ): Promise<boolean> {
   const rows = await db
     .select({ id: legalDocument.id })

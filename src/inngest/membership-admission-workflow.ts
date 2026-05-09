@@ -179,7 +179,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Notify the applicant that they can now submit their membership application.
     await step.run("notify-applicant-board-approved", async () => {
-      if (!subject.email) return;
+      if (!subject.email) {
+        throw new Error(`Missing email for subject user ${subjectUserId}`);
+      }
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
@@ -378,14 +380,24 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 11: Send admission confirmation to the new member.
     await step.run("send-admission-confirmed-email", async () => {
-      if (!subject.email) return;
+      if (!subject.email) {
+        throw new Error(`Missing email for subject user ${subjectUserId}`);
+      }
 
-      const payment = await db.query.membershipPayment.findFirst({
-        where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectUserId),
-        columns: { id: true },
-      });
+      // Fetch user status fresh — it may have changed since step 1 (e.g. GoCardless
+      // payment activated operational status from 'onboarding' to 'member').
+      const [freshUser, payment] = await Promise.all([
+        db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+          columns: { status: true },
+        }),
+        db.query.membershipPayment.findFirst({
+          where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectUserId),
+          columns: { id: true },
+        }),
+      ]);
 
-      const includesPaymentCta = subject.status === "member" && !payment;
+      const includesPaymentCta = freshUser?.status === "member" && !payment;
 
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",

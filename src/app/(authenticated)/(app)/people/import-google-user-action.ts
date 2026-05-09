@@ -236,13 +236,20 @@ export const importGoogleWorkspaceUserAction = actionClient
       });
     }
 
-    await resend.emails.send(
-      buildImportedUserNotificationEmail({
-        email: workspaceUser.primaryEmail,
-        firstName: parsedInput.firstName,
-        status: parsedInput.status,
-      }),
-    );
+    // Non-fatal: notification email failure must not block import success — all
+    // durable state (user row, Inngest workflow) is already committed. Log and
+    // continue so callers aren't blocked and can't retry into a duplicate-email error.
+    try {
+      await resend.emails.send(
+        buildImportedUserNotificationEmail({
+          email: workspaceUser.primaryEmail,
+          firstName: parsedInput.firstName,
+          status: parsedInput.status,
+        }),
+      );
+    } catch (emailError) {
+      console.error("Failed to send import notification email:", emailError);
+    }
 
     return { id: createdUser.id };
   });

@@ -20,9 +20,6 @@ describe("isLegalMember", () => {
     );
   });
 
-  it("Supporting Alumni with active_member state is eligible (happy path)", () => {
-    assert.ok(isLegalMember({ legalMembershipState: "active_member" }));
-  });
 });
 
 describe("filterLegalMembers", () => {

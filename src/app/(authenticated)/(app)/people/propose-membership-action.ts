@@ -19,6 +19,10 @@ import { getOnboardingProgress } from "@/schema/onboarding-progress";
 export const proposeMembershipAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
   .action(async ({ parsedInput }) => {
+    // The permission check requires the target user's department, so we must
+    // fetch the user first. This means an authenticated caller can distinguish
+    // "user not found" from "user exists but you lack permission" — an accepted
+    // residual risk given the caller must be authenticated (not public-facing).
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
     });
