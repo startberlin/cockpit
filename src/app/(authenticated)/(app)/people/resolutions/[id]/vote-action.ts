@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { returnValidationErrors } from "next-safe-action";
 import { z } from "zod";
 import db from "@/db";
 import {
@@ -14,14 +15,14 @@ import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 
+const voteInputSchema = z.object({
+  resolutionId: z.string().min(1),
+  value: z.enum(boardVoteValue.enumValues),
+  displayedResolutionHash: z.string().min(1),
+});
+
 export const castVoteAction = actionClient
-  .inputSchema(
-    z.object({
-      resolutionId: z.string().min(1),
-      value: z.enum(boardVoteValue.enumValues),
-      displayedResolutionHash: z.string().min(1),
-    }),
-  )
+  .inputSchema(voteInputSchema)
   .action(async ({ parsedInput, ctx }) => {
     const { resolutionId, value, displayedResolutionHash } = parsedInput;
     const currentUser = ctx.user;
@@ -52,38 +53,6 @@ export const castVoteAction = actionClient
       throw new Error("Voting is no longer open for this resolution.");
     }
 
-    // Validate that the user is an admission participant
-    const participantRows = await db
-      .select({ id: admissionParticipant.id })
-      .from(admissionParticipant)
-      .where(
-        and(
-          eq(admissionParticipant.legalMembershipId, legalMembershipId),
-          eq(admissionParticipant.userId, currentUser.id),
-        ),
-      );
-
-    if (participantRows.length === 0) {
-      throw new Error(
-        "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    }
-
-    // Check that the user hasn't already voted
-    const existingVote = await db
-      .select({ id: boardVote.id })
-      .from(boardVote)
-      .where(
-        and(
-          eq(boardVote.legalMembershipId, legalMembershipId),
-          eq(boardVote.voterUserId, currentUser.id),
-        ),
-      );
-
-    if (existingVote.length > 0) {
-      throw new Error("You have already voted on this resolution.");
-    }
-
     // Validate that the displayed resolution hash matches the stored hash
     if (displayedResolutionHash !== resolutionTextHash) {
       throw new Error(
@@ -91,18 +60,52 @@ export const castVoteAction = actionClient
       );
     }
 
-    // Insert the vote
+    // Atomic: participant check + duplicate check + INSERT in one transaction.
+    // The DB unique constraint on (legalMembershipId, voterUserId) enforces
+    // idempotency under concurrent requests — 23505 is caught below.
     const now = new Date();
-    await db.insert(boardVote).values({
-      id: newId("boardVote"),
-      legalMembershipId,
-      voterUserId: currentUser.id,
-      value,
-      displayedResolutionHash,
-      castAt: now,
-    });
+    try {
+      await db.transaction(async (tx) => {
+        const participantRows = await tx
+          .select({ id: admissionParticipant.id })
+          .from(admissionParticipant)
+          .where(
+            and(
+              eq(admissionParticipant.legalMembershipId, legalMembershipId),
+              eq(admissionParticipant.userId, currentUser.id),
+            ),
+          );
 
-    // Send Inngest event
+        if (participantRows.length === 0) {
+          throw new Error(
+            "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
+          );
+        }
+
+        await tx.insert(boardVote).values({
+          id: newId("boardVote"),
+          legalMembershipId,
+          voterUserId: currentUser.id,
+          value,
+          displayedResolutionHash,
+          castAt: now,
+        });
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      ) {
+        returnValidationErrors(voteInputSchema, {
+          value: { _errors: ["You have already voted on this resolution."] },
+        });
+      }
+      throw error;
+    }
+
+    // Send Inngest event after the transaction commits
     await inngest.send({
       name: "membership/board-vote.cast",
       data: {

@@ -354,18 +354,22 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 10: Activate the legal membership and set legalMembershipState.
     // Only reached after all documents are archived.
+    // Both updates are wrapped in a transaction to prevent split-brain where
+    // legal_membership.status = 'active' but user.legalMembershipState is stale.
     const activatedAt = await step.run(
       "activate-legal-membership",
       async () => {
         const now = new Date();
-        await db
-          .update(legalMembership)
-          .set({ status: "active", activatedAt: now })
-          .where(eq(legalMembership.id, legalMembershipId));
-        await db
-          .update(user)
-          .set({ legalMembershipState: "active_member" })
-          .where(eq(user.id, subjectUserId));
+        await db.transaction(async (tx) => {
+          await tx
+            .update(legalMembership)
+            .set({ status: "active", activatedAt: now })
+            .where(eq(legalMembership.id, legalMembershipId));
+          await tx
+            .update(user)
+            .set({ legalMembershipState: "active_member" })
+            .where(eq(user.id, subjectUserId));
+        });
         return now.toISOString();
       },
     );
