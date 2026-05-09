@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { UserStatus } from "@/db/schema/auth";
 import {
+  ACTIVE_TENURE_STATUSES,
   type LegalMembershipStatus,
   legalMembership,
 } from "@/db/schema/legal-membership";
@@ -12,22 +13,15 @@ import {
   membershipPayment,
 } from "./schema/membership";
 
-const ACTIVE_LEGAL_MEMBERSHIP_STATUSES: LegalMembershipStatus[] = [
-  "admission_pending",
-  "application_pending",
-  "processing",
-  "active",
-  "manual_followup",
-];
-
 export async function getActiveLegalMembership(
   userId: string,
 ): Promise<{ id: string; status: LegalMembershipStatus } | null> {
   const row = await db.query.legalMembership.findFirst({
     where: and(
       eq(legalMembership.userId, userId),
-      inArray(legalMembership.status, ACTIVE_LEGAL_MEMBERSHIP_STATUSES),
+      inArray(legalMembership.status, [...ACTIVE_TENURE_STATUSES]),
     ),
+    orderBy: desc(legalMembership.startedAt),
     columns: { id: true, status: true },
   });
 

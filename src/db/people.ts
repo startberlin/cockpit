@@ -14,6 +14,7 @@ import type {
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
+import { LIVE_TENURE_STATUSES } from "./schema/legal-membership";
 
 export interface PublicUser {
   id: string;
@@ -68,12 +69,6 @@ export interface UserDetail {
   }>;
 }
 
-const ACTIVE_TENURE_STATUSES = [
-  "admission_pending",
-  "application_pending",
-  "processing",
-  "active",
-] as const;
 
 export async function getAllUserPublicData(): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
@@ -114,7 +109,7 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
     }
 
     const hasActiveTenure = user.legalMemberships.some((lm) =>
-      (ACTIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
+      (LIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
     );
 
     return {

@@ -226,6 +226,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .from(boardResolution)
         .where(eq(boardResolution.legalMembershipId, legalMembershipId));
 
+      if (!resolution) {
+        throw new Error(
+          `No board_resolution found for ${legalMembershipId}`,
+        );
+      }
+
       const participants = await db
         .select({
           userId: admissionParticipant.userId,
@@ -264,10 +270,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           ? `${subjectUser.firstName} ${subjectUser.lastName}`
           : subjectUserId,
         participants: participants.map((p) => ({
+          userId: p.userId,
           name: `${p.firstName} ${p.lastName}`,
           officerFunction: p.officerFunction,
         })),
         votes: votes.map((v) => ({
+          voterUserId: v.voterUserId,
           voterName: `${v.firstName} ${v.lastName}`,
           value: v.value,
           castAt: v.castAt,

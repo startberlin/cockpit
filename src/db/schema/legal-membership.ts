@@ -13,6 +13,24 @@ export const legalMembershipStatus = pgEnum("legal_membership_status", [
 export type LegalMembershipStatus =
   (typeof legalMembershipStatus.enumValues)[number];
 
+// Statuses that represent a tenure which blocks new proposals for the same user.
+export const LIVE_TENURE_STATUSES = [
+  "admission_pending",
+  "application_pending",
+  "processing",
+  "active",
+] as const satisfies LegalMembershipStatus[];
+
+// Statuses that represent any tenure a user has that is still visible / queryable.
+// Includes manual_followup in addition to LIVE_TENURE_STATUSES.
+export const ACTIVE_TENURE_STATUSES = [
+  "admission_pending",
+  "application_pending",
+  "processing",
+  "active",
+  "manual_followup",
+] as const satisfies LegalMembershipStatus[];
+
 export const legalMembership = pgTable("legal_membership", {
   id: text("id").primaryKey(),
   userId: text("user_id")

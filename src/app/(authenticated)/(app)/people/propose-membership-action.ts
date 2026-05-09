@@ -9,20 +9,16 @@ import {
   admissionParticipant,
   boardResolution,
 } from "@/db/schema/board-admission";
-import { legalMembership } from "@/db/schema/legal-membership";
+import {
+  legalMembership,
+  LIVE_TENURE_STATUSES,
+} from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
 import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
-
-const ACTIVE_TENURE_STATUSES = [
-  "admission_pending",
-  "application_pending",
-  "processing",
-  "active",
-] as const;
 
 export const proposeMembershipAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
@@ -54,7 +50,7 @@ export const proposeMembershipAction = actionClient
       where: (lm, { and, inArray }) =>
         and(
           eq(lm.userId, targetUser.id),
-          inArray(lm.status, [...ACTIVE_TENURE_STATUSES]),
+          inArray(lm.status, [...LIVE_TENURE_STATUSES]),
         ),
     });
 

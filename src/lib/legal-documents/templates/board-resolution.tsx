@@ -88,8 +88,8 @@ export interface BoardResolutionTemplateData {
   resolutionText: string;
   resolutionTextHash: string;
   subjectName: string;
-  participants: Array<{ name: string; officerFunction: string }>;
-  votes: Array<{ voterName: string; value: string; castAt: Date }>;
+  participants: Array<{ userId: string; name: string; officerFunction: string }>;
+  votes: Array<{ voterUserId: string; voterName: string; value: string; castAt: Date }>;
   renderedAt: Date;
 }
 
@@ -123,9 +123,9 @@ export function renderBoardResolutionTemplate(
               <Text style={[styles.colDate, styles.colHeader]}>Datum</Text>
             </View>
             {data.participants.map((p) => {
-              const vote = data.votes.find((v) => v.voterName === p.name);
+              const vote = data.votes.find((v) => v.voterUserId === p.userId);
               return (
-                <View key={p.name} style={styles.tableRow}>
+                <View key={p.userId} style={styles.tableRow}>
                   <Text style={[styles.colName, styles.colValue]}>
                     {p.name}
                   </Text>
