@@ -1,7 +1,7 @@
 ---
 title: "feat: Unified People Directory with Inline Action Indicators"
 type: feat
-status: active
+status: completed
 date: 2026-05-09
 origin: docs/brainstorms/2026-05-09-people-directory-unified-view-requirements.md
 ---
