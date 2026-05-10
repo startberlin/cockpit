@@ -1,5 +1,5 @@
-import { Font } from "@react-pdf/renderer";
 import { join } from "node:path";
+import { Font } from "@react-pdf/renderer";
 
 // ─── Design tokens (oklch → approx hex, matching global CSS) ─────────────────
 export const C = {

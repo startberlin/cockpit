@@ -32,8 +32,8 @@ import {
 } from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
-import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
+import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
 import { resend } from "@/lib/resend";
 
