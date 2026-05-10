@@ -80,7 +80,8 @@ export default function ResolutionVoteClient({
 
   const resolutionVotes = resolution.participants
     .filter((p) => p.vote != null)
-    .map((p) => ({ voterUserId: p.userId, value: p.vote!.value }));
+    .map((p) => ({ voterUserId: p.userId, value: p.vote?.value }));
+
   const roles =
     resolution.status !== "admission_pending"
       ? computeResolutionRoles(resolution.participants, resolutionVotes)

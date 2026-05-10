@@ -5,17 +5,17 @@
  * Output: scripts/output/*.pdf
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import {
   Document,
   Font,
   Image,
   Page,
+  renderToFile,
   Text,
   View,
-  renderToFile,
 } from "@react-pdf/renderer";
-import fs from "fs";
-import path from "path";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colors  (oklch → approx hex)
