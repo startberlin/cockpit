@@ -8,7 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { AlertCircleIcon, CircleCheck, LockIcon } from "lucide-react";
+import { AlertCircleIcon, CircleCheck, LockIcon, PencilIcon } from "lucide-react";
 import * as React from "react";
 import { Controller } from "react-hook-form";
 import { useDebounce } from "use-debounce";
@@ -239,6 +239,7 @@ export function ImportGoogleUserDialog({
     });
     form.setValue("firstName", candidate.givenName, { shouldValidate: true });
     form.setValue("lastName", candidate.familyName, { shouldValidate: true });
+    setStep("profile");
   };
 
   React.useEffect(() => {
@@ -328,7 +329,7 @@ export function ImportGoogleUserDialog({
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div>
+          <div className="flex flex-col gap-2">
             <DialogTitle>Import from Google Workspace</DialogTitle>
             <DialogDescription>
               Link a Workspace account to START Cockpit without creating a new
@@ -498,20 +499,19 @@ export function ImportGoogleUserDialog({
               </div>
             )}
 
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                disabled={!selected}
-                onClick={() => setStep("profile")}
-              >
-                Next
-              </Button>
-            </div>
           </div>
         ) : (
           <form
             className="flex flex-col gap-y-6"
-            onSubmit={handleSubmitWithAction}
+            onSubmit={(e) => {
+              const isLastStep =
+                !requiresMembershipStep || step === "membership";
+              if (!isLastStep) {
+                e.preventDefault();
+                return;
+              }
+              return handleSubmitWithAction(e);
+            }}
           >
             {selected && (
               <div className="rounded-md bg-muted px-3 py-2 text-sm">
@@ -546,14 +546,14 @@ export function ImportGoogleUserDialog({
                                   <InputGroupButton
                                     className="rounded-full"
                                     size="icon-xs"
-                                    aria-label="Unlock first name"
+                                    aria-label="Edit first name"
                                     onClick={() => setFirstNameUnlocked(true)}
                                   >
-                                    <LockIcon />
+                                    <PencilIcon />
                                   </InputGroupButton>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  Unlock to correct the first name.
+                                  Edit first name.
                                 </TooltipContent>
                               </Tooltip>
                             </InputGroupAddon>
@@ -581,14 +581,14 @@ export function ImportGoogleUserDialog({
                                   <InputGroupButton
                                     className="rounded-full"
                                     size="icon-xs"
-                                    aria-label="Unlock last name"
+                                    aria-label="Edit last name"
                                     onClick={() => setLastNameUnlocked(true)}
                                   >
-                                    <LockIcon />
+                                    <PencilIcon />
                                   </InputGroupButton>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  Unlock to correct the last name.
+                                  Edit last name.
                                 </TooltipContent>
                               </Tooltip>
                             </InputGroupAddon>
