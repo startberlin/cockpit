@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +10,7 @@ import {
 import type { LegalMembershipState, UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
+import { MembershipProcessingCard } from "./membership-processing-card";
 import { MembershipSection } from "./onboarding";
 import { PaymentButton } from "./payment-button";
 
@@ -92,23 +92,9 @@ export function MembershipTaskCard({
     );
   }
 
-  // processing: preparing documents
+  // processing: preparing documents — polls for status changes via React Query
   if (legalMembershipStatus === "processing") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your application is being processed</CardTitle>
-          <CardDescription>
-            We're preparing your membership documents. This usually only takes a
-            moment.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
-          <Loader2Icon className="h-4 w-4 animate-spin" />
-          Processing your documents...
-        </CardFooter>
-      </Card>
-    );
+    return <MembershipProcessingCard />;
   }
 
   // active + no payment: welcome, set up payment
@@ -137,21 +123,6 @@ export function MembershipTaskCard({
         userStatus={userStatus}
         paidThroughAt={paidThroughAt}
       />
-    );
-  }
-
-  // null + not_member: team is setting up membership
-  if (legalMembershipStatus === null && legalMembershipState === "not_member") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Setting up your membership</CardTitle>
-          <CardDescription>
-            Your membership is being set up by the team. If you have any
-            questions, feel free to reach out.
-          </CardDescription>
-        </CardHeader>
-      </Card>
     );
   }
 

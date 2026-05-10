@@ -37,6 +37,15 @@ export function getMembershipBillingCopy({
     };
   }
 
+  if (userStatus === "onboarding") {
+    return {
+      title: "You're in the onboarding phase.",
+      description:
+        "We're glad to have you on board. After the onboarding phase, you'll see your membership details here.",
+      paymentNote: null,
+    };
+  }
+
   if (
     mode === "not_started" ||
     mode === "pending" ||
