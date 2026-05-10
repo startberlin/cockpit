@@ -6,13 +6,13 @@ import db from "@/db";
 import { createAdmissionWorkflow } from "@/db/admission";
 import { getAllUserAuthorities } from "@/db/authority";
 import {
-  legalMembership,
   LIVE_TENURE_STATUSES,
+  legalMembership,
 } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
 import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import { newId } from "@/lib/id";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
@@ -97,7 +97,7 @@ export const proposeMembershipAction = actionClient
     });
 
     await inngest.send({
-      name: "membership/admission-workflow.started",
+      name: events.admissionWorkflowStarted.name,
       data: { legalMembershipId: lm.id, subjectUserId: targetUser.id },
     });
 
