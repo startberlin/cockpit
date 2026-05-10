@@ -1,6 +1,7 @@
 import { type InferSelectModel, relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   integer,
   pgEnum,
   pgTable,
@@ -58,6 +59,7 @@ export const user = pgTable("user", {
   city: text("city"),
   zip: text("zip"),
   country: text("country"),
+  birthDate: date("birth_date"),
   personalEmail: text("personal_email").notNull(),
   batchNumber: integer("batch_number").references(() => batch.number, {
     onDelete: "set null",

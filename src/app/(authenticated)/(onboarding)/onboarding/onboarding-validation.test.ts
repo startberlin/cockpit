@@ -1,58 +1,47 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { stepAddressDataSchema } from "./[step]/onboarding-validation";
+import { stepMasterDataSchema } from "./[step]/onboarding-validation";
 
-describe("stepAddressDataSchema", () => {
-  const validAddress = {
-    street: "Hauptstraße 1",
-    city: "Berlin",
-    state: "Berlin",
-    zip: "10115",
-    country: "Germany",
+describe("stepMasterDataSchema", () => {
+  const valid = {
+    personalEmail: "ada@example.com",
+    phone: "+491234567890",
+    birthDate: "1990-01-15",
   };
 
-  it("accepts a valid address", () => {
-    const result = stepAddressDataSchema.safeParse(validAddress);
-    assert.equal(result.success, true);
+  it("accepts valid data", () => {
+    assert.equal(stepMasterDataSchema.safeParse(valid).success, true);
   });
 
-  it("accepts a blank state", () => {
-    const result = stepAddressDataSchema.safeParse({
-      ...validAddress,
-      state: "",
-    });
-    assert.equal(result.success, true);
+  it("rejects an invalid email", () => {
+    assert.equal(
+      stepMasterDataSchema.safeParse({
+        ...valid,
+        personalEmail: "not-an-email",
+      }).success,
+      false,
+    );
   });
 
-  it("rejects an empty street", () => {
-    const result = stepAddressDataSchema.safeParse({
-      ...validAddress,
-      street: "",
-    });
-    assert.equal(result.success, false);
+  it("rejects an invalid phone number", () => {
+    assert.equal(
+      stepMasterDataSchema.safeParse({ ...valid, phone: "12345" }).success,
+      false,
+    );
   });
 
-  it("rejects an empty city", () => {
-    const result = stepAddressDataSchema.safeParse({
-      ...validAddress,
-      city: "",
-    });
-    assert.equal(result.success, false);
+  it("rejects a missing birthDate", () => {
+    assert.equal(
+      stepMasterDataSchema.safeParse({ ...valid, birthDate: "" }).success,
+      false,
+    );
   });
 
-  it("rejects an empty zip", () => {
-    const result = stepAddressDataSchema.safeParse({
-      ...validAddress,
-      zip: "",
-    });
-    assert.equal(result.success, false);
-  });
-
-  it("rejects an empty country", () => {
-    const result = stepAddressDataSchema.safeParse({
-      ...validAddress,
-      country: "",
-    });
-    assert.equal(result.success, false);
+  it("rejects an invalid birthDate format", () => {
+    assert.equal(
+      stepMasterDataSchema.safeParse({ ...valid, birthDate: "15-01-1990" })
+        .success,
+      false,
+    );
   });
 });

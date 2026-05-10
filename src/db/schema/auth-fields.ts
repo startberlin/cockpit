@@ -8,6 +8,7 @@ export const betterAuthUserAdditionalFields = {
   country: { type: "string", input: false },
   phone: { type: "string", input: false },
   personalEmail: { type: "string", input: false },
+  birthDate: { type: "string", input: false },
   status: { type: "string", input: false },
   legalMembershipState: { type: "string", input: false },
 } as const;

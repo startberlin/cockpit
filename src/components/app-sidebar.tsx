@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import Icon from "@/app/icon.png";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import {
@@ -31,15 +30,14 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg">
               <Link href="/membership">
-                <div className="flex aspect-square size-8 items-center justify-center">
-                  <Image src={Icon} alt="" className="size-7" priority />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">START Berlin</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    Cockpit
-                  </span>
-                </div>
+                <Image
+                  src="/logo-black.png"
+                  alt="START Berlin"
+                  height={28}
+                  width={61}
+                  className=""
+                  priority
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

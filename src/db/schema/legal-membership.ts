@@ -11,6 +11,7 @@ import { user } from "./auth";
 export const legalMembershipStatus = pgEnum("legal_membership_status", [
   "admission_pending",
   "application_pending",
+  "membership_reconfirmation_pending",
   "processing",
   "active",
   "manual_followup",
@@ -24,6 +25,7 @@ export type LegalMembershipStatus =
 export const LIVE_TENURE_STATUSES = [
   "admission_pending",
   "application_pending",
+  "membership_reconfirmation_pending",
   "processing",
   "active",
 ] as const satisfies LegalMembershipStatus[];
@@ -33,6 +35,7 @@ export const LIVE_TENURE_STATUSES = [
 export const ACTIVE_TENURE_STATUSES = [
   "admission_pending",
   "application_pending",
+  "membership_reconfirmation_pending",
   "processing",
   "active",
   "manual_followup",
@@ -49,6 +52,7 @@ export const legalMembership = pgTable(
     inngestRunId: text("inngest_run_id"),
     startedAt: timestamp("started_at").notNull().defaultNow(),
     activatedAt: timestamp("activated_at"),
+    importedPaidThroughAt: timestamp("imported_paid_through_at"),
     endedAt: timestamp("ended_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")
@@ -61,7 +65,7 @@ export const legalMembership = pgTable(
     uniqueIndex("legal_membership_active_tenure_idx")
       .on(t.userId)
       .where(
-        sql`${t.status} IN ('admission_pending', 'application_pending', 'processing', 'active')`,
+        sql`${t.status} IN ('admission_pending', 'application_pending', 'membership_reconfirmation_pending', 'processing', 'active')`,
       ),
   ],
 );

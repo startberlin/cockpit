@@ -1,14 +1,21 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import { membershipApplication } from "@/db/schema/membership-application";
+import {
+  isFullDeclarations,
+  membershipApplication,
+} from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
-import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
+import { sha256Hex } from "@/lib/legal-documents/document-hash";
+import {
+  readFinanzordnungBuffer,
+  readSatzungBuffer,
+} from "@/lib/legal-documents/static-documents";
 import { submitApplicationSchema } from "./application-validation";
 
 export const submitApplicationAction = actionClient
@@ -16,20 +23,35 @@ export const submitApplicationAction = actionClient
   .action(async ({ ctx, parsedInput }) => {
     const { user } = ctx;
 
-    const membership = await db.query.legalMembership.findFirst({
-      where: eq(legalMembership.id, parsedInput.legalMembershipId),
-      columns: { id: true, userId: true, status: true },
+    const draft = await db.query.membershipApplication.findFirst({
+      where: eq(
+        membershipApplication.legalMembershipId,
+        parsedInput.legalMembershipId,
+      ),
     });
 
-    if (!membership || membership.userId !== user.id) {
+    if (!draft || draft.subjectUserId !== user.id) {
       return returnValidationErrors(submitApplicationSchema, {
-        legalMembershipId: {
-          _errors: ["Legal membership not found."],
-        },
+        legalMembershipId: { _errors: ["Application not found."] },
       });
     }
 
-    if (membership.status !== "application_pending") {
+    if (draft.status !== "draft") {
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: { _errors: ["Application already submitted."] },
+      });
+    }
+
+    const lm = await db.query.legalMembership.findFirst({
+      where: eq(legalMembership.id, parsedInput.legalMembershipId),
+      columns: { status: true },
+    });
+
+    const preSubmissionStatus = lm?.status;
+    if (
+      preSubmissionStatus !== "application_pending" &&
+      preSubmissionStatus !== "membership_reconfirmation_pending"
+    ) {
       return returnValidationErrors(submitApplicationSchema, {
         legalMembershipId: {
           _errors: ["Application is not in the expected state."],
@@ -37,75 +59,106 @@ export const submitApplicationAction = actionClient
       });
     }
 
-    // Duplicate check and INSERT are in the same transaction so concurrent
-    // submissions cannot both pass the check. The DB unique constraint on
-    // legalMembershipId is the final guard; 23505 is caught below.
-    try {
-      await db.transaction(async (tx) => {
-        const existing = await tx.query.membershipApplication.findFirst({
-          where: eq(
-            membershipApplication.legalMembershipId,
-            parsedInput.legalMembershipId,
-          ),
-          columns: { id: true },
-        });
-
-        if (existing) {
-          return returnValidationErrors(submitApplicationSchema, {
-            legalMembershipId: {
-              _errors: ["Application already submitted."],
-            },
-          });
-        }
-
-        await tx.insert(membershipApplication).values({
-          id: newId("membershipApplication"),
-          legalMembershipId: parsedInput.legalMembershipId,
-          subjectUserId: user.id,
-          street: parsedInput.address.street,
-          city: parsedInput.address.city,
-          state: parsedInput.address.state,
-          zip: parsedInput.address.zip,
-          country: parsedInput.address.country,
-          declarations: parsedInput.declarations,
-          feeTextVersion: "v1",
-          applicationVersion: "v1",
-          submittedAt: new Date(),
-        });
-
-        await tx
-          .update(userTable)
-          .set({
-            street: parsedInput.address.street,
-            city: parsedInput.address.city,
-            state: parsedInput.address.state,
-            zip: parsedInput.address.zip,
-            country: parsedInput.address.country,
-          })
-          .where(eq(userTable.id, user.id));
+    if (
+      !draft.street ||
+      !draft.city ||
+      !draft.zip ||
+      !draft.country ||
+      !draft.birthDate
+    ) {
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: {
+          _errors: ["Personal information is incomplete."],
+        },
       });
-    } catch (error) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "23505"
-      ) {
-        return returnValidationErrors(submitApplicationSchema, {
-          legalMembershipId: {
-            _errors: ["Application already submitted."],
-          },
-        });
-      }
-      throw error;
     }
 
-    await inngest.send({
-      name: events.applicationSubmitted.name,
-      data: {
-        legalMembershipId: parsedInput.legalMembershipId,
-      },
+    if (!isFullDeclarations(draft.declarations)) {
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: { _errors: ["Declarations are incomplete."] },
+      });
+    }
+
+    let satzungHash: string;
+    let finanzordnungHash: string;
+    try {
+      [satzungHash, finanzordnungHash] = await Promise.all([
+        readSatzungBuffer().then(sha256Hex),
+        readFinanzordnungBuffer().then(sha256Hex),
+      ]);
+    } catch (cause) {
+      throw new Error(
+        `Failed to read legal documents for application ${parsedInput.legalMembershipId} (user ${user.id})`,
+        { cause },
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(membershipApplication)
+        .set({
+          status: "submitted",
+          feeTextVersion: finanzordnungHash,
+          applicationVersion: satzungHash,
+          submittedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(membershipApplication.id, draft.id),
+            eq(membershipApplication.status, "draft"),
+          ),
+        );
+
+      await tx
+        .update(legalMembership)
+        .set({ status: "processing" })
+        .where(eq(legalMembership.id, parsedInput.legalMembershipId));
+
+      await tx
+        .update(userTable)
+        .set({
+          street: draft.street,
+          city: draft.city,
+          state: draft.state ?? "",
+          zip: draft.zip,
+          country: draft.country,
+          birthDate: draft.birthDate,
+        })
+        .where(eq(userTable.id, user.id));
     });
+
+    const eventToSend =
+      preSubmissionStatus === "membership_reconfirmation_pending"
+        ? { name: events.reconfirmationSubmitted.name }
+        : { name: events.applicationSubmitted.name };
+
+    try {
+      await inngest.send({
+        ...eventToSend,
+        data: { legalMembershipId: parsedInput.legalMembershipId },
+      });
+    } catch {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(membershipApplication)
+          .set({
+            status: "draft",
+            submittedAt: null,
+            feeTextVersion: null,
+            applicationVersion: null,
+          })
+          .where(eq(membershipApplication.id, draft.id));
+        await tx
+          .update(legalMembership)
+          .set({ status: preSubmissionStatus })
+          .where(eq(legalMembership.id, parsedInput.legalMembershipId));
+      });
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: {
+          _errors: ["Failed to submit application. Please try again."],
+        },
+      });
+    }
 
     return { success: true };
   });

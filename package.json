@@ -18,6 +18,7 @@
     "db:restore": "dotenv -e .env -- sh -c 'psql \"$DATABASE_URL\" < supabase.sql'",
     "google:add-member": "dotenv -e .env -- tsx scripts/google.ts",
     "email:dev": "email dev --dir src/emails",
+    "docs:generate": "tsx scripts/generate-documents.tsx",
     "inngest:dev": "npx inngest-cli@latest dev"
   },
   "dependencies": {
@@ -69,6 +70,7 @@
     "next-safe-action": "^8.5.2",
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.9",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.20.0",
     "postcss": "^8.5.14",
     "radix-ui": "^1.4.3",

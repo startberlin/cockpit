@@ -21,6 +21,7 @@ export const completeOnboardingMasterDataStep = actionClient
       .set({
         personalEmail: parsedInput.personalEmail,
         phone: parsedInput.phone,
+        birthDate: parsedInput.birthDate,
       })
       .where(eq(userTable.id, user.id));
 

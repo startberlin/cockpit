@@ -76,7 +76,7 @@ export default async function SignIn({ searchParams }: PageProps) {
           <Image src={Logo} alt="START Berlin" className="h-7 w-auto" />
         </div>
         <h3 className="mt-6 uppercase text-lg font-semibold tracking-wide">
-          Welcome to START Berlin
+          Welcome to START Cockpit
         </h3>
         <span className="flex flex-col mt-6 gap-3">
           {error && <ErrorCard error={error} />}

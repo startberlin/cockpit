@@ -36,7 +36,7 @@ export const importGoogleWorkspaceUserSchema = z
       .nullable(),
     status: importableUserStatus,
     paidThroughAt: z.iso.date().optional().or(z.literal("")),
-    documentsVerified: z.boolean().optional(),
+    joinedAt: z.iso.date().optional().or(z.literal("")),
   })
   .superRefine((input, ctx) => {
     if (input.status === "member" && !input.department) {
@@ -44,17 +44,6 @@ export const importGoogleWorkspaceUserSchema = z
         code: "custom",
         message: "Please select a department.",
         path: ["department"],
-      });
-    }
-
-    if (
-      (input.status === "member" || input.status === "supporting_alumni") &&
-      input.documentsVerified === undefined
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Please indicate whether documents have been verified.",
-        path: ["documentsVerified"],
       });
     }
   });

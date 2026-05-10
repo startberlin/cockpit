@@ -90,7 +90,6 @@ export const proposeMembershipAction = actionClient
           lastName: targetUser.lastName ?? "",
         },
         officers: boardRoster.officers,
-        billingApplies: true,
       });
 
       return createdLm;

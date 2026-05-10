@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/membership/application",
+        destination: "/membership/application/personal-information",
+        permanent: true,
+      },
+      {
         source: "/",
         destination: "/membership",
         permanent: true,

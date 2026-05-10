@@ -37,6 +37,7 @@ type MembershipStatusUser = Pick<
   User,
   | "personalEmail"
   | "phone"
+  | "birthDate"
   | "street"
   | "city"
   | "state"

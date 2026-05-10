@@ -16,11 +16,28 @@ const SEGMENT_LABELS: Record<string, string> = {
   groups: "Groups",
 };
 
+/**
+ * When a path starts with a given prefix, use these fixed crumbs instead of
+ * the segment-based defaults. Checked in order; first match wins.
+ */
+const PATH_PREFIX_CRUMBS: [prefix: string, crumbs: Crumb[]][] = [
+  [
+    "/membership/application/",
+    [{ label: "My membership", href: "/membership" }, { label: "Application" }],
+  ],
+];
+
 function looksLikeId(segment: string): boolean {
   return isPrefixedId(segment) || /^[0-9a-f]{8,}/i.test(segment);
 }
 
 function buildDefaultCrumbs(pathname: string): Crumb[] {
+  for (const [prefix, crumbs] of PATH_PREFIX_CRUMBS) {
+    if (pathname.startsWith(prefix)) {
+      return crumbs;
+    }
+  }
+
   const segments = pathname.split("/").filter(Boolean);
   return segments.map((seg, i) => {
     const isLast = i === segments.length - 1;

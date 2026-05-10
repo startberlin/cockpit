@@ -2,93 +2,21 @@ import {
   Document,
   type DocumentProps,
   Page,
-  StyleSheet,
   Text,
   View,
 } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
-import { BRAND } from "./brand";
-
-const styles = StyleSheet.create({
-  page: {
-    fontFamily: BRAND.font.regular,
-    fontSize: 10,
-    paddingHorizontal: 40,
-    paddingVertical: 48,
-    color: BRAND.color.primary,
-  },
-  header: {
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.color.border,
-    paddingBottom: 12,
-  },
-  title: {
-    fontFamily: BRAND.font.bold,
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 10,
-    color: BRAND.color.secondary,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontFamily: BRAND.font.bold,
-    fontSize: 11,
-    marginBottom: 8,
-  },
-  resolutionBox: {
-    borderWidth: 1,
-    borderColor: BRAND.color.border,
-    padding: 12,
-    marginBottom: 20,
-    lineHeight: 1.5,
-  },
-  table: {
-    width: "100%",
-  },
-  tableHeader: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.color.border,
-    paddingBottom: 4,
-    marginBottom: 4,
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.color.border,
-  },
-  colName: { width: "35%" },
-  colFunction: { width: "30%" },
-  colVote: { width: "20%" },
-  colDate: { width: "15%" },
-  colHeader: {
-    fontFamily: BRAND.font.bold,
-    fontSize: 9,
-    color: BRAND.color.secondary,
-  },
-  colValue: { fontSize: 9 },
-  footer: {
-    position: "absolute",
-    bottom: 32,
-    left: 40,
-    right: 40,
-    borderTopWidth: 1,
-    borderTopColor: BRAND.color.border,
-    paddingTop: 6,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  footerText: {
-    fontSize: 7,
-    color: BRAND.color.secondary,
-  },
-});
+import { C, CONTENT, PAGE_STYLE, ROLE_DISPLAY, WRAPPER } from "./brand";
+import {
+  AccentRule,
+  AccentSquare,
+  BrandStripe,
+  DocFooter,
+  DocHeader,
+  DocTitle,
+  SectionLabel,
+  VoteChip,
+} from "./shared";
 
 export interface BoardResolutionTemplateData {
   legalMembershipId: string;
@@ -96,6 +24,8 @@ export interface BoardResolutionTemplateData {
   resolutionText: string;
   resolutionTextHash: string;
   subjectName: string;
+  sitzungsleiter: { name: string; officerFunction: string };
+  protokollfuehrer: { name: string; officerFunction: string };
   participants: Array<{
     userId: string;
     name: string;
@@ -113,71 +43,365 @@ export interface BoardResolutionTemplateData {
 export function renderBoardResolutionTemplate(
   data: BoardResolutionTemplateData,
 ): ReactElement<DocumentProps> {
+  const renderedOn = data.renderedAt.toISOString().substring(0, 10);
+
+  const board = data.participants.map((p) => {
+    const vote = data.votes.find((v) => v.voterUserId === p.userId);
+    return {
+      name: p.name,
+      role: ROLE_DISPLAY[p.officerFunction] ?? p.officerFunction,
+      roleKey: p.officerFunction,
+      vote: vote?.value ?? "—",
+      date: vote ? vote.castAt.toISOString().substring(0, 10) : "—",
+    };
+  });
+
+  const yes = board.filter((b) => b.vote === "yes").length;
+  const no = board.filter((b) => b.vote === "no").length;
+  const abs = board.filter((b) => b.vote === "abstain").length;
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Vorstandsbeschluss</Text>
-          <Text style={styles.subtitle}>{BRAND.name}</Text>
-        </View>
+      <Page size="A4" style={PAGE_STYLE}>
+        <View style={WRAPPER}>
+          <BrandStripe />
+          <AccentSquare />
+          <View style={CONTENT}>
+            <DocHeader docType="Board Resolution" />
+            <AccentRule />
+            <DocTitle kicker="Board · Resolution">Board Resolution</DocTitle>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Beschlusstext</Text>
-          <View style={styles.resolutionBox}>
-            <Text>{data.resolutionText}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Abstimmungsergebnis</Text>
-          <View style={styles.table}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.colName, styles.colHeader]}>Name</Text>
-              <Text style={[styles.colFunction, styles.colHeader]}>
-                Funktion
-              </Text>
-              <Text style={[styles.colVote, styles.colHeader]}>Stimme</Text>
-              <Text style={[styles.colDate, styles.colHeader]}>Datum</Text>
-            </View>
-            {data.participants.map((p) => {
-              const vote = data.votes.find((v) => v.voterUserId === p.userId);
-              return (
-                <View key={p.userId} style={styles.tableRow}>
-                  <Text style={[styles.colName, styles.colValue]}>
-                    {p.name}
+            {/* Meta strip */}
+            <View
+              style={{
+                flexDirection: "row",
+                gap: "10mm",
+                marginTop: "14mm",
+                borderTopWidth: 1,
+                borderTopColor: C.rule,
+                borderBottomWidth: 1,
+                borderBottomColor: C.rule,
+                paddingVertical: "4mm",
+              }}
+            >
+              {[
+                {
+                  label: "Resolution ID",
+                  value: data.resolutionId,
+                  mono: true,
+                },
+                { label: "Date", value: renderedOn },
+                {
+                  label: "Quorum",
+                  value: `${yes + no + abs} / ${board.length}`,
+                },
+              ].map((f) => (
+                <View key={f.label} style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                      fontSize: 7.5,
+                      color: C.inkMuted,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {f.label}
                   </Text>
-                  <Text style={[styles.colFunction, styles.colValue]}>
-                    {p.officerFunction}
-                  </Text>
-                  <Text style={[styles.colVote, styles.colValue]}>
-                    {vote?.value ?? "—"}
-                  </Text>
-                  <Text style={[styles.colDate, styles.colValue]}>
-                    {vote ? formatDate(vote.castAt) : "—"}
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      fontSize: 9.5,
+                      color: C.ink,
+                      ...(f.mono ? { letterSpacing: 0.1 } : {}),
+                    }}
+                  >
+                    {f.value}
                   </Text>
                 </View>
-              );
-            })}
-          </View>
-        </View>
+              ))}
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Tenure: {data.legalMembershipId}
-          </Text>
-          <Text style={styles.footerText}>Resolution: {data.resolutionId}</Text>
-          <Text style={styles.footerText}>
-            SHA-256: {data.resolutionTextHash.substring(0, 12)}…
-          </Text>
-          <Text style={styles.footerText}>
-            Rendered: {formatDate(data.renderedAt)}
-          </Text>
+            {/* 01 Resolution text */}
+            <View style={{ marginTop: "11mm" }}>
+              <SectionLabel no="01">Resolution text</SectionLabel>
+              <Text
+                style={{
+                  fontFamily: "Avenir",
+                  fontWeight: 400,
+                  fontSize: 10,
+                  lineHeight: 1.55,
+                  color: C.ink,
+                }}
+              >
+                {data.resolutionText}
+              </Text>
+            </View>
+
+            {/* 02 Vote table */}
+            <View style={{ marginTop: "11mm" }}>
+              <SectionLabel no="02">Vote</SectionLabel>
+              {/* Header */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: C.ink,
+                  paddingBottom: "3mm",
+                }}
+              >
+                {(["Name", "Role", "Role key", "Vote", "Date"] as const).map(
+                  (h, i) => (
+                    <Text
+                      key={i}
+                      style={{
+                        fontFamily: "Avenir",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.8,
+                        fontSize: 7.5,
+                        color: C.ink,
+                        width:
+                          i === 0
+                            ? "30%"
+                            : i === 1
+                              ? "30%"
+                              : i === 2
+                                ? "20%"
+                                : "10%",
+                      }}
+                    >
+                      {h}
+                    </Text>
+                  ),
+                )}
+              </View>
+              {/* Rows */}
+              {board.map((b, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: "3.5mm",
+                    borderBottomWidth: 1,
+                    borderBottomColor: C.ruleSoft,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      fontSize: 9.5,
+                      color: C.ink,
+                      width: "30%",
+                    }}
+                  >
+                    {b.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      fontSize: 9.5,
+                      color: C.ink,
+                      width: "30%",
+                    }}
+                  >
+                    {b.role}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      fontSize: 9.5,
+                      color: C.ink,
+                      width: "20%",
+                      letterSpacing: 0.1,
+                    }}
+                  >
+                    {b.roleKey}
+                  </Text>
+                  <View style={{ width: "10%" }}>
+                    <VoteChip vote={b.vote} />
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      fontSize: 9.5,
+                      color: C.ink,
+                      width: "10%",
+                      letterSpacing: 0.1,
+                    }}
+                  >
+                    {b.date}
+                  </Text>
+                </View>
+              ))}
+              {/* Tally */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  borderTopWidth: 1.5,
+                  borderTopColor: C.ink,
+                  paddingTop: "4mm",
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Avenir",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                    fontSize: 7.5,
+                    color: C.inkMuted,
+                  }}
+                >
+                  Tally
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View
+                    style={{
+                      backgroundColor: C.voteYesBg,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Avenir",
+                        fontWeight: 700,
+                        fontSize: 8,
+                        letterSpacing: 0.5,
+                        color: C.voteYesFg,
+                      }}
+                    >
+                      {yes} YES
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: C.voteNoBg,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Avenir",
+                        fontWeight: 700,
+                        fontSize: 8,
+                        letterSpacing: 0.5,
+                        color: C.voteNoFg,
+                      }}
+                    >
+                      {no} NO
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      backgroundColor: C.ruleSoft,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Avenir",
+                        fontWeight: 700,
+                        fontSize: 8,
+                        letterSpacing: 0.5,
+                        color: C.inkSoft,
+                      }}
+                    >
+                      {abs} ABS.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* 03 Integrity */}
+            <View style={{ marginTop: "11mm" }}>
+              <SectionLabel no="03">Integrity</SectionLabel>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: C.rule,
+                  padding: "5mm",
+                  backgroundColor: C.paperAlt,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: "4mm",
+                    alignItems: "baseline",
+                    paddingBottom: "3mm",
+                    borderBottomWidth: 1,
+                    borderBottomColor: C.ruleSoft,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.9,
+                      fontSize: 7.5,
+                      color: C.inkMuted,
+                      width: "20mm",
+                    }}
+                  >
+                    SHA-256
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Avenir",
+                      fontWeight: 400,
+                      flex: 1,
+                      fontSize: 8.5,
+                      color: C.ink,
+                      letterSpacing: 0.1,
+                    }}
+                  >
+                    {data.resolutionTextHash}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontFamily: "Avenir",
+                    fontWeight: 400,
+                    marginTop: "3mm",
+                    fontSize: 7.5,
+                    color: C.inkMuted,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  This resolution was recorded digitally in the START Berlin
+                  e.V. Cockpit. The checksum above binds the resolution text,
+                  the vote and the timestamp together. Any change produces a
+                  different checksum.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <DocFooter
+            meta={[
+              { key: "Resolution", value: data.resolutionId },
+              { key: "Tenure", value: data.legalMembershipId },
+              { key: "Rendered", value: renderedOn },
+            ]}
+          />
         </View>
       </Page>
     </Document>
   );
-}
-
-function formatDate(date: Date) {
-  return date.toISOString().substring(0, 10);
 }

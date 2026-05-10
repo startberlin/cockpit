@@ -109,6 +109,10 @@ React Email components in `src/emails/`:
 
 Service credentials configured in `.env` file.
 
+### Documented Solutions
+
+`docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns, architecture decisions), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
+
 ## Key Patterns
 
 ### Route Organization
