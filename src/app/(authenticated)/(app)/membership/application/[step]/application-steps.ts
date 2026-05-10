@@ -23,13 +23,15 @@ export const APPLICATION_STEP_META: Record<
     subtitle:
       "We need a few details to complete your membership application. Your address is only shared with people who need it for administration.",
     reconfirmationSubtitle:
-      "As an existing member, we need to collect your details to generate your official membership documents.",
+      "As an existing member, we need to confirm your details to generate your official membership documents.",
   },
   identity: {
     label: "Identity",
     title: "Confirm Your Identity",
     subtitle:
       "To become a member of START Berlin e.V., you must be a natural person with full legal capacity.",
+    reconfirmationSubtitle:
+      "To confirm your continued membership, please reconfirm that you are a natural person with full legal capacity.",
   },
   bylaws: {
     label: "Bylaws",
