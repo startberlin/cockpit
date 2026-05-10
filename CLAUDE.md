@@ -56,7 +56,7 @@ Routes use Next.js 15+ App Router with route groups:
 
 Uses Better Auth (`src/lib/auth.ts`) with Google OAuth only:
 - Social provider: Google Workspace (signup disabled, must pre-exist in system)
-- User schema extended with custom fields (firstName, lastName, roles, address, phone, status)
+- User schema extended with custom fields (firstName, lastName, address, phone, status)
 - Drizzle adapter connects auth to PostgreSQL
 - Session managed via cookies with `nextCookies()` plugin
 
@@ -68,6 +68,13 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 - Applied via `npm run db:migrate`
 - Custom ID prefixes using `newId()` from `src/lib/id.ts` (e.g., `usr_`, `grp_`)
 - Relations defined in schema for type-safe queries
+
+**CRITICAL: Migration rules — never violate these:**
+1. **Never manually edit migration files** in `src/db/migrations/`. They are auto-generated and must not be touched by hand.
+2. **Always modify schema files** in `src/db/schema/*` to make database changes.
+3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
+4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
+5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
 
 ### Server Actions
 
@@ -136,4 +143,4 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `grp_`, `bat_`, `ses_`, `acc_`, `ver_`
+Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`

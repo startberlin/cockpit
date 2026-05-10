@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { canViewGroup, getGroupDetailRaw } from "@/db/groups";
+import { PageSection } from "@/components/page-section";
+import { canViewGroup, getGroupDetail } from "@/db/groups";
 import { createMetadata } from "@/lib/metadata";
 import GroupDetailClient from "./page-client";
 
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: GroupPageProps) {
     });
   }
 
-  const group = await getGroupDetailRaw(id);
+  const group = await getGroupDetail(id);
 
   if (!group) {
     return createMetadata({
@@ -41,11 +42,15 @@ export default async function GroupPage({ params }: GroupPageProps) {
     notFound();
   }
 
-  const group = await getGroupDetailRaw(id);
+  const group = await getGroupDetail(id);
 
   if (!group) {
     notFound();
   }
 
-  return <GroupDetailClient group={group} />;
+  return (
+    <PageSection>
+      <GroupDetailClient group={group} />
+    </PageSection>
+  );
 }

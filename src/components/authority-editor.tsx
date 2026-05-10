@@ -171,11 +171,11 @@ export function AuthorityEditor({
         positions: nextPositions,
         grants: nextGrants,
       });
-      toast.success("Roles and permissions saved.");
+      toast.success("Positions and permissions saved.");
       router.refresh();
     } catch (_error) {
       toast.error(
-        "Could not update roles and permissions. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        "Could not update positions and permissions. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     } finally {
       setIsSaving(false);
@@ -186,7 +186,7 @@ export function AuthorityEditor({
     <div className="space-y-5">
       <FieldGroup>
         <Field>
-          <FieldLabel>Roles</FieldLabel>
+          <FieldLabel>Positions</FieldLabel>
           <FieldDescription>
             Choose the responsibilities this member currently holds. President,
             Vice President, and Head of Finance can vote on membership
@@ -238,8 +238,8 @@ export function AuthorityEditor({
                 <span className="flex flex-col gap-0.5">
                   <span>Admin</span>
                   <span className="text-muted-foreground text-xs">
-                    Can manage members, groups, roles, and permissions across
-                    START Cockpit.
+                    Can manage members, groups, positions, and permissions
+                    across START Cockpit.
                   </span>
                 </span>
               </span>
@@ -250,7 +250,7 @@ export function AuthorityEditor({
 
       <div className="flex justify-end">
         <Button type="button" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save roles and permissions"}
+          {isSaving ? "Saving..." : "Save positions and permissions"}
         </Button>
       </div>
     </div>

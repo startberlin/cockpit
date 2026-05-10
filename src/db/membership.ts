@@ -1,5 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { UserStatus } from "@/db/schema/auth";
+import {
+  ACTIVE_TENURE_STATUSES,
+  type LegalMembershipStatus,
+  legalMembership,
+} from "@/db/schema/legal-membership";
 import { nanoid } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
@@ -7,6 +12,21 @@ import {
   type MembershipPaymentStatus,
   membershipPayment,
 } from "./schema/membership";
+
+export async function getActiveLegalMembership(
+  userId: string,
+): Promise<{ id: string; status: LegalMembershipStatus } | null> {
+  const row = await db.query.legalMembership.findFirst({
+    where: and(
+      eq(legalMembership.userId, userId),
+      inArray(legalMembership.status, [...ACTIVE_TENURE_STATUSES]),
+    ),
+    orderBy: desc(legalMembership.startedAt),
+    columns: { id: true, status: true },
+  });
+
+  return row ?? null;
+}
 
 export function newMembershipPaymentId() {
   return `mmp_${nanoid(16)}`;
@@ -55,39 +75,6 @@ export async function createOrReuseMembershipPayment(userId: string) {
       userId,
       status: "pending",
     })
-    .returning();
-
-  return created;
-}
-
-export async function createImportedMembershipPayment({
-  userId,
-  userStatus,
-  paidThroughAt,
-}: {
-  userId: string;
-  userStatus: UserStatus;
-  paidThroughAt?: Date | null;
-}) {
-  if (!requiresMembershipBilling(userStatus)) {
-    return null;
-  }
-
-  const existing = await getMembershipPaymentByUserId(userId);
-
-  if (existing) {
-    const [updated] = await db
-      .update(membershipPayment)
-      .set(importedMembershipPaymentCoverage(paidThroughAt))
-      .where(eq(membershipPayment.id, existing.id))
-      .returning();
-
-    return updated;
-  }
-
-  const [created] = await db
-    .insert(membershipPayment)
-    .values(importedMembershipPaymentValues({ userId, paidThroughAt }))
     .returning();
 
   return created;
@@ -172,10 +159,24 @@ export async function activateMembershipPayment({
       .where(eq(membershipPayment.id, membershipPaymentId))
       .returning();
 
-    await tx
-      .update(user)
-      .set({ status: "member" })
+    const [currentUser] = await tx
+      .select()
+      .from(user)
       .where(eq(user.id, payment.userId));
+
+    if (currentUser.legalMembershipState !== "active_member") {
+      console.warn(
+        `activateMembershipPayment: skipping status advancement for user ${currentUser.id} — legalMembershipState is "${currentUser.legalMembershipState}", expected "active_member"`,
+      );
+      return payment;
+    }
+
+    if (currentUser.status === "onboarding") {
+      await tx
+        .update(user)
+        .set({ status: "member" })
+        .where(eq(user.id, payment.userId));
+    }
 
     return payment;
   });

@@ -2,14 +2,14 @@ import { google } from "googleapis";
 import db from "@/db";
 import { group } from "@/db/schema/group";
 import { createGoogleAuth } from "@/lib/google-auth";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
 export const createGroupWorkflow = inngest.createFunction(
   {
     id: "create-group",
     idempotency: "event.data.id",
-    triggers: [{ event: "group.created" }],
+    triggers: [{ event: events.groupCreated }],
   },
   async ({ event, step }) => {
     const { id, name, slug, integrations } = event.data;

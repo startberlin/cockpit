@@ -1,11 +1,16 @@
-import { and, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
-import { actionClient } from "@/lib/action-client";
+import {
+  type AddGroupCriteriaInput,
+  addGroupCriteriaSchema,
+  type NormalizedGroupCriteriaInput,
+  normalizedGroupCriteriaSchema,
+} from "@/lib/groups/criteria";
 import { nanoid } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
 import db from ".";
 import type { PublicUser } from "./people";
-import type { Department, Role, UserStatus } from "./schema/auth";
+import type { Department, UserStatus } from "./schema/auth";
 import { user } from "./schema/auth";
 import { group, groupCriteria, usersToGroups } from "./schema/group";
 import { getCurrentUser } from "./user";
@@ -29,38 +34,6 @@ export interface GroupDetail {
   slug: string;
   members: GroupMember[];
   criteria: GroupCriteria[];
-}
-
-export class GroupAuthorizationError extends Error {
-  constructor(
-    message: string,
-    public readonly status: 401 | 403 = 403,
-  ) {
-    super(message);
-    this.name = "GroupAuthorizationError";
-  }
-}
-
-export function isGroupAuthorizationError(
-  error: unknown,
-): error is GroupAuthorizationError {
-  return error instanceof GroupAuthorizationError;
-}
-
-export async function requireGroupMemberManagement() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    throw new GroupAuthorizationError("Authentication required.", 401);
-  }
-
-  if (!(await can("groups.manage_members"))) {
-    throw new GroupAuthorizationError(
-      "You are not authorized to manage group members.",
-      403,
-    );
-  }
-
-  return currentUser;
 }
 
 export async function canViewGroup(groupId: string): Promise<boolean> {
@@ -87,55 +60,34 @@ export async function canViewGroup(groupId: string): Promise<boolean> {
   return membership.length > 0;
 }
 
-export async function requireGroupView(groupId: string) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    throw new GroupAuthorizationError("Authentication required.", 401);
-  }
+export async function listGroupsForViewer(
+  viewerId: string,
+): Promise<PublicGroup[]> {
+  const groups = await db
+    .select({
+      id: group.id,
+      name: group.name,
+      slug: group.slug,
+      memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+      adminCount: sql<number>`count(case when ${usersToGroups.role} = 'admin' then 1 end)::int`,
+      isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+    })
+    .from(group)
+    .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+    .groupBy(group.id);
 
-  if (!(await canViewGroup(groupId))) {
-    throw new GroupAuthorizationError(
-      "You are not authorized to view this group.",
-      403,
-    );
-  }
-
-  return currentUser;
+  return groups.map((g) => ({
+    ...g,
+    isMember: g.isMember ?? false,
+  }));
 }
 
-export const getAllGroups = actionClient.action(
-  async ({ ctx }): Promise<PublicGroup[]> => {
-    const userId = ctx.user.id;
-
-    const groups = await db
-      .select({
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
-        adminCount: sql<number>`count(case when ${usersToGroups.role} = 'admin' then 1 end)::int`,
-        isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${userId})`,
-      })
-      .from(group)
-      .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
-      .groupBy(group.id);
-
-    return groups.map((g) => ({
-      ...g,
-      isMember: g.isMember ?? false,
-    }));
-  },
-);
-
-export const getMyGroups = actionClient.action(
-  async (): Promise<PublicGroup[]> => {
-    const allGroups = await getAllGroups();
-    if (!allGroups.data) {
-      return [];
-    }
-    return allGroups.data.filter((g) => g.isMember);
-  },
-);
+export async function listMemberGroupsForViewer(
+  viewerId: string,
+): Promise<PublicGroup[]> {
+  const groups = await listGroupsForViewer(viewerId);
+  return groups.filter((g) => g.isMember);
+}
 
 export async function checkSlugAvailability(slug: string): Promise<boolean> {
   const existing = await db
@@ -147,10 +99,7 @@ export async function checkSlugAvailability(slug: string): Promise<boolean> {
   return existing.length === 0;
 }
 
-// Raw database function for use in server components
-export async function getGroupDetailRaw(
-  id: string,
-): Promise<GroupDetail | null> {
+export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
   const groupData = await db
     .select({
       id: group.id,
@@ -171,7 +120,7 @@ export async function getGroupDetailRaw(
       email: user.email,
       department: user.department,
       status: user.status,
-      batchNumber: sql<number>`${user.batchNumber}`,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
       role: usersToGroups.role,
     })
     .from(usersToGroups)
@@ -191,22 +140,7 @@ export async function getGroupDetailRaw(
   };
 }
 
-const getGroupDetailSchema = z.object({
-  id: z.string(),
-});
-
-export const getGroupDetail = actionClient
-  .inputSchema(getGroupDetailSchema)
-  .action(async ({ parsedInput }): Promise<GroupDetail | null> => {
-    await requireGroupView(parsedInput.id);
-    return await getGroupDetailRaw(parsedInput.id);
-  });
-
-// Raw database functions for use in server actions
-export async function searchUsersNotInGroupRaw(
-  groupId: string,
-  query?: string,
-) {
+export async function searchUsersNotInGroup(groupId: string, query?: string) {
   const baseQuery = db
     .select({
       id: user.id,
@@ -215,7 +149,7 @@ export async function searchUsersNotInGroupRaw(
       email: user.email,
       department: user.department,
       status: user.status,
-      batchNumber: sql<number>`${user.batchNumber}`,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
     })
     .from(user)
     .leftJoin(
@@ -251,7 +185,7 @@ export async function searchUsersNotInGroupRaw(
   return usersNotInGroup;
 }
 
-export async function addUserToGroupRaw(
+export async function addUserToGroup(
   userId: string,
   groupId: string,
   role: "admin" | "member" = "member",
@@ -263,7 +197,7 @@ export async function addUserToGroupRaw(
   });
 }
 
-export async function removeUserFromGroupRaw(userId: string, groupId: string) {
+export async function removeUserFromGroup(userId: string, groupId: string) {
   await db
     .delete(usersToGroups)
     .where(
@@ -271,7 +205,7 @@ export async function removeUserFromGroupRaw(userId: string, groupId: string) {
     );
 }
 
-export async function updateUserGroupRoleRaw(
+export async function updateUserGroupRole(
   userId: string,
   groupId: string,
   role: "admin" | "member",
@@ -284,166 +218,107 @@ export async function updateUserGroupRoleRaw(
     );
 }
 
-// Action client versions for use in components (deprecated for these functions)
-const searchUsersNotInGroupSchema = z.object({
-  groupId: z.string(),
-  query: z.string(),
-});
-
-export const searchUsersNotInGroup = actionClient
-  .inputSchema(searchUsersNotInGroupSchema)
-  .action(async ({ parsedInput }) => {
-    await requireGroupMemberManagement();
-    return searchUsersNotInGroupRaw(parsedInput.groupId, parsedInput.query);
-  });
-
-const addUserToGroupSchema = z.object({
-  userId: z.string(),
-  groupId: z.string(),
-  role: z.enum(["admin", "member"]).optional(),
-});
-
-export const addUserToGroup = actionClient
-  .inputSchema(addUserToGroupSchema)
-  .action(async ({ parsedInput }) => {
-    await requireGroupMemberManagement();
-    await addUserToGroupRaw(
-      parsedInput.userId,
-      parsedInput.groupId,
-      parsedInput.role,
-    );
-  });
-
-const removeUserFromGroupSchema = z.object({
-  userId: z.string(),
-  groupId: z.string(),
-});
-
-export const removeUserFromGroup = actionClient
-  .inputSchema(removeUserFromGroupSchema)
-  .action(async ({ parsedInput }) => {
-    await requireGroupMemberManagement();
-    await removeUserFromGroupRaw(parsedInput.userId, parsedInput.groupId);
-  });
-
-const updateUserGroupRoleSchema = z.object({
-  userId: z.string(),
-  groupId: z.string(),
-  role: z.enum(["admin", "member"]),
-});
-
-export const updateUserGroupRole = actionClient
-  .inputSchema(updateUserGroupRoleSchema)
-  .action(async ({ parsedInput }) => {
-    await requireGroupMemberManagement();
-    await updateUserGroupRoleRaw(
-      parsedInput.userId,
-      parsedInput.groupId,
-      parsedInput.role,
-    );
-  });
-
 // Group Criteria Types and Interfaces
 export interface GroupCriteria {
   id: string;
   name: string;
   department: Department | null;
-  roles: Role[] | null;
   status: UserStatus | null;
   batchNumber: number | null;
   createdAt: Date;
   createdBy: string;
 }
 
-// Get all criteria for a group
-export const getGroupCriteria = actionClient
-  .inputSchema(z.object({ groupId: z.string() }))
-  .action(async ({ parsedInput }): Promise<GroupCriteria[]> => {
-    await requireGroupView(parsedInput.groupId);
-    const criteria = await db.query.groupCriteria.findMany({
-      where: eq(groupCriteria.groupId, parsedInput.groupId),
-      orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
-    });
-
-    return criteria;
+export async function getGroupCriteria(
+  groupId: string,
+): Promise<GroupCriteria[]> {
+  return await db.query.groupCriteria.findMany({
+    where: eq(groupCriteria.groupId, groupId),
+    orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
   });
+}
 
-// Add new criteria to a group
-const addGroupCriteriaSchema = z.object({
-  groupId: z.string(),
-  name: z.string().min(1, "Criteria name is required"),
-  department: z
-    .enum(["partnerships", "operations", "community", "growth", "events"])
-    .optional(),
-  status: z
-    .enum(["onboarding", "member", "supporting_alumni", "alumni"])
-    .optional(),
-  batchNumber: z.number().int().positive().optional(),
+export { addGroupCriteriaSchema, normalizedGroupCriteriaSchema };
+export type { AddGroupCriteriaInput, NormalizedGroupCriteriaInput };
+
+export async function addGroupCriteria(
+  input: AddGroupCriteriaInput & { createdBy: string },
+): Promise<GroupCriteria> {
+  const criteriaId = nanoid();
+
+  const [newCriteria] = await db
+    .insert(groupCriteria)
+    .values({
+      id: criteriaId,
+      groupId: input.groupId,
+      name: input.name,
+      department: input.department || null,
+      status: input.status || null,
+      batchNumber: input.batchNumber || null,
+      createdBy: input.createdBy,
+    })
+    .returning();
+
+  return newCriteria;
+}
+
+const removeGroupCriteriaSchema = z.object({
+  criteriaId: z.string(),
 });
 
-export const addGroupCriteria = actionClient
-  .inputSchema(addGroupCriteriaSchema)
-  .action(async ({ parsedInput, ctx }): Promise<GroupCriteria> => {
-    await requireGroupMemberManagement();
-    const criteriaId = nanoid();
+type RemoveGroupCriteriaInput = z.infer<typeof removeGroupCriteriaSchema>;
 
-    const [newCriteria] = await db
-      .insert(groupCriteria)
-      .values({
-        id: criteriaId,
-        groupId: parsedInput.groupId,
-        name: parsedInput.name,
-        department: parsedInput.department || null,
-        roles: null,
-        status: parsedInput.status || null,
-        batchNumber: parsedInput.batchNumber || null,
-        createdBy: ctx.user.id,
-      })
-      .returning();
+export async function removeGroupCriteria({
+  criteriaId,
+}: RemoveGroupCriteriaInput) {
+  await db.delete(groupCriteria).where(eq(groupCriteria.id, criteriaId));
+}
 
-    return newCriteria;
-  });
-
-// Remove criteria from a group
-export const removeGroupCriteria = actionClient
-  .inputSchema(z.object({ criteriaId: z.string() }))
-  .action(async ({ parsedInput }) => {
-    await requireGroupMemberManagement();
-    await db
-      .delete(groupCriteria)
-      .where(eq(groupCriteria.id, parsedInput.criteriaId));
-  });
-
-// Find users matching criteria and add them to group
-export const addUsersMatchingCriteria = async (
-  groupId: string,
-  criteria: {
-    department?: Department;
-    status?: UserStatus;
-    batchNumber?: number;
-  },
-) => {
-  await requireGroupMemberManagement();
-
-  // Build the where conditions dynamically
+function buildCriteriaConditions({
+  departments,
+  statuses,
+  batchNumbers,
+}: NormalizedGroupCriteriaInput["criteria"]) {
   const conditions: SQL[] = [];
 
-  if (criteria.department) {
-    conditions.push(eq(user.department, criteria.department));
+  if (departments.length > 0) {
+    conditions.push(inArray(user.department, departments));
   }
 
-  if (criteria.status) {
-    conditions.push(eq(user.status, criteria.status));
+  if (statuses.length > 0) {
+    conditions.push(inArray(user.status, statuses));
   }
 
-  if (criteria.batchNumber) {
-    conditions.push(eq(user.batchNumber, criteria.batchNumber));
+  if (batchNumbers.length > 0) {
+    conditions.push(inArray(user.batchNumber, batchNumbers));
   }
 
-  // Find users matching the criteria who are not already in the group
-  const matchingUsers = await db
+  return conditions;
+}
+
+export async function findUsersNotInGroupByCriteria({
+  groupId,
+  match,
+  criteria,
+}: NormalizedGroupCriteriaInput): Promise<PublicUser[]> {
+  const conditions = buildCriteriaConditions(criteria);
+
+  if (conditions.length === 0) {
+    return [];
+  }
+
+  const matchCondition =
+    match === "all" ? and(...conditions) : or(...conditions);
+
+  return await db
     .select({
       id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      department: user.department,
+      status: user.status,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
     })
     .from(user)
     .leftJoin(
@@ -453,25 +328,56 @@ export const addUsersMatchingCriteria = async (
         eq(usersToGroups.groupId, groupId),
       ),
     )
-    .where(
-      and(
-        // User matches criteria
-        conditions.length > 0 ? and(...conditions) : undefined,
-        // User is not already in the group
-        sql`${usersToGroups.userId} IS NULL`,
-      ),
-    );
+    .where(and(sql`${usersToGroups.userId} IS NULL`, matchCondition))
+    .orderBy(user.firstName, user.lastName);
+}
 
-  // Add all matching users to the group as members
-  if (matchingUsers.length > 0) {
-    const userGroupEntries = matchingUsers.map((u) => ({
-      userId: u.id,
-      groupId: groupId,
-      role: "member" as const,
-    }));
-
-    await db.insert(usersToGroups).values(userGroupEntries);
+export async function addUsersToGroup({
+  groupId,
+  userIds,
+  role = "member",
+}: {
+  groupId: string;
+  userIds: string[];
+  role?: "admin" | "member";
+}) {
+  if (userIds.length === 0) {
+    return 0;
   }
 
+  await db.insert(usersToGroups).values(
+    userIds.map((userId) => ({
+      userId,
+      groupId,
+      role,
+    })),
+  );
+
+  return userIds.length;
+}
+
+export async function addUsersMatchingCriteria(
+  groupId: string,
+  criteria: {
+    department?: Department;
+    status?: UserStatus;
+    batchNumber?: number;
+  },
+) {
+  const matchingUsers = await findUsersNotInGroupByCriteria({
+    groupId,
+    match: "all",
+    criteria: {
+      departments: criteria.department ? [criteria.department] : [],
+      statuses: criteria.status ? [criteria.status] : [],
+      batchNumbers: criteria.batchNumber ? [criteria.batchNumber] : [],
+    },
+  });
+
+  await addUsersToGroup({
+    groupId,
+    userIds: matchingUsers.map((matchingUser) => matchingUser.id),
+  });
+
   return matchingUsers.length;
-};
+}

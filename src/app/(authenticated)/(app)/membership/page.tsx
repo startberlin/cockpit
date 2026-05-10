@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
-import { getMembershipPaymentByUserId } from "@/db/membership";
+import { PageSection } from "@/components/page-section";
+import {
+  getActiveLegalMembership,
+  getMembershipPaymentByUserId,
+} from "@/db/membership";
 import { getCurrentUser } from "@/db/user";
-import { getMembershipViewState } from "@/lib/membership-status";
+import { getStructuredMembershipState } from "@/lib/membership-status";
 import { createMetadata } from "@/lib/metadata";
 import { MembershipPageContent } from "./onboarding";
 
@@ -17,14 +21,21 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  const payment = await getMembershipPaymentByUserId(user.id);
-  const membershipState = getMembershipViewState(user, payment);
+  const [payment, activeLegalMembership] = await Promise.all([
+    getMembershipPaymentByUserId(user.id),
+    getActiveLegalMembership(user.id),
+  ]);
+
+  const membershipState = getStructuredMembershipState(user, payment);
 
   return (
-    <MembershipPageContent
-      membershipState={membershipState}
-      userStatus={user.status}
-      paidThroughAt={payment?.paidThroughAt}
-    />
+    <PageSection>
+      <MembershipPageContent
+        membershipState={membershipState}
+        userStatus={user.status}
+        paidThroughAt={payment?.paidThroughAt}
+        activeLegalMembership={activeLegalMembership}
+      />
+    </PageSection>
   );
 }

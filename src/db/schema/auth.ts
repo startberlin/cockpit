@@ -10,6 +10,15 @@ import {
 import { createSelectSchema } from "drizzle-zod";
 import { batch } from "./batch";
 
+export const legalMembershipState = pgEnum("legal_membership_state", [
+  "not_member",
+  "active_member",
+  "former_member",
+]);
+
+export type LegalMembershipState =
+  (typeof legalMembershipState.enumValues)[number];
+
 export const userStatus = pgEnum("user_status", [
   "onboarding",
   "member",
@@ -31,15 +40,6 @@ export type Department = (typeof department.enumValues)[number];
 
 export const departmentSchema = createSelectSchema(department);
 
-export const role = pgEnum("role", [
-  "member",
-  "board",
-  "department_lead",
-  "admin",
-]);
-
-export type Role = (typeof role.enumValues)[number];
-
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -59,13 +59,15 @@ export const user = pgTable("user", {
   zip: text("zip"),
   country: text("country"),
   personalEmail: text("personal_email").notNull(),
-  batchNumber: integer("batch_number")
-    .notNull()
-    .references(() => batch.number, { onDelete: "cascade" }),
+  batchNumber: integer("batch_number").references(() => batch.number, {
+    onDelete: "set null",
+  }),
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
-  roles: role("roles").array().notNull().default(["member"]),
   department: department("department"),
+  legalMembershipState: legalMembershipState("legal_membership_state")
+    .notNull()
+    .default("not_member"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

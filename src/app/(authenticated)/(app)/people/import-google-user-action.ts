@@ -1,41 +1,46 @@
 "use server";
 
 import db from "@/db";
+import { createAdmissionWorkflow } from "@/db/admission";
+import { getAllUserAuthorities } from "@/db/authority";
 import { importedMembershipPaymentValues } from "@/db/membership";
 import { user as userTable } from "@/db/schema/auth";
+import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipPayment } from "@/db/schema/membership";
 import { actionClient } from "@/lib/action-client";
+import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import {
+  fetchWorkspaceUsersPage,
   getWorkspaceUser,
-  searchWorkspaceUsers,
 } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
 import {
+  fetchWorkspaceUsersPageSchema,
   importGoogleWorkspaceUserSchema,
   normalizeImportedDepartment,
-  searchGoogleWorkspaceUsersSchema,
 } from "./import-google-user-schema";
 
-export const searchGoogleWorkspaceUsersAction = actionClient
-  .inputSchema(searchGoogleWorkspaceUsersSchema)
+export const fetchWorkspaceUsersPageAction = actionClient
+  .inputSchema(fetchWorkspaceUsersPageSchema)
   .action(async ({ parsedInput }) => {
     if (!(await can("users.import"))) {
       throw new Error("You are not authorized to import Workspace users.");
     }
 
-    const workspaceUsers = await searchWorkspaceUsers(parsedInput.query);
-    if (workspaceUsers.length === 0) {
-      return [];
-    }
+    const page = await fetchWorkspaceUsersPage({
+      pageToken: parsedInput.pageToken,
+      query: parsedInput.query,
+    });
 
     const localUsers = await db.query.user.findMany({
       where: (users, { inArray }) =>
         inArray(
           users.email,
-          workspaceUsers.map((user) => user.primaryEmail),
+          page.users.map((u) => u.primaryEmail),
         ),
       columns: {
         id: true,
@@ -45,22 +50,24 @@ export const searchGoogleWorkspaceUsersAction = actionClient
       },
     });
 
-    return workspaceUsers.map((workspaceUser) => {
-      const linkedUser = localUsers.find(
-        (user) => user.email === workspaceUser.primaryEmail,
-      );
-
-      return {
-        ...workspaceUser,
-        linkedUser: linkedUser
-          ? {
-              id: linkedUser.id,
-              name: `${linkedUser.firstName} ${linkedUser.lastName}`,
-              email: linkedUser.email,
-            }
-          : null,
-      };
-    });
+    return {
+      users: page.users.map((workspaceUser) => {
+        const linkedUser = localUsers.find(
+          (u) => u.email === workspaceUser.primaryEmail,
+        );
+        return {
+          ...workspaceUser,
+          linkedUser: linkedUser
+            ? {
+                id: linkedUser.id,
+                name: `${linkedUser.firstName} ${linkedUser.lastName}`,
+                email: linkedUser.email,
+              }
+            : null,
+        };
+      }),
+      nextPageToken: page.nextPageToken,
+    };
   });
 
 export const importGoogleWorkspaceUserAction = actionClient
@@ -82,15 +89,6 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("Suspended Google Workspace users cannot be imported.");
     }
 
-    if (
-      workspaceUser.givenName !== parsedInput.firstName ||
-      workspaceUser.familyName !== parsedInput.lastName
-    ) {
-      throw new Error(
-        "The selected Google Workspace user changed. Search and select the user again.",
-      );
-    }
-
     const existingUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.email, workspaceUser.primaryEmail),
       columns: { id: true },
@@ -101,7 +99,9 @@ export const importGoogleWorkspaceUserAction = actionClient
     }
 
     const paidThroughAt =
-      parsedInput.status !== "alumni" && parsedInput.paidThroughAt
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      parsedInput.paidThroughAt
         ? new Date(`${parsedInput.paidThroughAt}T23:59:59.999Z`)
         : null;
 
@@ -109,7 +109,36 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("Paid-through date must be today or in the future.");
     }
 
+    const requiresAdmissionWorkflow =
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      !parsedInput.documentsVerified;
+
+    const documentsVerified =
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      !!parsedInput.documentsVerified;
+
+    // For admission workflow path, validate board roster before creating any DB rows
+    let boardRoster: Awaited<ReturnType<typeof getBoardRosterSetup>> | null =
+      null;
+    if (requiresAdmissionWorkflow) {
+      const allAuthorities = await getAllUserAuthorities();
+      boardRoster = getBoardRosterSetup(allAuthorities);
+
+      if (!boardRoster.ok) {
+        throw new Error(
+          `Board roster is not properly configured: ${boardRoster.reason}`,
+        );
+      }
+    }
+
     const createdUser = await db.transaction(async (tx) => {
+      // Determine legalMembershipState for the user
+      const legalMembershipState = documentsVerified
+        ? "active_member"
+        : "not_member";
+
       const [createdUser] = await tx
         .insert(userTable)
         .values({
@@ -119,17 +148,65 @@ export const importGoogleWorkspaceUserAction = actionClient
           firstName: parsedInput.firstName,
           lastName: parsedInput.lastName,
           personalEmail: "",
-          batchNumber: parsedInput.batchNumber,
+          ...(parsedInput.batchNumber != null
+            ? { batchNumber: parsedInput.batchNumber }
+            : {}),
           department: normalizeImportedDepartment(
             parsedInput.status,
             parsedInput.department,
           ),
           status: parsedInput.status,
           emailVerified: true,
+          legalMembershipState,
         })
         .returning({ id: userTable.id });
 
-      if (parsedInput.status !== "alumni") {
+      let createdLegalMembershipId: string | null = null;
+
+      if (documentsVerified) {
+        // Documents verified: create active legal_membership and membershipPayment
+        await tx.insert(legalMembership).values({
+          id: newId("legalMembership"),
+          userId: createdUser.id,
+          status: "active",
+          activatedAt: new Date(),
+        });
+
+        await tx.insert(membershipPayment).values(
+          importedMembershipPaymentValues({
+            userId: createdUser.id,
+            paidThroughAt,
+          }),
+        );
+      } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
+        // Documents missing/unsure: start admission tenure
+        const [createdLm] = await tx
+          .insert(legalMembership)
+          .values({
+            id: newId("legalMembership"),
+            userId: createdUser.id,
+            status: "admission_pending",
+          })
+          .returning({ id: legalMembership.id });
+
+        createdLegalMembershipId = createdLm.id;
+
+        await createAdmissionWorkflow(tx, {
+          legalMembershipId: createdLm.id,
+          subjectUser: {
+            firstName: parsedInput.firstName,
+            lastName: parsedInput.lastName,
+          },
+          officers: boardRoster.officers,
+          billingApplies: true,
+        });
+      } else if (
+        parsedInput.status === "alumni" ||
+        parsedInput.status === "onboarding"
+      ) {
+        // Alumni and onboarding imports do not create legal admission or payment rows.
+      } else {
+        // Fallback for non-alumni without documentsVerified flag: create membershipPayment only
         await tx.insert(membershipPayment).values(
           importedMembershipPaymentValues({
             userId: createdUser.id,
@@ -138,16 +215,46 @@ export const importGoogleWorkspaceUserAction = actionClient
         );
       }
 
-      return createdUser;
+      return { id: createdUser.id, createdLegalMembershipId };
     });
 
-    await resend.emails.send(
-      buildImportedUserNotificationEmail({
-        email: workspaceUser.primaryEmail,
-        firstName: parsedInput.firstName,
-        status: parsedInput.status,
-      }),
-    );
+    // Send Inngest event for admission workflow after transaction commits.
+    // inngest.send() is intentionally not guarded — if the transaction committed,
+    // the legal_membership row exists. Failures surface as thrown errors.
+    if (requiresAdmissionWorkflow) {
+      if (!createdUser.createdLegalMembershipId) {
+        throw new Error(
+          "Could not start admission workflow. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
+      }
+      await inngest.send({
+        name: events.admissionWorkflowStarted.name,
+        data: {
+          legalMembershipId: createdUser.createdLegalMembershipId,
+          subjectUserId: createdUser.id,
+        },
+      });
+    }
 
-    return createdUser;
+    await inngest.send({
+      name: events.cockpitUserUpdated.name,
+      data: { id: createdUser.id },
+    });
+
+    // Non-fatal: notification email failure must not block import success — all
+    // durable state (user row, Inngest workflow) is already committed. Log and
+    // continue so callers aren't blocked and can't retry into a duplicate-email error.
+    try {
+      await resend.emails.send(
+        buildImportedUserNotificationEmail({
+          email: workspaceUser.primaryEmail,
+          firstName: parsedInput.firstName,
+          status: parsedInput.status,
+        }),
+      );
+    } catch (emailError) {
+      console.error("Failed to send import notification email:", emailError);
+    }
+
+    return { id: createdUser.id };
   });

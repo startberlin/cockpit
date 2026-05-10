@@ -13,11 +13,12 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { Download, MoreHorizontal, Plus } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { completeUserOnboardingAction } from "@/app/(authenticated)/(app)/people/complete-onboarding-action";
+import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +49,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/db/people";
+import type { PendingBoardAction } from "@/db/people-actions";
 import { DEPARTMENTS } from "@/lib/enums";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { Can, useCan } from "./can";
@@ -55,118 +57,32 @@ import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
   data: PublicUser[];
+  pendingActions?: PendingBoardAction[];
   onCreateUserClick?: () => void;
   onImportUserClick?: () => void;
 }
 
-const columns: ColumnDef<PublicUser>[] = [
-  {
-    id: "name",
-    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
-    header: "Name",
-    cell: ({ row }) => (
-      <div className="font-medium">
-        {row.original.firstName} {row.original.lastName}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "department",
-    header: "Department",
-    cell: ({ row }) =>
-      row.original.department ? (
-        <Badge variant="outline">{DEPARTMENTS[row.original.department]}</Badge>
-      ) : (
-        <p>—</p>
-      ),
-  },
-  {
-    accessorKey: "batch",
-    header: "Batch",
-    cell: ({ row }) => <div>#{row.original.batchNumber}</div>,
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const info = USER_STATUS_INFO[row.original.status];
-
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="outline" className="capitalize">
-              {info.label}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="top">{info.description}</TooltipContent>
-        </Tooltip>
-      );
-    },
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    cell: ({ row }) => {
-      const user = row.original;
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.email)}
-            >
-              Copy email
-            </DropdownMenuItem>
-            {user.status === "onboarding" &&
-              user.profileOnboardingComplete &&
-              !user.hasMembershipPayment && (
-                <Can
-                  permission="users.complete_onboarding"
-                  context={{ targetDepartment: user.department }}
-                >
-                  <CompleteOnboardingMenuItem user={user} />
-                </Can>
-              )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
-];
-
-function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
+function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { execute, isPending } = useAction(completeUserOnboardingAction, {
-    onSuccess: ({ data }) => {
+  const { execute, isPending } = useAction(proposeMembershipAction, {
+    onSuccess: () => {
       setOpen(false);
       router.refresh();
-      toast.success(
-        data?.alreadyCompleted
-          ? "Member was already invited to finalize membership"
-          : "Member invited to finalize membership",
-        {
-          description: data?.alreadyCompleted
-            ? "They can already set up their yearly membership payment."
-            : "They can now set up their yearly membership payment.",
-        },
-      );
+      toast.success("Membership proposed", {
+        description:
+          "The board admission workflow has been started for this member.",
+      });
     },
     onError: () => {
       toast.error(
-        "Could not invite member to finalize membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     },
   });
 
   return (
-    <>
+    <Fragment key={user.id}>
       <DropdownMenuItem
         disabled={isPending}
         onSelect={(event) => {
@@ -174,17 +90,17 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
           setOpen(true);
         }}
       >
-        Invite to finalize membership
+        Propose for membership
       </DropdownMenuItem>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Invite {user.firstName} {user.lastName} to finalize membership?
+              Propose {user.firstName} {user.lastName} for membership?
             </DialogTitle>
             <DialogDescription>
-              This marks their onboarding as complete and asks them to set up
-              their yearly membership payment.
+              This starts the board admission workflow for this member. The
+              board will be asked to vote on their admission.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -201,17 +117,18 @@ function CompleteOnboardingMenuItem({ user }: { user: PublicUser }) {
               disabled={isPending}
               onClick={() => execute({ userId: user.id })}
             >
-              {isPending ? "Inviting..." : "Invite to finalize membership"}
+              {isPending ? "Proposing..." : "Propose for membership"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </Fragment>
   );
 }
 
 export function PeopleTable({
   data,
+  pendingActions = [],
   onCreateUserClick,
   onImportUserClick,
 }: PeopleTableProps) {
@@ -222,8 +139,126 @@ export function PeopleTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
 
+  const pendingActionsMap = useMemo(
+    () => new Map(pendingActions.map((a) => [a.subjectUserId, a])),
+    [pendingActions],
+  );
+
+  const sortedData = useMemo(() => {
+    if (pendingActionsMap.size === 0) return data;
+    return [
+      ...data.filter((u) => pendingActionsMap.has(u.id)),
+      ...data.filter((u) => !pendingActionsMap.has(u.id)),
+    ];
+  }, [data, pendingActionsMap]);
+
+  const columns = useMemo<ColumnDef<PublicUser>[]>(
+    () => [
+      {
+        id: "name",
+        accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+        header: "Name",
+        cell: ({ row }) => (
+          <div className="font-medium">
+            {row.original.firstName} {row.original.lastName}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "department",
+        header: "Department",
+        cell: ({ row }) =>
+          row.original.department ? (
+            <Badge variant="outline">
+              {DEPARTMENTS[row.original.department]}
+            </Badge>
+          ) : (
+            <p>—</p>
+          ),
+      },
+      {
+        accessorKey: "batch",
+        header: "Batch",
+        cell: ({ row }) => (
+          <div>
+            {row.original.batchNumber != null
+              ? `#${row.original.batchNumber}`
+              : "—"}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const info = USER_STATUS_INFO[row.original.status];
+
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="capitalize">
+                  {info.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top">{info.description}</TooltipContent>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+          const user = row.original;
+          const pendingAction = pendingActionsMap.get(user.id);
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              {pendingAction && (
+                <Button asChild size="sm">
+                  <Link
+                    href={`/people/resolutions/${pendingAction.resolutionId}`}
+                    aria-label={`Vote on ${user.firstName} ${user.lastName}`}
+                  >
+                    Vote
+                  </Link>
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => navigator.clipboard.writeText(user.email)}
+                  >
+                    Copy email
+                  </DropdownMenuItem>
+                  {user.status === "onboarding" &&
+                    user.profileOnboardingComplete &&
+                    !user.hasActiveTenure && (
+                      <Can
+                        permission="membership.propose"
+                        context={{ targetDepartment: user.department }}
+                      >
+                        <ProposeMembershipMenuItem user={user} />
+                      </Can>
+                    )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+      },
+    ],
+    [pendingActionsMap],
+  );
+
   const table = useReactTable({
-    data,
+    data: sortedData,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -243,6 +278,18 @@ export function PeopleTable({
 
   const canOpenMemberProfile = (member: PublicUser) =>
     can("users.view_details", { targetDepartment: member.department });
+
+  const visibleRows = table.getRowModel().rows;
+
+  // Only show the separator when no column sort is active (default view).
+  // Under an active sort, pending users may scatter through the list and the
+  // separator would no longer reliably mark the "vote needed" boundary.
+  const lastPendingIndex =
+    sorting.length === 0
+      ? visibleRows.findLastIndex((row) =>
+          pendingActionsMap.has(row.original.id),
+        )
+      : -1;
 
   return (
     <div className="w-full">
@@ -291,40 +338,58 @@ export function PeopleTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
+            {visibleRows.length ? (
+              visibleRows.map((row, idx) => {
                 const canOpenProfile = canOpenMemberProfile(row.original);
 
                 return (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className={
-                      canOpenProfile ? "cursor-pointer" : "hover:bg-transparent"
-                    }
-                    onClick={
-                      canOpenProfile
-                        ? () => router.push(`/people/${row.original.id}`)
-                        : undefined
-                    }
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        onClick={(e) => {
-                          // Prevent navigation when clicking on actions column
-                          if (cell.column.id === "actions") {
-                            e.stopPropagation();
-                          }
-                        }}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <Fragment key={row.id}>
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className={
+                        canOpenProfile
+                          ? "cursor-pointer"
+                          : "hover:bg-transparent"
+                      }
+                      onClick={
+                        canOpenProfile
+                          ? () => router.push(`/people/${row.original.id}`)
+                          : undefined
+                      }
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          onClick={(e) => {
+                            if (cell.column.id === "actions") {
+                              e.stopPropagation();
+                            }
+                          }}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    {idx === lastPendingIndex &&
+                      idx < visibleRows.length - 1 && (
+                        <TableRow
+                          key="pending-separator"
+                          className="pointer-events-none hover:bg-transparent"
+                        >
+                          <TableCell
+                            colSpan={columns.length}
+                            className="p-0"
+                            aria-hidden="true"
+                          >
+                            <div className="border-t border-border" />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                  </Fragment>
                 );
               })
             ) : (

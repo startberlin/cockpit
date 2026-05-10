@@ -10,7 +10,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("explains delayed charging for members with future paid-through coverage", () => {
     const copy = getMembershipBillingCopy({
-      mode: "payment_pending",
+      mode: "pending",
       paidThroughAt: new Date("2026-09-30T23:59:59.999Z"),
       now,
     });
@@ -23,7 +23,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("uses immediate payment setup copy without paid-through coverage", () => {
     const copy = getMembershipBillingCopy({
-      mode: "payment_pending",
+      mode: "pending",
       paidThroughAt: null,
       now,
     });
@@ -36,7 +36,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("does not promise delayed charging for expired coverage", () => {
     const copy = getMembershipBillingCopy({
-      mode: "payment_pending",
+      mode: "pending",
       paidThroughAt: new Date("2026-01-01T23:59:59.999Z"),
       now,
     });
@@ -48,7 +48,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("shows active membership copy without pending actions", () => {
     const copy = getMembershipBillingCopy({
-      mode: "full_member",
+      mode: "active",
       paidThroughAt: null,
       now,
     });
@@ -60,7 +60,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("shows active membership paid-through context when available", () => {
     const copy = getMembershipBillingCopy({
-      mode: "full_member",
+      mode: "active",
       paidThroughAt: new Date("2026-09-30T23:59:59.999Z"),
       now,
     });
@@ -69,9 +69,21 @@ describe("getMembershipBillingCopy", () => {
     assert.match(copy.description, /yearly membership payment is set up/);
   });
 
+  it("shows active title for member with future paid-through coverage", () => {
+    const copy = getMembershipBillingCopy({
+      mode: "active",
+      userStatus: "member",
+      paidThroughAt: new Date("2026-12-31T23:59:59.999Z"),
+      now,
+    });
+
+    assert.match(copy.title, /active/);
+    assert.match(copy.description, /covered through December 31, 2026/);
+  });
+
   it("thanks supporting alumni for their support", () => {
     const copy = getMembershipBillingCopy({
-      mode: "full_member",
+      mode: "active",
       userStatus: "supporting_alumni",
       paidThroughAt: null,
       now,
@@ -83,7 +95,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("uses calm alumni copy without payment setup", () => {
     const copy = getMembershipBillingCopy({
-      mode: "profile_onboarding",
+      mode: "not_required",
       userStatus: "alumni",
       now,
     });
@@ -94,7 +106,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("only uses onboarding welcome copy for onboarding users", () => {
     const copy = getMembershipBillingCopy({
-      mode: "profile_onboarding",
+      mode: "not_required",
       userStatus: "alumni",
       now,
     });
@@ -105,7 +117,7 @@ describe("getMembershipBillingCopy", () => {
 
   it("uses simple processing copy", () => {
     const copy = getMembershipBillingCopy({
-      mode: "payment_processing",
+      mode: "processing",
       now,
     });
 

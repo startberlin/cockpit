@@ -48,7 +48,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
             </span>
           </div>
         </div>
-        <main className="max-w-4xl w-full mx-auto px-6 py-6">{children}</main>
+        <main className="max-w-4xl w-full mx-auto">{children}</main>
       </div>
     </AuthorityProvider>
   );

@@ -23,3 +23,15 @@ export function createGoogleAuth(scopes: string | string[]) {
     clientOptions: { subject: SUBJECT },
   });
 }
+
+/**
+ * Create a GoogleAuth instance that authenticates as the service account
+ * itself — no domain-wide delegation. Use for Drive.file access where the
+ * service account owns the files it creates.
+ */
+export function createServiceAccountAuth(scopes: string | string[]) {
+  return new GoogleAuth({
+    credentials: getCredentials(),
+    scopes,
+  });
+}

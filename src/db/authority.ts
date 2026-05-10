@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   type AuthorityUpdateInput,
   authorityUpdateInputSchema,
@@ -16,7 +16,7 @@ import {
 } from "@/lib/authority/model";
 import { newId } from "@/lib/id";
 import db from ".";
-import { type Department, user } from "./schema/auth";
+import type { Department } from "./schema/auth";
 import { userAccessGrant, userOrganizationPosition } from "./schema/authority";
 
 type AuthorityUserRow = NonNullable<
@@ -134,15 +134,8 @@ export async function getUserAuthority(
   return mapAuthorityUser(authorityUser);
 }
 
-export async function getUsersAuthority(
-  userIds: string[],
-): Promise<UserAuthority[]> {
-  if (userIds.length === 0) {
-    return [];
-  }
-
-  const users = await db.query.user.findMany({
-    where: inArray(user.id, userIds),
+export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
+  const authorityUsers = await db.query.user.findMany({
     columns: {
       id: true,
       status: true,
@@ -154,27 +147,7 @@ export async function getUsersAuthority(
     },
   });
 
-  return users.map((authorityUser) =>
-    mapAuthorityUser(authorityUser as AuthorityUserRow),
-  );
-}
-
-export async function listUserAuthorities(): Promise<UserAuthority[]> {
-  const users = await db.query.user.findMany({
-    columns: {
-      id: true,
-      status: true,
-      department: true,
-    },
-    with: {
-      organizationPositions: true,
-      accessGrants: true,
-    },
-  });
-
-  return users.map((authorityUser) =>
-    mapAuthorityUser(authorityUser as AuthorityUserRow),
-  );
+  return authorityUsers.map(mapAuthorityUser);
 }
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {

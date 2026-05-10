@@ -2,7 +2,7 @@ import {
   stepAddressDataSchema,
   stepMasterDataSchema,
 } from "@/app/(authenticated)/(onboarding)/onboarding/[step]/onboarding-validation";
-import type { User } from "../db/schema/auth";
+import type { LegalMembershipState, User } from "@/db/schema/auth";
 
 export interface OnboardedUser extends User {
   street: NonNullable<User["street"]>;
@@ -26,8 +26,27 @@ export function isOnboardedUser(
   );
 }
 
+function requiresAddress(legalMembershipState: LegalMembershipState): boolean {
+  return (
+    legalMembershipState === "active_member" ||
+    legalMembershipState === "former_member"
+  );
+}
+
+type OnboardingProgressUser = Pick<
+  User,
+  | "personalEmail"
+  | "phone"
+  | "street"
+  | "city"
+  | "state"
+  | "zip"
+  | "country"
+  | "legalMembershipState"
+>;
+
 export function getOnboardingProgress(
-  user: User,
+  user: OnboardingProgressUser,
 ): "master-data" | "address" | "completed" {
   const masterDataValidation = stepMasterDataSchema.safeParse({
     personalEmail: user.personalEmail,
@@ -38,16 +57,18 @@ export function getOnboardingProgress(
     return "master-data";
   }
 
-  const addressValidation = stepAddressDataSchema.safeParse({
-    street: user.street,
-    city: user.city,
-    state: user.state,
-    zip: user.zip,
-    country: user.country,
-  });
+  if (requiresAddress(user.legalMembershipState)) {
+    const addressValidation = stepAddressDataSchema.safeParse({
+      street: user.street,
+      city: user.city,
+      state: user.state,
+      zip: user.zip,
+      country: user.country,
+    });
 
-  if (!addressValidation.success) {
-    return "address";
+    if (!addressValidation.success) {
+      return "address";
+    }
   }
 
   return "completed";

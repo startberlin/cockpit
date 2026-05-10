@@ -155,6 +155,28 @@ describe("permissions", () => {
     );
   });
 
+  it("allows global admins to manage batches", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        "batches.manage",
+      ),
+      true,
+    );
+  });
+
+  it("denies non-admins from managing batches", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "president", scope: "global" }],
+        }),
+        "batches.manage",
+      ),
+      false,
+    );
+  });
+
   it("denies ordinary permissions for inactive statuses even with grants", () => {
     for (const status of [
       "onboarding",

@@ -23,6 +23,9 @@ export const env = createEnv({
       .min(1)
       .optional()
       .default("PL01KF12SSWH7XMHG49RY0RF8KYZ"),
+    INNGEST_SIGNING_KEY: z.string().optional(),
+    INNGEST_SIGNING_KEY_FALLBACK: z.string().optional(),
+    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: z.string().min(1),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -44,5 +47,9 @@ export const env = createEnv({
     GOCARDLESS_WEBHOOK_SECRET: process.env.GOCARDLESS_WEBHOOK_SECRET,
     GOCARDLESS_MEMBERSHIP_TEMPLATE_ID:
       process.env.GOCARDLESS_MEMBERSHIP_TEMPLATE_ID,
+    INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
+    INNGEST_SIGNING_KEY_FALLBACK: process.env.INNGEST_SIGNING_KEY_FALLBACK,
+    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID:
+      process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID,
   },
 });

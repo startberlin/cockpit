@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
 export const handleSlackEvent = inngest.createFunction(
   {
     id: "handle-slack-event",
-    triggers: [{ event: "slack/user.joined" }],
+    triggers: [{ event: events.slackUserJoined }],
   },
   async ({ event, step }) => {
     const { id } = event.data;
@@ -45,13 +45,11 @@ export const handleSlackEvent = inngest.createFunction(
       return user;
     });
 
-    await step.run("sync-user-accounts", async () => {
-      await inngest.send({
-        name: "cockpit/user.updated",
-        data: {
-          id: user.id,
-        },
-      });
+    await step.sendEvent("sync-user-accounts", {
+      name: events.cockpitUserUpdated.name,
+      data: {
+        id: user.id,
+      },
     });
 
     await step.run("send-welcome-message", async () => {

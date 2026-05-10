@@ -3,7 +3,7 @@
 import { actionClient } from "@/lib/action-client";
 import { findWorkspaceUserByEmail } from "@/lib/google-workspace/directory";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { createUserSchema } from "./create-user-schema";
 
@@ -27,7 +27,7 @@ export const createUserAction = actionClient
     }
 
     await inngest.send({
-      name: "user.created",
+      name: events.userCreated.name,
       data: parsedInput,
     });
   });

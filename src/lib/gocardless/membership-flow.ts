@@ -1,20 +1,22 @@
 import { goCardlessRequest } from "./client";
 import {
   customerMetadata,
+  extractIdempotencyConflictId,
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
   prefilledCustomerFromMembershipInput,
 } from "./membership-flow-helpers";
-import type {
-  BillingRequestFlowState,
-  BillingRequestState,
-  MembershipFlowInput,
-  MembershipFlowResult,
+import {
+  type BillingRequestFlowState,
+  type BillingRequestState,
+  GoCardlessRequestError,
+  type MembershipFlowInput,
+  type MembershipFlowResult,
 } from "./types";
 
 const MEMBERSHIP_SUBSCRIPTION_AMOUNT = 4000;
 const MEMBERSHIP_SUBSCRIPTION_CURRENCY = "EUR";
-const MEMBERSHIP_SUBSCRIPTION_NAME = "START Membership";
+const MEMBERSHIP_SUBSCRIPTION_NAME = "START Berlin Membership";
 const MEMBERSHIP_MANDATE_SCHEME = "sepa_core";
 
 interface BillingRequestResponse {
@@ -62,7 +64,11 @@ interface SubscriptionResponse {
 export async function createMembershipFlow(
   input: MembershipFlowInput,
 ): Promise<MembershipFlowResult> {
-  const idempotencyKey = membershipFlowIdempotencyKey(input);
+  const idempotencyKey = membershipFlowIdempotencyKey(
+    input.userId,
+    input.localSessionId,
+  );
+
   const billingRequestId =
     input.existingBillingRequestId ??
     (await createMembershipBillingRequest(input, idempotencyKey));
@@ -94,6 +100,7 @@ async function createMembershipBillingRequest(
   idempotencyKey: string,
 ) {
   const metadata = membershipFlowMetadata(input);
+
   const billingRequest = await goCardlessRequest<BillingRequestResponse>(
     "/billing_requests",
     {
@@ -232,22 +239,39 @@ export async function createMembershipSubscription({
     start_cockpit_session: localSessionId,
   };
 
-  return goCardlessRequest<SubscriptionResponse>("/subscriptions", {
-    method: "POST",
-    idempotencyKey: `membership-subscription:${userId}:${mandateId}`,
-    body: {
-      subscriptions: {
-        amount: MEMBERSHIP_SUBSCRIPTION_AMOUNT,
-        currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
-        interval: 1,
-        interval_unit: "yearly",
-        name: MEMBERSHIP_SUBSCRIPTION_NAME,
-        start_date: startDate ?? undefined,
-        metadata,
-        links: {
-          mandate: mandateId,
+  try {
+    return await goCardlessRequest<SubscriptionResponse>("/subscriptions", {
+      method: "POST",
+      idempotencyKey: `membership-subscription:${userId}:${mandateId}`,
+      body: {
+        subscriptions: {
+          amount: MEMBERSHIP_SUBSCRIPTION_AMOUNT,
+          currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
+          interval: 1,
+          interval_unit: "yearly",
+          name: MEMBERSHIP_SUBSCRIPTION_NAME,
+          start_date: startDate ?? undefined,
+          metadata,
+          links: {
+            mandate: mandateId,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (error instanceof GoCardlessRequestError && error.status === 409) {
+      const conflictingId = extractIdempotencyConflictId(error.responseBody);
+
+      if (conflictingId) {
+        return {
+          subscriptions: {
+            id: conflictingId,
+            links: { mandate: mandateId },
+          },
+        } satisfies SubscriptionResponse;
+      }
+    }
+
+    throw error;
+  }
 }

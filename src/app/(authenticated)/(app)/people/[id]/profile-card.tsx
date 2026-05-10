@@ -30,8 +30,9 @@ function hasFutureCoverage(date: Date | null, now = new Date()) {
 
 export function ProfileCard({ user }: ProfileCardProps) {
   const statusInfo = USER_STATUS_INFO[user.status];
-  const isPaymentPending = user.membershipViewState === "payment_pending";
-  const isPaymentProcessing = user.membershipViewState === "payment_processing";
+  const isPaymentProcessing = user.membershipState.payment === "processing";
+  const isPaymentPending =
+    user.membershipState.paymentSetupAllowed && !isPaymentProcessing;
   const hasPaidThroughCoverage = hasFutureCoverage(user.paidThroughAt);
   const paidThroughLabel = user.paidThroughAt
     ? formatDate(user.paidThroughAt)
@@ -79,7 +80,9 @@ export function ProfileCard({ user }: ProfileCardProps) {
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                 Batch
               </p>
-              <p className="text-sm font-medium">#{user.batchNumber}</p>
+              <p className="text-sm font-medium">
+                {user.batchNumber != null ? `#${user.batchNumber}` : "—"}
+              </p>
             </div>
           </div>
 
@@ -117,8 +120,32 @@ export function ProfileCard({ user }: ProfileCardProps) {
             </p>
             <p className="text-sm font-medium">{formatDate(user.createdAt)}</p>
           </div>
+
+          <Separator />
+
+          <div className="space-y-1.5">
+            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Legal Membership
+            </p>
+            <Badge
+              variant="outline"
+              className={
+                user.legalMembershipState === "active_member"
+                  ? "border-green-600 text-green-700"
+                  : "text-muted-foreground"
+              }
+            >
+              {LEGAL_MEMBERSHIP_STATE_LABELS[user.legalMembershipState]}
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
+
+const LEGAL_MEMBERSHIP_STATE_LABELS: Record<string, string> = {
+  not_member: "Not a legal member",
+  active_member: "Active legal member",
+  former_member: "Former legal member",
+};

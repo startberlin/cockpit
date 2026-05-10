@@ -1,16 +1,20 @@
-import { actionClient } from "@/lib/action-client";
 import {
-  getMembershipViewState,
-  isProfileOnboardingComplete,
-  type MembershipViewState,
+  getStructuredMembershipState,
+  type StructuredMembershipState,
 } from "@/lib/membership-status";
+import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import db from ".";
-import type { Department, UserStatus } from "./schema/auth";
+import type {
+  Department,
+  LegalMembershipState,
+  UserStatus,
+} from "./schema/auth";
 import type {
   AccessGrant,
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
+import { LIVE_TENURE_STATUSES } from "./schema/legal-membership";
 
 export interface PublicUser {
   id: string;
@@ -18,10 +22,11 @@ export interface PublicUser {
   lastName: string;
   email: string;
   department: Department | null;
-  batchNumber: number;
+  batchNumber: number | null;
   status: UserStatus;
   profileOnboardingComplete?: boolean;
   hasMembershipPayment?: boolean;
+  hasActiveTenure?: boolean;
 }
 
 export interface UserDetail {
@@ -37,9 +42,10 @@ export interface UserDetail {
   zip: string | null;
   country: string | null;
   department: Department | null;
-  batchNumber: number;
+  batchNumber: number | null;
   status: UserStatus;
-  membershipViewState: MembershipViewState;
+  legalMembershipState: LegalMembershipState;
+  membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
   paidThroughAt: Date | null;
@@ -63,60 +69,79 @@ export interface UserDetail {
   }>;
 }
 
-export const getAllUserPublicData = actionClient.action(
-  async (): Promise<PublicUser[]> => {
-    const allUsers = await db.query.user.findMany({
-      columns: {
-        id: true,
-        name: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        emailVerified: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        street: true,
-        state: true,
-        city: true,
-        zip: true,
-        country: true,
-        personalEmail: true,
-        batchNumber: true,
-        phone: true,
-        status: true,
-        roles: true,
-        department: true,
+export async function getAllUserPublicData(): Promise<PublicUser[]> {
+  const allUsers = await db.query.user.findMany({
+    columns: {
+      id: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      emailVerified: true,
+      image: true,
+      createdAt: true,
+      updatedAt: true,
+      street: true,
+      state: true,
+      city: true,
+      zip: true,
+      country: true,
+      personalEmail: true,
+      batchNumber: true,
+      phone: true,
+      status: true,
+      department: true,
+      legalMembershipState: true,
+    },
+    with: {
+      batch: true,
+      membershipPayment: true,
+      legalMemberships: {
+        columns: { status: true },
       },
-      with: {
-        batch: true,
-        membershipPayment: true,
-      },
-    });
+    },
+  });
 
-    return allUsers.map((user): PublicUser => {
-      if (!user.batch) {
-        throw new Error("User has no batch");
-      }
+  return allUsers.map((user): PublicUser => {
+    const hasActiveTenure = user.legalMemberships.some((lm) =>
+      (LIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
+    );
 
-      return {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        department: user.department ?? null,
-        batchNumber: user.batch.number,
-        status: user.status,
-        profileOnboardingComplete: isProfileOnboardingComplete(user),
-        hasMembershipPayment: !!user.membershipPayment,
-      };
-    });
-  },
-);
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      department: user.department ?? null,
+      batchNumber: user.batch?.number ?? null,
+      status: user.status,
+      profileOnboardingComplete: getOnboardingProgress(user) === "completed",
+      hasMembershipPayment: !!user.membershipPayment,
+      hasActiveTenure,
+    };
+  });
+}
 
 export async function getUserById(id: string): Promise<UserDetail | null> {
   const user = await db.query.user.findFirst({
     where: (users, { eq }) => eq(users.id, id),
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      personalEmail: true,
+      phone: true,
+      street: true,
+      city: true,
+      state: true,
+      zip: true,
+      country: true,
+      department: true,
+      status: true,
+      legalMembershipState: true,
+      createdAt: true,
+    },
     with: {
       batch: true,
       usersToGroups: {
@@ -134,10 +159,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     return null;
   }
 
-  if (!user.batch) {
-    throw new Error("User has no batch");
-  }
-
   return {
     id: user.id,
     firstName: user.firstName,
@@ -151,10 +172,11 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     zip: user.zip,
     country: user.country,
     department: user.department ?? null,
-    batchNumber: user.batch.number,
+    batchNumber: user.batch?.number ?? null,
     status: user.status,
-    membershipViewState: getMembershipViewState(user, user.membershipPayment),
-    profileOnboardingComplete: isProfileOnboardingComplete(user),
+    legalMembershipState: user.legalMembershipState,
+    membershipState: getStructuredMembershipState(user, user.membershipPayment),
+    profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.membershipPayment,
     paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
     organizationPositions: user.organizationPositions.map((assignment) => ({

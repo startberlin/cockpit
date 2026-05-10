@@ -1,4 +1,4 @@
-import type { GlobalOrganizationPosition, UserAuthority } from "./model";
+import type { UserAuthority } from "./model";
 import { globalOrganizationPositions } from "./model";
 
 export type BoardRosterSetup =
@@ -11,7 +11,6 @@ export type BoardRosterSetup =
         headOfFinanceId: string;
       };
     }
-  | { ok: false; reason: "invalid_legal_officer_count"; count: number }
   | {
       ok: false;
       reason: "missing_officer_function";
@@ -36,23 +35,15 @@ const officerPositions = [
   "head_of_finance",
 ] as const satisfies OfficerPosition[];
 
-function hasGlobalAuthorityPosition(
-  authority: UserAuthority,
-  position: GlobalOrganizationPosition,
+function idsWithPosition(
+  boardMembers: UserAuthority[],
+  position: OfficerPosition,
 ) {
-  return authority.positions.some(
-    (assignment) =>
-      assignment.scope === "global" && assignment.position === position,
-  );
-}
-
-function userIdsWithPosition(
-  authorities: UserAuthority[],
-  position: GlobalOrganizationPosition,
-) {
-  return authorities
-    .filter((authority) => hasGlobalAuthorityPosition(authority, position))
-    .map((authority) => authority.userId);
+  return boardMembers
+    .filter((a) =>
+      a.positions.some((p) => p.scope === "global" && p.position === position),
+    )
+    .map((a) => a.userId);
 }
 
 export function getBoardRosterSetup(
@@ -68,12 +59,11 @@ export function getBoardRosterSetup(
   const legalOfficerIds = [
     ...new Set(boardMembers.map(({ userId }) => userId)),
   ];
-  const officerUserIds = Object.fromEntries(
-    officerPositions.map((position) => [
-      position,
-      userIdsWithPosition(boardMembers, position),
-    ]),
-  ) as Record<OfficerPosition, string[]>;
+  const officerUserIds: Record<OfficerPosition, string[]> = {
+    president: idsWithPosition(boardMembers, "president"),
+    vice_president: idsWithPosition(boardMembers, "vice_president"),
+    head_of_finance: idsWithPosition(boardMembers, "head_of_finance"),
+  };
   const missing = officerPositions.filter(
     (position) => officerUserIds[position].length === 0,
   );
@@ -100,14 +90,6 @@ export function getBoardRosterSetup(
       ok: false,
       reason: "overlapping_officer_function",
       officerIds,
-    };
-  }
-
-  if (legalOfficerIds.length !== 3) {
-    return {
-      ok: false,
-      reason: "invalid_legal_officer_count",
-      count: legalOfficerIds.length,
     };
   }
 

@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 import { env } from "@/env";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { isValidSlackRequest } from "../../../../lib/verify-request";
 
 const EventSchema = z.union([
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       return new Response(parsed.data.challenge, { status: 200 });
     case "event_callback":
       await inngest.send({
-        name: "slack/user.joined",
+        name: events.slackUserJoined.name,
         data: {
           id: parsed.data.event.user.id,
         },

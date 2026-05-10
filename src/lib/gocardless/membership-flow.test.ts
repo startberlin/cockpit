@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  extractIdempotencyConflictId,
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
   membershipSubscriptionStartDate,
@@ -27,7 +28,7 @@ const input: MembershipFlowInput = {
 describe("membership GoCardless flow helpers", () => {
   it("builds stable idempotency keys from user and local session", () => {
     assert.equal(
-      membershipFlowIdempotencyKey(input),
+      membershipFlowIdempotencyKey("usr_123", "mps_123"),
       "membership-payment:usr_123:mps_123",
     );
   });
@@ -80,5 +81,44 @@ describe("membership GoCardless flow helpers", () => {
       ),
       null,
     );
+  });
+});
+
+describe("extractIdempotencyConflictId", () => {
+  it("extracts the conflicting resource ID from a GoCardless 409 body", () => {
+    const body = JSON.stringify({
+      error: {
+        errors: [
+          {
+            reason: "idempotent_creation_conflict",
+            links: { conflicting_resource_id: "SB01EXISTINGSUBSCRIPTION" },
+          },
+        ],
+      },
+    });
+    assert.equal(
+      extractIdempotencyConflictId(body),
+      "SB01EXISTINGSUBSCRIPTION",
+    );
+  });
+
+  it("returns null for a 409 body with a different error reason", () => {
+    const body = JSON.stringify({
+      error: { errors: [{ reason: "invalid_state" }] },
+    });
+    assert.equal(extractIdempotencyConflictId(body), null);
+  });
+
+  it("returns null for malformed JSON", () => {
+    assert.equal(extractIdempotencyConflictId("not-json"), null);
+  });
+
+  it("returns null when conflicting_resource_id is missing from links", () => {
+    const body = JSON.stringify({
+      error: {
+        errors: [{ reason: "idempotent_creation_conflict", links: {} }],
+      },
+    });
+    assert.equal(extractIdempotencyConflictId(body), null);
   });
 });

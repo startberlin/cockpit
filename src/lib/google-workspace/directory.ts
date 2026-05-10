@@ -64,41 +64,65 @@ export async function getWorkspaceUser(
   }
 }
 
-export async function searchWorkspaceUsers(
-  query: string,
-): Promise<WorkspaceUserCandidate[]> {
-  const trimmed = query.trim();
+export interface WorkspaceUsersPage {
+  users: WorkspaceUserCandidate[];
+  nextPageToken: string | null;
+}
 
-  if (trimmed.length < 2) {
-    return [];
-  }
-
+export async function fetchWorkspaceUsersPage({
+  pageToken,
+  query,
+}: {
+  pageToken?: string;
+  query?: string;
+} = {}): Promise<WorkspaceUsersPage> {
   const admin = getDirectoryClient();
+
   const res = await admin.users.list({
     customer: "my_customer",
-    maxResults: 10,
+    maxResults: 20,
     orderBy: "email",
     projection: "basic",
-    query: buildDirectoryQuery(trimmed),
+    pageToken,
+    query: query || undefined,
   });
 
-  return (res.data.users ?? [])
+  const users = (res.data.users ?? [])
     .map(toCandidate)
-    .filter((user): user is WorkspaceUserCandidate => !!user);
+    .filter((u): u is WorkspaceUserCandidate => u !== null);
+
+  return {
+    users,
+    nextPageToken: res.data.nextPageToken ?? null,
+  };
 }
 
 export async function findWorkspaceUserByEmail(email: string) {
   return await getWorkspaceUser(email.toLowerCase());
 }
 
-function buildDirectoryQuery(query: string) {
-  if (query.includes("@")) {
-    return `email='${escapeQueryValue(query)}'`;
+export async function updateWorkspaceUserName(
+  userKey: string,
+  {
+    givenName,
+    familyName,
+  }: {
+    givenName: string;
+    familyName: string;
+  },
+) {
+  const admin = getDirectoryClient();
+
+  const res = await admin.users.update({
+    userKey,
+    requestBody: {
+      name: { givenName, familyName },
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Failed to update Workspace name for ${userKey}: ${res.statusText}`,
+    );
   }
-
-  return `name:'${escapeQueryValue(query)}'`;
-}
-
-function escapeQueryValue(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }

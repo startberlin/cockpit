@@ -1,28 +1,32 @@
-import { type NextRequest, NextResponse } from "next/server";
-import {
-  getGroupCriteria,
-  isGroupAuthorizationError,
-  requireGroupView,
-} from "@/db/groups";
+import { NextResponse } from "next/server";
+import { canViewGroup, getGroupCriteria } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
 
 export async function GET(
-  _request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return NextResponse.json(
+      { error: "Authentication required." },
+      { status: 401 },
+    );
+  }
+
+  if (!(await canViewGroup(id))) {
+    return NextResponse.json(
+      { error: "You are not authorized to view this group." },
+      { status: 403 },
+    );
+  }
+
   try {
-    const { id } = await params;
-    await requireGroupView(id);
-
-    const result = await getGroupCriteria({ groupId: id });
-    return NextResponse.json({ criteria: result.data });
+    const criteria = await getGroupCriteria(id);
+    return NextResponse.json({ criteria });
   } catch (error) {
-    if (isGroupAuthorizationError(error)) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
-
     console.error("Error fetching group criteria:", error);
     return NextResponse.json(
       { error: "Failed to fetch group criteria" },

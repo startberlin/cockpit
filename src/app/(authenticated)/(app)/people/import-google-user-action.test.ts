@@ -8,10 +8,13 @@ process.env.GOOGLE_CLIENT_ID ??= "test-client-id";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-client-secret";
 process.env.RESEND_API_KEY ??= "test-resend-key";
 process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64 ??= "test-credentials";
+process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID ??= "test-folder";
 process.env.SLACK_SIGNING_SECRET ??= "test-slack-secret";
 process.env.NEXT_PUBLIC_COCKPIT_URL ??= "https://cockpit.example.com";
 
-async function buildEmail(status: "member" | "supporting_alumni" | "alumni") {
+async function buildEmail(
+  status: "member" | "supporting_alumni" | "alumni" | "onboarding",
+) {
   const { buildImportedUserNotificationEmail } = await import(
     "./import-google-user-email"
   );
@@ -44,6 +47,13 @@ describe("buildImportedUserNotificationEmail", () => {
 
     assert.match(html, /START Berlin Google Account/);
     assert.match(html, /Email and password login is not available/);
+  });
+
+  it("renders onboarding status context", async () => {
+    const email = await buildEmail("onboarding");
+    const html = await render(email.react);
+
+    assert.match(html, /Onboarding/);
   });
 });
 

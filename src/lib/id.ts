@@ -8,6 +8,14 @@ const prefixes = {
   group: "gr",
   authorityPosition: "aup",
   accessGrant: "aug",
+  auditLog: "aud",
+  legalMembership: "lm",
+  boardResolution: "brs",
+  admissionParticipant: "ap",
+  boardVote: "bv",
+  membershipApplication: "ma",
+  legalDocument: "ld",
+  task: "tsk",
 } as const;
 
 export function generateUUID(): string {

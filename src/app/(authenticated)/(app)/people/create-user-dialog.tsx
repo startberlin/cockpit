@@ -6,9 +6,9 @@ import { AlertCircleIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import * as React from "react";
 import { Controller } from "react-hook-form";
+import { BatchSelect } from "@/components/batch-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Department } from "@/db/schema";
 import { DEPARTMENTS } from "@/lib/enums";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { handleError } from "@/lib/utils";
@@ -54,9 +55,21 @@ export function CreateUserDialog({
   batches,
   onSuccess,
 }: CreateUserDialogProps) {
+  const resolver = React.useMemo(() => zodResolver(createUserSchema), []);
+  const defaultValues = React.useMemo(
+    () => ({
+      firstName: "",
+      lastName: "",
+      personalEmail: "",
+      batchNumber: undefined,
+      department: null as Department | null,
+      status: "onboarding" as const,
+    }),
+    [],
+  );
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     createUserAction,
-    zodResolver(createUserSchema),
+    resolver,
     {
       actionProps: {
         onSuccess: () => {
@@ -66,14 +79,7 @@ export function CreateUserDialog({
         onError: handleError,
       },
       formProps: {
-        defaultValues: {
-          firstName: "",
-          lastName: "",
-          personalEmail: "",
-          batchNumber: batches[0]?.number ?? 0,
-          department: null,
-          status: "onboarding",
-        },
+        defaultValues,
         mode: "onChange",
       },
     },
@@ -204,22 +210,12 @@ export function CreateUserDialog({
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel>Batch</FieldLabel>
-                    <Select
-                      value={String(field.value ?? "")}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                    <BatchSelect
+                      batches={batches}
+                      value={field.value}
+                      onChange={field.onChange}
                       disabled={action.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a batch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {batches.map((b) => (
-                          <SelectItem key={b.number} value={String(b.number)}>
-                            Batch {b.number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <FieldError errors={[fieldState.error]} />
                   </Field>
                 )}
