@@ -36,6 +36,20 @@
       "when": 1778436554440,
       "tag": "0004_furry_jetstream",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778442782003,
+      "tag": "0005_colorful_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778442952103,
+      "tag": "0006_abnormal_vampiro",
+      "breakpoints": true
     }
   ]
 }

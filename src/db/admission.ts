@@ -14,7 +14,6 @@ export async function createAdmissionWorkflow(
     legalMembershipId,
     subjectUser,
     officers,
-    billingApplies,
   }: {
     legalMembershipId: string;
     subjectUser: { firstName: string; lastName: string };
@@ -23,7 +22,6 @@ export async function createAdmissionWorkflow(
       vicePresidentId: string;
       headOfFinanceId: string;
     };
-    billingApplies: boolean;
   },
 ): Promise<void> {
   const resolutionText = `Der Vorstand beschließt die Aufnahme von ${subjectUser.firstName} ${subjectUser.lastName} als ordentliches Mitglied des Vereins START Berlin e.V., sofern die betreffende Person einen entsprechenden Aufnahmeantrag stellt.`;
@@ -36,7 +34,6 @@ export async function createAdmissionWorkflow(
     legalMembershipId,
     resolutionText,
     resolutionTextHash,
-    billingApplies,
   });
 
   const { presidentId, vicePresidentId, headOfFinanceId } = officers;

@@ -198,7 +198,6 @@ export const importGoogleWorkspaceUserAction = actionClient
             lastName: parsedInput.lastName,
           },
           officers: boardRoster.officers,
-          billingApplies: true,
         });
       } else if (
         parsedInput.status === "alumni" ||

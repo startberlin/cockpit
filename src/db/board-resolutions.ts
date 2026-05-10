@@ -19,7 +19,6 @@ export interface ResolutionDetail {
   resolutionId: string;
   resolutionText: string;
   resolutionTextHash: string;
-  billingApplies: boolean;
   subject: { id: string; name: string; status: UserStatus };
   participants: Array<{
     userId: string;
@@ -40,7 +39,6 @@ export async function getResolutionDetail(
       resolutionId: boardResolution.id,
       resolutionText: boardResolution.resolutionText,
       resolutionTextHash: boardResolution.resolutionTextHash,
-      billingApplies: boardResolution.billingApplies,
       subjectId: user.id,
       subjectFirstName: user.firstName,
       subjectLastName: user.lastName,
@@ -97,7 +95,6 @@ export async function getResolutionDetail(
     resolutionId: row.resolutionId,
     resolutionText: row.resolutionText,
     resolutionTextHash: row.resolutionTextHash,
-    billingApplies: row.billingApplies,
     subject: {
       id: row.subjectId,
       name: `${row.subjectFirstName} ${row.subjectLastName}`,

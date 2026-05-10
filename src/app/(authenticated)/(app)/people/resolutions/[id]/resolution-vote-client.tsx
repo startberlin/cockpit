@@ -46,26 +46,16 @@ function voteValueLabel(value: BoardVoteValue): string {
       return "Yes";
     case "no":
       return "No";
-    case "abstain":
-      return "Abstain";
-    case "procedure_objection":
-      return "Procedure Objection";
   }
 }
 
 const VOTE_BUTTONS: {
   value: BoardVoteValue;
   label: string;
-  variant: "default" | "destructive" | "outline" | "secondary";
+  variant: "default" | "destructive";
 }[] = [
   { value: "yes", label: "Yes", variant: "default" },
   { value: "no", label: "No", variant: "destructive" },
-  { value: "abstain", label: "Abstain", variant: "outline" },
-  {
-    value: "procedure_objection",
-    label: "Procedure Objection",
-    variant: "secondary",
-  },
 ];
 
 interface ResolutionVoteClientProps {
