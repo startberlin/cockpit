@@ -1,20 +1,12 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Crumb } from "@/components/breadcrumb-view";
 
-type BreadcrumbContextValue = {
-  override: Crumb[] | null;
-  setOverride: (crumbs: Crumb[] | null) => void;
-};
-
-const BreadcrumbContext = createContext<BreadcrumbContextValue | null>(null);
+const BreadcrumbValueContext = createContext<Crumb[] | null>(null);
+const BreadcrumbSetterContext = createContext<
+  ((crumbs: Crumb[] | null) => void) | null
+>(null);
 
 export function BreadcrumbProvider({
   children,
@@ -22,16 +14,17 @@ export function BreadcrumbProvider({
   children: React.ReactNode;
 }) {
   const [override, setOverride] = useState<Crumb[] | null>(null);
-  const value = useMemo(() => ({ override, setOverride }), [override]);
   return (
-    <BreadcrumbContext.Provider value={value}>
-      {children}
-    </BreadcrumbContext.Provider>
+    <BreadcrumbSetterContext.Provider value={setOverride}>
+      <BreadcrumbValueContext.Provider value={override}>
+        {children}
+      </BreadcrumbValueContext.Provider>
+    </BreadcrumbSetterContext.Provider>
   );
 }
 
 export function useBreadcrumbOverride(): Crumb[] | null {
-  return useContext(BreadcrumbContext)?.override ?? null;
+  return useContext(BreadcrumbValueContext);
 }
 
 /**
@@ -40,16 +33,11 @@ export function useBreadcrumbOverride(): Crumb[] | null {
  * cleanly falls back to the URL-derived default.
  */
 export function BreadcrumbCrumb({ crumbs }: { crumbs: Crumb[] }) {
-  const ctx = useContext(BreadcrumbContext);
-  const serialized = JSON.stringify(crumbs);
-
+  const setOverride = useContext(BreadcrumbSetterContext);
   useEffect(() => {
-    if (!ctx) return;
-    ctx.setOverride(crumbs);
-    return () => ctx.setOverride(null);
-    // crumbs is captured via serialized to avoid identity churn
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serialized, ctx]);
-
+    if (!setOverride) return;
+    setOverride(crumbs);
+    return () => setOverride(null);
+  }, [crumbs, setOverride]);
   return null;
 }
