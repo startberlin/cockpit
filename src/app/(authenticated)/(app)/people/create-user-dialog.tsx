@@ -6,9 +6,9 @@ import { AlertCircleIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import * as React from "react";
 import { Controller } from "react-hook-form";
+import { BatchSelect } from "@/components/batch-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-
 import {
   Dialog,
   DialogContent,
@@ -210,24 +210,12 @@ export function CreateUserDialog({
                 render={({ field, fieldState }) => (
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel>Batch</FieldLabel>
-                    <Select
-                      value={field.value != null ? String(field.value) : ""}
-                      onValueChange={(v) =>
-                        field.onChange(v === "" ? undefined : Number(v))
-                      }
+                    <BatchSelect
+                      batches={batches}
+                      value={field.value}
+                      onChange={field.onChange}
                       disabled={action.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="No batch (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {batches.map((b) => (
-                          <SelectItem key={b.number} value={String(b.number)}>
-                            Batch {b.number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <FieldError errors={[fieldState.error]} />
                   </Field>
                 )}

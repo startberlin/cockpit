@@ -12,6 +12,7 @@ import { AlertCircleIcon, CircleCheck, LockIcon } from "lucide-react";
 import * as React from "react";
 import { Controller } from "react-hook-form";
 import { useDebounce } from "use-debounce";
+import { BatchSelect } from "@/components/batch-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -635,28 +636,11 @@ export function ImportGoogleUserDialog({
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
                           <FieldLabel>Batch</FieldLabel>
-                          <Select
-                            value={
-                              field.value != null ? String(field.value) : ""
-                            }
-                            onValueChange={(v) =>
-                              field.onChange(v === "" ? undefined : Number(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="No batch (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {batches.map((b) => (
-                                <SelectItem
-                                  key={b.number}
-                                  value={String(b.number)}
-                                >
-                                  Batch {b.number}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <BatchSelect
+                            batches={batches}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                           <FieldError errors={[fieldState.error]} />
                         </Field>
                       )}
