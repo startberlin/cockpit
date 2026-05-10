@@ -46,6 +46,18 @@ export const events = {
   applicationSubmitted: eventType("membership/application.submitted", {
     schema: staticSchema<{ legalMembershipId: string }>(),
   }),
+  reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
+    schema: staticSchema<{ legalMembershipId: string }>(),
+  }),
+  existingMemberDocumentationRequested: eventType(
+    "membership/existing-member-documentation.requested",
+    {
+      schema: staticSchema<{
+        userId: string;
+        legalMembershipId: string;
+      }>(),
+    },
+  ),
 };
 
 export const inngest = new Inngest({

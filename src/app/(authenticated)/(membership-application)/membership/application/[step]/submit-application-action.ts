@@ -47,7 +47,11 @@ export const submitApplicationAction = actionClient
       columns: { status: true },
     });
 
-    if (lm?.status !== "application_pending") {
+    const preSubmissionStatus = lm?.status;
+    if (
+      preSubmissionStatus !== "application_pending" &&
+      preSubmissionStatus !== "membership_reconfirmation_pending"
+    ) {
       return returnValidationErrors(submitApplicationSchema, {
         legalMembershipId: {
           _errors: ["Application is not in the expected state."],
@@ -123,9 +127,14 @@ export const submitApplicationAction = actionClient
         .where(eq(userTable.id, user.id));
     });
 
+    const eventToSend =
+      preSubmissionStatus === "membership_reconfirmation_pending"
+        ? { name: events.reconfirmationSubmitted.name }
+        : { name: events.applicationSubmitted.name };
+
     try {
       await inngest.send({
-        name: events.applicationSubmitted.name,
+        ...eventToSend,
         data: { legalMembershipId: parsedInput.legalMembershipId },
       });
     } catch {
@@ -141,7 +150,7 @@ export const submitApplicationAction = actionClient
           .where(eq(membershipApplication.id, draft.id));
         await tx
           .update(legalMembership)
-          .set({ status: "application_pending" })
+          .set({ status: preSubmissionStatus })
           .where(eq(legalMembership.id, parsedInput.legalMembershipId));
       });
       return returnValidationErrors(submitApplicationSchema, {
