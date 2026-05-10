@@ -1,3 +1,4 @@
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
@@ -45,6 +46,7 @@ export default function RootLayout({
           <TooltipProvider>{children}</TooltipProvider>
         </NuqsAdapter>
         <Toaster theme="light" />
+        <SpeedInsights />
       </body>
     </html>
   );
