@@ -1,51 +1,24 @@
-import {
-  stepAddressDataSchema,
-  stepMasterDataSchema,
-} from "@/app/(authenticated)/(onboarding)/onboarding/[step]/onboarding-validation";
-import type { LegalMembershipState, User } from "@/db/schema/auth";
+import { stepMasterDataSchema } from "@/app/(authenticated)/(onboarding)/onboarding/[step]/onboarding-validation";
+import type { User } from "@/db/schema/auth";
 
 export interface OnboardedUser extends User {
-  street: NonNullable<User["street"]>;
-  city: NonNullable<User["city"]>;
-  state: NonNullable<User["state"]>;
-  zip: NonNullable<User["zip"]>;
-  country: NonNullable<User["country"]>;
+  personalEmail: NonNullable<User["personalEmail"]>;
   phone: NonNullable<User["phone"]>;
+  birthDate: NonNullable<User["birthDate"]>;
 }
 
 export function isOnboardedUser(
-  user: Pick<User, "street" | "city" | "state" | "zip" | "country" | "phone">,
+  user: Pick<User, "personalEmail" | "phone" | "birthDate">,
 ): user is OnboardedUser {
-  return !!(
-    user.street &&
-    user.city &&
-    user.state &&
-    user.zip &&
-    user.country &&
-    user.phone
-  );
-}
-
-function requiresAddress(legalMembershipState: LegalMembershipState): boolean {
-  return (
-    legalMembershipState === "active_member" ||
-    legalMembershipState === "former_member"
-  );
+  return !!(user.personalEmail && user.phone && user.birthDate);
 }
 
 type OnboardingProgressUser = Pick<
   User,
-  | "personalEmail"
-  | "phone"
-  | "street"
-  | "city"
-  | "state"
-  | "zip"
-  | "country"
-  | "legalMembershipState"
+  "personalEmail" | "phone" | "birthDate"
 >;
 
-export type OnboardingProgress = "master-data" | "address" | "completed";
+export type OnboardingProgress = "master-data" | "completed";
 
 export function getOnboardingProgress(
   user: OnboardingProgressUser,
@@ -53,24 +26,11 @@ export function getOnboardingProgress(
   const masterDataValidation = stepMasterDataSchema.safeParse({
     personalEmail: user.personalEmail,
     phone: user.phone,
+    birthDate: user.birthDate,
   });
 
   if (!masterDataValidation.success) {
     return "master-data";
-  }
-
-  if (requiresAddress(user.legalMembershipState)) {
-    const addressValidation = stepAddressDataSchema.safeParse({
-      street: user.street,
-      city: user.city,
-      state: user.state,
-      zip: user.zip,
-      country: user.country,
-    });
-
-    if (!addressValidation.success) {
-      return "address";
-    }
   }
 
   return "completed";

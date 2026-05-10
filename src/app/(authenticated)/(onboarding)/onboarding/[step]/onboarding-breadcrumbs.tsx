@@ -48,9 +48,7 @@ export default function OnboardingBreadcrumbs({
 }: OnboardingBreadcrumbsProps) {
   const atWelcome = currentStep === ONBOARDING_STEPS.WELCOME;
 
-  const atAccountSetup =
-    currentStep === ONBOARDING_STEPS.MASTER_DATA ||
-    currentStep === ONBOARDING_STEPS.ADDRESS;
+  const atAccountSetup = currentStep === ONBOARDING_STEPS.MASTER_DATA;
 
   return (
     <Breadcrumb>

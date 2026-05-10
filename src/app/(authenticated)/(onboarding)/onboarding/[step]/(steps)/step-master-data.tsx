@@ -34,7 +34,6 @@ import type { User } from "@/db/schema/auth";
 import { authClient } from "@/lib/auth-client";
 import { handleError } from "@/lib/utils";
 import { stepMasterDataSchema } from "../onboarding-validation";
-import { ONBOARDING_STEPS } from ".";
 import { completeOnboardingMasterDataStep } from "./step-master-data-action";
 
 interface StepMasterDataProps {
@@ -42,26 +41,16 @@ interface StepMasterDataProps {
 }
 
 export function StepMasterData({ user }: StepMasterDataProps) {
-  console.log(user);
   const session = authClient.useSession();
   const router = useRouter();
-
-  const needsAddress =
-    user.legalMembershipState === "active_member" ||
-    user.legalMembershipState === "former_member";
 
   const onCompletedStep = useCallback(() => {
     if (!session?.data?.user) {
       console.error("User not loaded/signed in. Can't refresh page.");
       return;
     }
-
-    if (needsAddress) {
-      router.push(`/onboarding/${ONBOARDING_STEPS.ADDRESS}`);
-    } else {
-      router.push("/");
-    }
-  }, [router, session, needsAddress]);
+    router.push("/");
+  }, [router, session]);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     completeOnboardingMasterDataStep,
@@ -75,6 +64,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
         defaultValues: {
           personalEmail: "",
           phone: user.phone ?? "",
+          birthDate: user.birthDate ?? "",
         },
       },
     },
@@ -193,6 +183,25 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                     defaultCountry="DE"
                     aria-invalid={fieldState.invalid}
                     placeholder="e.g. +4912345678"
+                    disabled={action.isPending}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+            <Controller
+              name="birthDate"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Date of Birth</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    type="date"
+                    aria-invalid={fieldState.invalid}
                     disabled={action.isPending}
                   />
                   {fieldState.invalid && (

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/db/user";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
+import { ONBOARDING_STEPS } from "./[step]/(steps)";
 
 export default async function OnboardingRoot() {
   const user = await getCurrentUser();
@@ -15,5 +16,5 @@ export default async function OnboardingRoot() {
     return redirect("/");
   }
 
-  return redirect(`/onboarding/${progress}`);
+  return redirect(`/onboarding/${ONBOARDING_STEPS.MASTER_DATA}`);
 }

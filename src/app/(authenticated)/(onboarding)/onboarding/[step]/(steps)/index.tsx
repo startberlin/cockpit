@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import type { User } from "@/db/schema/auth";
-import { StepAddress } from "./step-address";
 import { StepMasterData } from "./step-master-data";
 import { StepWelcome } from "./step-welcome";
 
@@ -13,7 +12,6 @@ export interface StepComponentProps {
 export const ONBOARDING_STEPS = {
   WELCOME: "welcome",
   MASTER_DATA: "my-profile",
-  ADDRESS: "address",
 } as const;
 
 export type OnboardingStep =
@@ -31,24 +29,17 @@ export const STEP_DEFINITIONS: Record<OnboardingStep, StepDefinition> = {
     component: StepWelcome,
     title: "Welcome to START Cockpit",
     description:
-      "Let's finish the details START Berlin needs for your membership. This only takes a few minutes.",
+      "START Cockpit is the member portal of START Berlin. You can use it to manage your membership, see who else is a member and get access to our tools.",
   },
   [ONBOARDING_STEPS.MASTER_DATA]: {
     component: StepMasterData,
     title: "Your contact details",
     description:
-      "Add the email address and phone number START Berlin can use to reach you.",
-  },
-  [ONBOARDING_STEPS.ADDRESS]: {
-    component: StepAddress,
-    title: "Your address",
-    description:
-      "Add your current address so START Berlin can keep its membership records up to date.",
+      "Add the email address, phone number, and date of birth START Berlin needs to reach you.",
   },
 };
 
 export const ALL_STEPS = [
   ONBOARDING_STEPS.WELCOME,
   ONBOARDING_STEPS.MASTER_DATA,
-  ONBOARDING_STEPS.ADDRESS,
 ];
