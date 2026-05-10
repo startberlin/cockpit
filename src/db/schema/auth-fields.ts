@@ -1,5 +1,3 @@
-import { legalMembership } from "./legal-membership";
-
 export const betterAuthUserAdditionalFields = {
   firstName: { type: "string", input: false },
   lastName: { type: "string", input: false },

@@ -8,8 +8,8 @@
 
 import { readFileSync } from "node:fs";
 import { Readable } from "node:stream";
-import { google } from "googleapis";
 import { GoogleAuth } from "google-auth-library";
+import { google } from "googleapis";
 
 // --- load .env manually (no dotenv dependency needed) ---
 const envPath = new URL("../.env", import.meta.url).pathname;
@@ -61,7 +61,11 @@ async function tryUpload(label, authOptions) {
       supportsAllDrives: true,
       fields: "id,name,mimeType",
     });
-    console.log("Folder visible:", folder.data.name, `(${folder.data.mimeType})`);
+    console.log(
+      "Folder visible:",
+      folder.data.name,
+      `(${folder.data.mimeType})`,
+    );
   } catch (err) {
     console.error("Folder NOT visible:", err.message);
     return;
@@ -69,7 +73,9 @@ async function tryUpload(label, authOptions) {
 
   // Step 2: upload a file
   const fileName = `test-upload-${Date.now()}.txt`;
-  const stream = Readable.from(Buffer.from(`Drive upload test at ${new Date().toISOString()}\n`));
+  const stream = Readable.from(
+    Buffer.from(`Drive upload test at ${new Date().toISOString()}\n`),
+  );
   console.log(`Uploading "${fileName}" …`);
 
   try {

@@ -238,8 +238,8 @@ export async function getGroupCriteria(
   });
 }
 
-export { addGroupCriteriaSchema, normalizedGroupCriteriaSchema };
 export type { AddGroupCriteriaInput, NormalizedGroupCriteriaInput };
+export { addGroupCriteriaSchema, normalizedGroupCriteriaSchema };
 
 export async function addGroupCriteria(
   input: AddGroupCriteriaInput & { createdBy: string },

@@ -4,8 +4,8 @@ import { and, eq } from "drizzle-orm";
 import { google } from "googleapis";
 import db from "@/db";
 import {
-  legalDocument,
   type LegalDocumentType,
+  legalDocument,
 } from "@/db/schema/legal-document";
 import { env } from "@/env";
 import { createServiceAccountAuth } from "@/lib/google-auth";
