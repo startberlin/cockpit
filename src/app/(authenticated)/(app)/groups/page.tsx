@@ -1,3 +1,4 @@
+import { PageSection } from "@/components/page-section";
 import { listGroupsForViewer, listMemberGroupsForViewer } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
@@ -21,5 +22,9 @@ export default async function GroupsPage() {
     ? await listGroupsForViewer(currentUser.id)
     : await listMemberGroupsForViewer(currentUser.id);
 
-  return <GroupsPageClient groups={groups} />;
+  return (
+    <PageSection>
+      <GroupsPageClient groups={groups} />
+    </PageSection>
+  );
 }
