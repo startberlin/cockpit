@@ -174,6 +174,7 @@ export const importGoogleWorkspaceUserAction = actionClient
           userId: createdUser.id,
           status: "membership_reconfirmation_pending",
           activatedAt: joinedAt,
+          importedPaidThroughAt: paidThroughAt,
         });
       } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
         // Documents missing/unsure: start admission tenure

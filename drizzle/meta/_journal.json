@@ -57,6 +57,13 @@
       "when": 1778451807938,
       "tag": "0007_white_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778452200741,
+      "tag": "0008_solid_redwing",
+      "breakpoints": true
     }
   ]
 }

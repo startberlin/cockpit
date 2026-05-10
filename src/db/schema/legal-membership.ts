@@ -52,6 +52,7 @@ export const legalMembership = pgTable(
     inngestRunId: text("inngest_run_id"),
     startedAt: timestamp("started_at").notNull().defaultNow(),
     activatedAt: timestamp("activated_at"),
+    importedPaidThroughAt: timestamp("imported_paid_through_at"),
     endedAt: timestamp("ended_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")
