@@ -35,7 +35,6 @@ export const boardResolution = pgTable("board_resolution", {
     .unique()
     .references(() => legalMembership.id, { onDelete: "no action" }),
   resolutionText: text("resolution_text").notNull(),
-  resolutionTextVersion: text("resolution_text_version").notNull(),
   resolutionTextHash: text("resolution_text_hash").notNull(),
   billingApplies: boolean("billing_applies").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -63,6 +63,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: BRAND.color.border,
   },
+  field: {
+    marginBottom: 4,
+    flexDirection: "row",
+  },
+  fieldLabel: {
+    width: "35%",
+    color: BRAND.color.secondary,
+    fontSize: 9,
+  },
+  fieldValue: {
+    width: "65%",
+    fontSize: 9,
+  },
   colName: { width: "35%" },
   colFunction: { width: "30%" },
   colVote: { width: "20%" },
@@ -96,6 +109,8 @@ export interface BoardResolutionTemplateData {
   resolutionText: string;
   resolutionTextHash: string;
   subjectName: string;
+  sitzungsleiter: { name: string; officerFunction: string };
+  protokollfuehrer: { name: string; officerFunction: string };
   participants: Array<{
     userId: string;
     name: string;
@@ -125,6 +140,23 @@ export function renderBoardResolutionTemplate(
           <Text style={styles.sectionTitle}>Beschlusstext</Text>
           <View style={styles.resolutionBox}>
             <Text>{data.resolutionText}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Verfahren</Text>
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Sitzungsleiter</Text>
+            <Text style={styles.fieldValue}>
+              {data.sitzungsleiter.name} ({data.sitzungsleiter.officerFunction})
+            </Text>
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Protokollführer</Text>
+            <Text style={styles.fieldValue}>
+              {data.protokollfuehrer.name} (
+              {data.protokollfuehrer.officerFunction})
+            </Text>
           </View>
         </View>
 

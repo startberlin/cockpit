@@ -45,6 +45,7 @@ import {
 import {
   membershipApplication,
   membershipApplicationRelations,
+  membershipApplicationStatus,
 } from "./membership-application";
 import { task, taskRelations, taskStatus } from "./task";
 
@@ -128,6 +129,7 @@ export const schema = {
   boardVoteValue,
   membershipApplication,
   membershipApplicationRelations,
+  membershipApplicationStatus,
   task,
   taskStatus,
   taskRelations,

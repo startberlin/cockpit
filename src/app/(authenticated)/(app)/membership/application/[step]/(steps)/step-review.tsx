@@ -1,166 +1,115 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { CircleCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
-import { Controller } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
+import { FieldDescription, FieldLegend, FieldSet } from "@/components/ui/field";
 import type { User } from "@/db/schema/auth";
+import type { MembershipApplication } from "@/db/schema/membership-application";
 import { handleError } from "@/lib/utils";
-import { submitApplicationSchema } from "../application-validation";
 import { submitApplicationAction } from "../submit-application-action";
 
-const DECLARATIONS: {
-  name: keyof typeof submitApplicationSchema.shape.declarations.shape;
-  label: string;
-}[] = [
-  {
-    name: "naturalPerson",
-    label: "I confirm that I am a natural person.",
-  },
-  {
-    name: "legalCapacity",
-    label: "I confirm that I have full legal capacity.",
-  },
-  {
-    name: "supportsPurpose",
-    label: "I support the purpose of START Berlin e.V.",
-  },
-  {
-    name: "acceptsBylaws",
-    label: "I accept the bylaws of START Berlin e.V.",
-  },
-  {
-    name: "acceptsPrivacyNotice",
-    label: "I have read and accept the privacy notice.",
-  },
-  {
-    name: "acknowledgesFee",
-    label: "I acknowledge that a yearly membership fee of 40 EUR applies.",
-  },
+function formatBirthDate(birthDate: string): string {
+  const parts = birthDate.split("-");
+  if (parts.length !== 3) return birthDate;
+  const [year, month, day] = parts;
+  return `${day}.${month}.${year}`;
+}
+
+const CONFIRMED_DECLARATIONS = [
+  "I confirm that I am a natural person.",
+  "I confirm that I have full legal capacity.",
+  "I support the purpose of START Berlin e.V.",
+  "I accept the bylaws (Satzung) of START Berlin e.V.",
+  "I have read and accept the privacy notice.",
+  "I acknowledge that, in accordance with §2 of the Financial Regulations of START Berlin e.V., a membership fee of €20 per semester applies. Upon joining, €40 are due for the first year; subsequent annual payments of €40 are due every 12 months. I understand that the membership fee is non-refundable if I leave the association early.",
 ];
 
 interface StepReviewProps {
-  user: User;
+  user: Pick<User, "firstName" | "lastName">;
   legalMembershipId: string;
+  draft: MembershipApplication;
 }
 
-export function StepReview({ user, legalMembershipId }: StepReviewProps) {
+export function StepReview({
+  user,
+  legalMembershipId,
+  draft,
+}: StepReviewProps) {
   const router = useRouter();
 
-  const onSuccess = useCallback(() => {
-    router.push("/membership");
-  }, [router]);
-
-  const { form, handleSubmitWithAction, action } = useHookFormAction(
-    submitApplicationAction,
-    zodResolver(submitApplicationSchema),
-    {
-      actionProps: {
-        onSuccess,
-        onError: handleError,
-      },
-      formProps: {
-        defaultValues: {
-          legalMembershipId,
-          address: {
-            street: user.street ?? "",
-            city: user.city ?? "",
-            state: user.state ?? "",
-            zip: user.zip ?? "",
-            country: user.country ?? "",
-          },
-          declarations: {
-            naturalPerson: undefined,
-            legalCapacity: undefined,
-            supportsPurpose: undefined,
-            acceptsBylaws: undefined,
-            acceptsPrivacyNotice: undefined,
-            acknowledgesFee: undefined,
-          },
-        },
-      },
-    },
-  );
+  const { execute, isPending } = useAction(submitApplicationAction, {
+    onSuccess: () => router.push("/membership"),
+    onError: handleError,
+  });
 
   return (
-    <div className="p-0">
-      <form className="flex flex-col gap-y-8" onSubmit={handleSubmitWithAction}>
-        <input type="hidden" {...form.register("legalMembershipId")} />
-
-        <FieldSet>
-          <FieldLegend>Your Address</FieldLegend>
-          <FieldDescription className="text-xs -mt-2 mb-2">
-            This address will be recorded on your membership application.
-          </FieldDescription>
-          <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm leading-relaxed">
-            <p>{user.street}</p>
+    <div className="flex flex-col gap-y-8">
+      <FieldSet>
+        <FieldLegend>Your Details</FieldLegend>
+        <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm leading-relaxed space-y-1">
+          <p>
+            <span className="text-muted-foreground mr-2">Name</span>
+            {user.firstName} {user.lastName}
+          </p>
+          {draft.birthDate && (
             <p>
-              {user.zip} {user.city}
+              <span className="text-muted-foreground mr-2">Date of Birth</span>
+              {formatBirthDate(draft.birthDate)}
             </p>
-            {user.state && <p>{user.state}</p>}
-            <p>{user.country}</p>
-          </div>
-        </FieldSet>
+          )}
+          {draft.personalEmail && (
+            <p>
+              <span className="text-muted-foreground mr-2">Email</span>
+              {draft.personalEmail}
+            </p>
+          )}
+          {draft.phone && (
+            <p>
+              <span className="text-muted-foreground mr-2">Phone</span>
+              {draft.phone}
+            </p>
+          )}
+        </div>
+      </FieldSet>
 
-        <FieldSet>
-          <FieldLegend>Declarations</FieldLegend>
-          <FieldDescription className="text-xs -mt-2 mb-2">
-            Please confirm all declarations to submit your application.
-          </FieldDescription>
-          <FieldGroup>
-            {DECLARATIONS.map(({ name, label }) => (
-              <Controller
-                key={name}
-                name={`declarations.${name}`}
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    orientation="horizontal"
-                    data-invalid={fieldState.invalid}
-                  >
-                    <Checkbox
-                      id={`declarations.${name}`}
-                      checked={field.value === true}
-                      onCheckedChange={(checked) => {
-                        field.onChange(checked === true ? true : undefined);
-                      }}
-                      disabled={action.isPending}
-                    />
-                    <FieldContent>
-                      <FieldLabel htmlFor={`declarations.${name}`}>
-                        {label}
-                      </FieldLabel>
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </FieldContent>
-                  </Field>
-                )}
-              />
-            ))}
-          </FieldGroup>
-        </FieldSet>
+      <FieldSet>
+        <FieldLegend>Your Address</FieldLegend>
+        <FieldDescription className="text-xs -mt-2 mb-2">
+          This address will be recorded on your membership application.
+        </FieldDescription>
+        <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm leading-relaxed">
+          <p>{draft.street}</p>
+          <p>
+            {draft.zip} {draft.city}
+          </p>
+          {draft.state && <p>{draft.state}</p>}
+          <p>{draft.country}</p>
+        </div>
+      </FieldSet>
 
-        <Button
-          type="submit"
-          disabled={!form.formState.isValid || action.isPending}
-        >
-          Submit Application
-        </Button>
-      </form>
+      <FieldSet>
+        <FieldLegend>Confirmed Declarations</FieldLegend>
+        <FieldDescription className="text-xs -mt-2 mb-3">
+          You confirmed the following in the previous steps.
+        </FieldDescription>
+        <ul className="flex flex-col gap-2">
+          {CONFIRMED_DECLARATIONS.map((declaration) => (
+            <li key={declaration} className="flex items-start gap-2 text-sm">
+              <CircleCheck className="size-4 mt-0.5 shrink-0 fill-success text-primary-foreground" />
+              <span>{declaration}</span>
+            </li>
+          ))}
+        </ul>
+      </FieldSet>
+
+      <Button
+        onClick={() => execute({ legalMembershipId })}
+        disabled={isPending}
+      >
+        {isPending ? "Submitting…" : "Submit Application"}
+      </Button>
     </div>
   );
 }

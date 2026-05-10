@@ -15,11 +15,17 @@ import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-con
 import MembershipApplicationReadyEmail from "@/emails/membership-application-ready";
 import { env } from "@/env";
 import {
+  computeResolutionRoles,
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
+import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
+import {
+  readFinanzordnungBuffer,
+  readSatzungBuffer,
+} from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
@@ -266,6 +272,40 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .innerJoin(user, eq(user.id, boardVote.voterUserId))
         .where(eq(boardVote.legalMembershipId, legalMembershipId));
 
+      const mappedParticipants = participants.map((p) => ({
+        userId: p.userId,
+        name: `${p.firstName} ${p.lastName}`,
+        officerFunction: p.officerFunction,
+      }));
+
+      const mappedVotes = votes.map((v) => ({
+        voterUserId: v.voterUserId,
+        voterName: `${v.firstName} ${v.lastName}`,
+        value: v.value,
+        castAt: v.castAt,
+      }));
+
+      const roles = computeResolutionRoles(
+        participants.map((p) => ({
+          userId: p.userId,
+          officerFunction: p.officerFunction,
+        })),
+        votes.map((v) => ({ voterUserId: v.voterUserId, value: v.value })),
+      );
+
+      if (!roles) {
+        throw new Error(
+          `Cannot determine Sitzungsleiter/Protokollführer for ${legalMembershipId}: fewer than 2 yes-voting participants found`,
+        );
+      }
+
+      const sitzungsleiterParticipant = participants.find(
+        (p) => p.userId === roles.sitzungsleiter.userId,
+      );
+      const protokollfuehrerParticipant = participants.find(
+        (p) => p.userId === roles.protokollfuehrer.userId,
+      );
+
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderBoardResolutionTemplate({
         legalMembershipId,
@@ -273,17 +313,16 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         resolutionText: resolution.resolutionText,
         resolutionTextHash: resolution.resolutionTextHash,
         subjectName,
-        participants: participants.map((p) => ({
-          userId: p.userId,
-          name: `${p.firstName} ${p.lastName}`,
-          officerFunction: p.officerFunction,
-        })),
-        votes: votes.map((v) => ({
-          voterUserId: v.voterUserId,
-          voterName: `${v.firstName} ${v.lastName}`,
-          value: v.value,
-          castAt: v.castAt,
-        })),
+        sitzungsleiter: {
+          name: `${sitzungsleiterParticipant?.firstName ?? ""} ${sitzungsleiterParticipant?.lastName ?? ""}`.trim(),
+          officerFunction: roles.sitzungsleiter.officerFunction,
+        },
+        protokollfuehrer: {
+          name: `${protokollfuehrerParticipant?.firstName ?? ""} ${protokollfuehrerParticipant?.lastName ?? ""}`.trim(),
+          officerFunction: roles.protokollfuehrer.officerFunction,
+        },
+        participants: mappedParticipants,
+        votes: mappedVotes,
         renderedAt: new Date(),
       });
 
@@ -310,15 +349,32 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         );
       }
 
+      if (
+        !application.street ||
+        !application.city ||
+        !application.zip ||
+        !application.country ||
+        !application.birthDate ||
+        !application.declarations ||
+        !application.feeTextVersion ||
+        !application.applicationVersion ||
+        !application.submittedAt
+      ) {
+        throw new Error(
+          `Membership application ${application.id} is missing required fields`,
+        );
+      }
+
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderMembershipApplicationTemplate({
         legalMembershipId,
         applicationId: application.id,
         subjectName,
+        birthDate: application.birthDate,
         address: {
           street: application.street,
           city: application.city,
-          state: application.state,
+          state: application.state ?? "",
           zip: application.zip,
           country: application.country,
         },
@@ -329,7 +385,17 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         renderedAt: new Date(),
       });
 
-      const buffer = Buffer.from(await renderToBuffer(element));
+      const mainBuffer = Buffer.from(await renderToBuffer(element));
+
+      const [satzungBuffer, finanzordnungBuffer] = await Promise.all([
+        readSatzungBuffer(),
+        readFinanzordnungBuffer(),
+      ]);
+
+      const buffer = await mergePdfsWithAttachments(mainBuffer, [
+        { title: "Anhang 1: Satzung", buffer: satzungBuffer },
+        { title: "Anhang 2: Finanzordnung", buffer: finanzordnungBuffer },
+      ]);
 
       await archiveLegalDocument({
         legalMembershipId,

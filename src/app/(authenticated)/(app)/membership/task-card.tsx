@@ -83,7 +83,7 @@ export function MembershipTaskCard({
         </CardHeader>
         <CardFooter>
           <Button asChild>
-            <Link href="/membership/application/address">
+            <Link href="/membership/application/personal-information">
               Fill out application
             </Link>
           </Button>
@@ -97,8 +97,12 @@ export function MembershipTaskCard({
     return <MembershipProcessingCard />;
   }
 
-  // active + no payment: welcome, set up payment
-  if (legalMembershipStatus === "active" && !hasPayment) {
+  // active + payment not yet set up: welcome, set up payment
+  if (
+    legalMembershipStatus === "active" &&
+    (membershipState.payment === "not_started" ||
+      membershipState.payment === "pending")
+  ) {
     return (
       <Card>
         <CardHeader>

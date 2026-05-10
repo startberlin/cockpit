@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const handleError = (error: unknown): void => {
-  console.log(error);
+  console.error(error);
   const message = parseError(error);
   toast(message);
 };

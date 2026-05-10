@@ -15,7 +15,9 @@ describe("Better Auth user fields", () => {
       "country",
       "phone",
       "personalEmail",
+      "birthDate",
       "status",
+      "legalMembershipState",
     ]);
   });
 

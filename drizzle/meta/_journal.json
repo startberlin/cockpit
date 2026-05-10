@@ -15,6 +15,27 @@
       "when": 1778373267510,
       "tag": "0001_silly_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778432116803,
+      "tag": "0002_exotic_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778432559369,
+      "tag": "0003_thin_hellion",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778436554440,
+      "tag": "0004_furry_jetstream",
+      "breakpoints": true
     }
   ]
 }

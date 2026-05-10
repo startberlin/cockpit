@@ -1,7 +1,10 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 import type { BoardVoteValue } from "./board-resolution-rules";
-import { computeVoteOutcome } from "./board-resolution-rules";
+import {
+  computeResolutionRoles,
+  computeVoteOutcome,
+} from "./board-resolution-rules";
 
 describe("computeVoteOutcome", () => {
   it("returns approved for 2 yes votes", () => {
@@ -52,5 +55,92 @@ describe("computeVoteOutcome", () => {
   it("returns pending for 3 abstain votes (unresolved after 3 rounds)", () => {
     const votes: BoardVoteValue[] = ["abstain", "abstain", "abstain"];
     assert.strictEqual(computeVoteOutcome(votes), "pending");
+  });
+});
+
+const president = {
+  userId: "u_president",
+  officerFunction: "president" as const,
+};
+const vicePresident = {
+  userId: "u_vp",
+  officerFunction: "vice_president" as const,
+};
+const headOfFinance = {
+  userId: "u_hof",
+  officerFunction: "head_of_finance" as const,
+};
+const allParticipants = [president, vicePresident, headOfFinance];
+
+describe("computeResolutionRoles", () => {
+  it("President + VP → President = Sitzungsleiter, VP = Protokollführer", () => {
+    const votes = [
+      { voterUserId: "u_president", value: "yes" as const },
+      { voterUserId: "u_vp", value: "yes" as const },
+    ];
+    const result = computeResolutionRoles(allParticipants, votes);
+    assert.ok(result !== null);
+    assert.strictEqual(result.sitzungsleiter.officerFunction, "president");
+    assert.strictEqual(
+      result.protokollfuehrer.officerFunction,
+      "vice_president",
+    );
+  });
+
+  it("VP + HoF → VP = Sitzungsleiter, HoF = Protokollführer", () => {
+    const votes = [
+      { voterUserId: "u_vp", value: "yes" as const },
+      { voterUserId: "u_hof", value: "yes" as const },
+    ];
+    const result = computeResolutionRoles(allParticipants, votes);
+    assert.ok(result !== null);
+    assert.strictEqual(result.sitzungsleiter.officerFunction, "vice_president");
+    assert.strictEqual(
+      result.protokollfuehrer.officerFunction,
+      "head_of_finance",
+    );
+  });
+
+  it("President + HoF → President = Sitzungsleiter, HoF = Protokollführer", () => {
+    const votes = [
+      { voterUserId: "u_president", value: "yes" as const },
+      { voterUserId: "u_hof", value: "yes" as const },
+    ];
+    const result = computeResolutionRoles(allParticipants, votes);
+    assert.ok(result !== null);
+    assert.strictEqual(result.sitzungsleiter.officerFunction, "president");
+    assert.strictEqual(
+      result.protokollfuehrer.officerFunction,
+      "head_of_finance",
+    );
+  });
+
+  it("all three voted yes → President = Sitzungsleiter, VP = Protokollführer", () => {
+    const votes = [
+      { voterUserId: "u_president", value: "yes" as const },
+      { voterUserId: "u_vp", value: "yes" as const },
+      { voterUserId: "u_hof", value: "yes" as const },
+    ];
+    const result = computeResolutionRoles(allParticipants, votes);
+    assert.ok(result !== null);
+    assert.strictEqual(result.sitzungsleiter.officerFunction, "president");
+    assert.strictEqual(
+      result.protokollfuehrer.officerFunction,
+      "vice_president",
+    );
+  });
+
+  it("fewer than 2 yes votes → returns null", () => {
+    const votes = [{ voterUserId: "u_president", value: "yes" as const }];
+    assert.strictEqual(computeResolutionRoles(allParticipants, votes), null);
+    assert.strictEqual(computeResolutionRoles(allParticipants, []), null);
+  });
+
+  it("unmatched voter userId → ignored, returns null if < 2 matched", () => {
+    const votes = [
+      { voterUserId: "u_unknown", value: "yes" as const },
+      { voterUserId: "u_president", value: "yes" as const },
+    ];
+    assert.strictEqual(computeResolutionRoles([president], votes), null);
   });
 });

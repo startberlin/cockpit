@@ -26,6 +26,7 @@ import type {
   BoardVoteValue,
   OfficerFunction,
 } from "@/db/schema/board-admission";
+import { computeResolutionRoles } from "@/lib/board-resolution-rules";
 import { castVoteAction } from "./vote-action";
 
 function officerFunctionLabel(fn: OfficerFunction): string {
@@ -87,6 +88,14 @@ export default function ResolutionVoteClient({
 
   const allVoted = resolution.participants.every((p) => p.vote != null);
 
+  const resolutionVotes = resolution.participants
+    .filter((p) => p.vote != null)
+    .map((p) => ({ voterUserId: p.userId, value: p.vote!.value }));
+  const roles =
+    resolution.status !== "admission_pending"
+      ? computeResolutionRoles(resolution.participants, resolutionVotes)
+      : null;
+
   async function handleVote(value: BoardVoteValue) {
     setIsPending(true);
     try {
@@ -118,8 +127,10 @@ export default function ResolutionVoteClient({
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Board Resolution</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Board Resolution
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Admission vote for{" "}
           <span className="font-medium text-foreground">
             {resolution.subject.name}
@@ -215,6 +226,36 @@ export default function ResolutionVoteClient({
               Voting is closed for this resolution. Current status:{" "}
               <span className="font-medium text-foreground">
                 {resolution.status.replace(/_/g, " ")}
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {roles && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Verfahren</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            <p>
+              <span className="text-muted-foreground mr-2">Sitzungsleiter</span>
+              {resolution.participants.find(
+                (p) => p.userId === roles.sitzungsleiter.userId,
+              )?.name ?? roles.sitzungsleiter.userId}{" "}
+              <span className="text-muted-foreground">
+                ({officerFunctionLabel(roles.sitzungsleiter.officerFunction)})
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground mr-2">
+                Protokollführer
+              </span>
+              {resolution.participants.find(
+                (p) => p.userId === roles.protokollfuehrer.userId,
+              )?.name ?? roles.protokollfuehrer.userId}{" "}
+              <span className="text-muted-foreground">
+                ({officerFunctionLabel(roles.protokollfuehrer.officerFunction)})
               </span>
             </p>
           </CardContent>

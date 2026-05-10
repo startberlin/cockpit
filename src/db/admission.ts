@@ -26,8 +26,7 @@ export async function createAdmissionWorkflow(
     billingApplies: boolean;
   },
 ): Promise<void> {
-  const resolutionText = `Der Vorstand beschließt die Aufnahme von ${subjectUser.firstName} ${subjectUser.lastName} als ordentliches Mitglied des Vereins START Berlin e.V.`;
-  const resolutionTextVersion = "v1";
+  const resolutionText = `Der Vorstand beschließt die Aufnahme von ${subjectUser.firstName} ${subjectUser.lastName} als ordentliches Mitglied des Vereins START Berlin e.V., sofern die betreffende Person einen entsprechenden Aufnahmeantrag stellt.`;
   const resolutionTextHash = createHash("sha256")
     .update(resolutionText)
     .digest("hex");
@@ -36,7 +35,6 @@ export async function createAdmissionWorkflow(
     id: newId("boardResolution"),
     legalMembershipId,
     resolutionText,
-    resolutionTextVersion,
     resolutionTextHash,
     billingApplies,
   });

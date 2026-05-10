@@ -1,0 +1,1 @@
+ALTER TABLE "board_resolution" DROP COLUMN "resolution_text_version";

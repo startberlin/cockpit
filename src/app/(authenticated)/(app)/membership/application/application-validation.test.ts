@@ -51,6 +51,7 @@ describe("applicationAddressSchema", () => {
     state: "Berlin",
     zip: "10115",
     country: "Germany",
+    birthDate: "1990-01-15",
   };
 
   it("accepts a valid address", () => {
@@ -102,5 +103,41 @@ describe("applicationAddressSchema", () => {
       country: "",
     });
     assert.equal(result.success, false);
+  });
+
+  it("rejects an empty birthDate", () => {
+    const result = applicationAddressSchema.safeParse({
+      ...validAddress,
+      birthDate: "",
+    });
+    assert.equal(result.success, false);
+  });
+
+  it("rejects a missing birthDate", () => {
+    const { birthDate: _, ...withoutBirthDate } = validAddress;
+    const result = applicationAddressSchema.safeParse(withoutBirthDate);
+    assert.equal(result.success, false);
+  });
+
+  it("rejects a birthDate that is less than 18 years ago", () => {
+    const today = new Date();
+    const under18 = new Date(today);
+    under18.setFullYear(today.getFullYear() - 17);
+    const result = applicationAddressSchema.safeParse({
+      ...validAddress,
+      birthDate: under18.toISOString().split("T")[0],
+    });
+    assert.equal(result.success, false);
+  });
+
+  it("accepts a birthDate that is exactly 18 years ago today", () => {
+    const today = new Date();
+    const exactly18 = new Date(today);
+    exactly18.setFullYear(today.getFullYear() - 18);
+    const result = applicationAddressSchema.safeParse({
+      ...validAddress,
+      birthDate: exactly18.toISOString().split("T")[0],
+    });
+    assert.equal(result.success, true);
   });
 });

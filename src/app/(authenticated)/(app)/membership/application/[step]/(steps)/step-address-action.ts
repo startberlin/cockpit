@@ -3,24 +3,62 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
+import { membershipApplication } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
-import { applicationAddressSchema } from "../application-validation";
+import { newId } from "@/lib/id";
+import { applicationPersonalInfoSchema } from "../application-validation";
 
-export const saveApplicationAddressAction = actionClient
-  .inputSchema(applicationAddressSchema)
+export const saveApplicationPersonalInfoAction = actionClient
+  .inputSchema(applicationPersonalInfoSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { user } = ctx;
 
-    await db
-      .update(userTable)
-      .set({
-        street: parsedInput.street,
-        city: parsedInput.city,
-        state: parsedInput.state,
-        zip: parsedInput.zip,
-        country: parsedInput.country,
-      })
-      .where(eq(userTable.id, user.id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userTable)
+        .set({
+          personalEmail: parsedInput.personalEmail,
+          phone: parsedInput.phone,
+          street: parsedInput.street,
+          city: parsedInput.city,
+          state: parsedInput.state,
+          zip: parsedInput.zip,
+          country: parsedInput.country,
+          birthDate: parsedInput.birthDate,
+        })
+        .where(eq(userTable.id, user.id));
+
+      await tx
+        .insert(membershipApplication)
+        .values({
+          id: newId("membershipApplication"),
+          legalMembershipId: parsedInput.legalMembershipId,
+          subjectUserId: user.id,
+          status: "draft",
+          personalEmail: parsedInput.personalEmail,
+          phone: parsedInput.phone,
+          street: parsedInput.street,
+          city: parsedInput.city,
+          state: parsedInput.state,
+          zip: parsedInput.zip,
+          country: parsedInput.country,
+          birthDate: parsedInput.birthDate,
+        })
+        .onConflictDoUpdate({
+          target: membershipApplication.legalMembershipId,
+          setWhere: eq(membershipApplication.subjectUserId, user.id),
+          set: {
+            personalEmail: parsedInput.personalEmail,
+            phone: parsedInput.phone,
+            street: parsedInput.street,
+            city: parsedInput.city,
+            state: parsedInput.state,
+            zip: parsedInput.zip,
+            country: parsedInput.country,
+            birthDate: parsedInput.birthDate,
+          },
+        });
+    });
 
     return { success: true };
   });

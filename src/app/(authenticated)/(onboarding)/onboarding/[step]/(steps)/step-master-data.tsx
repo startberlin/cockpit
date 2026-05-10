@@ -170,7 +170,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                     disabled={action.isPending}
                   />
                   <FieldDescription className="flex flex-row gap-1.5 pt-0.5 text-xs">
-                    <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <InfoIcon className="h-3.5 w-3.5 shrink-0" />
                     Use a personal email address you’ll keep long-term. Avoid
                     school or work addresses that you might lose access to
                     later.

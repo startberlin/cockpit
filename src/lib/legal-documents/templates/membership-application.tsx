@@ -89,13 +89,14 @@ const DECLARATION_LABELS: Record<string, string> = {
   acceptsBylaws: "I accept the bylaws of START Berlin e.V.",
   acceptsPrivacyNotice: "I have read and accept the privacy notice.",
   acknowledgesFee:
-    "I acknowledge that a yearly membership fee of 40 EUR applies.",
+    "I acknowledge that, in accordance with §2 of the Financial Regulations of START Berlin e.V., a membership fee of €20 per semester applies. Upon joining, €40 are due for the first year; subsequent annual payments of €40 are due every 12 months. I understand that the membership fee is non-refundable if I leave the association early.",
 };
 
 export interface MembershipApplicationTemplateData {
   legalMembershipId: string;
   applicationId: string;
   subjectName: string;
+  birthDate: string;
   address: {
     street: string;
     city: string;
@@ -126,6 +127,12 @@ export function renderMembershipApplicationTemplate(
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Name</Text>
             <Text style={styles.fieldValue}>{data.subjectName}</Text>
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Geburtsdatum</Text>
+            <Text style={styles.fieldValue}>
+              {formatBirthDate(data.birthDate)}
+            </Text>
           </View>
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Straße</Text>
@@ -192,4 +199,11 @@ export function renderMembershipApplicationTemplate(
 
 function formatDate(date: Date) {
   return date.toISOString().substring(0, 10);
+}
+
+function formatBirthDate(birthDate: string): string {
+  const parts = birthDate.split("-");
+  if (parts.length !== 3) return birthDate;
+  const [year, month, day] = parts;
+  return `${day}.${month}.${year}`;
 }

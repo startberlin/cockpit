@@ -82,17 +82,18 @@ export default async function UserDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-4">
+        <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
           <Link href="/people/directory">
             <ArrowLeft />
+            Back to directory
           </Link>
         </Button>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             {user.firstName} {user.lastName}
           </h1>
-          <p className="text-muted-foreground text-sm">{user.email}</p>
+          <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
         </div>
       </div>
 
