@@ -8,8 +8,8 @@ import { slack } from "@/lib/slack";
 export const handleSlackEvent = inngest.createFunction(
   {
     id: "handle-slack-event",
+    triggers: [{ event: "slack/user.joined" }],
   },
-  { event: "slack/user.joined" },
   async ({ event, step }) => {
     const { id } = event.data;
 

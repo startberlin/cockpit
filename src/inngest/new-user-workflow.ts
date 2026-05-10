@@ -21,8 +21,11 @@ function generateRandomPassword(length = 15) {
 }
 
 export const onboardNewUserWorkflow = inngest.createFunction(
-  { id: "onboard-new-user", idempotency: "event.data.personalEmail" },
-  { event: "user.created" },
+  {
+    id: "onboard-new-user",
+    idempotency: "event.data.personalEmail",
+    triggers: [{ event: "user.created" }],
+  },
   async ({ event, step }) => {
     const {
       firstName,

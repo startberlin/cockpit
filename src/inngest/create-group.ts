@@ -6,8 +6,11 @@ import { inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
 export const createGroupWorkflow = inngest.createFunction(
-  { id: "create-group", idempotency: "event.data.id" },
-  { event: "group.created" },
+  {
+    id: "create-group",
+    idempotency: "event.data.id",
+    triggers: [{ event: "group.created" }],
+  },
   async ({ event, step }) => {
     const { id, name, slug, integrations } = event.data;
 
