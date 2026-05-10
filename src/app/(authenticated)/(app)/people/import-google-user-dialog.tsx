@@ -8,7 +8,12 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { AlertCircleIcon, CircleCheck, LockIcon, PencilIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  CircleCheck,
+  LockIcon,
+  PencilIcon,
+} from "lucide-react";
 import * as React from "react";
 import { Controller } from "react-hook-form";
 import { useDebounce } from "use-debounce";
@@ -498,7 +503,6 @@ export function ImportGoogleUserDialog({
                 </div>
               </div>
             )}
-
           </div>
         ) : (
           <form
@@ -587,9 +591,7 @@ export function ImportGoogleUserDialog({
                                     <PencilIcon />
                                   </InputGroupButton>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                  Edit last name.
-                                </TooltipContent>
+                                <TooltipContent>Edit last name.</TooltipContent>
                               </Tooltip>
                             </InputGroupAddon>
                           )}

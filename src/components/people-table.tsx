@@ -12,7 +12,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { Download, MoreHorizontal, Plus } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -58,8 +58,6 @@ import { Badge } from "./ui/badge";
 interface PeopleTableProps {
   data: PublicUser[];
   pendingActions?: PendingBoardAction[];
-  onCreateUserClick?: () => void;
-  onImportUserClick?: () => void;
 }
 
 function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
@@ -126,12 +124,7 @@ function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
   );
 }
 
-export function PeopleTable({
-  data,
-  pendingActions = [],
-  onCreateUserClick,
-  onImportUserClick,
-}: PeopleTableProps) {
+export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
   const router = useRouter();
   const can = useCan();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -293,7 +286,7 @@ export function PeopleTable({
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4 gap-2">
+      <div className="flex items-center pb-4">
         <Input
           placeholder="Find users..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
@@ -302,22 +295,6 @@ export function PeopleTable({
           }
           className="max-w-sm"
         />
-        <Can permission="users.create">
-          <Button
-            variant="outline"
-            className="ml-auto"
-            onClick={onCreateUserClick}
-          >
-            <Plus />
-            Add member
-          </Button>
-        </Can>
-        <Can permission="users.import">
-          <Button variant="outline" onClick={onImportUserClick}>
-            <Download />
-            Import from Google Workspace
-          </Button>
-        </Can>
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -354,7 +331,10 @@ export function PeopleTable({
                       }
                       onClick={
                         canOpenProfile
-                          ? () => router.push(`/people/${row.original.id}`)
+                          ? () =>
+                              router.push(
+                                `/people/directory/${row.original.id}`,
+                              )
                           : undefined
                       }
                     >

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { PageSection } from "@/components/page-section";
 import { canViewGroup, getGroupDetail } from "@/db/groups";
 import { createMetadata } from "@/lib/metadata";
 import GroupDetailClient from "./page-client";
@@ -48,9 +47,5 @@ export default async function GroupPage({ params }: GroupPageProps) {
     notFound();
   }
 
-  return (
-    <PageSection>
-      <GroupDetailClient group={group} />
-    </PageSection>
-  );
+  return <GroupDetailClient group={group} />;
 }

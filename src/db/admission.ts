@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import db from "@/db";
+import type db from "@/db";
 import {
   admissionParticipant,
   boardResolution,

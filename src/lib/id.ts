@@ -3,7 +3,7 @@ export const nanoid = customAlphabet(
   "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz",
 );
 
-const prefixes = {
+export const prefixes = {
   user: "usr",
   group: "gr",
   authorityPosition: "aup",
@@ -17,6 +17,10 @@ const prefixes = {
   legalDocument: "ld",
   task: "tsk",
 } as const;
+
+export function isPrefixedId(value: string): boolean {
+  return Object.values(prefixes).some((p) => value.startsWith(`${p}_`));
+}
 
 export function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
