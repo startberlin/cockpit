@@ -78,12 +78,9 @@ export default function ResolutionVoteClient({
 
   const allVoted = resolution.participants.every((p) => p.vote != null);
 
-  const resolutionVotes = resolution.participants
-    .filter(
-      (p): p is typeof p & { vote: NonNullable<typeof p.vote> } =>
-        p.vote != null,
-    )
-    .map((p) => ({ voterUserId: p.userId, value: p.vote.value }));
+  const resolutionVotes = resolution.participants.flatMap((p) =>
+    p.vote != null ? [{ voterUserId: p.userId, value: p.vote.value }] : [],
+  );
 
   const roles =
     resolution.status !== "admission_pending"
