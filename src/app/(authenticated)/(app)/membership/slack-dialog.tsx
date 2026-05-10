@@ -146,7 +146,9 @@ export function SlackDialog({
     onError: handleError,
   });
 
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useMediaQuery("(min-width: 768px)", {
+    initializeWithValue: false,
+  });
 
   useEventListener("focus", () => {
     if (!open) return;

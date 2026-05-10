@@ -37,7 +37,9 @@ export function NotionDialog({
 }) {
   const [open, setOpen] = useState(false);
 
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useMediaQuery("(min-width: 768px)", {
+    initializeWithValue: false,
+  });
   const title = `${actionLabel} Notion`;
   const description =
     actionLabel === "Join"
