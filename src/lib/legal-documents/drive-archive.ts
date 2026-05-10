@@ -128,3 +128,15 @@ export async function hasArchivedDocument(
     );
   return rows.length > 0;
 }
+
+export async function downloadArchivedDocument(
+  driveFileId: string,
+): Promise<Buffer> {
+  const auth = createServiceAccountAuth(DRIVE_SCOPE);
+  const drive = google.drive({ version: "v3", auth, timeout: 30_000 });
+  const response = await drive.files.get(
+    { fileId: driveFileId, alt: "media", supportsAllDrives: true },
+    { responseType: "arraybuffer" },
+  );
+  return Buffer.from(response.data as ArrayBuffer);
+}
