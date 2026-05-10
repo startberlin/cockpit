@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
+import { newMembershipPaymentId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
 import {
   admissionParticipant,
@@ -7,6 +8,7 @@ import {
   boardVote,
 } from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
+import { membershipPayment } from "@/db/schema/membership";
 import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution-task-assigned";
 import MembershipAdmissionCompletedBoardEmail from "@/emails/membership-admission-completed-board";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
@@ -339,8 +341,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 10: Activate the legal membership and set legalMembershipState.
     // Only reached after all documents are archived.
-    // Both updates are wrapped in a transaction to prevent split-brain where
-    // legal_membership.status = 'active' but user.legalMembershipState is stale.
+    // All three updates are wrapped in a transaction to prevent split-brain where
+    // legal_membership.status = 'active' but user.legalMembershipState is stale,
+    // and to ensure the membership_payment row exists before the user can reach
+    // the payment setup page.
     const activatedAt = await step.run(
       "activate-legal-membership",
       async () => {
@@ -354,6 +358,14 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             .update(user)
             .set({ legalMembershipState: "active_member" })
             .where(eq(user.id, subjectUserId));
+          await tx
+            .insert(membershipPayment)
+            .values({
+              id: newMembershipPaymentId(),
+              userId: subjectUserId,
+              status: "pending",
+            })
+            .onConflictDoNothing();
         });
         return now.toISOString();
       },
