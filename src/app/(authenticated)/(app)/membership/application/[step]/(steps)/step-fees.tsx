@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, InfoIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
@@ -74,6 +75,17 @@ export function StepFees({ legalMembershipId, declarations }: StepFeesProps) {
           </Button>
         </div>
       </div>
+
+      <Alert>
+        <InfoIcon />
+        <AlertTitle>No payment due now</AlertTitle>
+        <AlertDescription>
+          Accepting these regulations confirms you&apos;ve read and understood
+          the fee structure. You&apos;ll set up your yearly membership payment
+          as a separate step once your membership is confirmed — nothing is
+          charged here.
+        </AlertDescription>
+      </Alert>
 
       <FieldSet>
         <FieldGroup>
