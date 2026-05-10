@@ -10,7 +10,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { AlertCircleIcon, Loader2, Plus } from "lucide-react";
+import { AlertCircleIcon, Loader2, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -40,6 +41,8 @@ import {
 import { handleError } from "@/lib/utils";
 import { createBatchAction } from "./create-batch-action";
 import { createBatchSchema } from "./create-batch-schema";
+import { updateBatchAction } from "./update-batch-action";
+import { updateBatchSchema } from "./update-batch-schema";
 
 type Batch = { number: number; startDate: string };
 
@@ -47,30 +50,42 @@ interface BatchesPageClientProps {
   batches: Batch[];
 }
 
-const columns: ColumnDef<Batch>[] = [
-  {
-    accessorKey: "number",
-    header: "Batch",
-    cell: ({ row }) => (
-      <span className="font-medium">#{row.original.number}</span>
-    ),
-  },
-  {
-    accessorKey: "startDate",
-    header: "Start Date",
-    cell: ({ row }) => <span>{row.original.startDate}</span>,
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    cell: () => null,
-  },
-];
-
 export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
   const router = useRouter();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState<Batch | null>(null);
+
+  const columns: ColumnDef<Batch>[] = [
+    {
+      accessorKey: "number",
+      header: "Batch",
+      cell: ({ row }) => (
+        <span className="font-medium">#{row.original.number}</span>
+      ),
+    },
+    {
+      accessorKey: "startDate",
+      header: "Start Date",
+      cell: ({ row }) => <span>{row.original.startDate}</span>,
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setEditTarget(row.original)}
+          >
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit batch #{row.original.number}</span>
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   const table = useReactTable({
     data: batches,
@@ -81,27 +96,52 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const { form, handleSubmitWithAction, action } = useHookFormAction(
-    createBatchAction,
-    zodResolver(createBatchSchema),
-    {
-      actionProps: {
-        onSuccess: () => {
-          setCreateOpen(false);
-          form.reset();
-          router.refresh();
-          toast.success("Batch created");
-        },
-        onError: handleError,
+  const {
+    form: createForm,
+    handleSubmitWithAction: handleCreateSubmit,
+    action: createAction,
+  } = useHookFormAction(createBatchAction, zodResolver(createBatchSchema), {
+    actionProps: {
+      onSuccess: () => {
+        setCreateOpen(false);
+        createForm.reset();
+        router.refresh();
+        toast.success("Batch created");
       },
-      formProps: {
-        defaultValues: {
-          number: undefined as unknown as number,
-          startDate: "",
-        },
-      },
+      onError: handleError,
     },
-  );
+    formProps: {
+      defaultValues: { number: undefined as unknown as number, startDate: "" },
+    },
+  });
+
+  const {
+    form: editForm,
+    handleSubmitWithAction: handleEditSubmit,
+    action: editAction,
+  } = useHookFormAction(updateBatchAction, zodResolver(updateBatchSchema), {
+    actionProps: {
+      onSuccess: () => {
+        setEditTarget(null);
+        router.refresh();
+        toast.success("Batch updated");
+      },
+      onError: handleError,
+    },
+    formProps: {
+      defaultValues: { number: 0, startDate: "" },
+    },
+  });
+
+  // Populate edit form when a batch is selected for editing
+  React.useEffect(() => {
+    if (editTarget) {
+      editForm.reset({
+        number: editTarget.number,
+        startDate: editTarget.startDate,
+      });
+    }
+  }, [editTarget, editForm]);
 
   return (
     <>
@@ -154,48 +194,46 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
         </div>
       )}
 
+      {/* Create batch dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create batch</DialogTitle>
           </DialogHeader>
-          <form
-            className="flex flex-col gap-y-6"
-            onSubmit={handleSubmitWithAction}
-          >
+          <form className="flex flex-col gap-y-6" onSubmit={handleCreateSubmit}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="number">Batch number</FieldLabel>
+                <FieldLabel htmlFor="create-number">Batch number</FieldLabel>
                 <Input
-                  id="number"
+                  id="create-number"
                   type="number"
                   placeholder="5"
                   min={1}
-                  aria-invalid={!!form.formState.errors.number}
-                  disabled={action.isPending}
-                  {...form.register("number", { valueAsNumber: true })}
+                  aria-invalid={!!createForm.formState.errors.number}
+                  disabled={createAction.isPending}
+                  {...createForm.register("number", { valueAsNumber: true })}
                 />
-                <FieldError errors={[form.formState.errors.number]} />
+                <FieldError errors={[createForm.formState.errors.number]} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="startDate">Start date</FieldLabel>
+                <FieldLabel htmlFor="create-startDate">Start date</FieldLabel>
                 <Input
-                  id="startDate"
+                  id="create-startDate"
                   type="date"
-                  aria-invalid={!!form.formState.errors.startDate}
-                  disabled={action.isPending}
-                  {...form.register("startDate")}
+                  aria-invalid={!!createForm.formState.errors.startDate}
+                  disabled={createAction.isPending}
+                  {...createForm.register("startDate")}
                 />
-                <FieldError errors={[form.formState.errors.startDate]} />
+                <FieldError errors={[createForm.formState.errors.startDate]} />
               </Field>
             </FieldGroup>
 
-            {form.formState.errors.root && (
+            {createForm.formState.errors.root && (
               <Alert variant="destructive">
                 <AlertCircleIcon className="h-4 w-4" />
                 <AlertTitle>An error occurred</AlertTitle>
                 <AlertDescription>
-                  {form.formState.errors.root.message}
+                  {createForm.formState.errors.root.message}
                 </AlertDescription>
               </Alert>
             )}
@@ -203,15 +241,77 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
             <div className="flex justify-end">
               <Button
                 type="submit"
-                disabled={!form.formState.isValid || action.isPending}
+                disabled={
+                  !createForm.formState.isValid || createAction.isPending
+                }
               >
-                {action.isPending ? (
+                {createAction.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Creating...
                   </>
                 ) : (
                   "Create batch"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit batch start date dialog */}
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit batch #{editTarget?.number}</DialogTitle>
+            <DialogDescription>
+              Batch number is fixed. You can only update the start date.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="flex flex-col gap-y-6" onSubmit={handleEditSubmit}>
+            <input
+              type="hidden"
+              {...editForm.register("number", { valueAsNumber: true })}
+            />
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="edit-startDate">Start date</FieldLabel>
+                <Input
+                  id="edit-startDate"
+                  type="date"
+                  aria-invalid={!!editForm.formState.errors.startDate}
+                  disabled={editAction.isPending}
+                  {...editForm.register("startDate")}
+                />
+                <FieldError errors={[editForm.formState.errors.startDate]} />
+              </Field>
+            </FieldGroup>
+
+            {editForm.formState.errors.root && (
+              <Alert variant="destructive">
+                <AlertCircleIcon className="h-4 w-4" />
+                <AlertTitle>An error occurred</AlertTitle>
+                <AlertDescription>
+                  {editForm.formState.errors.root.message}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={!editForm.formState.isValid || editAction.isPending}
+              >
+                {editAction.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save changes"
                 )}
               </Button>
             </div>
