@@ -66,7 +66,7 @@ export function StepAddress({ user, legalMembershipId: _ }: StepAddressProps) {
   const [selectedStreetValue, setSelectedStreetValue] = useState("");
 
   const onSuccess = useCallback(() => {
-    router.push("/membership/application/declarations");
+    router.push("/membership/application/review");
   }, [router]);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(

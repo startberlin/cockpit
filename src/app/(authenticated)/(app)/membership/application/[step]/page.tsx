@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getActiveLegalMembership } from "@/db/membership";
 import { getCurrentUser } from "@/db/user";
-import { StepAddress, StepDeclarations, StepReview } from "./(steps)/index";
+import { StepAddress, StepReview } from "./(steps)/index";
 
 export default async function ApplicationStepPage({
   params,
@@ -32,7 +32,7 @@ export default async function ApplicationStepPage({
   }
 
   if (step === "declarations") {
-    return <StepDeclarations legalMembershipId={activeLegalMembership.id} />;
+    redirect("/membership/application/review");
   }
 
   if (step === "review") {

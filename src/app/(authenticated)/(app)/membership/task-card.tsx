@@ -1,5 +1,6 @@
 import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -81,12 +82,11 @@ export function MembershipTaskCard({
           </CardDescription>
         </CardHeader>
         <CardFooter>
-          <Link
-            href="/membership/application/address"
-            className="text-sm font-medium underline underline-offset-4"
-          >
-            Fill out application
-          </Link>
+          <Button asChild>
+            <Link href="/membership/application/address">
+              Fill out application
+            </Link>
+          </Button>
         </CardFooter>
       </Card>
     );

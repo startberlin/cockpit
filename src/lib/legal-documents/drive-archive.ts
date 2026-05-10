@@ -12,7 +12,7 @@ import { createServiceAccountAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { sha256Hex } from "./document-hash";
 
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
 export async function archiveLegalDocument({
   legalMembershipId,
@@ -54,6 +54,7 @@ export async function archiveLegalDocument({
   const stream = Readable.from(buffer);
 
   const response = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name: fileName,
       parents: [env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID],
