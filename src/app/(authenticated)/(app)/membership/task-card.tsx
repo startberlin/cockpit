@@ -70,6 +70,28 @@ export function MembershipTaskCard({
     );
   }
 
+  // membership_reconfirmation_pending: imported member, needs to submit docs
+  if (legalMembershipStatus === "membership_reconfirmation_pending") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Submit your membership documentation</CardTitle>
+          <CardDescription>
+            We need a few details to generate your official membership
+            documents. This only takes a few minutes.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter>
+          <Button asChild>
+            <Link href="/membership/application/personal-information">
+              Submit documentation
+            </Link>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
   // application_pending: board approved, fill out application
   if (legalMembershipStatus === "application_pending") {
     return (

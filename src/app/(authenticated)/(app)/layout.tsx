@@ -8,7 +8,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { getUserAuthority } from "@/db/authority";
-import { getActiveLegalMembership } from "@/db/membership";
 import { getCurrentUser } from "@/db/user";
 import { AuthorityProvider } from "@/lib/permissions/authority-context";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
@@ -22,15 +21,6 @@ export default async function AppLayout({ children }: AppLayoutProps) {
 
   if (!user) {
     return redirect("/auth");
-  }
-
-  // Only not_member users can have a reconfirmation-pending tenure; skip the
-  // DB query for active members to keep this path zero-cost for most users.
-  if (user.legalMembershipState === "not_member") {
-    const activeTenure = await getActiveLegalMembership(user.id);
-    if (activeTenure?.status === "membership_reconfirmation_pending") {
-      return redirect("/membership/application/personal-information");
-    }
   }
 
   const onboardingStatus = getOnboardingProgress(user);
