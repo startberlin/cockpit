@@ -67,7 +67,7 @@ export function StepAddress({ user }: StepAddressProps) {
   const [selectedStreetValue, setSelectedStreetValue] = useState("");
 
   const onCompletedStep = useCallback(() => {
-    if (!session || !session.data || !session.data.user) {
+    if (!session?.data?.user) {
       console.error("User not loaded/signed in. Can't refresh page.");
       return;
     }
