@@ -1,50 +1,44 @@
 "use client";
 
-import { LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Can } from "@/components/can";
+import { cn } from "@/lib/utils";
 
 export default function PeopleSubNav() {
   const pathname = usePathname();
 
   const tab = (href: string, label: string, active: boolean) => (
-    <span className="relative flex flex-col items-center">
-      <Link
-        href={href}
-        aria-current={active ? "page" : undefined}
-        className="uppercase text-brand-foreground/70 font-bold py-2 px-3 mb-[2px] whitespace-nowrap hover:text-brand-foreground"
-      >
-        {label}
-      </Link>
-      {active && (
-        <motion.span
-          layoutId="people-sub-nav-underline"
-          className="absolute left-0 right-0 bottom-0 h-[2px] bg-brand-foreground"
-          transition={{ type: "spring", stiffness: 400, damping: 40 }}
-        />
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex items-center border-b-2 px-1 pb-3 text-sm font-medium whitespace-nowrap transition-colors",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
-    </span>
+    >
+      {label}
+    </Link>
   );
 
   return (
-    <nav aria-label="People section navigation">
-      <LayoutGroup id="people-sub-nav">
-        <ul className="flex relative gap-0.5 flex-nowrap overflow-x-auto overflow-y-hidden">
-          <li className="flex relative shrink-0">
-            {tab("/people", "Directory", pathname === "/people")}
+    <nav aria-label="People section navigation" className="border-b">
+      <ul className="-mb-px flex flex-nowrap gap-6 overflow-x-auto">
+        <li className="shrink-0">
+          {tab("/people", "Directory", pathname === "/people")}
+        </li>
+        <Can permission="batches.manage">
+          <li className="shrink-0">
+            {tab(
+              "/people/batches",
+              "Batches",
+              pathname.startsWith("/people/batches"),
+            )}
           </li>
-          <Can permission="batches.manage">
-            <li className="flex relative shrink-0">
-              {tab(
-                "/people/batches",
-                "Batches",
-                pathname.startsWith("/people/batches"),
-              )}
-            </li>
-          </Can>
-        </ul>
-      </LayoutGroup>
+        </Can>
+      </ul>
     </nav>
   );
 }
