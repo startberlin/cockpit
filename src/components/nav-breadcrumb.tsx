@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useBreadcrumbOverride } from "@/components/breadcrumb-bridge";
 import { BreadcrumbView, type Crumb } from "@/components/breadcrumb-view";
 import { isPrefixedId } from "@/lib/id";
 
@@ -19,19 +20,6 @@ function looksLikeId(segment: string): boolean {
   return isPrefixedId(segment) || /^[0-9a-f]{8,}/i.test(segment);
 }
 
-function getOverrideCrumbs(pathname: string): Crumb[] | null {
-  // /people/resolutions/<id> — keep only "People > Resolutions" rather than
-  // exposing the resolution ID. Member detail at /people/directory/[id] is
-  // handled by its parallel-route slot, which fetches the real name.
-  if (/^\/people\/resolutions\/[^/]+$/.test(pathname)) {
-    return [
-      { label: "People", href: "/people/directory" },
-      { label: "Resolutions" },
-    ];
-  }
-  return null;
-}
-
 function buildDefaultCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
   return segments.map((seg, i) => {
@@ -46,6 +34,7 @@ function buildDefaultCrumbs(pathname: string): Crumb[] {
 
 export function NavBreadcrumb() {
   const pathname = usePathname();
-  const crumbs = getOverrideCrumbs(pathname) ?? buildDefaultCrumbs(pathname);
+  const override = useBreadcrumbOverride();
+  const crumbs = override ?? buildDefaultCrumbs(pathname);
   return <BreadcrumbView crumbs={crumbs} />;
 }

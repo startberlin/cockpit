@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
+import { BreadcrumbProvider } from "@/components/breadcrumb-bridge";
+import { NavBreadcrumb } from "@/components/nav-breadcrumb";
 import {
   SidebarInset,
   SidebarProvider,
@@ -12,13 +14,9 @@ import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  breadcrumb: React.ReactNode;
 }
 
-export default async function AppLayout({
-  children,
-  breadcrumb,
-}: AppLayoutProps) {
+export default async function AppLayout({ children }: AppLayoutProps) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -39,16 +37,20 @@ export default async function AppLayout({
 
   return (
     <AuthorityProvider authority={authority}>
-      <SidebarProvider>
-        <AppSidebar user={user} />
-        <SidebarInset>
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1" />
-            {breadcrumb}
-          </header>
-          <div className="mx-auto w-full max-w-4xl flex-1 p-6">{children}</div>
-        </SidebarInset>
-      </SidebarProvider>
+      <BreadcrumbProvider>
+        <SidebarProvider>
+          <AppSidebar user={user} />
+          <SidebarInset>
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+              <SidebarTrigger className="-ml-1" />
+              <NavBreadcrumb />
+            </header>
+            <div className="mx-auto w-full max-w-4xl flex-1 p-6">
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </BreadcrumbProvider>
     </AuthorityProvider>
   );
 }

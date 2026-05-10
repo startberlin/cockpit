@@ -1,6 +1,7 @@
 import { ArrowLeft, ShieldX } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -63,7 +64,7 @@ export default async function UserDetailPage({ params }: PageProps) {
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" asChild>
-          <Link href="/people">Back to people</Link>
+          <Link href="/people/directory">Back to people</Link>
         </Button>
       </Empty>
     );
@@ -73,9 +74,17 @@ export default async function UserDetailPage({ params }: PageProps) {
 
   return (
     <div className="w-full space-y-6">
+      <BreadcrumbCrumb
+        crumbs={[
+          { label: "People", href: "/people/directory" },
+          { label: "Directory", href: "/people/directory" },
+          { label: `${user.firstName} ${user.lastName}` },
+        ]}
+      />
+
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/people">
+          <Link href="/people/directory">
             <ArrowLeft />
           </Link>
         </Button>
