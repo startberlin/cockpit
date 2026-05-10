@@ -20,16 +20,10 @@ function looksLikeId(segment: string): boolean {
 }
 
 function getOverrideCrumbs(pathname: string): Crumb[] | null {
-  const memberMatch = pathname.match(/^\/people\/([^/]+)$/);
-  if (memberMatch && looksLikeId(memberMatch[1])) {
-    return [
-      { label: "People", href: "/people/directory" },
-      { label: "Directory", href: "/people/directory" },
-      { label: "Member" },
-    ];
-  }
-  const resolutionMatch = pathname.match(/^\/people\/resolutions\/([^/]+)$/);
-  if (resolutionMatch) {
+  // /people/resolutions/<id> — keep only "People > Resolutions" rather than
+  // exposing the resolution ID. Member detail at /people/directory/[id] is
+  // handled by its parallel-route slot, which fetches the real name.
+  if (/^\/people\/resolutions\/[^/]+$/.test(pathname)) {
     return [
       { label: "People", href: "/people/directory" },
       { label: "Resolutions" },

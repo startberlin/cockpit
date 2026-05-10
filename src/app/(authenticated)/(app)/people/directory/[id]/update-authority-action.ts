@@ -16,5 +16,5 @@ export const updateAuthorityAction = actionClient
     }
 
     await replaceUserAuthority(parsedInput);
-    revalidatePath(`/people/${parsedInput.userId}`);
+    revalidatePath(`/people/directory/${parsedInput.userId}`);
   });

@@ -331,7 +331,10 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                       }
                       onClick={
                         canOpenProfile
-                          ? () => router.push(`/people/${row.original.id}`)
+                          ? () =>
+                              router.push(
+                                `/people/directory/${row.original.id}`,
+                              )
                           : undefined
                       }
                     >

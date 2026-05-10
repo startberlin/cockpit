@@ -393,7 +393,7 @@ export default function GroupDetailClient({
                         <div className="flex items-center gap-2">
                           {canViewProfile ? (
                             <Link
-                              href={`/people/${member.id}`}
+                              href={`/people/directory/${member.id}`}
                               className="font-medium hover:underline"
                             >
                               {member.firstName} {member.lastName}
