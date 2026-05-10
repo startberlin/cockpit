@@ -40,6 +40,7 @@ import { handleError } from "@/lib/utils";
 import { checkWorkspaceEmailAction } from "./check-workspace-email-action";
 import { createUserAction } from "./create-user-action";
 import { createUserSchema } from "./create-user-schema";
+import { Department } from "@/db/schema";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -54,9 +55,21 @@ export function CreateUserDialog({
   batches,
   onSuccess,
 }: CreateUserDialogProps) {
+  const resolver = React.useMemo(() => zodResolver(createUserSchema), []);
+  const defaultValues = React.useMemo(
+    () => ({
+      firstName: "",
+      lastName: "",
+      personalEmail: "",
+      batchNumber: batches[0]?.number ?? 0,
+      department: null as Department | null,
+      status: "onboarding" as const,
+    }),
+    [batches],
+  );
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     createUserAction,
-    zodResolver(createUserSchema),
+    resolver,
     {
       actionProps: {
         onSuccess: () => {
@@ -66,14 +79,7 @@ export function CreateUserDialog({
         onError: handleError,
       },
       formProps: {
-        defaultValues: {
-          firstName: "",
-          lastName: "",
-          personalEmail: "",
-          batchNumber: batches[0]?.number ?? 0,
-          department: null,
-          status: "onboarding",
-        },
+        defaultValues,
         mode: "onChange",
       },
     },

@@ -1,23 +1,26 @@
 "use client";
 
-import {
-  type ColumnDef,
-  type ColumnFiltersState,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useQuery } from "@tanstack/react-query";
+import {
+  type ColumnDef,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { AlertCircleIcon, CircleCheck, LockIcon } from "lucide-react";
-import type { InferSafeActionFnResult } from "next-safe-action";
-import { useAction } from "next-safe-action/hooks";
 import * as React from "react";
 import { Controller } from "react-hook-form";
 import { useDebounce } from "use-debounce";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -50,9 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Skeleton,
-} from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -66,19 +67,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { DEPARTMENTS } from "@/lib/enums";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { cn, handleError } from "@/lib/utils";
 import {
+  fetchWorkspaceUsersPageAction,
   importGoogleWorkspaceUserAction,
-  listAllWorkspaceUsersAction,
 } from "./import-google-user-action";
 import {
   importableUserStatus,
@@ -95,25 +89,17 @@ interface ImportGoogleUserDialogProps {
 type WizardStep = "browse" | "profile" | "membership";
 
 type WorkspaceCandidate = NonNullable<
-  InferSafeActionFnResult<typeof listAllWorkspaceUsersAction>["data"]
->[number];
+  Awaited<ReturnType<typeof fetchWorkspaceUsersPageAction>>["data"]
+>["users"][number];
+
+const EMPTY_CANDIDATES: WorkspaceCandidate[] = [];
 
 const COLUMNS: ColumnDef<WorkspaceCandidate>[] = [
-  {
-    id: "givenName",
-    accessorKey: "givenName",
-  },
-  {
-    id: "familyName",
-    accessorKey: "familyName",
-  },
   {
     id: "name",
     accessorFn: (row) => row.name,
     header: "Name",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.name}</span>
-    ),
+    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
   {
     id: "email",
@@ -146,47 +132,62 @@ export function ImportGoogleUserDialog({
   const [lastNameFilter, setLastNameFilter] = React.useState("");
   const [debouncedFirstName] = useDebounce(firstNameFilter, 300);
   const [debouncedLastName] = useDebounce(lastNameFilter, 300);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [selected, setSelected] = React.useState<WorkspaceCandidate | null>(null);
+  // Stack of pageTokens: index 0 is page 1 (token = undefined), subsequent entries are GWS nextPageTokens.
+  const [pageTokens, setPageTokens] = React.useState<(string | undefined)[]>([
+    undefined,
+  ]);
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [selected, setSelected] = React.useState<WorkspaceCandidate | null>(
+    null,
+  );
   const [firstNameUnlocked, setFirstNameUnlocked] = React.useState(false);
   const [lastNameUnlocked, setLastNameUnlocked] = React.useState(false);
 
-  const listAction = useAction(listAllWorkspaceUsersAction);
-  const listActionExecute = listAction.execute;
-  const listActionReset = listAction.reset;
+  const gwsQuery =
+    [
+      debouncedFirstName && `givenName:${debouncedFirstName}`,
+      debouncedLastName && `familyName:${debouncedLastName}`,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
-  const candidates = listAction.result.data ?? [];
-  const isLoading = listAction.status === "executing";
-  const loadError = listAction.status === "hasErrored";
+  const currentPageToken = pageTokens[pageIndex];
+
+  const {
+    data: pageData,
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["workspace-users", currentPageToken, gwsQuery],
+    queryFn: async () => {
+      const result = await fetchWorkspaceUsersPageAction({
+        pageToken: currentPageToken,
+        query: gwsQuery,
+      });
+      if (!result?.data) throw new Error("Failed to load Workspace users.");
+      return result.data;
+    },
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const candidates = pageData?.users ?? EMPTY_CANDIDATES;
+  const nextPageToken = pageData?.nextPageToken ?? null;
+  const isLoading = isFetching;
+  const loadError = isError;
+
+  React.useEffect(() => {
+    if (nextPageToken && pageTokens.length <= pageIndex + 1) {
+      setPageTokens((prev) => [...prev, nextPageToken]);
+    }
+  }, [nextPageToken, pageIndex, pageTokens.length]);
 
   const table = useReactTable({
     data: candidates,
     columns: COLUMNS,
-    state: { columnFilters, columnVisibility: { givenName: false, familyName: false } },
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
   });
-
-  React.useEffect(() => {
-    setColumnFilters((prev) => {
-      const withoutFirst = prev.filter((f) => f.id !== "givenName");
-      return debouncedFirstName
-        ? [...withoutFirst, { id: "givenName", value: debouncedFirstName }]
-        : withoutFirst;
-    });
-  }, [debouncedFirstName]);
-
-  React.useEffect(() => {
-    setColumnFilters((prev) => {
-      const withoutLast = prev.filter((f) => f.id !== "familyName");
-      return debouncedLastName
-        ? [...withoutLast, { id: "familyName", value: debouncedLastName }]
-        : withoutLast;
-    });
-  }, [debouncedLastName]);
 
   const defaultValues = React.useMemo(
     () => ({
@@ -200,9 +201,13 @@ export function ImportGoogleUserDialog({
     }),
     [batches],
   );
+  const resolver = React.useMemo(
+    () => zodResolver(importGoogleWorkspaceUserSchema),
+    [],
+  );
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     importGoogleWorkspaceUserAction,
-    zodResolver(importGoogleWorkspaceUserSchema),
+    resolver,
     {
       actionProps: {
         onSuccess: () => {
@@ -228,24 +233,26 @@ export function ImportGoogleUserDialog({
     setSelected(candidate);
     setFirstNameUnlocked(false);
     setLastNameUnlocked(false);
-    form.setValue("googleWorkspaceUserId", candidate.id, { shouldValidate: true });
+    form.setValue("googleWorkspaceUserId", candidate.id, {
+      shouldValidate: true,
+    });
     form.setValue("firstName", candidate.givenName, { shouldValidate: true });
     form.setValue("lastName", candidate.familyName, { shouldValidate: true });
   };
 
   React.useEffect(() => {
     if (!shouldShowDepartment && form.getValues("department") !== null) {
-      form.setValue("department", null, { shouldValidate: true });
+      form.setValue("department", null);
     }
     if (!requiresMembershipStep) {
       if (form.getValues("paidThroughAt") !== "") {
-        form.setValue("paidThroughAt", "", { shouldValidate: true });
+        form.setValue("paidThroughAt", "");
       }
       if (form.getValues("documentsVerified") !== undefined) {
-        form.setValue("documentsVerified", undefined, { shouldValidate: true });
+        form.setValue("documentsVerified", undefined);
       }
     } else if (form.getValues("documentsVerified") === undefined) {
-      form.setValue("documentsVerified", false, { shouldValidate: true });
+      form.setValue("documentsVerified", false);
     }
   }, [form, shouldShowDepartment, requiresMembershipStep]);
 
@@ -256,21 +263,18 @@ export function ImportGoogleUserDialog({
   }, [requiresMembershipStep, step]);
 
   React.useEffect(() => {
-    if (open) {
-      listActionExecute(undefined);
-      return;
-    }
+    if (open) return;
 
     setStep("browse");
     setFirstNameFilter("");
     setLastNameFilter("");
-    setColumnFilters([]);
+    setPageTokens([undefined]);
+    setPageIndex(0);
     setSelected(null);
     setFirstNameUnlocked(false);
     setLastNameUnlocked(false);
-    listActionReset();
     form.reset(defaultValues);
-  }, [defaultValues, form, open, listActionExecute, listActionReset]);
+  }, [defaultValues, form, open]);
 
   const stepKeys: WizardStep[] = requiresMembershipStep
     ? ["browse", "profile", "membership"]
@@ -281,8 +285,8 @@ export function ImportGoogleUserDialog({
   const activeStepIndex = Math.min(stepKeys.indexOf(step), stepKeys.length - 1);
 
   const rows = table.getRowModel().rows;
-  const pageCount = table.getPageCount();
-  const pageIndex = table.getState().pagination.pageIndex;
+  const hasPreviousPage = pageIndex > 0;
+  const hasNextPage = !!nextPageToken;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -306,7 +310,9 @@ export function ImportGoogleUserDialog({
                         <BreadcrumbPage
                           className={cn(
                             "flex items-center gap-1 font-regular",
-                            !isActive && !isCompleted && "text-muted-foreground",
+                            !isActive &&
+                              !isCompleted &&
+                              "text-muted-foreground",
                           )}
                         >
                           {isCompleted && (
@@ -324,7 +330,8 @@ export function ImportGoogleUserDialog({
           <div>
             <DialogTitle>Import from Google Workspace</DialogTitle>
             <DialogDescription>
-              Link a Workspace account to START Cockpit without creating a new account.
+              Link a Workspace account to START Cockpit without creating a new
+              account.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -338,7 +345,11 @@ export function ImportGoogleUserDialog({
                   id="filterFirstName"
                   value={firstNameFilter}
                   placeholder="Filter by first name"
-                  onChange={(e) => setFirstNameFilter(e.target.value)}
+                  onChange={(e) => {
+                    setFirstNameFilter(e.target.value);
+                    setPageTokens([undefined]);
+                    setPageIndex(0);
+                  }}
                 />
               </Field>
               <Field className="flex-1">
@@ -347,7 +358,11 @@ export function ImportGoogleUserDialog({
                   id="filterLastName"
                   value={lastNameFilter}
                   placeholder="Filter by last name"
-                  onChange={(e) => setLastNameFilter(e.target.value)}
+                  onChange={(e) => {
+                    setLastNameFilter(e.target.value);
+                    setPageTokens([undefined]);
+                    setPageIndex(0);
+                  }}
                 />
               </Field>
             </div>
@@ -365,14 +380,23 @@ export function ImportGoogleUserDialog({
                   {isLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-48" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-20" />
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : loadError ? null : rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="py-8 text-center text-muted-foreground text-sm">
+                      <TableCell
+                        colSpan={3}
+                        className="py-8 text-center text-muted-foreground text-sm"
+                      >
                         {candidates.length === 0
                           ? "No Workspace users found."
                           : "No users match these filters."}
@@ -381,7 +405,8 @@ export function ImportGoogleUserDialog({
                   ) : (
                     rows.map((row) => {
                       const candidate = row.original;
-                      const disabled = !!candidate.linkedUser || candidate.suspended;
+                      const disabled =
+                        !!candidate.linkedUser || candidate.suspended;
                       const isSelected = selected?.id === candidate.id;
                       return (
                         <TableRow
@@ -393,11 +418,21 @@ export function ImportGoogleUserDialog({
                           onClick={() => selectWorkspaceUser(candidate)}
                         >
                           <TableCell>
-                            <span className="font-medium">{candidate.name}</span>
+                            <span className="font-medium">
+                              {candidate.name}
+                            </span>
                           </TableCell>
                           <TableCell>{candidate.primaryEmail}</TableCell>
                           <TableCell>
-                            <Badge variant={disabled ? "secondary" : isSelected ? "default" : "outline"}>
+                            <Badge
+                              variant={
+                                disabled
+                                  ? "secondary"
+                                  : isSelected
+                                    ? "default"
+                                    : "outline"
+                              }
+                            >
                               {candidate.suspended
                                 ? "Suspended"
                                 : candidate.linkedUser
@@ -426,7 +461,7 @@ export function ImportGoogleUserDialog({
                     variant="outline"
                     size="sm"
                     disabled={isLoading}
-                    onClick={() => listActionExecute(undefined)}
+                    onClick={() => refetch()}
                   >
                     {isLoading ? "Retrying…" : "Retry"}
                   </Button>
@@ -434,18 +469,18 @@ export function ImportGoogleUserDialog({
               </Alert>
             )}
 
-            {!isLoading && !loadError && pageCount > 1 && (
+            {!loadError && (hasPreviousPage || hasNextPage) && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  Page {pageIndex + 1} of {pageCount}
+                  Page {pageIndex + 1}
                 </span>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!table.getCanPreviousPage()}
-                    onClick={() => table.previousPage()}
+                    disabled={!hasPreviousPage || isLoading}
+                    onClick={() => setPageIndex((i) => i - 1)}
                   >
                     Previous
                   </Button>
@@ -453,8 +488,8 @@ export function ImportGoogleUserDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!table.getCanNextPage()}
-                    onClick={() => table.nextPage()}
+                    disabled={!hasNextPage || isLoading}
+                    onClick={() => setPageIndex((i) => i + 1)}
                   >
                     Next
                   </Button>
