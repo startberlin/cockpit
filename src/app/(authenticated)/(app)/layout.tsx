@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NavBreadcrumb } from "@/components/nav-breadcrumb";
 import {
   SidebarInset,
   SidebarProvider,
@@ -40,6 +41,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
         <SidebarInset>
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
+            <NavBreadcrumb />
           </header>
           <div className="mx-auto w-full max-w-4xl flex-1 p-6">{children}</div>
         </SidebarInset>
