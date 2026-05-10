@@ -64,6 +64,13 @@
       "when": 1778452200741,
       "tag": "0008_solid_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778455116300,
+      "tag": "0009_active_tenure_index",
+      "breakpoints": true
     }
   ]
 }

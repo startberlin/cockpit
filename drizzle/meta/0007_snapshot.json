@@ -64,12 +64,8 @@
           "name": "audit_log_actor_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": [
-            "actor_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -77,12 +73,8 @@
           "name": "audit_log_target_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": [
-            "target_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -183,12 +175,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -259,12 +247,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -274,9 +258,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -428,12 +410,8 @@
           "name": "user_batch_number_batch_number_fk",
           "tableFrom": "user",
           "tableTo": "batch",
-          "columnsFrom": [
-            "batch_number"
-          ],
-          "columnsTo": [
-            "number"
-          ],
+          "columnsFrom": ["batch_number"],
+          "columnsTo": ["number"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -443,9 +421,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -561,12 +537,8 @@
           "name": "user_access_grant_user_id_user_id_fk",
           "tableFrom": "user_access_grant",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -576,12 +548,7 @@
         "user_grant_scope_department_unique": {
           "name": "user_grant_scope_department_unique",
           "nullsNotDistinct": true,
-          "columns": [
-            "user_id",
-            "grant",
-            "scope",
-            "department"
-          ]
+          "columns": ["user_id", "grant", "scope", "department"]
         }
       },
       "policies": {},
@@ -716,12 +683,8 @@
           "name": "user_organization_position_user_id_user_id_fk",
           "tableFrom": "user_organization_position",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -731,12 +694,7 @@
         "user_position_scope_department_unique": {
           "name": "user_position_scope_department_unique",
           "nullsNotDistinct": true,
-          "columns": [
-            "user_id",
-            "position",
-            "scope",
-            "department"
-          ]
+          "columns": ["user_id", "position", "scope", "department"]
         }
       },
       "policies": {},
@@ -832,12 +790,8 @@
           "name": "admission_participant_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "admission_participant",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -845,12 +799,8 @@
           "name": "admission_participant_user_id_user_id_fk",
           "tableFrom": "admission_participant",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -903,12 +853,8 @@
           "name": "board_resolution_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "board_resolution",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -918,9 +864,7 @@
         "board_resolution_legal_membership_id_unique": {
           "name": "board_resolution_legal_membership_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "legal_membership_id"
-          ]
+          "columns": ["legal_membership_id"]
         }
       },
       "policies": {},
@@ -976,12 +920,8 @@
           "name": "board_vote_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "board_vote",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -989,12 +929,8 @@
           "name": "board_vote_voter_user_id_user_id_fk",
           "tableFrom": "board_vote",
           "tableTo": "user",
-          "columnsFrom": [
-            "voter_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voter_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1004,10 +940,7 @@
         "board_vote_legal_membership_id_voter_user_id_unique": {
           "name": "board_vote_legal_membership_id_voter_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "legal_membership_id",
-            "voter_user_id"
-          ]
+          "columns": ["legal_membership_id", "voter_user_id"]
         }
       },
       "policies": {},
@@ -1044,9 +977,7 @@
         "group_slug_unique": {
           "name": "group_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -1115,12 +1046,8 @@
           "name": "group_criteria_group_id_group_id_fk",
           "tableFrom": "group_criteria",
           "tableTo": "group",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1128,12 +1055,8 @@
           "name": "group_criteria_created_by_user_id_fk",
           "tableFrom": "group_criteria",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1175,12 +1098,8 @@
           "name": "users_to_groups_user_id_user_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1188,12 +1107,8 @@
           "name": "users_to_groups_group_id_group_id_fk",
           "tableFrom": "users_to_groups",
           "tableTo": "group",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1201,10 +1116,7 @@
       "compositePrimaryKeys": {
         "users_to_groups_user_id_group_id_pk": {
           "name": "users_to_groups_user_id_group_id_pk",
-          "columns": [
-            "user_id",
-            "group_id"
-          ]
+          "columns": ["user_id", "group_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1288,12 +1200,8 @@
           "name": "legal_document_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "legal_document",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1303,10 +1211,7 @@
         "legal_document_legal_membership_id_document_type_unique": {
           "name": "legal_document_legal_membership_id_document_type_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "legal_membership_id",
-            "document_type"
-          ]
+          "columns": ["legal_membership_id", "document_type"]
         }
       },
       "policies": {},
@@ -1399,12 +1304,8 @@
           "name": "legal_membership_user_id_user_id_fk",
           "tableFrom": "legal_membership",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1509,12 +1410,8 @@
           "name": "membership_payment_user_id_user_id_fk",
           "tableFrom": "membership_payment",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1524,44 +1421,32 @@
         "membership_payment_user_id_unique": {
           "name": "membership_payment_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         },
         "membership_payment_gocardless_customer_id_unique": {
           "name": "membership_payment_gocardless_customer_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "gocardless_customer_id"
-          ]
+          "columns": ["gocardless_customer_id"]
         },
         "membership_payment_gocardless_billing_request_id_unique": {
           "name": "membership_payment_gocardless_billing_request_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "gocardless_billing_request_id"
-          ]
+          "columns": ["gocardless_billing_request_id"]
         },
         "membership_payment_gocardless_billing_request_flow_id_unique": {
           "name": "membership_payment_gocardless_billing_request_flow_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "gocardless_billing_request_flow_id"
-          ]
+          "columns": ["gocardless_billing_request_flow_id"]
         },
         "membership_payment_gocardless_subscription_id_unique": {
           "name": "membership_payment_gocardless_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "gocardless_subscription_id"
-          ]
+          "columns": ["gocardless_subscription_id"]
         },
         "membership_payment_gocardless_mandate_id_unique": {
           "name": "membership_payment_gocardless_mandate_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "gocardless_mandate_id"
-          ]
+          "columns": ["gocardless_mandate_id"]
         }
       },
       "policies": {},
@@ -1691,12 +1576,8 @@
           "name": "membership_application_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "membership_application",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1704,12 +1585,8 @@
           "name": "membership_application_subject_user_id_user_id_fk",
           "tableFrom": "membership_application",
           "tableTo": "user",
-          "columnsFrom": [
-            "subject_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["subject_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1719,9 +1596,7 @@
         "membership_application_legal_membership_id_unique": {
           "name": "membership_application_legal_membership_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "legal_membership_id"
-          ]
+          "columns": ["legal_membership_id"]
         }
       },
       "policies": {},
@@ -1815,12 +1690,8 @@
           "name": "task_assignee_user_id_user_id_fk",
           "tableFrom": "task",
           "tableTo": "user",
-          "columnsFrom": [
-            "assignee_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignee_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1828,12 +1699,8 @@
           "name": "task_completed_by_user_id_user_id_fk",
           "tableFrom": "task",
           "tableTo": "user",
-          "columnsFrom": [
-            "completed_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["completed_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1841,12 +1708,8 @@
           "name": "task_legal_membership_id_legal_membership_id_fk",
           "tableFrom": "task",
           "tableTo": "legal_membership",
-          "columnsFrom": [
-            "legal_membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["legal_membership_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1862,47 +1725,27 @@
     "public.department": {
       "name": "department",
       "schema": "public",
-      "values": [
-        "partnerships",
-        "operations",
-        "community",
-        "growth",
-        "events"
-      ]
+      "values": ["partnerships", "operations", "community", "growth", "events"]
     },
     "public.legal_membership_state": {
       "name": "legal_membership_state",
       "schema": "public",
-      "values": [
-        "not_member",
-        "active_member",
-        "former_member"
-      ]
+      "values": ["not_member", "active_member", "former_member"]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "onboarding",
-        "member",
-        "supporting_alumni",
-        "alumni"
-      ]
+      "values": ["onboarding", "member", "supporting_alumni", "alumni"]
     },
     "public.access_grant": {
       "name": "access_grant",
       "schema": "public",
-      "values": [
-        "admin"
-      ]
+      "values": ["admin"]
     },
     "public.authority_scope": {
       "name": "authority_scope",
       "schema": "public",
-      "values": [
-        "global",
-        "department"
-      ]
+      "values": ["global", "department"]
     },
     "public.organization_position": {
       "name": "organization_position",
@@ -1917,27 +1760,17 @@
     "public.board_vote_value": {
       "name": "board_vote_value",
       "schema": "public",
-      "values": [
-        "yes",
-        "no"
-      ]
+      "values": ["yes", "no"]
     },
     "public.officer_function": {
       "name": "officer_function",
       "schema": "public",
-      "values": [
-        "president",
-        "vice_president",
-        "head_of_finance"
-      ]
+      "values": ["president", "vice_president", "head_of_finance"]
     },
     "public.group_role": {
       "name": "group_role",
       "schema": "public",
-      "values": [
-        "admin",
-        "member"
-      ]
+      "values": ["admin", "member"]
     },
     "public.legal_membership_status": {
       "name": "legal_membership_status",
@@ -1955,30 +1788,17 @@
     "public.membership_payment_status": {
       "name": "membership_payment_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "checkout_started",
-        "active",
-        "failed",
-        "cancelled"
-      ]
+      "values": ["pending", "checkout_started", "active", "failed", "cancelled"]
     },
     "public.membership_application_status": {
       "name": "membership_application_status",
       "schema": "public",
-      "values": [
-        "draft",
-        "submitted"
-      ]
+      "values": ["draft", "submitted"]
     },
     "public.task_status": {
       "name": "task_status",
       "schema": "public",
-      "values": [
-        "open",
-        "completed",
-        "cancelled"
-      ]
+      "values": ["open", "completed", "cancelled"]
     }
   },
   "schemas": {},

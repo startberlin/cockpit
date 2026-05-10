@@ -46,9 +46,7 @@ async function getOrCreateUserFolder(
   });
 
   if (!folder.data.id) {
-    throw new Error(
-      `Failed to create Drive folder for ${legalMembershipId}`,
-    );
+    throw new Error(`Failed to create Drive folder for ${legalMembershipId}`);
   }
 
   return folder.data.id;
