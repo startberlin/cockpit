@@ -13,6 +13,7 @@ import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution-task-ass
 import MembershipAdmissionCompletedBoardEmail from "@/emails/membership-admission-completed-board";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
 import MembershipApplicationReadyEmail from "@/emails/membership-application-ready";
+import MembershipApplicationSubmittedEmail from "@/emails/membership-application-submitted";
 import { env } from "@/env";
 import {
   computeResolutionRoles,
@@ -20,13 +21,18 @@ import {
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
 import { events, inngest } from "@/lib/inngest";
-import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
+import {
+  archiveLegalDocument,
+  downloadArchivedDocument,
+} from "@/lib/legal-documents/drive-archive";
 import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
 import {
   readFinanzordnungBuffer,
   readSatzungBuffer,
 } from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
+import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
+import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
 import { resend } from "@/lib/resend";
@@ -365,11 +371,13 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         );
       }
 
+      const renderedAt = new Date();
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderMembershipApplicationTemplate({
         legalMembershipId,
         applicationId: application.id,
         subjectName,
+        email: application.personalEmail ?? undefined,
         birthDate: application.birthDate,
         address: {
           street: application.street,
@@ -382,19 +390,27 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         feeTextVersion: application.feeTextVersion,
         applicationVersion: application.applicationVersion,
         submittedAt: application.submittedAt,
-        renderedAt: new Date(),
+        renderedAt,
       });
 
-      const mainBuffer = Buffer.from(await renderToBuffer(element));
-
-      const [satzungBuffer, finanzordnungBuffer] = await Promise.all([
-        readSatzungBuffer(),
-        readFinanzordnungBuffer(),
-      ]);
+      const [mainBuffer, appendixABuffer, appendixBBuffer, satzungBuffer, finanzordnungBuffer] =
+        await Promise.all([
+          renderToBuffer(element).then((b) => Buffer.from(b)),
+          renderToBuffer(renderAppendixPage({
+            letter: "A", title: "Bylaws (Satzung)", docId: "ANX-A",
+            legalMembershipId, renderedAt,
+          })).then((b) => Buffer.from(b)),
+          renderToBuffer(renderAppendixPage({
+            letter: "B", title: "Financial Regulations (Finanzordnung)", docId: "ANX-B",
+            legalMembershipId, renderedAt,
+          })).then((b) => Buffer.from(b)),
+          readSatzungBuffer(),
+          readFinanzordnungBuffer(),
+        ]);
 
       const buffer = await mergePdfsWithAttachments(mainBuffer, [
-        { title: "Anhang 1: Satzung", buffer: satzungBuffer },
-        { title: "Anhang 2: Finanzordnung", buffer: finanzordnungBuffer },
+        { title: "Appendix A: Bylaws", buffer: satzungBuffer, dividerBuffer: appendixABuffer },
+        { title: "Appendix B: Financial Regulations", buffer: finanzordnungBuffer, dividerBuffer: appendixBBuffer },
       ]);
 
       await archiveLegalDocument({
@@ -402,6 +418,44 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         documentType: "membership_application",
         buffer,
         fileName: `membership-application-${legalMembershipId}.pdf`,
+      });
+    });
+
+    // Send the applicant a confirmation email with the application PDF attached.
+    await step.run("send-application-submitted-email", async () => {
+      if (!subject.email) {
+        throw new Error(`Missing email for subject user ${subjectUserId}`);
+      }
+
+      const applicationDoc = await db.query.legalDocument.findFirst({
+        where: (d, { and: andFn, eq: eqFn }) =>
+          andFn(
+            eqFn(d.legalMembershipId, legalMembershipId),
+            eqFn(d.documentType, "membership_application"),
+          ),
+        columns: { driveFileId: true },
+      });
+
+      const attachments = applicationDoc?.driveFileId
+        ? [
+            {
+              filename: `membership-application-${legalMembershipId}.pdf`,
+              content: await downloadArchivedDocument(
+                applicationDoc.driveFileId,
+              ),
+              contentType: "application/pdf",
+            },
+          ]
+        : undefined;
+
+      await resend.emails.send({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: subject.email,
+        subject: "Your membership application has been received",
+        react: MembershipApplicationSubmittedEmail({
+          firstName: subject.firstName,
+        }),
+        attachments,
       });
     });
 
@@ -439,10 +493,44 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
     await step.run("archive-admission-confirmation", async () => {
+      const [boardMembers, application] = await Promise.all([
+        db
+          .select({
+            userId:          admissionParticipant.userId,
+            officerFunction: admissionParticipant.officerFunction,
+            firstName:       user.firstName,
+            lastName:        user.lastName,
+          })
+          .from(admissionParticipant)
+          .innerJoin(user, eq(user.id, admissionParticipant.userId))
+          .where(eq(admissionParticipant.legalMembershipId, legalMembershipId)),
+        db.query.membershipApplication.findFirst({
+          where: (ma, { eq: eqFn }) => eqFn(ma.legalMembershipId, legalMembershipId),
+          columns: { street: true, zip: true, city: true, country: true },
+        }),
+      ]);
+
+      const board = boardMembers.map((p) => ({
+        name: `${p.firstName} ${p.lastName}`.trim(),
+        role: ROLE_DISPLAY[p.officerFunction] ?? p.officerFunction,
+      }));
+
+      const subjectAddress = application?.street
+        ? [
+            application.street,
+            `${application.zip} ${application.city}`.trim(),
+            application.country,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : undefined;
+
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const element = renderAdmissionConfirmationTemplate({
         legalMembershipId,
         subjectName,
+        subjectAddress,
+        board,
         activatedAt: new Date(activatedAt),
         renderedAt: new Date(),
       });
@@ -465,7 +553,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
       // Fetch user status fresh — it may have changed since step 1 (e.g. GoCardless
       // payment activated operational status from 'onboarding' to 'member').
-      const [freshUser, payment] = await Promise.all([
+      const [freshUser, payment, confirmationDoc] = await Promise.all([
         db.query.user.findFirst({
           where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
           columns: { status: true },
@@ -474,9 +562,29 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectUserId),
           columns: { id: true },
         }),
+        db.query.legalDocument.findFirst({
+          where: (d, { and: andFn, eq: eqFn }) =>
+            andFn(
+              eqFn(d.legalMembershipId, legalMembershipId),
+              eqFn(d.documentType, "admission_confirmation"),
+            ),
+          columns: { driveFileId: true },
+        }),
       ]);
 
       const includesPaymentCta = freshUser?.status === "member" && !payment;
+
+      const attachments = confirmationDoc?.driveFileId
+        ? [
+            {
+              filename: `admission-confirmation-${legalMembershipId}.pdf`,
+              content: await downloadArchivedDocument(
+                confirmationDoc.driveFileId,
+              ),
+              contentType: "application/pdf",
+            },
+          ]
+        : undefined;
 
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
@@ -487,6 +595,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           includesPaymentCta,
           membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
+        attachments,
       });
     });
 
@@ -494,17 +603,33 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const boardCompletionData = await step.run(
       "load-board-completion-data",
       async () => {
-        const participants = await db
-          .select({
-            userId: admissionParticipant.userId,
-            email: user.email,
-            firstName: user.firstName,
-          })
-          .from(admissionParticipant)
-          .innerJoin(user, eq(user.id, admissionParticipant.userId))
-          .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
+        const [participants, boardResolutionDoc] = await Promise.all([
+          db
+            .select({
+              userId: admissionParticipant.userId,
+              email: user.email,
+              firstName: user.firstName,
+            })
+            .from(admissionParticipant)
+            .innerJoin(user, eq(user.id, admissionParticipant.userId))
+            .where(
+              eq(admissionParticipant.legalMembershipId, legalMembershipId),
+            ),
+          db.query.legalDocument.findFirst({
+            where: (d, { and: andFn, eq: eqFn }) =>
+              andFn(
+                eqFn(d.legalMembershipId, legalMembershipId),
+                eqFn(d.documentType, "board_resolution"),
+              ),
+            columns: { driveFileId: true },
+          }),
+        ]);
 
-        return { subjectName, participants };
+        return {
+          subjectName,
+          participants,
+          boardResolutionDriveFileId: boardResolutionDoc?.driveFileId ?? null,
+        };
       },
     );
 
@@ -513,6 +638,18 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-completion-email-${participant.userId}`,
         async () => {
+          const attachments = boardCompletionData.boardResolutionDriveFileId
+            ? [
+                {
+                  filename: `board-resolution-${legalMembershipId}.pdf`,
+                  content: await downloadArchivedDocument(
+                    boardCompletionData.boardResolutionDriveFileId,
+                  ),
+                  contentType: "application/pdf",
+                },
+              ]
+            : undefined;
+
           await resend.emails.send({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
@@ -522,6 +659,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               subjectName: boardCompletionData.subjectName,
               legalMembershipId,
             }),
+            attachments,
           });
         },
       );
