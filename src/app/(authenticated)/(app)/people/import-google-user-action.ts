@@ -10,8 +10,8 @@ import { membershipPayment } from "@/db/schema/membership";
 import { actionClient } from "@/lib/action-client";
 import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import {
+  fetchWorkspaceUsersPage,
   getWorkspaceUser,
-  listAllWorkspaceUsers,
 } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
@@ -19,23 +19,28 @@ import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
 import {
+  fetchWorkspaceUsersPageSchema,
   importGoogleWorkspaceUserSchema,
   normalizeImportedDepartment,
 } from "./import-google-user-schema";
 
-export const listAllWorkspaceUsersAction = actionClient.action(
-  async () => {
+export const fetchWorkspaceUsersPageAction = actionClient
+  .inputSchema(fetchWorkspaceUsersPageSchema)
+  .action(async ({ parsedInput }) => {
     if (!(await can("users.import"))) {
       throw new Error("You are not authorized to import Workspace users.");
     }
 
-    const workspaceUsers = await listAllWorkspaceUsers();
+    const page = await fetchWorkspaceUsersPage({
+      pageToken: parsedInput.pageToken,
+      query: parsedInput.query,
+    });
 
     const localUsers = await db.query.user.findMany({
       where: (users, { inArray }) =>
         inArray(
           users.email,
-          workspaceUsers.map((user) => user.primaryEmail),
+          page.users.map((u) => u.primaryEmail),
         ),
       columns: {
         id: true,
@@ -45,24 +50,25 @@ export const listAllWorkspaceUsersAction = actionClient.action(
       },
     });
 
-    return workspaceUsers.map((workspaceUser) => {
-      const linkedUser = localUsers.find(
-        (user) => user.email === workspaceUser.primaryEmail,
-      );
-
-      return {
-        ...workspaceUser,
-        linkedUser: linkedUser
-          ? {
-              id: linkedUser.id,
-              name: `${linkedUser.firstName} ${linkedUser.lastName}`,
-              email: linkedUser.email,
-            }
-          : null,
-      };
-    });
-  },
-);
+    return {
+      users: page.users.map((workspaceUser) => {
+        const linkedUser = localUsers.find(
+          (u) => u.email === workspaceUser.primaryEmail,
+        );
+        return {
+          ...workspaceUser,
+          linkedUser: linkedUser
+            ? {
+                id: linkedUser.id,
+                name: `${linkedUser.firstName} ${linkedUser.lastName}`,
+                email: linkedUser.email,
+              }
+            : null,
+        };
+      }),
+      nextPageToken: page.nextPageToken,
+    };
+  });
 
 export const importGoogleWorkspaceUserAction = actionClient
   .inputSchema(importGoogleWorkspaceUserSchema)
@@ -142,7 +148,9 @@ export const importGoogleWorkspaceUserAction = actionClient
           firstName: parsedInput.firstName,
           lastName: parsedInput.lastName,
           personalEmail: "",
-          batchNumber: parsedInput.batchNumber,
+          ...(parsedInput.batchNumber != null
+            ? { batchNumber: parsedInput.batchNumber }
+            : {}),
           department: normalizeImportedDepartment(
             parsedInput.status,
             parsedInput.department,

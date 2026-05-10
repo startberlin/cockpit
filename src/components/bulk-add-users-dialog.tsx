@@ -339,9 +339,11 @@ export default function BulkAddUsersDialog({
                         {findLabel(DEPARTMENTS, user.department)}
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-xs">
-                      Batch {user.batchNumber}
-                    </Badge>
+                    {user.batchNumber != null && (
+                      <Badge variant="outline" className="text-xs">
+                        Batch {user.batchNumber}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="text-xs">
                       {findLabel(STATUSES, user.status)}
                     </Badge>

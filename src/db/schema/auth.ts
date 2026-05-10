@@ -59,9 +59,9 @@ export const user = pgTable("user", {
   zip: text("zip"),
   country: text("country"),
   personalEmail: text("personal_email").notNull(),
-  batchNumber: integer("batch_number")
-    .notNull()
-    .references(() => batch.number, { onDelete: "cascade" }),
+  batchNumber: integer("batch_number").references(() => batch.number, {
+    onDelete: "set null",
+  }),
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
   department: department("department"),

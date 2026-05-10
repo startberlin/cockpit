@@ -194,12 +194,12 @@ export function ImportGoogleUserDialog({
       googleWorkspaceUserId: "",
       firstName: "",
       lastName: "",
-      batchNumber: batches[0]?.number ?? 0,
+      batchNumber: undefined,
       status: "member" as const,
       paidThroughAt: "",
       documentsVerified: false,
     }),
-    [batches],
+    [],
   );
   const resolver = React.useMemo(
     () => zodResolver(importGoogleWorkspaceUserSchema),
@@ -636,11 +636,15 @@ export function ImportGoogleUserDialog({
                         <Field data-invalid={fieldState.invalid}>
                           <FieldLabel>Batch</FieldLabel>
                           <Select
-                            value={String(field.value ?? "")}
-                            onValueChange={(v) => field.onChange(Number(v))}
+                            value={
+                              field.value != null ? String(field.value) : ""
+                            }
+                            onValueChange={(v) =>
+                              field.onChange(v === "" ? undefined : Number(v))
+                            }
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a batch" />
+                              <SelectValue placeholder="No batch (optional)" />
                             </SelectTrigger>
                             <SelectContent>
                               {batches.map((b) => (

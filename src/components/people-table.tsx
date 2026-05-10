@@ -16,7 +16,7 @@ import { Download, MoreHorizontal, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
   });
 
   return (
-    <>
+    <Fragment key={user.id}>
       <DropdownMenuItem
         disabled={isPending}
         onSelect={(event) => {
@@ -122,7 +122,7 @@ function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </Fragment>
   );
 }
 
@@ -179,7 +179,13 @@ export function PeopleTable({
       {
         accessorKey: "batch",
         header: "Batch",
-        cell: ({ row }) => <div>#{row.original.batchNumber}</div>,
+        cell: ({ row }) => (
+          <div>
+            {row.original.batchNumber != null
+              ? `#${row.original.batchNumber}`
+              : "—"}
+          </div>
+        ),
       },
       {
         accessorKey: "status",
@@ -337,7 +343,7 @@ export function PeopleTable({
                 const canOpenProfile = canOpenMemberProfile(row.original);
 
                 return (
-                  <>
+                  <Fragment key={row.id}>
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
@@ -383,7 +389,7 @@ export function PeopleTable({
                           </TableCell>
                         </TableRow>
                       )}
-                  </>
+                  </Fragment>
                 );
               })
             ) : (

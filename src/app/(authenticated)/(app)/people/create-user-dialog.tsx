@@ -34,13 +34,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Department } from "@/db/schema";
 import { DEPARTMENTS } from "@/lib/enums";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { handleError } from "@/lib/utils";
 import { checkWorkspaceEmailAction } from "./check-workspace-email-action";
 import { createUserAction } from "./create-user-action";
 import { createUserSchema } from "./create-user-schema";
-import { Department } from "@/db/schema";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -61,11 +61,11 @@ export function CreateUserDialog({
       firstName: "",
       lastName: "",
       personalEmail: "",
-      batchNumber: batches[0]?.number ?? 0,
+      batchNumber: undefined,
       department: null as Department | null,
       status: "onboarding" as const,
     }),
-    [batches],
+    [],
   );
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     createUserAction,
@@ -211,12 +211,14 @@ export function CreateUserDialog({
                   <Field data-invalid={fieldState.invalid}>
                     <FieldLabel>Batch</FieldLabel>
                     <Select
-                      value={String(field.value ?? "")}
-                      onValueChange={(v) => field.onChange(Number(v))}
+                      value={field.value != null ? String(field.value) : ""}
+                      onValueChange={(v) =>
+                        field.onChange(v === "" ? undefined : Number(v))
+                      }
                       disabled={action.isPending}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a batch" />
+                        <SelectValue placeholder="No batch (optional)" />
                       </SelectTrigger>
                       <SelectContent>
                         {batches.map((b) => (

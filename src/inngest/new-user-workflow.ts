@@ -6,7 +6,7 @@ import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { newId } from "@/lib/id";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
 
 function generateRandomPassword(length = 15) {
@@ -21,8 +21,11 @@ function generateRandomPassword(length = 15) {
 }
 
 export const onboardNewUserWorkflow = inngest.createFunction(
-  { id: "onboard-new-user", idempotency: "event.data.personalEmail" },
-  { event: "user.created" },
+  {
+    id: "onboard-new-user",
+    idempotency: "event.data.personalEmail",
+    triggers: [{ event: events.userCreated }],
+  },
   async ({ event, step }) => {
     const {
       firstName,
@@ -97,7 +100,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           lastName,
           personalEmail,
           name: `${firstName} ${lastName}`,
-          batchNumber,
+          ...(batchNumber != null ? { batchNumber } : {}),
           department: departmentValue,
           status: status ?? "onboarding",
         })
@@ -107,7 +110,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
             firstName,
             lastName,
             personalEmail,
-            batchNumber,
+            ...(batchNumber != null ? { batchNumber } : {}),
             department: departmentValue,
             status: status ?? "onboarding",
           },

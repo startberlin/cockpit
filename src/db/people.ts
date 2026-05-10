@@ -22,7 +22,7 @@ export interface PublicUser {
   lastName: string;
   email: string;
   department: Department | null;
-  batchNumber: number;
+  batchNumber: number | null;
   status: UserStatus;
   profileOnboardingComplete?: boolean;
   hasMembershipPayment?: boolean;
@@ -42,7 +42,7 @@ export interface UserDetail {
   zip: string | null;
   country: string | null;
   department: Department | null;
-  batchNumber: number;
+  batchNumber: number | null;
   status: UserStatus;
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
@@ -68,7 +68,6 @@ export interface UserDetail {
     role: string;
   }>;
 }
-
 
 export async function getAllUserPublicData(): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
@@ -104,10 +103,6 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
   });
 
   return allUsers.map((user): PublicUser => {
-    if (!user.batch) {
-      throw new Error("User has no batch");
-    }
-
     const hasActiveTenure = user.legalMemberships.some((lm) =>
       (LIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
     );
@@ -118,7 +113,7 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       lastName: user.lastName,
       email: user.email,
       department: user.department ?? null,
-      batchNumber: user.batch.number,
+      batchNumber: user.batch?.number ?? null,
       status: user.status,
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
       hasMembershipPayment: !!user.membershipPayment,
@@ -164,10 +159,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     return null;
   }
 
-  if (!user.batch) {
-    throw new Error("User has no batch");
-  }
-
   return {
     id: user.id,
     firstName: user.firstName,
@@ -181,7 +172,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     zip: user.zip,
     country: user.country,
     department: user.department ?? null,
-    batchNumber: user.batch.number,
+    batchNumber: user.batch?.number ?? null,
     status: user.status,
     legalMembershipState: user.legalMembershipState,
     membershipState: getStructuredMembershipState(user, user.membershipPayment),

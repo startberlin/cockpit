@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { type Department, departmentSchema } from "@/db/schema/auth";
 
+export const fetchWorkspaceUsersPageSchema = z.object({
+  pageToken: z.string().optional(),
+  query: z.string().optional(),
+});
+
 export const importableUserStatus = z.enum([
   "member",
   "supporting_alumni",
@@ -22,7 +27,7 @@ export const importGoogleWorkspaceUserSchema = z
     googleWorkspaceUserId: z.string().min(1),
     firstName: z.string().min(1, "Please enter a first name."),
     lastName: z.string().min(1, "Please enter a last name."),
-    batchNumber: z.number("Please select a batch."),
+    batchNumber: z.number().optional(),
     department: z
       .enum(departmentSchema.options, {
         error: "Please select a department.",

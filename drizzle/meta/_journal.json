@@ -5,127 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1759673303111,
-      "tag": "0000_secret_leader",
+      "when": 1778351357093,
+      "tag": "0000_messy_kree",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1760822319847,
-      "tag": "0001_sloppy_shatterstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1768327998385,
-      "tag": "0002_sudden_the_hood",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1768328119478,
-      "tag": "0003_cultured_shriek",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1768504685560,
-      "tag": "0004_rainy_thunderbird",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1768507038371,
-      "tag": "0005_noisy_tinkerer",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1777232905023,
-      "tag": "0006_chilly_catseye",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1777326025097,
-      "tag": "0007_harmonize_gocardless_membership_payment",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1777402633466,
-      "tag": "0008_lowly_jubilee",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1777593600000,
-      "tag": "0009_drop_google_workspace_id",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1777755945321,
-      "tag": "0010_careless_jack_murdock",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1777759783744,
-      "tag": "0011_yummy_rhino",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1777851125610,
-      "tag": "0012_curvy_blue_marvel",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1778185387327,
-      "tag": "0013_blushing_killer_shrike",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1778279112541,
-      "tag": "0014_misty_ben_urich",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1778286582978,
-      "tag": "0015_normal_fixer",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1778286818219,
-      "tag": "0016_lyrical_bedlam",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1778322319254,
-      "tag": "0017_military_wildside",
+      "when": 1778373267510,
+      "tag": "0001_silly_proemial_gods",
       "breakpoints": true
     }
   ]

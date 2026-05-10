@@ -120,7 +120,7 @@ export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
       email: user.email,
       department: user.department,
       status: user.status,
-      batchNumber: sql<number>`${user.batchNumber}`,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
       role: usersToGroups.role,
     })
     .from(usersToGroups)
@@ -149,7 +149,7 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
       email: user.email,
       department: user.department,
       status: user.status,
-      batchNumber: sql<number>`${user.batchNumber}`,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
     })
     .from(user)
     .leftJoin(
@@ -318,7 +318,7 @@ export async function findUsersNotInGroupByCriteria({
       email: user.email,
       department: user.department,
       status: user.status,
-      batchNumber: sql<number>`${user.batchNumber}`,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
     })
     .from(user)
     .leftJoin(

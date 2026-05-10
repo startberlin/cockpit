@@ -80,7 +80,9 @@ export function ProfileCard({ user }: ProfileCardProps) {
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                 Batch
               </p>
-              <p className="text-sm font-medium">#{user.batchNumber}</p>
+              <p className="text-sm font-medium">
+                {user.batchNumber != null ? `#${user.batchNumber}` : "—"}
+              </p>
             </div>
           </div>
 
