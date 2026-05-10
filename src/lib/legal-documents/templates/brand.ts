@@ -3,19 +3,19 @@ import { join } from "node:path";
 
 // ─── Design tokens (oklch → approx hex, matching global CSS) ─────────────────
 export const C = {
-  brand:       "#0E1540", // oklch(0.1307 0.0905 264.05) – deep navy
+  brand: "#0E1540", // oklch(0.1307 0.0905 264.05) – deep navy
   brandAccent: "#42B7C8", // oklch(0.7499 0.1301 211.57) – sky cyan
-  ink:         "#2C2620", // warm near-black
-  inkSoft:     "#504840", // warm dark grey
-  inkMuted:    "#8A8078", // warm medium grey
-  rule:        "#DAD4CE", // warm light rule
-  ruleSoft:    "#ECE9E5", // very light rule
-  paperAlt:    "#FAFAF8", // e-sig / integrity bg
-  voteYesBg:   "#E8F5EC",
-  voteYesFg:   "#2D6A42",
-  voteNoBg:    "#FBE9E7",
-  voteNoFg:    "#8B2E1A",
-  white:       "#FFFFFF",
+  ink: "#2C2620", // warm near-black
+  inkSoft: "#504840", // warm dark grey
+  inkMuted: "#8A8078", // warm medium grey
+  rule: "#DAD4CE", // warm light rule
+  ruleSoft: "#ECE9E5", // very light rule
+  paperAlt: "#FAFAF8", // e-sig / integrity bg
+  voteYesBg: "#E8F5EC",
+  voteYesFg: "#2D6A42",
+  voteNoBg: "#FBE9E7",
+  voteNoFg: "#8B2E1A",
+  white: "#FFFFFF",
 } as const;
 
 export const LOGO = join(process.cwd(), "public/logo-black.png");
@@ -27,8 +27,8 @@ export const ORG_LINES = [
 ] as const;
 
 export const ROLE_DISPLAY: Record<string, string> = {
-  president:       "President",
-  vice_president:  "Vice President",
+  president: "President",
+  vice_president: "Vice President",
   head_of_finance: "Head of Finance",
 };
 
@@ -58,9 +58,15 @@ export const CONTENT = {
 Font.register({
   family: "Avenir",
   fonts: [
-    { src: join(process.cwd(), "public/avenirnext-medium.otf"), fontWeight: 400 },
-    { src: join(process.cwd(), "public/avenirnext-bold.otf"),   fontWeight: 700 },
-    { src: join(process.cwd(), "public/avenirnext-heavy.otf"),  fontWeight: 900 },
+    {
+      src: join(process.cwd(), "public/avenirnext-medium.otf"),
+      fontWeight: 400,
+    },
+    { src: join(process.cwd(), "public/avenirnext-bold.otf"), fontWeight: 700 },
+    {
+      src: join(process.cwd(), "public/avenirnext-heavy.otf"),
+      fontWeight: 900,
+    },
   ],
 });
 

@@ -28,7 +28,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -203,7 +202,7 @@ export function ImportGoogleUserDialog({
       batchNumber: undefined,
       status: "member" as const,
       paidThroughAt: "",
-      documentsVerified: false,
+      joinedAt: "",
     }),
     [],
   );
@@ -255,11 +254,9 @@ export function ImportGoogleUserDialog({
       if (form.getValues("paidThroughAt") !== "") {
         form.setValue("paidThroughAt", "");
       }
-      if (form.getValues("documentsVerified") !== undefined) {
-        form.setValue("documentsVerified", undefined);
+      if (form.getValues("joinedAt") !== "") {
+        form.setValue("joinedAt", "");
       }
-    } else if (form.getValues("documentsVerified") === undefined) {
-      form.setValue("documentsVerified", false);
     }
   }, [form, shouldShowDepartment, requiresMembershipStep]);
 
@@ -741,35 +738,31 @@ export function ImportGoogleUserDialog({
                 </FieldSet>
 
                 <FieldSet>
-                  <FieldLegend>Documents</FieldLegend>
+                  <FieldLegend>Membership history</FieldLegend>
                   <FieldDescription>
-                    Check this if you've received and verified the person's
-                    membership documents. Leave unchecked if documents are
-                    missing or you're unsure — the board will be asked to vote
-                    on formal admission.
+                    If you have the person's original membership documents and
+                    can confirm when they joined, enter that date. The member
+                    will complete an account setup on first login and receive
+                    official documents with the correct join date. Leave empty
+                    if documents are missing — the board will vote on formal
+                    admission.
                   </FieldDescription>
                   <FieldGroup>
-                    <Controller
-                      name="documentsVerified"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="documentsVerified"
-                              checked={field.value ?? false}
-                              onCheckedChange={(checked) =>
-                                field.onChange(checked === true)
-                              }
-                            />
-                            <FieldLabel htmlFor="documentsVerified">
-                              Documents verified
-                            </FieldLabel>
-                          </div>
-                          <FieldError errors={[fieldState.error]} />
-                        </Field>
-                      )}
-                    />
+                    <Field>
+                      <FieldLabel htmlFor="joinedAt">
+                        Original join date
+                      </FieldLabel>
+                      <Input
+                        id="joinedAt"
+                        type="date"
+                        aria-invalid={!!form.formState.errors.joinedAt}
+                        {...form.register("joinedAt")}
+                      />
+                      <FieldDescription>
+                        Leave empty to start a board admission vote instead.
+                      </FieldDescription>
+                      <FieldError errors={[form.formState.errors.joinedAt]} />
+                    </Field>
                   </FieldGroup>
                 </FieldSet>
               </>

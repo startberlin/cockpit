@@ -14,16 +14,60 @@ import { sha256Hex } from "./document-hash";
 
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
+async function getOrCreateUserFolder(
+  drive: ReturnType<typeof google.drive>,
+  firstName: string,
+  lastName: string,
+  legalMembershipId: string,
+): Promise<string> {
+  const folderName = `${firstName} ${lastName} (${legalMembershipId})`.trim();
+  const escapedName = folderName.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+
+  const existing = await drive.files.list({
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    q: `name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and '${env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID}' in parents and trashed = false`,
+    fields: "files(id)",
+    pageSize: 1,
+  });
+
+  if (existing.data.files?.[0]?.id) {
+    return existing.data.files[0].id;
+  }
+
+  const folder = await drive.files.create({
+    supportsAllDrives: true,
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID],
+    },
+    fields: "id",
+  });
+
+  if (!folder.data.id) {
+    throw new Error(
+      `Failed to create Drive folder for ${legalMembershipId}`,
+    );
+  }
+
+  return folder.data.id;
+}
+
 export async function archiveLegalDocument({
   legalMembershipId,
   documentType,
   buffer,
   fileName,
+  firstName,
+  lastName,
 }: {
   legalMembershipId: string;
   documentType: LegalDocumentType;
   buffer: Buffer;
   fileName: string;
+  firstName: string;
+  lastName: string;
 }): Promise<{ driveFileId: string; driveUrl: string; sha256: string }> {
   // Check DB first — if a record already exists, return it without uploading.
   // This handles the success-then-retry path (Drive uploaded and DB row committed).
@@ -51,13 +95,20 @@ export async function archiveLegalDocument({
   const auth = createServiceAccountAuth(DRIVE_SCOPE);
   const drive = google.drive({ version: "v3", auth, timeout: 30_000 });
 
+  const folderId = await getOrCreateUserFolder(
+    drive,
+    firstName,
+    lastName,
+    legalMembershipId,
+  );
+
   const stream = Readable.from(buffer);
 
   const response = await drive.files.create({
     supportsAllDrives: true,
     requestBody: {
       name: fileName,
-      parents: [env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID],
+      parents: [folderId],
     },
     media: {
       mimeType: "application/pdf",

@@ -338,7 +338,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         legalMembershipId,
         documentType: "board_resolution",
         buffer,
-        fileName: `board-resolution-${legalMembershipId}.pdf`,
+        fileName: `board-resolution-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
+        firstName: subject.firstName,
+        lastName: subject.lastName,
       });
     });
 
@@ -393,31 +395,56 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         renderedAt,
       });
 
-      const [mainBuffer, appendixABuffer, appendixBBuffer, satzungBuffer, finanzordnungBuffer] =
-        await Promise.all([
-          renderToBuffer(element).then((b) => Buffer.from(b)),
-          renderToBuffer(renderAppendixPage({
-            letter: "A", title: "Bylaws (Satzung)", docId: "ANX-A",
-            legalMembershipId, renderedAt,
-          })).then((b) => Buffer.from(b)),
-          renderToBuffer(renderAppendixPage({
-            letter: "B", title: "Financial Regulations (Finanzordnung)", docId: "ANX-B",
-            legalMembershipId, renderedAt,
-          })).then((b) => Buffer.from(b)),
-          readSatzungBuffer(),
-          readFinanzordnungBuffer(),
-        ]);
+      const [
+        mainBuffer,
+        appendixABuffer,
+        appendixBBuffer,
+        satzungBuffer,
+        finanzordnungBuffer,
+      ] = await Promise.all([
+        renderToBuffer(element).then((b) => Buffer.from(b)),
+        renderToBuffer(
+          renderAppendixPage({
+            letter: "A",
+            title: "Bylaws (Satzung)",
+            docId: "ANX-A",
+            legalMembershipId,
+            renderedAt,
+          }),
+        ).then((b) => Buffer.from(b)),
+        renderToBuffer(
+          renderAppendixPage({
+            letter: "B",
+            title: "Financial Regulations (Finanzordnung)",
+            docId: "ANX-B",
+            legalMembershipId,
+            renderedAt,
+          }),
+        ).then((b) => Buffer.from(b)),
+        readSatzungBuffer(),
+        readFinanzordnungBuffer(),
+      ]);
 
       const buffer = await mergePdfsWithAttachments(mainBuffer, [
-        { title: "Appendix A: Bylaws", buffer: satzungBuffer, dividerBuffer: appendixABuffer },
-        { title: "Appendix B: Financial Regulations", buffer: finanzordnungBuffer, dividerBuffer: appendixBBuffer },
+        {
+          title: "Appendix A: Bylaws",
+          buffer: satzungBuffer,
+          dividerBuffer: appendixABuffer,
+        },
+        {
+          title: "Appendix B: Financial Regulations",
+          buffer: finanzordnungBuffer,
+          dividerBuffer: appendixBBuffer,
+        },
       ]);
 
       await archiveLegalDocument({
         legalMembershipId,
         documentType: "membership_application",
         buffer,
-        fileName: `membership-application-${legalMembershipId}.pdf`,
+        fileName: `membership-application-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
+        firstName: subject.firstName,
+        lastName: subject.lastName,
       });
     });
 
@@ -439,7 +466,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const attachments = applicationDoc?.driveFileId
         ? [
             {
-              filename: `membership-application-${legalMembershipId}.pdf`,
+              filename: `membership-application-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
               content: await downloadArchivedDocument(
                 applicationDoc.driveFileId,
               ),
@@ -496,16 +523,17 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const [boardMembers, application] = await Promise.all([
         db
           .select({
-            userId:          admissionParticipant.userId,
+            userId: admissionParticipant.userId,
             officerFunction: admissionParticipant.officerFunction,
-            firstName:       user.firstName,
-            lastName:        user.lastName,
+            firstName: user.firstName,
+            lastName: user.lastName,
           })
           .from(admissionParticipant)
           .innerJoin(user, eq(user.id, admissionParticipant.userId))
           .where(eq(admissionParticipant.legalMembershipId, legalMembershipId)),
         db.query.membershipApplication.findFirst({
-          where: (ma, { eq: eqFn }) => eqFn(ma.legalMembershipId, legalMembershipId),
+          where: (ma, { eq: eqFn }) =>
+            eqFn(ma.legalMembershipId, legalMembershipId),
           columns: { street: true, zip: true, city: true, country: true },
         }),
       ]);
@@ -541,7 +569,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         legalMembershipId,
         documentType: "admission_confirmation",
         buffer,
-        fileName: `admission-confirmation-${legalMembershipId}.pdf`,
+        fileName: `admission-confirmation-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
+        firstName: subject.firstName,
+        lastName: subject.lastName,
       });
     });
 
@@ -577,7 +607,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const attachments = confirmationDoc?.driveFileId
         ? [
             {
-              filename: `admission-confirmation-${legalMembershipId}.pdf`,
+              filename: `admission-confirmation-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
               content: await downloadArchivedDocument(
                 confirmationDoc.driveFileId,
               ),
@@ -641,7 +671,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           const attachments = boardCompletionData.boardResolutionDriveFileId
             ? [
                 {
-                  filename: `board-resolution-${legalMembershipId}.pdf`,
+                  filename: `board-resolution-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
                   content: await downloadArchivedDocument(
                     boardCompletionData.boardResolutionDriveFileId,
                   ),
