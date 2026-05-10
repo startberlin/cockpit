@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { PageSection } from "@/components/page-section";
 import {
   getActiveLegalMembership,
   getMembershipPaymentByUserId,
@@ -29,13 +28,11 @@ export default async function Home() {
   const membershipState = getStructuredMembershipState(user, payment);
 
   return (
-    <PageSection>
-      <MembershipPageContent
-        membershipState={membershipState}
-        userStatus={user.status}
-        paidThroughAt={payment?.paidThroughAt}
-        activeLegalMembership={activeLegalMembership}
-      />
-    </PageSection>
+    <MembershipPageContent
+      membershipState={membershipState}
+      userStatus={user.status}
+      paidThroughAt={payment?.paidThroughAt}
+      activeLegalMembership={activeLegalMembership}
+    />
   );
 }
