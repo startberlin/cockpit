@@ -1,3 +1,8 @@
+import { setDefaultResultOrder } from "node:dns";
+// Vercel build runners lack IPv6 connectivity; Supabase direct connections
+// resolve to IPv6 by default, so we force IPv4 here.
+setDefaultResultOrder("ipv4first");
+
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
