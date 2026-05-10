@@ -1,0 +1,318 @@
+import { eq } from "drizzle-orm";
+import db from "@/db";
+import { newMembershipPaymentId } from "@/db/membership";
+import { user } from "@/db/schema/auth";
+import { legalMembership } from "@/db/schema/legal-membership";
+import { membershipPayment } from "@/db/schema/membership";
+import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
+import { env } from "@/env";
+import { events, inngest } from "@/lib/inngest";
+import {
+  archiveLegalDocument,
+  downloadArchivedDocument,
+} from "@/lib/legal-documents/drive-archive";
+import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
+import {
+  readFinanzordnungBuffer,
+  readSatzungBuffer,
+} from "@/lib/legal-documents/static-documents";
+import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
+import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
+import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
+import { resend } from "@/lib/resend";
+
+export const membershipReconfirmationWorkflow = inngest.createFunction(
+  {
+    id: "membership-reconfirmation-workflow",
+    name: "Membership Reconfirmation Workflow",
+    triggers: [{ event: events.reconfirmationSubmitted }],
+  },
+  async ({ event, step }) => {
+    const { legalMembershipId } = event.data;
+
+    // Step 1: Load subject user and legal membership data.
+    const subjectData = await step.run("load-subject-data", async () => {
+      const lm = await db.query.legalMembership.findFirst({
+        where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+        columns: {
+          userId: true,
+          activatedAt: true,
+          status: true,
+          importedPaidThroughAt: true,
+        },
+      });
+
+      if (!lm) {
+        throw new Error(`Legal membership not found: ${legalMembershipId}`);
+      }
+
+      const application = await db.query.membershipApplication.findFirst({
+        where: (ma, { eq: eqFn }) =>
+          eqFn(ma.legalMembershipId, legalMembershipId),
+      });
+
+      if (!application || application.status !== "submitted") {
+        throw new Error(
+          `No submitted membership application found for ${legalMembershipId}`,
+        );
+      }
+
+      if (
+        !application.street ||
+        !application.city ||
+        !application.zip ||
+        !application.country ||
+        !application.birthDate ||
+        !application.declarations ||
+        !application.feeTextVersion ||
+        !application.applicationVersion ||
+        !application.submittedAt
+      ) {
+        throw new Error(
+          `Membership application ${application.id} is missing required fields`,
+        );
+      }
+
+      const subjectUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, lm.userId),
+        columns: { firstName: true, lastName: true, email: true, status: true },
+      });
+
+      if (!subjectUser) {
+        throw new Error(`User not found: ${lm.userId}`);
+      }
+
+      return {
+        userId: lm.userId,
+        activatedAt: (lm.activatedAt ?? new Date()).toISOString(),
+        importedPaidThroughAt: lm.importedPaidThroughAt?.toISOString() ?? null,
+        firstName: subjectUser.firstName ?? "",
+        lastName: subjectUser.lastName ?? "",
+        email: subjectUser.email ?? "",
+        userStatus: subjectUser.status,
+        applicationId: application.id,
+        personalEmail: application.personalEmail,
+        phone: application.phone,
+        street: application.street,
+        city: application.city,
+        state: application.state ?? "",
+        zip: application.zip,
+        country: application.country,
+        birthDate: application.birthDate,
+        declarations: application.declarations,
+        feeTextVersion: application.feeTextVersion,
+        applicationVersion: application.applicationVersion,
+        submittedAt: application.submittedAt.toISOString(),
+      };
+    });
+
+    const subjectName =
+      subjectData.firstName || subjectData.lastName
+        ? `${subjectData.firstName} ${subjectData.lastName}`.trim()
+        : subjectData.userId;
+
+    // Step 2: Archive the membership application PDF.
+    await step.run("archive-membership-application", async () => {
+      const renderedAt = new Date();
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+
+      const element = renderMembershipApplicationTemplate({
+        legalMembershipId,
+        applicationId: subjectData.applicationId,
+        subjectName,
+        email: subjectData.personalEmail ?? undefined,
+        birthDate: subjectData.birthDate,
+        address: {
+          street: subjectData.street,
+          city: subjectData.city,
+          state: subjectData.state,
+          zip: subjectData.zip,
+          country: subjectData.country,
+        },
+        declarations: subjectData.declarations,
+        feeTextVersion: subjectData.feeTextVersion,
+        applicationVersion: subjectData.applicationVersion,
+        submittedAt: new Date(subjectData.submittedAt),
+        renderedAt,
+      });
+
+      const [
+        mainBuffer,
+        appendixABuffer,
+        appendixBBuffer,
+        satzungBuffer,
+        finanzordnungBuffer,
+      ] = await Promise.all([
+        renderToBuffer(element).then((b) => Buffer.from(b)),
+        renderToBuffer(
+          renderAppendixPage({
+            letter: "A",
+            title: "Bylaws (Satzung)",
+            docId: "ANX-A",
+            legalMembershipId,
+            renderedAt,
+          }),
+        ).then((b) => Buffer.from(b)),
+        renderToBuffer(
+          renderAppendixPage({
+            letter: "B",
+            title: "Financial Regulations (Finanzordnung)",
+            docId: "ANX-B",
+            legalMembershipId,
+            renderedAt,
+          }),
+        ).then((b) => Buffer.from(b)),
+        readSatzungBuffer(),
+        readFinanzordnungBuffer(),
+      ]);
+
+      const buffer = await mergePdfsWithAttachments(mainBuffer, [
+        {
+          title: "Appendix A: Bylaws",
+          buffer: satzungBuffer,
+          dividerBuffer: appendixABuffer,
+        },
+        {
+          title: "Appendix B: Financial Regulations",
+          buffer: finanzordnungBuffer,
+          dividerBuffer: appendixBBuffer,
+        },
+      ]);
+
+      await archiveLegalDocument({
+        legalMembershipId,
+        documentType: "membership_application",
+        buffer,
+        fileName: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+        firstName: subjectData.firstName,
+        lastName: subjectData.lastName,
+      });
+    });
+
+    // Step 3: Activate the legal membership and insert the payment row.
+    // Preserves the historical activatedAt set at import time.
+    await step.run("activate-legal-membership", async () => {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(legalMembership)
+          .set({ status: "active" })
+          .where(eq(legalMembership.id, legalMembershipId));
+
+        await tx
+          .update(user)
+          .set({ legalMembershipState: "active_member" })
+          .where(eq(user.id, subjectData.userId));
+
+        await tx
+          .insert(membershipPayment)
+          .values({
+            id: newMembershipPaymentId(),
+            userId: subjectData.userId,
+            status: "pending",
+            paidThroughAt: subjectData.importedPaidThroughAt
+              ? new Date(subjectData.importedPaidThroughAt)
+              : null,
+          })
+          .onConflictDoNothing();
+      });
+    });
+
+    // Step 4: Archive the admission confirmation PDF.
+    // Board list is empty; activatedAt is the historical join date from import.
+    await step.run("archive-admission-confirmation", async () => {
+      const subjectAddress = [
+        subjectData.street,
+        `${subjectData.zip} ${subjectData.city}`.trim(),
+        subjectData.country,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const element = renderAdmissionConfirmationTemplate({
+        legalMembershipId,
+        subjectName,
+        subjectAddress,
+        board: [],
+        activatedAt: new Date(subjectData.activatedAt),
+        renderedAt: new Date(),
+      });
+
+      const buffer = Buffer.from(await renderToBuffer(element));
+
+      await archiveLegalDocument({
+        legalMembershipId,
+        documentType: "admission_confirmation",
+        buffer,
+        fileName: `admission-confirmation-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+        firstName: subjectData.firstName,
+        lastName: subjectData.lastName,
+      });
+    });
+
+    // Step 5: Send confirmation email with both PDFs attached.
+    await step.run("send-confirmation-email", async () => {
+      if (!subjectData.email) {
+        throw new Error(`Missing email for user ${subjectData.userId}`);
+      }
+
+      const [applicationDoc, confirmationDoc, payment] = await Promise.all([
+        db.query.legalDocument.findFirst({
+          where: (d, { and: andFn, eq: eqFn }) =>
+            andFn(
+              eqFn(d.legalMembershipId, legalMembershipId),
+              eqFn(d.documentType, "membership_application"),
+            ),
+          columns: { driveFileId: true },
+        }),
+        db.query.legalDocument.findFirst({
+          where: (d, { and: andFn, eq: eqFn }) =>
+            andFn(
+              eqFn(d.legalMembershipId, legalMembershipId),
+              eqFn(d.documentType, "admission_confirmation"),
+            ),
+          columns: { driveFileId: true },
+        }),
+        db.query.membershipPayment.findFirst({
+          where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectData.userId),
+          columns: { id: true },
+        }),
+      ]);
+
+      const attachments = [];
+
+      if (applicationDoc?.driveFileId) {
+        attachments.push({
+          filename: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+          content: await downloadArchivedDocument(applicationDoc.driveFileId),
+          contentType: "application/pdf",
+        });
+      }
+
+      if (confirmationDoc?.driveFileId) {
+        attachments.push({
+          filename: `admission-confirmation-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+          content: await downloadArchivedDocument(confirmationDoc.driveFileId),
+          contentType: "application/pdf",
+        });
+      }
+
+      const includesPaymentCta =
+        subjectData.userStatus === "member" && !payment;
+
+      await resend.emails.send({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: subjectData.email,
+        subject: "Your START Berlin membership is now officially documented",
+        react: MembershipAdmissionConfirmedEmail({
+          firstName: subjectData.firstName,
+          includesPaymentCta,
+          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+        }),
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
+    });
+
+    return { outcome: "reconfirmed", legalMembershipId };
+  },
+);
