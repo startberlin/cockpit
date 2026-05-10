@@ -26,6 +26,7 @@ const globalActions = [
   "groups.view_all",
   "groups.create",
   "groups.manage_members",
+  "batches.manage",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -88,6 +89,7 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
     case "membership.manage_workflows":
     case "groups.create":
     case "groups.manage_members":
+    case "batches.manage":
       return hasAdminGrant(authority);
     case "membership.vote_resolution":
       return isLegalOfficer(authority);
