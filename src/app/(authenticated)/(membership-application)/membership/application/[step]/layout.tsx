@@ -7,6 +7,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { getActiveLegalMembership } from "@/db/membership";
+import { getCurrentUser } from "@/db/user";
 import { cn } from "@/lib/utils";
 import {
   APPLICATION_STEP_KEYS,
@@ -31,6 +33,17 @@ export default async function ApplicationStepLayout({
     : "personal-information";
   const currentIndex = getStepIndex(currentStep);
   const meta = APPLICATION_STEP_META[currentStep];
+
+  const user = await getCurrentUser();
+  const activeLegalMembership = user
+    ? await getActiveLegalMembership(user.id)
+    : null;
+  const isReconfirmation =
+    activeLegalMembership?.status === "membership_reconfirmation_pending";
+  const subtitle =
+    isReconfirmation && meta.reconfirmationSubtitle
+      ? meta.reconfirmationSubtitle
+      : meta.subtitle;
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,7 +83,7 @@ export default async function ApplicationStepLayout({
           <h1 className="text-2xl font-semibold tracking-tight">
             {meta.title}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{meta.subtitle}</p>
+          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
       </div>
       {children}

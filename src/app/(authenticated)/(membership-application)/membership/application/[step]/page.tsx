@@ -27,12 +27,15 @@ export default async function ApplicationStepPage({
 
   if (
     !activeLegalMembership ||
-    activeLegalMembership.status !== "application_pending"
+    (activeLegalMembership.status !== "application_pending" &&
+      activeLegalMembership.status !== "membership_reconfirmation_pending")
   ) {
     redirect("/membership");
   }
 
   const legalMembershipId = activeLegalMembership.id;
+  const isReconfirmation =
+    activeLegalMembership.status === "membership_reconfirmation_pending";
 
   const { step } = await params;
 
@@ -41,6 +44,7 @@ export default async function ApplicationStepPage({
       <StepPersonalInformation
         user={user}
         legalMembershipId={legalMembershipId}
+        isReconfirmation={isReconfirmation}
       />
     );
   }
@@ -111,6 +115,7 @@ export default async function ApplicationStepPage({
         user={user}
         legalMembershipId={legalMembershipId}
         draft={draft}
+        isReconfirmation={isReconfirmation}
       />
     );
   }

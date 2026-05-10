@@ -30,12 +30,14 @@ interface StepReviewProps {
   user: Pick<User, "firstName" | "lastName">;
   legalMembershipId: string;
   draft: MembershipApplication;
+  isReconfirmation?: boolean;
 }
 
 export function StepReview({
   user,
   legalMembershipId,
   draft,
+  isReconfirmation = false,
 }: StepReviewProps) {
   const router = useRouter();
 
@@ -108,7 +110,11 @@ export function StepReview({
         onClick={() => execute({ legalMembershipId })}
         disabled={isPending}
       >
-        {isPending ? "Submitting…" : "Submit Application"}
+        {isPending
+          ? "Submitting…"
+          : isReconfirmation
+            ? "Confirm membership"
+            : "Submit Application"}
       </Button>
     </div>
   );

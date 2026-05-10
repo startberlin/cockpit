@@ -39,11 +39,13 @@ import { saveApplicationPersonalInfoAction } from "./step-address-action";
 interface StepPersonalInformationProps {
   user: User;
   legalMembershipId: string;
+  isReconfirmation?: boolean;
 }
 
 export function StepPersonalInformation({
   user,
   legalMembershipId,
+  isReconfirmation = false,
 }: StepPersonalInformationProps) {
   const router = useRouter();
   const onSuccess = useCallback(() => {

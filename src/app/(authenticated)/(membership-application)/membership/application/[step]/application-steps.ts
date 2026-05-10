@@ -10,13 +10,20 @@ export type ApplicationStep = (typeof APPLICATION_STEP_KEYS)[number];
 
 export const APPLICATION_STEP_META: Record<
   ApplicationStep,
-  { label: string; title: string; subtitle: string }
+  {
+    label: string;
+    title: string;
+    subtitle: string;
+    reconfirmationSubtitle?: string;
+  }
 > = {
   "personal-information": {
     label: "Personal Information",
     title: "Your Personal Information",
     subtitle:
       "We need a few details to complete your membership application. Your address is only shared with people who need it for administration.",
+    reconfirmationSubtitle:
+      "As an existing member, we need to collect your details to generate your official membership documents.",
   },
   identity: {
     label: "Identity",
@@ -40,6 +47,8 @@ export const APPLICATION_STEP_META: Record<
     label: "Review",
     title: "Review & Submit",
     subtitle: "Check your details and submit your membership application.",
+    reconfirmationSubtitle:
+      "Review your details and confirm your START Berlin membership.",
   },
 };
 
