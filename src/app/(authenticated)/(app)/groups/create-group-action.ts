@@ -3,7 +3,7 @@
 import { checkSlugAvailability } from "@/db/groups";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { createGroupSchema } from "./create-group-schema";
 
@@ -25,7 +25,7 @@ export const createGroupAction = actionClient
 
     // Send event to trigger the group creation workflow
     await inngest.send({
-      name: "group.created",
+      name: events.groupCreated.name,
       data: {
         id: groupId,
         name: parsedInput.name,

@@ -1,3 +1,5 @@
+import { legalMembership } from "./legal-membership";
+
 export const betterAuthUserAdditionalFields = {
   firstName: { type: "string", input: false },
   lastName: { type: "string", input: false },
@@ -9,4 +11,5 @@ export const betterAuthUserAdditionalFields = {
   phone: { type: "string", input: false },
   personalEmail: { type: "string", input: false },
   status: { type: "string", input: false },
+  legalMembershipState: { type: "string", input: false },
 } as const;

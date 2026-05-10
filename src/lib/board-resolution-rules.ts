@@ -1,8 +1,6 @@
-export type BoardVoteValueInput =
-  | "yes"
-  | "no"
-  | "abstain"
-  | "procedure_objection";
+import type { BoardVoteValue } from "@/db/schema/board-admission";
+
+export type { BoardVoteValue };
 
 export type VoteOutcome = "approved" | "manual_followup" | "pending";
 
@@ -14,7 +12,7 @@ export type VoteOutcome = "approved" | "manual_followup" | "pending";
  * - ≥ 2 "yes" votes (with no procedure_objection) → "approved"
  * - Otherwise → "pending"
  */
-export function computeVoteOutcome(votes: BoardVoteValueInput[]): VoteOutcome {
+export function computeVoteOutcome(votes: BoardVoteValue[]): VoteOutcome {
   if (votes.some((v) => v === "procedure_objection")) {
     return "manual_followup";
   }

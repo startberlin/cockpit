@@ -8,7 +8,7 @@ import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipApplication } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { submitApplicationSchema } from "./application-validation";
 
 export const submitApplicationAction = actionClient
@@ -101,7 +101,7 @@ export const submitApplicationAction = actionClient
     }
 
     await inngest.send({
-      name: "membership/application.submitted",
+      name: events.applicationSubmitted.name,
       data: {
         legalMembershipId: parsedInput.legalMembershipId,
       },

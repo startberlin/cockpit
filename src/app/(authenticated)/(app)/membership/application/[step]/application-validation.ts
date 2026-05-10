@@ -3,7 +3,7 @@ import { z } from "zod";
 export const applicationAddressSchema = z.object({
   street: z.string().min(1, "Please enter your street."),
   city: z.string().min(1, "Please enter your city."),
-  state: z.string().min(1, "Please enter your state / region."),
+  state: z.string(),
   zip: z.string().min(1, "Please enter your postal code."),
   country: z.string().min(1, "Please enter your country."),
 });

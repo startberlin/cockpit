@@ -2,7 +2,6 @@ import "server-only";
 
 import { type admin_directory_v1, Common, google } from "googleapis";
 import { createGoogleAuth } from "@/lib/google-auth";
-import { collectAllPages } from "./directory-helpers";
 
 const DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user";
 
@@ -65,22 +64,37 @@ export async function getWorkspaceUser(
   }
 }
 
-export async function listAllWorkspaceUsers(): Promise<WorkspaceUserCandidate[]> {
+export interface WorkspaceUsersPage {
+  users: WorkspaceUserCandidate[];
+  nextPageToken: string | null;
+}
+
+export async function fetchWorkspaceUsersPage({
+  pageToken,
+  query,
+}: {
+  pageToken?: string;
+  query?: string;
+} = {}): Promise<WorkspaceUsersPage> {
   const admin = getDirectoryClient();
 
-  return collectAllPages(
-    async (pageToken) => {
-      const res = await admin.users.list({
-        customer: "my_customer",
-        maxResults: 500,
-        orderBy: "email",
-        projection: "basic",
-        pageToken,
-      });
-      return { users: res.data.users ?? [], nextPageToken: res.data.nextPageToken };
-    },
-    toCandidate,
-  );
+  const res = await admin.users.list({
+    customer: "my_customer",
+    maxResults: 20,
+    orderBy: "email",
+    projection: "basic",
+    pageToken,
+    query: query || undefined,
+  });
+
+  const users = (res.data.users ?? [])
+    .map(toCandidate)
+    .filter((u): u is WorkspaceUserCandidate => u !== null);
+
+  return {
+    users,
+    nextPageToken: res.data.nextPageToken ?? null,
+  };
 }
 
 export async function findWorkspaceUserByEmail(email: string) {

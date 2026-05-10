@@ -1,7 +1,10 @@
 import type { MembershipFlowInput } from "./types";
 
-export function membershipFlowIdempotencyKey(input: MembershipFlowInput) {
-  return `membership-payment:${input.userId}:${input.localSessionId}`;
+export function membershipFlowIdempotencyKey(
+  userId: string,
+  localSessionId: string,
+) {
+  return `membership-payment:${userId}:${localSessionId}`;
 }
 
 export function membershipFlowMetadata(input: MembershipFlowInput) {
@@ -51,6 +54,31 @@ export function membershipSubscriptionStartDate(
   );
 
   return startDate.toISOString().slice(0, 10);
+}
+
+export function extractIdempotencyConflictId(
+  responseBody: string,
+): string | null {
+  try {
+    const parsed = JSON.parse(responseBody) as {
+      error?: {
+        errors?: Array<{
+          reason?: string;
+          links?: { conflicting_resource_id?: string };
+        }>;
+      };
+    };
+    const conflict = parsed?.error?.errors?.[0];
+    if (
+      conflict?.reason === "idempotent_creation_conflict" &&
+      conflict.links?.conflicting_resource_id
+    ) {
+      return conflict.links.conflicting_resource_id;
+    }
+  } catch {
+    // malformed responseBody
+  }
+  return null;
 }
 
 function stripEmptyValues(

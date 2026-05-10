@@ -16,7 +16,7 @@ import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
@@ -27,8 +27,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
   {
     id: "membership-admission-workflow",
     name: "Membership Admission Workflow",
+    triggers: [{ event: events.admissionWorkflowStarted }],
   },
-  { event: "membership/admission-workflow.started" },
   async ({ event, step, runId }) => {
     const { legalMembershipId, subjectUserId } = event.data;
 
@@ -89,18 +89,21 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     // Step 1c: Send one email per board participant — each in its own step so a
     // Resend failure only retries that participant's send, not the entire fan-out.
     for (const participant of boardTaskData.participants) {
-      await step.run(`send-board-task-email-${participant.userId}`, async () => {
-        await resend.emails.send({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: participant.email,
-          subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
-          react: BoardResolutionTaskAssignedEmail({
-            firstName: participant.firstName ?? "",
-            subjectName: boardTaskData.subjectName,
-            resolutionUrl: boardTaskData.resolutionUrl,
-          }),
-        });
-      });
+      await step.run(
+        `send-board-task-email-${participant.userId}`,
+        async () => {
+          await resend.emails.send({
+            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            to: participant.email,
+            subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
+            react: BoardResolutionTaskAssignedEmail({
+              firstName: participant.firstName ?? "",
+              subjectName: boardTaskData.subjectName,
+              resolutionUrl: boardTaskData.resolutionUrl,
+            }),
+          });
+        },
+      );
     }
 
     // Steps 2–4: Vote loop — wait for up to 3 individual board votes (one per
@@ -116,7 +119,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const voteEvent = await step.waitForEvent(
         `wait-for-board-vote-${voteRound}`,
         {
-          event: "membership/board-vote.cast",
+          event: events.boardVoteCast,
           timeout: "90d",
           if: "async.data.legalMembershipId == event.data.legalMembershipId",
         },
@@ -198,7 +201,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const applicationEvent = await step.waitForEvent(
       "wait-for-application-submitted",
       {
-        event: "membership/application.submitted",
+        event: events.applicationSubmitted,
         timeout: "90d",
         if: "async.data.legalMembershipId == event.data.legalMembershipId",
       },
@@ -235,9 +238,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(boardResolution.legalMembershipId, legalMembershipId));
 
       if (!resolution) {
-        throw new Error(
-          `No board_resolution found for ${legalMembershipId}`,
-        );
+        throw new Error(`No board_resolution found for ${legalMembershipId}`);
       }
 
       const participants = await db
@@ -423,9 +424,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           })
           .from(admissionParticipant)
           .innerJoin(user, eq(user.id, admissionParticipant.userId))
-          .where(
-            eq(admissionParticipant.legalMembershipId, legalMembershipId),
-          );
+          .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
 
         return { subjectName, participants };
       },

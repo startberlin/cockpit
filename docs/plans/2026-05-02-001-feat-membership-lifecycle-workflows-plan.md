@@ -3,6 +3,7 @@ title: Membership Lifecycle Workflows
 type: feat
 status: active
 date: 2026-05-02
+revised: 2026-05-08
 origin: docs/brainstorms/2026-05-02-membership-lifecycle-workflows-requirements.md
 ---
 
@@ -10,17 +11,19 @@ origin: docs/brainstorms/2026-05-02-membership-lifecycle-workflows-requirements.
 
 ## Overview
 
-Build the new START Berlin membership lifecycle in staged slices: first replace the overloaded role model with the authority foundation, then add legal membership state, admission workflows, People action-required work, legal-officer voting, member application, payment continuation, document archival, and notifications.
+Build the new START Berlin membership lifecycle in staged slices: first replace the overloaded role model with the authority foundation, then add board admission workflows, People action-required work, legal-officer voting, member application, payment continuation, document archival, and notifications.
 
-This is intentionally staged because the workflow depends on reliable answers to "who is president/vice president/head of finance?", "who is a department head?", and "who may propose or vote?". Those questions are solved through the completed Stage 1 authority foundation and the follow-up hardening/refactor plans before building board resolutions.
+Orchestration uses Inngest durable functions with `step.waitForEvent()` as the pause-and-resume mechanism for long-running workflows (board voting, application submission). The database holds the queryable facts each UI surface needs; Inngest owns the execution state and side-effect retry.
+
+Two distinct classes of background work exist: **complex workflows** (admission, future resignation/exclusion) that produce votes, audit logs, legal documents, and state transitions — these use a `legal_membership` tenure record as the relational hub for all kind-specific tables; and **simple task-generating workflows** (IT scans, etc.) that only produce tasks — these use an Inngest function plus a `task` table with no complex metadata. There is no generic `workflow` hub table.
 
 ---
 
 ## Problem Frame
 
-START Cockpit currently treats operational status, profile completion, payment setup, and legal membership evidence as one blended concept. The membership lifecycle requirements separate these concerns: `user.status` remains operational, legal membership becomes durable state, and workflow records carry transient progress such as board voting, application submission, payment setup, document generation, and notifications in kind-specific metadata.
+START Cockpit currently treats operational status, profile completion, payment setup, and legal membership evidence as one blended concept. The membership lifecycle requirements separate these concerns: `user.status` remains operational, legal membership state is a column on `user`, and admission workflows carry transient progress such as board voting, application submission, document generation, and notifications in kind-specific Inngest durable functions.
 
-The current "Complete onboarding" path creates a membership payment prompt directly. The new product shape replaces that with "Propose for membership", creates an individual board admission workflow, routes the three legal officers through People action required, lets the affected person complete a profile-completion-like legal application flow, activates legal membership after board approval plus application, and only then continues to payment setup where billing applies.
+The current "Complete onboarding" path creates a membership payment prompt directly. The new product shape replaces that with "Propose for membership", creates an individual board admission workflow coordinated entirely through an Inngest durable function, routes the three legal officers through People action required, lets the affected person complete a profile-completion-like legal application flow, activates legal membership after board approval plus application, and only then continues to payment setup where billing applies.
 
 ---
 
@@ -33,7 +36,7 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 - R40-R43. Base legal privileges on legal membership state and create durable audit/document records.
 - R44-R47. Notify legal officers and affected people at assignment, application readiness, admission confirmation, and completion points.
 
-**Origin actors:** A1 Onboarding user, A2 Existing operational Member or Supporting Alumni, A3 Legal Member or Supporting Alumni, A4 Alumni user, A5 Department Head, A6 Legal officer, A7 Admin, A8 START Cockpit
+**Origin actors:** A1 Onboarding user, A2 Existing operational Member or Supporting Alumni, A3 Legal Member or Supporting Alumni, A4 Alumni user, A5 Department Lead, A6 Legal officer (president, VP, head of finance — the trio who vote on admissions; replaces origin's broader "Board Member" framing), A7 Admin, A8 START Cockpit
 
 **Origin flows:** F1 Status-aware profile completion, F2 Propose onboarding user for legal membership, F3 Import existing operational member with missing documents, F4 Finalize membership
 
@@ -48,16 +51,18 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 - V1 does not implement digital resignation, exclusion workflows, or former-member reactivation workflows.
 - V1 does not create separate operational access levels for onboarding users versus active Members.
 - V1 does not make payment setup the legal admission trigger.
-- V1 does not require a full future task taxonomy for IT/offboarding work.
+- V1 does not require a full future task taxonomy for IT/offboarding work, but the task center should avoid being named or shaped only around membership.
 - V1 does not require a separate member-data editing/audit portal beyond profile completion and legal admission needs.
 - V1 does not resolve final legal wording, BGB/Satzung compliance, electronic-signature requirements, or final Finanzordnung wording without legal review.
-- The org chart from `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md` is not on the critical path for this membership lifecycle plan. The authority foundation is required; the org chart UI can remain follow-up work unless the team wants to ship it at the same time.
+- The org chart from `docs/plans/2026-04-28-002-feat-user-authority-organization-model-plan.md` is not on the critical path for this membership lifecycle plan.
+- `membership_payment_setup` as a distinct Inngest workflow kind is out of scope for V1. Payment for import-with-documents users is handled synchronously (create payment row, send email, GoCardless webhook reconciliation handles the rest).
+- The `task` table introduced in U3 is the foundation for simple task-generating workflows. V1 does not build task-completion UI; task rows are created by Inngest and serve as audit/monitoring records.
 
 ### Deferred to Follow-Up Work
 
+- Digital resignation and exclusion workflows: reuse the `legal_membership` tenure hub and `legal_document` tables added in V1.
 - Batch resolutions: add once individual admission workflows are proven.
-- Digital resignation and former-member workflows: reuse the legal-document, audit, and workflow foundations later.
-- Full IT/offboarding task center taxonomy: keep the data model adaptable, but do not design a generic inbox in v1.
+- Full IT/offboarding task center taxonomy: the `task` table is the durable foundation; task management UI is a follow-up.
 - Org chart UI: can continue from the existing authority plan after the position/grant foundation is in place.
 
 ---
@@ -66,49 +71,50 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Relevant Code and Patterns
 
-- `src/db/schema/auth.ts` still stores operational `status`, address/contact fields, `department`, and legacy `roles`; `roles` is compatibility data, not an authorization source for new workflow code.
+- `src/db/schema/auth.ts` stores operational `status`, address/contact fields, `department`, and `legalMembershipState` (column on user, not a separate table; values `not_member`, `active_member`, `former_member`).
+- `src/db/schema/workflow.ts` exists and will be **deleted** in U3. The `legal_membership` table replaces it as the tenure hub for complex workflows. There is no generic workflow hub.
 - `src/lib/authority/model.ts`, `src/lib/authority/assignments.ts`, and `src/lib/authority/board-roster.ts` define the authority domain vocabulary, valid assignment matrix, and strict legal-officer roster setup.
-- `src/lib/permissions/evaluate.ts`, `src/lib/permissions/server.ts`, `src/lib/permissions/authority-context.tsx`, and `src/components/can.tsx` provide the current permission architecture: server enforcement uses typed `can()`, client affordances use `<Can>`/`useCan()`, and the shared pure evaluator is plumbing underneath those APIs.
-- `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md`, `docs/plans/2026-05-02-003-refactor-permission-policy-api-plan.md`, and `docs/plans/2026-05-03-001-refactor-auth-permission-architecture-plan.md` are completed Stage 1 follow-up plans and supersede earlier raw-role and generic-board-seat assumptions.
+- `src/lib/permissions/evaluate.ts`, `src/lib/permissions/server.ts`, `src/lib/permissions/authority-context.tsx`, and `src/components/can.tsx` provide the permission architecture.
+- `src/db/schema/audit-log.ts` exists with `audit_log` table.
 - `src/schema/onboarding-progress.ts` currently treats address as part of profile onboarding; this must become status/legal-state-aware.
-- `src/app/(authenticated)/(onboarding)/onboarding/[step]/` already has a focused multi-step profile completion shell that the membership application flow should mirror.
-- `src/components/people-table.tsx` currently hosts the "Invite to finalize membership" action and is the natural place to add People action required.
+- `src/app/(authenticated)/(onboarding)/onboarding/[step]/` has a focused multi-step profile completion shell that the membership application flow should mirror.
+- `src/components/people-table.tsx` is the natural place to add People action required.
 - `src/app/(authenticated)/(app)/people/complete-onboarding-action.ts` currently creates membership payment setup directly; this becomes proposal workflow creation.
-- `src/app/(authenticated)/(app)/membership/page.tsx`, `src/app/(authenticated)/(app)/membership/onboarding.tsx`, and `src/app/(authenticated)/(app)/membership/billing-copy.ts` already split membership section and tools section and should become the My membership task card surface.
+- `src/app/(authenticated)/(app)/membership/page.tsx` and related files are the My membership task card surface.
 - `src/db/schema/membership.ts`, `src/db/membership.ts`, `src/lib/membership-status.ts`, and `src/lib/gocardless/` contain current payment state and GoCardless subscription creation.
-- `src/app/(authenticated)/(app)/people/import-google-user-action.ts` imports existing Workspace users and currently creates payment rows for Members/Supporting Alumni; this must ask for document evidence and start legal admission when documents are missing.
-- `src/emails/membership-payment-ready.tsx` and `src/emails/start-cockpit-enabled.tsx` show current React Email patterns.
-- `src/lib/google-auth.ts` and Google Workspace code provide the existing service-account auth pattern; Drive archival can reuse that credential style with Drive scopes.
-- Existing tests use Node's built-in `node:test` runner, as seen in `src/lib/membership-status.test.ts`, `src/app/(authenticated)/(app)/membership/billing-copy.test.ts`, and people import tests.
+- `src/lib/gocardless/membership-reconciliation.ts` — `activateMembershipPayment` currently sets `user.status = "member"` unconditionally; U10 adds a conditional so only `onboarding` users advance to `member`. Supporting Alumni remain `supporting_alumni`.
+- `src/inngest/new-user-workflow.ts` shows the established `step.run()` pattern; `src/inngest/create-group.ts` shows Google API usage style.
+- `src/emails/membership-payment-ready.tsx` shows current React Email patterns.
+- `src/lib/google-auth.ts` provides service-account auth for Drive archival.
 
 ### Institutional Learnings
 
-- `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md` is the source for wording decisions. New copy should be warm/direct, explain user-visible outcomes before system mechanics, avoid provider/internal-status emphasis, use member-centered labels, and follow the retry/support error pattern.
-- For membership payment copy, keep cost/cadence/purpose concrete. For admin actions, name the operational outcome, not the mechanism.
-- Exact new legal wording should preserve the tone conventions but be validated separately against the Satzung and Finanzordnung.
+- `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md` is the source for wording decisions. New copy should be warm/direct, explain user-visible outcomes before system mechanics, avoid provider/internal-status emphasis, and follow the retry/support error pattern.
 
 ### External References
 
-- Local patterns cover Next.js App Router, Drizzle schema, next-safe-action, Inngest, React Email, Resend, Google service-account auth, and GoCardless reconciliation.
-- React-PDF v4 docs are the external reference for the v1 PDF renderer: the Node API supports rendering to `Buffer`, advanced features cover page wrapping/fixed footers/dynamic page numbers, and component docs cover PDF primitives and document metadata.
-- Legal and financial wording require human legal/Satzung/Finanzordnung review rather than web-derived implementation assumptions.
+- Inngest TypeScript SDK v3 (`inngest@^3.52.0`): `step.waitForEvent(id, { event, if, timeout })` returns `null` on timeout; step IDs can be reused in loops (Inngest auto-handles counters); events must arrive _after_ `waitForEvent` executes; `match` is deprecated in v3.52, use `if` with CEL syntax.
+- React-PDF v4 docs for the PDF renderer: Node API `renderToBuffer`, advanced features for page wrapping/fixed footers, component docs for PDF primitives.
 
 ---
 
 ## Key Technical Decisions
 
-- Build on the completed roles-and-permissions foundation: officer lookup, proposal permissions, and voting eligibility should use authority positions/grants plus typed permission checks, not legacy `roles`.
-- Snapshot the eligible legal-officer roster when a resolution is created: a resolution should preserve each voter's board function and eligibility from the moment the board task is assigned, so later authority changes do not rewrite legal history.
-- Block v1 resolution creation unless `getBoardRosterSetup()` can identify exactly three distinct legal officers: president, vice president, and head of finance. The board-vote rule is explicitly two of three, so a two-person, four-person, missing-officer, duplicate-officer, or overlapping-officer setup should be an admin setup error, not a silently different legal process.
-- Keep authorization API boundaries explicit: server actions/routes/pages enforce with `can()`, client UI hides or enables affordances with `<Can>`/`useCan()`, and new workflow code should only call `evaluateAuth()` inside permission infrastructure or tests.
-- Keep legal membership state intentionally small: `not_member`, `active_member`, and `former_member`.
-- Store admission workflow progress separately from legal state: proposal, board vote, application, document, and payment step state belong to the workflow row's Zod-validated metadata.
-- Keep tasks contextual: My membership owns member-facing task cards; People owns board/admin member-scoped action required.
-- Use individual workflows only: one affected person per admission workflow in v1.
-- Treat legal activation and payment activation separately: application confirmation sets legal membership active, and payment setup remains a required next workflow step when billing applies.
-- Preserve operational status intentionally: onboarding users should become operational `member` when admission is confirmed; imported Supporting Alumni should keep `supporting_alumni`.
-- Use document snapshots as durable source for PDFs: generated PDFs and Drive IDs are archived outputs, while database snapshots/audit records remain authoritative for workflow state.
-- Use wording solution docs as copy guidance: do not invent a new tone for legal/task copy during implementation.
+- Build on the completed roles-and-permissions foundation: officer lookup, proposal permissions, and voting eligibility use authority positions/grants plus typed permission checks, not legacy `roles`.
+- Snapshot the eligible legal-officer roster when a resolution is created: each admission workflow records the president, vice president, and head of finance at the moment of proposal so later authority changes do not rewrite legal history.
+- Block resolution creation unless `getBoardRosterSetup()` identifies exactly three distinct legal officers. A two-person, four-person, missing-officer, duplicate-officer, or overlapping-officer setup is an admin setup error.
+- Keep authorization API boundaries explicit: server actions/routes/pages enforce with `can()`, client UI uses `<Can>`/`useCan()`.
+- Keep legal membership state small and on the user: `user.legalMembershipState` column (`not_member`, `active_member`, `former_member`), not a separate table. All users start as `not_member`; legal activation writes directly to the column.
+- **Two-tier workflow distinction.** Complex workflows (admission, future resignation/exclusion) produce votes, audit logs, legal documents, and legal state transitions — they use the `legal_membership` tenure record as the relational hub and kind-specific explicit tables. Simple task-generating workflows (IT scans, etc.) use an Inngest function plus the `task` table with no complex metadata. There is no generic `workflow` DB table.
+- **Introduce `legal_membership` as the tenure hub for complex workflows.** Each admission (and future resignation/exclusion) creates one `legal_membership` record for that tenure. `board_resolution`, `admission_participant`, `board_vote`, `membership_application`, and `legal_document` all FK to `legal_membership.id`. A user can have multiple `legal_membership` records over time (supports resignation then rejoin). A partial unique index on PostgreSQL enforces at most one record per user where `status IN ('admission_pending', 'application_pending', 'processing', 'active')`.
+- **`user.legalMembershipState` is the denormalized fast-query cache.** The authoritative source is `legal_membership.status`; the column on `user` exists for queries that need legal state without joining. The Inngest admission-completion steps update both atomically. Any code that changes legal state must do so inside an Inngest `step.run`, not via direct column writes outside of Inngest.
+- **Use Inngest durable functions with `step.waitForEvent()` as the orchestration layer for admission workflows.** The Inngest function body IS the workflow logic. It pauses at each decision point (votes, application submission), coordinates retryable side effects (emails, PDFs, Drive, legal activation), and advances `legal_membership.status` in the DB on each transition. The Inngest run ID is stored on the `legal_membership` record (`inngestRunId` column) as the bridge between the two layers.
+- **Delete `src/lib/workflows/`** — the Zod metadata state machine (core.ts, membership-admission.ts, membership-payment-setup.ts, validation.test.ts) is superseded by Inngest's durable execution plus explicit DB tables. There is no JSONB blob to validate; workflow state is the Inngest function's own execution position plus DB rows.
+- **Delete `src/db/schema/workflow.ts`** — the generic `workflow` table is removed. `legal_membership` is the domain-specific hub. `admission_participant` replaces `workflow_participant`.
+- **`activateMembershipPayment` must not unconditionally set `user.status = "member"`.** Only advance operational status when the current status is `"onboarding"`. Supporting Alumni must remain `"supporting_alumni"` through payment activation. (see U10)
+- Treat legal activation and payment activation separately: the Inngest admission-completion steps set `legalMembershipState = active_member`, then create the payment task if billing applies; payment setup and GoCardless reconciliation continue through the existing payment flow.
+- Preserve operational status intentionally: onboarding users become operational `member` at legal admission via Inngest; imported Supporting Alumni keep `supporting_alumni`.
+- Use document snapshots as durable source for PDFs: generated PDFs and Drive IDs are archived outputs; DB snapshots and audit records remain authoritative.
 
 ---
 
@@ -116,20 +122,26 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 ### Resolved During Planning
 
-- How should current legal board voters and officer functions be determined? Use the completed authority model: president, vice president, and head of finance are the three eligible legal officers, while permissions remain explicit policy rules.
-- Should the authority plan be folded into this plan? Yes, the authority foundation is the first stage. Org-chart-specific work from that plan is not required for this membership lifecycle path.
+- How should current legal board voters and officer functions be determined? Use the completed authority model: president, vice president, and head of finance are the three eligible legal officers.
+- Should the authority plan be folded into this plan? Yes; the authority foundation is the first stage.
 - Where should board/admin task work live? In People action required, not a universal top-level Tasks inbox.
 - Where should member task work live? In a single prominent My membership task card.
 - When does legal membership become active? After board approval, complete application, and admission confirmation; before payment setup completes.
+- **Should Inngest or the DB be the source of truth for workflow progress?** Inngest owns execution state (what step the function is on, what it is waiting for). DB owns the queryable facts each UI surface needs (vote records, application submissions, `legal_membership.status`). DB status is updated by the Inngest function via `step.run` transitions so UI queries never need to call the Inngest API.
+- **Should `legal_membership` remain a separate table?** In migration 0013, the old `legal_membership` table (which tracked state with classifiedBy, documentStatus, and timestamps) was removed and replaced by a `legalMembershipState` column on `user`. U3 introduces a new, leaner `legal_membership` record (id, userId, status, inngestRunId, startedAt, activatedAt, endedAt) that serves as the relational hub for complex workflows. The `user.legalMembershipState` column from 0013 is kept as the denormalized fast-query cache. These serve different purposes.
+- **Should we use a generic `workflow` table or a domain-specific hub?** No generic hub. The naming overlap between a DB "workflow" record and an Inngest "function run" caused conceptual confusion. `legal_membership` is the correct domain name for the complex workflow hub; it represents a membership tenure and can exist multiple times per user (e.g., resign then rejoin). A user can have at most one active or admission-pending record at a time (enforced by partial unique index).
+- **How do complex and simple workflows differ?** Complex workflows (admission, future resignation) need relational tables for votes, documents, audit, and legal state. Simple workflows (IT scans) only need tasks created for humans to complete. The two tiers use different infrastructure: `legal_membership` hub + explicit tables + Inngest function for complex; `task` table + Inngest function for simple.
+- **Does `activateMembershipPayment` correctly handle Supporting Alumni?** No — it currently sets `user.status = "member"` unconditionally. U10 fixes this with a conditional: only advance to `member` when `user.status === "onboarding"`.
 
 ### Deferred to Implementation
 
-- Exact Drizzle migration filenames and generated SQL details for Stage 2+ schema work. Stage 1 authority constraints already exist in the completed hardening migrations.
-- Exact route segment names for resolution and application pages, as long as the user-facing surfaces match the plan.
-- Exact PDF layout details. The renderer choice is resolved for v1: use `@react-pdf/renderer` behind the server-side document rendering adapter, rendering only from immutable snapshots.
+- **`task` table V1 usage:** The table is introduced in U3 but no V1 unit currently writes to it. Open question: should V1 use the task table for payment-setup tasks or vote-submission reminders, or should those rely on the domain-specific tables (`legal_membership`, `board_resolution`, `membership_application`) which already hold enough state for UI queries? An alternative future approach is per-domain task tables (e.g., `it_task`) rather than a single generic table. Consider: (1) use `task` rows for payment-setup and vote-reminder tracking with Inngest notifications on insert; (2) keep `task` infrastructure-only in V1 and write nothing to it; (3) remove `task` from V1 scope entirely and reintroduce when IT/offboarding tasks are built.
+- Exact Drizzle migration filenames and generated SQL details.
+- Exact route segment names for resolution and application pages.
+- Exact PDF layout details. Renderer choice resolved for v1: `@react-pdf/renderer` via `renderToBuffer`.
 - Exact final legal copy for resolution text, membership declarations, and fee acknowledgement after legal/Satzung/Finanzordnung review.
-- Whether Google Drive folder IDs are configured as separate env vars or through one root folder plus deterministic subfolders.
-- Exact Google Drive group/folder ownership details, while preserving the v1 security requirement that generated legal documents are not public, not anyone-with-link, and visible only to the configured administrative/legal operators.
+- Whether Google Drive folder IDs are separate env vars or one root folder plus deterministic subfolders.
+- Exact Inngest timeout values for board vote and application submission waits (90d used as a working assumption; validate against product requirements).
 
 ---
 
@@ -139,27 +151,27 @@ The current "Complete onboarding" path creates a membership payment prompt direc
 
 Land enough of the authority/org model to determine named legal officers, scoped Department Heads, and admins without relying on legacy `roles`.
 
-Stage 1 has been completed through the authority hardening and permission architecture refactors listed in Context & Research. Board-resolution workflows can now depend on server-enforced group/admin authority, valid authority assignment combinations, singleton officer constraints, strict legal-officer roster validation, typed `can()` checks, and client-only `<Can>`/`useCan()` affordances. The remaining P2 gap is boundary-test coverage for the group API/server-action authorization paths and the authority update denial path; Stage 2 implementation should add those tests before or alongside the first workflow code that depends on those boundaries.
+**Stage 1 is complete.** The authority hardening and permission architecture refactors are done. Board-resolution workflows can now depend on server-enforced group/admin authority, valid authority assignment combinations, singleton officer constraints, strict legal-officer roster validation, typed `can()` checks, and client-only `<Can>`/`useCan()` affordances.
 
-### Stage 2: Legal Membership And Workflow Core
+### Stage 2: Legal Membership Tenure Schema And Inngest Admission Function
 
-Add legal membership state, a simple workflow core, membership-specific Zod metadata builders, audit records, and domain services. Stage 2 intentionally keeps workflow kind-specific context in validated metadata and relies on Inngest for async idempotency; the earlier generic task/approval/artifact/event plan has been superseded by `docs/plans/2026-05-05-001-refactor-zod-workflow-simplification-plan.md`.
+Delete the `workflow` table and `lib/workflows/` Zod machinery. Introduce the `legal_membership` tenure record as the relational hub, add the explicit board/vote/application/document tables, add the `task` table for simple workflows, and build the Inngest durable admission function. This unit establishes the data model and orchestration core all downstream units depend on.
 
 ### Stage 3: Profile Completion And Imports
 
-Make profile completion status/legal-state-aware and change imports/proposals to create admission workflows instead of payment prompts.
+Make profile completion legal-state-aware and change imports/proposals to create `legal_membership` records and send the Inngest trigger event instead of direct payment prompts.
 
 ### Stage 4: People Action Required And Board Voting
 
-Add the People action-required view, resolution detail/vote screen, vote recording, finalization, and board notifications.
+Add the People action-required view, resolution detail/vote screen, vote recording (`board_vote` row + Inngest event), finalization, and board notifications.
 
 ### Stage 5: Member Application And Payment Continuation
 
-Add the My membership task card, dedicated application flow, fee acknowledgement, and submit-to-processing transition. The user-facing submit action records the immutable application snapshot and enqueues the durable admission-completion workflow; it does not directly mark legal membership active.
+Add the My membership task card, dedicated application flow, fee acknowledgement, and submit-to-processing transition (`membership_application` row + Inngest event). Fix `activateMembershipPayment` to guard Supporting Alumni status (U10 — production bug, no U11 dependency). Inngest handles the rest.
 
 ### Stage 6: Documents, Drive, Audit, And Rollout Hardening
 
-Generate legal PDFs, archive them in Drive, store hashes/references, complete legal activation through Inngest, create payment-required tasks, tighten legal privilege checks, and add operational verification.
+Generate legal PDFs, archive in Drive, store hashes/references as `legal_document` rows, complete legal activation through Inngest steps, create payment-required tasks, tighten legal privilege checks, and add operational verification.
 
 ---
 
@@ -167,30 +179,88 @@ Generate legal PDFs, archive them in Drive, store hashes/references, complete le
 
 > *This illustrates the intended approach and is directional guidance for review, not implementation specification. The implementing agent should treat it as context, not code to reproduce.*
 
-```mermaid
-flowchart TD
-  Authority["Roles + permissions\npositions + grants + typed checks"] --> Propose["Propose for membership"]
-  Profile["Status-aware profile completion"] --> AppShell["App access"]
-  Propose --> Workflow["membership_admission workflow\none person"]
-  Import["Import missing docs"] --> Workflow
-  Workflow --> BoardTask["People action required\nlegal-officer vote"]
-  BoardTask --> Approval["Legal-board approval\nresolution detail/vote"]
-  Approval -->|approved| ApplicationTask["My membership\napplication ready"]
-  Approval -->|objected/rejected| Manual["Manual/offline handling"]
-  ApplicationTask --> Application["Application flow\nAddress -> Declarations -> Review"]
-  Application --> CompletionWorkflow["Inngest admission-completion workflow\nartifacts -> PDFs -> Drive -> audit"]
-  CompletionWorkflow --> LegalActive["legal_membership_state = active_member"]
-  LegalActive --> Documents["Archived document references"]
-  LegalActive -->|billing applies| Payment["GoCardless payment setup"]
-  Payment --> Done["Membership workflow complete"]
-```
+### Lifecycle State Flow
 
 ```mermaid
-stateDiagram-v2
-  [*] --> not_member
-  not_member --> not_member: workflow pending / board pending / application pending
-  not_member --> active_member: board approved + application submitted + documents/audit completed
-  active_member --> former_member: future resignation/offboarding flow
+flowchart TD
+  Authority["Roles + permissions\npositions + grants + typed checks"] --> Propose["Propose for membership\nserver action"]
+  Profile["Status-aware profile completion"] --> AppShell["App access"]
+  Propose --> DB1["INSERT legal_membership (admission_pending)\n+ board_resolution\n+ admission_participant ×3"]
+  Propose --> Inngest["Inngest: membership/admission-workflow.started\n{ legalMembershipId }"]
+  Import["Import missing docs"] --> DB1
+  Import --> Inngest
+  Inngest --> VoteLoop["waitForEvent loop\nboard-vote.cast ×3\n(timeout 90d)"]
+  VoteLoop -->|"2+ yes, no objection"| AppPending["UPDATE legal_membership → application_pending\nnotify applicant"]
+  VoteLoop -->|"objection or timeout"| Manual["UPDATE legal_membership → manual_followup"]
+  AppPending --> AppWait["waitForEvent\napplication.submitted\n(timeout 90d)"]
+  AppWait --> Processing["UPDATE legal_membership → processing\nrender PDFs → Drive\nwrite audit_log + legal_document\nset legalMembershipState = active_member\nUPDATE user.legalMembershipState"]
+  Processing -->|"billing applies"| Payment["GoCardless payment setup\nvia existing flow"]
+  Processing --> Done["UPDATE legal_membership → active\nnotify member + board"]
+```
+
+### Inngest Durable Function Sequence
+
+```mermaid
+sequenceDiagram
+  actor Proposer
+  participant Action as Server Action
+  participant DB
+  participant Inngest as Inngest Function
+  actor Officer as Legal Officer
+  actor Member as Affected Member
+
+  Proposer->>Action: propose-membership-action
+  Action->>DB: INSERT legal_membership (admission_pending)\n+ board_resolution + admission_participant ×3
+  Action->>Inngest: send membership/admission-workflow.started\n{ legalMembershipId }
+
+  Inngest->>DB: step.run — store inngestRunId, send board task emails, verify setup
+  Note over Inngest: step.waitForEvent("board-vote-N", match legalMembershipId, timeout 90d)
+
+  loop up to 3 votes
+    Officer->>Action: vote-action (inserts board_vote, validates hash)
+    Action->>DB: INSERT board_vote
+    Action->>Inngest: send membership/board-vote.cast { legalMembershipId }
+    Inngest->>DB: step.run — verify vote persisted, check resolution
+  end
+
+  alt 2+ yes, no procedure objection
+    Inngest->>DB: step.run — UPDATE legal_membership → application_pending
+    Inngest->>Member: step.run — send application-ready email
+    Note over Inngest: step.waitForEvent("application-submitted", match legalMembershipId, timeout 90d)
+
+    Member->>Action: submit-application-action
+    Action->>DB: INSERT membership_application
+    Action->>Inngest: send membership/application.submitted { legalMembershipId }
+
+    Inngest->>DB: step.run — UPDATE legal_membership → processing
+    Inngest->>Inngest: step.run — render board resolution PDF
+    Inngest->>Inngest: step.run — render application PDF
+    Inngest->>Inngest: step.run — render confirmation PDF
+    Inngest->>Inngest: step.run — archive to Drive ×3
+    Inngest->>DB: step.run — INSERT legal_document ×3 + audit_log rows
+    Inngest->>DB: step.run — UPDATE user.legalMembershipState = active_member
+    Inngest->>DB: step.run — UPDATE legal_membership → active
+    Inngest->>Member: step.run — send admission confirmed email
+    Inngest->>Officer: step.run — send board completion emails
+  else objection or timeout
+    Inngest->>DB: step.run — UPDATE legal_membership → manual_followup
+  end
+```
+
+### Entity Relationships
+
+```mermaid
+erDiagram
+  USER ||--o{ LEGAL_MEMBERSHIP : "has tenures"
+  LEGAL_MEMBERSHIP ||--o| BOARD_RESOLUTION : has
+  LEGAL_MEMBERSHIP ||--o{ ADMISSION_PARTICIPANT : has
+  LEGAL_MEMBERSHIP ||--o{ BOARD_VOTE : receives
+  LEGAL_MEMBERSHIP ||--o| MEMBERSHIP_APPLICATION : receives
+  LEGAL_MEMBERSHIP ||--o{ LEGAL_DOCUMENT : produces
+  LEGAL_MEMBERSHIP ||--o{ AUDIT_LOG : logs
+  USER ||--o{ BOARD_VOTE : casts
+  USER ||--o{ ADMISSION_PARTICIPANT : is
+  USER ||--o{ TASK : assigned
 ```
 
 ---
@@ -200,7 +270,7 @@ stateDiagram-v2
 ```mermaid
 flowchart TB
   U1["U1 Authority baseline/readiness"] --> U2["U2 Permission callers/admin editing"]
-  U1 --> U3["U3 Legal workflow schema"]
+  U1 --> U3["U3 Legal membership tenure schema + Inngest function"]
   U3 --> U4["U4 Profile completion"]
   U2 --> U5["U5 Proposal/import workflow creation"]
   U3 --> U5
@@ -209,9 +279,9 @@ flowchart TB
   U6 --> U7["U7 Board resolution voting"]
   U7 --> U8["U8 My membership task card"]
   U8 --> U9["U9 Application flow"]
+  U9 --> U10["U10 Payment continuation"]
   U9 --> U11["U11 Documents + Drive"]
-  U11 --> U10["U10 Payment continuation"]
-  U7 --> U11["U11 Documents + Drive"]
+  U7 --> U11
   U5 --> U12["U12 Notifications"]
   U7 --> U12
   U9 --> U12
@@ -220,7 +290,9 @@ flowchart TB
   U12 --> U13
 ```
 
-- U1. **Authority Baseline And Workflow Readiness**
+---
+
+### U1. Authority Baseline And Workflow Readiness
 
 **Goal:** Treat the completed Stage 1 authority and permission implementation as the baseline, verify it against the membership workflow needs, and add any remaining membership-specific helpers without rebuilding existing authority files.
 
@@ -236,58 +308,43 @@ flowchart TB
 - Existing baseline: `src/lib/authority/board-roster.ts`
 - Modify: `src/db/schema/index.ts`
 - Modify: `src/db/schema/auth.ts`
-- Modify: `src/db/people.ts`
 - Existing baseline: `src/lib/permissions/evaluate.ts`
 - Existing baseline: `src/lib/permissions/index.ts`
 - Modify: `src/lib/permissions/server.ts`
-- Existing baseline replacement: `src/lib/permissions/authority-context.tsx`
+- Existing baseline: `src/lib/permissions/authority-context.tsx`
 - Modify: `src/components/can.tsx`
 - Modify: `src/app/(authenticated)/(app)/layout.tsx`
-- Existing generated baseline: `drizzle/0010_careless_jack_murdock.sql`
-- Existing generated baseline: `drizzle/0011_yummy_rhino.sql`
 - Test: `src/lib/permissions/permissions.test.ts`
 - Test: `src/lib/authority/assignments.test.ts`
 - Test: `src/lib/permissions/permissions.typecheck.ts`
 
 **Approach:**
-- Use the Stage 1 authority model from `src/lib/authority/*`: persisted global officer positions are `president`, `vice_president`, and `head_of_finance`; persisted department position is `department_head`; persisted access grant is global `admin`.
-- Support global and department scope only where the shared assignment schema and database constraints allow them.
-- Keep legacy role-array permission checks out of workflow code. Permission checks go through server `can()` or client `<Can>`/`useCan()`; `evaluateAuth()` remains shared evaluator plumbing.
-- Keep admin explicit in permission policies rather than as an invisible bypass.
-- Add helpers for current legal officers and board functions. These helpers are used later by board resolution creation/finalization.
-- Add the membership-specific permission vocabulary needed by later units, such as `membership.propose`, `membership.vote_resolution`, `membership.view_resolution`, and `membership.manage_workflows`.
-- Allow Department Heads to propose only within their scoped department context, while legal officers and Admins can propose according to explicit policy.
-- Use `getBoardRosterSetup()` as the workflow preflight. It returns the three eligible legal officer IDs plus officer functions, or a typed setup error when the authority data is incomplete, duplicated, overlapping, or over-complete for the v1 two-of-three procedure.
-- Legacy `roles` have been removed from the active schema. Any authority bootstrap must be explicit authority data; do not reintroduce role backfills or role-based permission decisions.
+- Use the Stage 1 authority model: persisted global officer positions are `president`, `vice_president`, and `head_of_finance`; persisted department position is `department_head`; persisted access grant is global `admin`.
+- Keep legacy role-array permission checks out of workflow code.
+- Add the membership-specific permission vocabulary needed by later units: `membership.propose`, `membership.vote_resolution`, `membership.view_resolution`, and `membership.manage_workflows`.
+- Allow Department Heads to propose only within their scoped department context.
+- Use `getBoardRosterSetup()` as the workflow preflight.
 
-**Execution note:** The authority foundation, hardening, predicate policy API, and module split have been implemented first. Future work should verify the existing schema/API/migration names and add only missing membership-specific helpers rather than creating parallel authority tables or a second migration path.
-
-**Patterns to follow:**
-- `docs/plans/2026-05-02-002-fix-stage-one-authority-hardening-plan.md`, `docs/plans/2026-05-02-003-refactor-permission-policy-api-plan.md`, and `docs/plans/2026-05-03-001-refactor-auth-permission-architecture-plan.md` for the current authority model and permission API.
-- `src/db/schema/membership.ts` for separate domain schema structure.
-- `src/lib/membership-status.ts` and `src/lib/membership-status.test.ts` for focused pure-helper style.
+**Execution note:** The authority foundation is implemented. Future work should verify the existing schema/API/migration names and add only missing membership-specific helpers.
 
 **Test scenarios:**
 - Happy path: global admin grant allows actions where the policy lists admin.
 - Happy path: department-head position scoped to Events grants a scoped action for an Events target.
 - Edge case: department-head position scoped to Events denies the same action for a Growth target.
-- Edge case: legal officer positions grant only the permissions explicitly listed in policy and do not imply admin/user-management access.
-- Edge case: scoped permission without target department fails closed.
-- Migration: authority assignments are explicit authority rows, not derived from legacy roles.
-- Edge case: board roster validation fails when there are fewer than three or more than three eligible legal officers.
-- Edge case: board roster validation fails when required officer functions for resolution documentation cannot be determined.
+- Edge case: legal officer positions grant only explicitly listed permissions.
+- Edge case: board roster validation fails when there are fewer or more than three eligible legal officers.
 - Integration: server `can()`, client `<Can>`, and client `useCan()` consume the same typed policy vocabulary.
 
 **Verification:**
-- Current app permission callers compile against the new authority API.
-- Legal-officer lookup can return current president, vice president, head of finance, and legal-officer participant IDs.
+- Current app permission callers compile against the authority API.
+- Legal-officer lookup returns current president, vice president, head of finance.
 - Legacy `user.roles` is not part of the active schema or authorization model.
 
 ---
 
-- U2. **Permission Caller Migration And Admin Editing**
+### U2. Permission Caller Migration And Admin Editing
 
-**Goal:** Treat the Stage 1 caller migration and admin authority editor as the baseline, then close any remaining membership-specific gaps before workflows depend on them.
+**Goal:** Close any remaining membership-specific permission gaps before workflows depend on them.
 
 **Requirements:** Origin R8-R9, R15-R19; authority plan R14-R24
 
@@ -302,32 +359,23 @@ flowchart TB
 - Existing baseline: `src/app/(authenticated)/(app)/people/[id]/update-authority-action.ts`
 - Existing baseline: `src/components/authority-editor.tsx`
 - Modify: `src/db/groups.ts`
-- Modify: `src/db/schema/group.ts`
 - Modify: `src/components/group-criteria-manager.tsx`
 - Modify: `src/components/bulk-add-users-dialog.tsx`
 - Modify: `src/app/api/users/search-by-criteria/route.ts`
 - Test: `src/lib/permissions/permissions.test.ts`
 
 **Approach:**
-- Verify existing server actions and route/page guards use the new typed `can(action, context?)` shape, including department context for target-scoped actions.
+- Verify existing server actions and route/page guards use the new typed `can(action, context?)` shape.
 - Verify the admin-only member-detail UI can edit positions and grants needed by membership workflows.
 - Keep group-local `users_to_groups.role` separate from authority positions/grants.
-- Stop creating/evaluating legacy auth-role group criteria or convert them deliberately if implementation finds a safe one-to-one path.
-- Make create-user department optional where needed by the authority model.
-- Keep client components on `<Can>` or `useCan()` for affordance checks. Do not import the low-level evaluator into feature components.
-
-**Patterns to follow:**
-- `src/app/(authenticated)/(app)/people/[id]/profile-card.tsx` for detail-page card composition.
-- `src/app/(authenticated)/(app)/people/create-user-dialog.tsx` for form/select ergonomics.
-- Existing permission gate patterns, but with the new authority context.
+- Keep client components on `<Can>` or `useCan()` for affordance checks.
 
 **Test scenarios:**
 - Happy path: admin can add president, vice president, head of finance, department-head, and admin assignments where valid.
 - Error path: non-admin direct authority update action is denied.
 - Edge case: department-scoped assignment without department is rejected.
 - Regression: group membership admin/member role still works as a group-local concept.
-- Regression: user creation no longer depends on `roles` for permissions and still checks exact Google Workspace email conflicts.
-- Regression: group API/server-action authorization boundaries deny unauthorized callers before data access or mutation.
+- Regression: group API/server-action authorization boundaries deny unauthorized callers.
 
 **Verification:**
 - Admins can maintain legal-officer assignments before creating membership resolutions.
@@ -335,84 +383,135 @@ flowchart TB
 
 ---
 
-- U3. **Legal Membership, Flexible Workflow, And Audit Schema**
+### U3. Legal Membership Tenure Schema, Task Table, And Inngest Durable Admission Function
 
-**Goal:** Add the persistent data model for legal membership state, simple workflows with Zod-validated metadata, and audit records.
+**Goal:** Delete the existing `workflow` table and `lib/workflows/` Zod machinery. Introduce the `legal_membership` tenure record as the relational hub for complex workflows. Add the `task` table for simple task-generating workflows. Add all explicit board/vote/application/document tables. Create the Inngest durable admission function that orchestrates the entire admission lifecycle.
 
 **Requirements:** R1-R5, R10-R12, R18-R19, R23-R25, R27, R37, R40-R43; AE1, AE5, AE7
 
 **Dependencies:** U1
 
 **Files:**
-- Create: `src/db/schema/legal-membership.ts`
-- Create: `src/db/schema/workflow.ts`
-- Create: `src/db/legal-membership.ts`
-- Create: `src/db/workflows.ts`
-- Create: `src/db/membership-workflows.ts`
-- Create: `src/db/audit-log.ts`
-- Create: `src/lib/workflows/core.ts`
-- Create: `src/lib/workflows/membership-admission.ts`
-- Create: `src/lib/workflows/membership-payment-setup.ts`
-- Create: `src/inngest/membership-lifecycle-workflow.ts`
-- Modify: `src/db/schema/index.ts`
-- Modify: `src/lib/id.ts`
+- Delete: `src/db/schema/workflow.ts`
+- Create: `src/db/schema/legal-membership.ts` — `legal_membership` tenure record
+- Create: `src/db/schema/board-admission.ts` — `board_resolution`, `admission_participant`, `board_vote` tables
+- Create: `src/db/schema/membership-application.ts` — `membership_application` table
+- Create: `src/db/schema/legal-document.ts` — `legal_document` table
+- Create: `src/db/schema/task.ts` — `task` table for simple workflows
+- Modify: `src/db/schema/index.ts` — remove workflow exports, add new schema exports and relations
+- Modify: `src/lib/id.ts` — remove `workflow` prefix; add `legalMembership`, `boardResolution`, `admissionParticipant`, `boardVote`, `membershipApplication`, `legalDocument`, `task` prefixes
+- Delete: `src/lib/workflows/core.ts`
+- Delete: `src/lib/workflows/membership-admission.ts`
+- Delete: `src/lib/workflows/membership-payment-setup.ts`
+- Delete: `src/lib/workflows/index.ts`
+- Delete: `src/lib/workflows/validation.test.ts`
+- Create: `src/inngest/membership-admission-workflow.ts`
+- Modify: `src/inngest/index.ts` — register `membershipAdmissionWorkflow`
+- Modify: `src/lib/inngest.ts` — add new typed event entries (`membership/admission-workflow.started`, `membership/board-vote.cast`, `membership/application.submitted`); remove stale `"membership/admission-application.submitted"` event with `workflowId: string` from the deleted workflows system
+- Modify: `src/env.ts` — add `INNGEST_SIGNING_KEY` (required in production; omit in local dev by setting `INNGEST_DEV=1`) and `INNGEST_SIGNING_KEY_FALLBACK` (optional, for zero-downtime key rotation per Inngest docs)
 - Create or generate: `drizzle/*`
-- Test: `src/db/workflows.test.ts`
-- Test: `src/db/membership-workflows.test.ts`
-- Test: `src/lib/workflows/validation.test.ts`
 
 **Approach:**
-- Add durable legal membership state with `not_member`, `active_member`, and `former_member`.
-- Store legal membership state separately from `user.status`.
-- Use an explicit migration/import classification instead of deriving legal membership from `user.status` alone:
-  - Operational `onboarding` users start as `not_member`.
-  - Operational `alumni` users start as `former_member`.
-  - Operational `member` and `supporting_alumni` users become `active_member` when an authorized admin import/backfill decision says sufficient existing membership documents are available.
-  - Operational `member` and `supporting_alumni` users with missing or unknown documents remain `not_member`; admins can create or import them into the same admission workflow used for onboarding users.
-  - Unknown document state must never silently grant `active_member`.
-- Add a simple `workflow` root that stores `kind`, generic lifecycle `status`, optional `subjectUserId`, `createdByUserId`, timestamps, and validated metadata.
-- Store workflow kind as text validated by `src/lib/workflows/*`; keep common lifecycle statuses database-constrained.
-- Put kind-specific progress in metadata, for example `metadata.step`, instead of a generic `stage` column.
-- Add an individual `membership_admission` workflow tied to exactly one subject user in v1, and allow a lightweight `membership_payment_setup` workflow for legal members who do not need an admission workflow but still need billing setup.
-- Store legal board participant snapshots and votes inside the admission workflow metadata. The metadata records president, vice president, and head of finance at workflow creation time so later authority changes do not rewrite legal history.
-- Store application snapshots and generated legal document references inside metadata with version, hash, renderer/storage reference, and timestamp fields where relevant.
-- Add audit log tables for immutable history and document/hash tracking.
-- Use Inngest function and step idempotency for side-effect processing rather than a generic `workflowEvent` table.
-- The Inngest lifecycle workflow should own durable transitions that cross side-effect boundaries: board-resolution assignment notifications, resolution approval follow-up, application submission processing, legal-document rendering/Drive archival, legal activation, payment-task creation, and lifecycle notification sends.
-- Extend `src/lib/id.ts` with prefixes for workflow and audit records.
 
-**Technical design:** Directional entity relationship:
+**Schema: `legal_membership` tenure record (`src/db/schema/legal-membership.ts`):**
 
-```mermaid
-erDiagram
-  USER ||--o| LEGAL_MEMBERSHIP : has
-  USER ||--o{ WORKFLOW : subject
-  USER ||--o{ AUDIT_LOG : actor_or_target
+The core hub entity. Represents one membership tenure — from admission proposal through to active membership and eventually potential resignation/exclusion. A user can have multiple records over time.
+
+Columns: `id`, `userId` FK → user, `status` pgEnum (`admission_pending | application_pending | processing | active | manual_followup | cancelled`), `inngestRunId` text nullable, `startedAt` timestamp, `activatedAt` timestamp nullable, `endedAt` timestamp nullable, `createdAt`, `updatedAt`
+
+Partial unique index: UNIQUE on `userId` WHERE `status IN ('admission_pending', 'application_pending', 'processing', 'active')` — enforces at most one live tenure per user.
+
+**Schema: `src/db/schema/board-admission.ts`:**
+
+- `board_resolution` (id, legalMembershipId UNIQUE FK, resolutionText, resolutionTextVersion, resolutionTextHash, billingApplies boolean, createdAt) — 1:1 with `legal_membership`; stores the text snapshot all voters see.
+- `admission_participant` (id, legalMembershipId FK, userId FK, officerFunction pgEnum `president | vice_president | head_of_finance`, assignedAt) — 3 rows per admission; queryable for "show tasks only to snapshotted officers".
+- `board_vote` (id, legalMembershipId FK, voterUserId FK, value pgEnum `yes | no | abstain | procedure_objection`, displayedResolutionHash, castAt) — UNIQUE(legalMembershipId, voterUserId) enforces one immutable vote per officer per tenure in v1.
+
+**Schema: `src/db/schema/membership-application.ts`:**
+
+`membership_application` (id, legalMembershipId UNIQUE FK, subjectUserId FK, street, city, state, zip, country, declarations jsonb, feeTextVersion, applicationVersion, submittedAt)
+
+**Schema: `src/db/schema/legal-document.ts`:**
+
+`legal_document` (id, legalMembershipId FK, documentType text, sha256, driveFileId, driveUrl, renderer, createdAt)
+
+**Schema: `src/db/schema/task.ts`:**
+
+`task` table for simple task-generating workflows (IT scans, etc.): id, kind text, assigneeUserId FK → user, title text, description text nullable, status pgEnum (`open | completed | cancelled`), dueAt nullable, completedAt nullable, completedByUserId FK → user nullable, legalMembershipId FK → legal_membership nullable (for tasks related to a tenure), createdAt, updatedAt.
+
+**Inngest durable function (`src/inngest/membership-admission-workflow.ts`):**
+
+Triggered by event `membership/admission-workflow.started` with payload `{ legalMembershipId, subjectUserId }`.
+
+**`runId` capture:** Read `run.id` from the outer Inngest function context (destructured from the function handler arguments alongside `event` and `step`) — not inside a `step.run` callback. Pass it into the first `step.run` to store on the `legal_membership` row. The outer `run.id` is stable across replays; reading it inside a step is harmless but redundant and misleading.
+
+Directional structure (not implementation specification):
+
+```
+step.run: UPDATE legal_membership.inngestRunId (from outer run.id), send board task emails
+UPDATE legal_membership → admission_pending (already set at proposal time; confirm)
+
+LOOP (up to 3 iterations or until resolution reached):
+  step.waitForEvent("board-vote-N", { event: "membership/board-vote.cast",
+    if: "async.data.legalMembershipId == event.data.legalMembershipId", timeout: "90d" })
+  → null means timeout → step.run: UPDATE legal_membership → manual_followup → return
+  step.run: read board_vote rows, determine if resolution reached
+
+IF objection OR yesVotes < 2 after all 3 votes:
+  step.run: UPDATE legal_membership → manual_followup → return
+
+step.run: UPDATE legal_membership → application_pending
+step.run: send application-ready email
+
+step.waitForEvent("application-submitted", { event: "membership/application.submitted",
+  if: "async.data.legalMembershipId == event.data.legalMembershipId", timeout: "90d" })
+→ null means timeout → step.run: UPDATE legal_membership → manual_followup → return
+
+step.run: UPDATE legal_membership → processing
+step.run: render board resolution PDF (from board_resolution + board_vote snapshot)
+step.run: archive board resolution to Drive → INSERT legal_document
+step.run: render membership application PDF (from membership_application snapshot)
+step.run: archive application to Drive → INSERT legal_document
+step.run: render admission confirmation PDF
+step.run: archive confirmation to Drive → INSERT legal_document
+step.run: INSERT audit_log rows
+step.run: UPDATE user.legalMembershipState = active_member + UPDATE legal_membership → active + set activatedAt
+step.run: create payment task if billingApplies
+step.run: send admission confirmed email to member
+step.run: send board completion emails to legal officers
 ```
 
+Important Inngest constraints: step IDs can be reused in the vote loop but use unique suffixes (`"board-vote-0"`, `"board-vote-1"`, `"board-vote-2"`) for debuggability. Events must be sent _after_ `waitForEvent` executes. Each `step.run` is independently retried. The `if` CEL expression uses `async` for the triggering event and `event` for the new event being matched.
+
 **Patterns to follow:**
+- `src/inngest/new-user-workflow.ts` for established `step.run()` style.
 - `src/db/schema/membership.ts` for membership-adjacent domain tables.
-- `src/db/membership.ts` for small domain service helpers.
-- Existing Drizzle relations in `src/db/schema/index.ts`.
 
 **Test scenarios:**
-- Covers AE1. An affected user with a pending workflow remains legally `not_member`.
-- Happy path: creating an admission workflow creates a `membership_admission` workflow tied to one subject user with board participant snapshots in metadata.
-- Happy path: a document-verified imported Member or Supporting Alumni becomes `active_member` through an authorized admin import decision and receives a payment setup workflow when billing applies.
-- Happy path: application snapshots and legal document references are stored in the admission workflow metadata.
-- Edge case: v1 rejects or prevents membership admission builders with more than one affected user.
-- Edge case: legal document references carry hashes and immutable snapshot context through domain helpers.
-- Edge case: operational `member` or `supporting_alumni` without document classification does not become `active_member`.
-- Edge case: repeating the same Inngest event does not duplicate documents, legal-state transitions, payment workflows, or notification records.
-- Error path: duplicate active admission workflow for the same affected user is rejected or safely reused according to the selected service behavior.
+- Covers AE1. An affected user with a pending `legal_membership` record (`status = admission_pending`) remains legally `not_member` on `user.legalMembershipState`.
+- Happy path: creating an admission workflow creates one `legal_membership` row (admission_pending), one `board_resolution` row, and three `admission_participant` rows.
+- Happy path: two yes votes advance `legal_membership.status` to `application_pending` via Inngest step.
+- Happy path: application submission creates `membership_application` row and sends Inngest event.
+- Happy path: Inngest admission-completion steps insert three `legal_document` rows and set `user.legalMembershipState = active_member`.
+- Edge case: `board_vote` unique constraint on (legalMembershipId, voterUserId) rejects a second vote from the same officer.
+- Edge case: procedure objection by any officer advances `legal_membership` to `manual_followup`.
+- Edge case: board-vote `waitForEvent` timeout sets `legal_membership` to `manual_followup`.
+- Edge case: application `waitForEvent` timeout sets `legal_membership` to `manual_followup`.
+- Edge case: Inngest step retry does not create duplicate `legal_document` rows (idempotent inserts using legalMembershipId + documentType as natural key or ON CONFLICT DO NOTHING).
+- Edge case: partial unique index prevents creating a second `legal_membership` record for a user who already has an active or pending one.
+- Edge case: user with a `cancelled` or `manual_followup` tenure can have a new admission started (no active/pending record blocks it).
+- Error path: Drive upload failure retries through Inngest; `legal_membership` remains `processing` until all Drive steps succeed.
 
 **Verification:**
-- The schema can represent every origin workflow state without using legal membership state as workflow progress.
-- Migration path exists for existing users to receive legal membership state from explicit document classification, not operational status alone.
+- No `workflow` table or `lib/workflows/` directory exists in the codebase.
+- All complex workflow tables FK to `legal_membership.id`, not to any generic hub.
+- UI can query pending admission tenures for a user without calling the Inngest API.
+- Board votes, application snapshots, and document references are in explicit queryable tables.
+- `task` table exists for simple workflows.
 
 ---
 
-- U4. **Status-Aware Profile Completion**
+### U4. Status-Aware Profile Completion
 
 **Goal:** Change profile completion so all users must provide personal email and phone, while address is required only for active legal Members and Supporting Alumni.
 
@@ -432,23 +531,20 @@ erDiagram
 - Test: `src/schema/onboarding-progress.test.ts`
 
 **Approach:**
-- Replace current fixed `master-data -> address -> completed` logic with a requirement-aware profile completion helper.
-- Load legal membership state where app layout decides whether to redirect into profile completion.
-- Keep the current focused profile completion experience, but include/exclude address step based on legal/operational requirements.
-- Onboarding users, Alumni, and operational Members/Supporting Alumni whose legal state is `not_member` require personal email and phone only.
-- Active legal Members and Supporting Alumni require address and remain blocked until it is complete.
-- Follow copy guidance from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md` for any changed helper text.
+- Replace current fixed `master-data → address → completed` logic with a requirement-aware profile completion helper that reads `user.legalMembershipState` directly (it's a column; no JOIN needed).
+- Onboarding users, Alumni, and Members/Supporting Alumni with `legalMembershipState = not_member` require personal email and phone only.
+- Active legal Members and Supporting Alumni require address and are blocked until it is complete.
+- Follow copy guidance from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
 
 **Patterns to follow:**
 - Current `src/schema/onboarding-progress.ts` pure helper style.
-- Current onboarding step layout under `src/app/(authenticated)/(onboarding)/onboarding/[step]/`.
 
 **Test scenarios:**
 - Covers AE2. Onboarding user with personal email and phone but no address is profile-complete.
 - Covers AE3. Active legal Member with personal email and phone but no address is redirected to address completion.
 - Happy path: active legal Supporting Alumni with full address is profile-complete.
 - Happy path: Alumni with personal email and phone but no address is profile-complete.
-- Edge case: operational Member with legal state `not_member` and no address is profile-complete but still has membership workflow tasks.
+- Edge case: operational Member with `legalMembershipState = not_member` and no address is profile-complete.
 - Error path: missing phone or personal email blocks every status/legal-state combination.
 
 **Verification:**
@@ -457,9 +553,9 @@ erDiagram
 
 ---
 
-- U5. **Admission Workflow Creation From People And Imports**
+### U5. Admission Workflow Creation From People And Imports
 
-**Goal:** Replace direct payment invitation with legal admission workflow creation for onboarding users, and start the same workflow immediately for imports with missing documents.
+**Goal:** Replace direct payment invitation with legal admission tenure creation for onboarding users, and start the same workflow immediately for imports with missing documents.
 
 **Requirements:** R8-R12, R15-R19; AE4, partial AE5. R44 email delivery is completed in U12.
 
@@ -467,56 +563,48 @@ erDiagram
 
 **Files:**
 - Modify: `src/components/people-table.tsx`
-- Modify: `src/app/(authenticated)/(app)/people/complete-onboarding-action.ts`
+- Modify: `src/app/(authenticated)/(app)/people/complete-onboarding-action.ts` — replace direct payment-setup logic with proposal workflow creation (creates `legal_membership` + `board_resolution` + `admission_participant` rows, sends Inngest event)
 - Create: `src/app/(authenticated)/(app)/people/propose-membership-action.ts`
 - Modify: `src/app/(authenticated)/(app)/people/import-google-user-schema.ts`
 - Modify: `src/app/(authenticated)/(app)/people/import-google-user-dialog.tsx`
 - Modify: `src/app/(authenticated)/(app)/people/import-google-user-action.ts`
 - Test: `src/app/(authenticated)/(app)/people/import-google-user-schema.test.ts`
 - Test: `src/app/(authenticated)/(app)/people/import-google-user-action.test.ts`
-- Test: `src/db/membership-workflows.test.ts`
 
 **Approach:**
 - Rename/reframe "Complete onboarding" to "Propose for membership".
-- The action should call `can("membership.propose", { targetDepartment })` so Department Heads can propose only within their scoped department, while legal officers and Admins can propose according to explicit policy.
-- Proposal creates an individual admission workflow and board-resolution task for all current eligible legal officers.
-- Proposal/import workflow creation must validate and snapshot exactly three eligible legal officers before tasks are assigned. If authority data is missing, duplicated, overlapping, or over-complete, return an admin-facing setup error and do not create a partial resolution.
-- Proposal must not create a membership payment row or send payment-ready email.
-- Proposal/import transitions should enqueue durable Inngest events for notification/task side effects. React Email templates and exact copy land in U12, but the workflow/event boundary should be introduced with the domain transition so retries are available from the start.
-- Importing Members or Supporting Alumni as already documented legal members must be limited to explicit authority policy, e.g. global Admins. This is a trusted administrative decision in v1, not a document-upload or attestation workflow.
-- Import flow must ask whether sufficient membership documents exist for imported Members and Supporting Alumni with a required "Membership documents" control:
-  - `Documents verified`: authorized admin confirms START Berlin has sufficient existing membership documents for this person.
-  - `Documents missing or unsure`: treat as missing documents; do not grant legal membership from operational status.
-- If documents exist, set legal membership state to `active_member`, require address through profile completion, create or reuse the current `membership_payment` record, and create a payment-required workflow/task when billing applies. This path skips board/application admission workflow because legal membership already exists.
-- If documents are missing, set legal state to `not_member`, keep operational status, and immediately create the same board admission workflow and legal-officer tasks.
-- Alumni imports stay out of active membership/legal admission unless a separate future product decision changes that.
-- Use the wording solution doc for action labels, descriptions, errors, and email tone.
+- The action calls `can("membership.propose", { targetDepartment })` so Department Heads can propose only within their scoped department.
+- Proposal creates: one `legal_membership` row (status=`admission_pending`), one `board_resolution` row (resolution text + hash), three `admission_participant` rows from the board roster snapshot, then sends Inngest event `membership/admission-workflow.started` with `{ legalMembershipId, subjectUserId }`.
+- Proposal must validate exactly three eligible legal officers via `getBoardRosterSetup()` before any rows are created. If validation fails, return an admin-facing setup error and create nothing.
+- Proposal must not create a `membershipPayment` row or send payment-ready email.
+- Guard against creating a second active tenure: check for an existing `legal_membership` with status in `('admission_pending', 'application_pending', 'processing', 'active')` and return an error if found.
+- **`billingApplies` is always `true` in V1.** All users going through the admission workflow are required to pay. The `board_resolution.billingApplies` column is set to `true` unconditionally in V1. Do not derive it from `user.status` (which would incorrectly return `false` for `onboarding` users). The column exists for future flexibility (e.g., honorary memberships) but has no V1 variation.
+- Import flow must ask whether sufficient membership documents exist for imported Members and Supporting Alumni:
+  - `Documents verified`: authorized admin confirms documents exist → set `user.legalMembershipState = active_member`, INSERT a `legal_membership` row (status=`active`, activatedAt=now), require address through profile completion, create/reuse `membershipPayment` row (billingApplies always true). No board/application workflow.
+  - `Documents missing or unsure`: set `legalMembershipState = not_member`, keep operational status, and immediately create the admission tenure (same rows as a proposal) + send `membership/admission-workflow.started`.
+- Alumni imports stay out of active membership/legal admission.
 
 **Patterns to follow:**
 - Existing next-safe-action style in `complete-onboarding-action.ts`.
-- Existing import search/submit flow in `import-google-user-action.ts` and `import-google-user-dialog.tsx`.
-- Existing email build pattern in `src/app/(authenticated)/(app)/people/import-google-user-email.ts`.
+- Existing import flow in `import-google-user-action.ts`.
 
 **Test scenarios:**
-- Covers AE4. Department Head proposes an onboarding user and one individual board-resolution workflow appears in legal officers' action-required state.
-- Covers AE5 except email delivery, which is completed in U12. Importing Supporting Alumni with missing documents preserves operational status, sets legal state `not_member`, and creates admission workflow plus legal-officer tasks.
-- Happy path: importing Member with documents sets legal state `active_member` and does not create admission workflow.
-- Happy path: importing Member or Supporting Alumni with documents and billing requirements creates the payment setup state/task without requiring a board/application workflow.
-- Edge case: choosing "documents missing or unsure" is treated as missing documents and cannot activate legal membership.
-- Edge case: proposing the same user twice reuses or blocks duplicate active workflow.
-- Edge case: proposal fails without creating workflow rows when board roster validation fails.
+- Covers AE4. Department Head proposes an onboarding user; one `legal_membership` (admission_pending) + one `board_resolution` + three `admission_participant` rows are created and Inngest event is sent.
+- Covers AE5 except email delivery. Importing Supporting Alumni with missing documents creates tenure rows and sends Inngest event.
+- Happy path: importing Member with documents sets `user.legalMembershipState = active_member` and creates a `legal_membership` (active) row without starting the board workflow.
+- Edge case: choosing "documents missing or unsure" cannot activate legal membership.
+- Edge case: proposing the same user twice when an active tenure exists returns an error and creates nothing.
+- Edge case: proposal fails and creates nothing when board roster validation fails.
 - Error path: unauthorized user cannot propose membership.
-- Error path: import submit is rejected when Member/Supporting Alumni document status is missing or the actor lacks admin authority.
 - Regression: payment row is not created by proposal.
-- Regression: imported Alumni still does not require membership billing.
 
 **Verification:**
-- The old direct "complete onboarding -> payment" path is gone.
-- All admission paths enter the same workflow foundation.
+- The old direct "complete onboarding → payment" path is gone.
+- All admission paths enter the same `legal_membership` + Inngest event boundary.
 
 ---
 
-- U6. **People Action Required View**
+### U6. People Action Required View
 
 **Goal:** Add the member-scoped Action required tab in People for board/admin workflows requiring the current user's attention.
 
@@ -533,43 +621,39 @@ erDiagram
 - Test: `src/db/people-actions.test.ts`
 
 **Approach:**
-- Add Action required as a first-class tab on the People page, not a top-level Tasks page.
-- Use the existing shadcn/Radix `Tabs`, `TabsList`, `TabsTrigger`, and `TabsContent` components with two tabs:
-  - `Directory`: the existing People table and existing create/import actions.
-  - `Action required`: member-scoped workflow tasks assigned to or actionable by the current user.
-- Default to `Action required` when the current user has open actions; otherwise default to `Directory`. Support `?view=actions` and `?view=directory` so vote completion can redirect back predictably.
-- Show an action count in the `Action required` tab using `Badge`. Keep the badge hidden or zero-muted when no actions exist.
-- The Action required tab should reuse the existing table pattern (`Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell`) rather than cards. Columns should be: member, operational/legal status summary, workflow/task, due/created date if available, and primary action.
-- Use `Button` for primary row actions such as "Vote" or "Review"; row click can also navigate to the dedicated screen, but the button must remain keyboard accessible.
-- Use the existing `Empty` component for the no-actions state and `Alert` for admin-facing setup errors such as incomplete legal-officer authority data.
-- Query member-scoped workflow tasks assigned to the current user and return person rows with task summary and primary action. Board vote tasks should be assigned to the concrete legal-officer roster snapshot participants, not inferred from live authority positions on every page load.
-- Keep the existing People directory view intact.
-- Each action row should include person name, operational status/legal state summary where useful, workflow type, current task summary, and a primary action such as "Vote".
-- Action row click/primary action should route to the appropriate dedicated screen, starting with resolution detail/vote.
-- Users who are neither snapshotted legal officers nor assigned admins should not see board/admin-only tasks.
+- Add Action required as a first-class tab on the People page.
+- Use the existing shadcn/Radix `Tabs` with two tabs: `Directory` and `Action required`.
+- Default to `Action required` when the current user has open actions; otherwise default to `Directory`. Support `?view=actions` and `?view=directory`.
+- Show an action count in the `Action required` tab using `Badge`.
+- Query for action-required items by joining `admission_participant` → `legal_membership` → `board_vote`:
+  - Find tenures where `admission_participant.user_id = currentUserId` AND `legal_membership.status = 'admission_pending'`
+  - LEFT JOIN `board_vote` ON `board_vote.legal_membership_id = legal_membership.id AND board_vote.voter_user_id = currentUserId`
+  - Show rows where `board_vote.id IS NULL` (current user hasn't voted yet)
+- Each action row includes: subject person name, operational status summary, tenure type, task summary, and "Vote" primary action.
+- Users not in any `admission_participant` row, or officers who have voted on all pending tenures, see an empty state with warm copy: "You're all caught up." (follow tone-of-voice doc for final wording).
+- Action row click routes to the resolution detail/vote screen.
 
 **Patterns to follow:**
-- Existing `src/components/people-table.tsx` table shape and row navigation.
+- Existing `src/components/people-table.tsx` table shape.
 - Existing `src/db/people.ts` mapping style.
-- Existing copy conventions from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
+- Follow existing People page breakpoints and keyboard-navigation conventions.
 
 **Test scenarios:**
-- Covers AE4. Legal officer sees a proposed onboarding user in Action required with board vote needed.
-- Happy path: Admin sees relevant member-scoped admin tasks if assigned/eligible.
-- Edge case: legal officer who already voted no longer sees that row if no further action is needed from them.
+- Covers AE4. Legal officer sees proposed user in Action required with board vote needed.
+- Happy path: after casting a vote, the row is no longer shown (`board_vote` row exists for this user + tenure).
 - Edge case: regular member sees no board/admin action-required rows.
-- Edge case: `?view=actions` with zero actions shows the empty state and keeps Directory one click away.
-- Error path: stale task for deleted/missing user does not crash People page and is omitted or marked unavailable.
+- Edge case: officer who is in an `admission_participant` row but has already voted sees zero open actions.
+- Error path: stale task for missing/deleted subject user is omitted gracefully.
 
 **Verification:**
-- People has a clear Action required view/filter.
-- Board/admin work remains contextual to People rather than creating a top-level task inbox.
+- People has a clear Action required view.
+- Board/admin work remains contextual to People rather than a top-level task inbox.
 
 ---
 
-- U7. **Board Resolution Detail, Voting, And Finalization**
+### U7. Board Resolution Detail, Voting, And Finalization
 
-**Goal:** Build the dedicated resolution detail/vote screen, vote recording behavior, 2-of-3 approval rule, procedure objection handling, and finalization role assignment.
+**Goal:** Build the dedicated resolution detail/vote screen, vote recording behavior, 2-of-3 approval rule, procedure objection handling, and Inngest advancement on finalization.
 
 **Requirements:** R19-R27, R41; AE6, AE7. R44/R45 notification delivery is completed in U12.
 
@@ -582,54 +666,58 @@ erDiagram
 - Create: `src/db/board-resolutions.ts`
 - Create: `src/lib/board-resolution-rules.ts`
 - Test: `src/lib/board-resolution-rules.test.ts`
-- Test: `src/db/membership-workflows.test.ts`
 
 **Approach:**
-- The detail screen shows affected person context, resolution text, status, all legal-officer vote states, legal/confirmation copy, and vote actions: yes, no, abstain, procedure objection.
-- Snapshotted legal officers see current vote status by person/function/timestamp before finalization.
-- The resolution record uses the board roster/function snapshot created when the resolution was assigned; each vote records the voter, vote value, timestamp, and displayed text/version.
-- Resolution view/vote access must bind to the resolution's roster snapshot, not only to live authority state. Only the user IDs snapshotted as eligible voters for that resolution, with an open vote task for that resolution, may vote. A person who becomes a legal officer after the resolution was created, or who is a legal officer in live authority data but absent from that resolution snapshot, cannot vote on that resolution. Admins may view/admin-handle according to explicit policy but must not be counted as voters unless they are in the snapshot.
-- Board votes are immutable in v1. A snapshotted legal officer can cast exactly one vote; duplicate vote submissions are rejected and the UI shows the submitted vote state instead of active vote buttons.
-- After a vote, redirect back to People action required and show confirmation toast.
-- Resolution passes only when at least two of three snapshotted legal officers vote yes and nobody has objected to the electronic procedure.
-- Procedure objection stops electronic finalization and leaves workflow in manual/offline handling state.
-- On approval, determine chair/procedure-lead and minute-taker from officer functions according to the requirements/spec logic and persist the final assignment.
-- On approval, create/advance the member application task and record or enqueue the application-ready notification transition. The actual email template/send wiring lands in U12.
-- U7 may create structured document/audit records needed for the workflow transition; readable PDF rendering, Drive archival, and hash storage are completed in U11 before production rollout.
+- `board-resolution-rules.ts` supersedes the 2-of-3 vote counting logic that existed in `src/lib/workflows/membership-admission.ts` (deleted in U3). Do not reference the deleted file as an implementation guide; use only the rules defined here.
+- The `page.tsx` server component must call `requirePermission()` (or equivalent auth gate) before querying resolution data. Session existence alone is insufficient — any authenticated user who knows the URL must not reach resolution details. Gate on the requesting user being an `admission_participant` for this tenure or holding an admin grant.
+- The detail screen queries `board_resolution` for resolution text/hash, `admission_participant` for all three officers, and `board_vote` for current vote status. All data is explicit SQL joins — no JSONB parsing.
+- The `vote-action` server action:
+  1. Validates `legal_membership.status = 'admission_pending'`
+  2. Validates the actor is an `admission_participant` for this tenure
+  3. Validates no existing `board_vote` for this voter in this tenure (unique constraint enforcement)
+  4. Validates `displayedResolutionHash` matches `board_resolution.resolutionTextHash`
+  5. INSERTs a `board_vote` row
+  6. Sends Inngest event `membership/board-vote.cast` with `{ legalMembershipId, voterId, value, castAt }`
+  7. Returns success — the Inngest function handles all downstream transitions
+- The Inngest function's `step.waitForEvent` wakes up, reads all `board_vote` rows for the tenure via `step.run`, determines the resolution outcome, and advances `legal_membership.status` accordingly.
+- UI displays vote status per officer (voted/not voted, value shown only for own vote in v1 unless all three voted).
+- **Already-voted state:** when the current user's `board_vote` row exists for this tenure, display their recorded vote as a non-interactive label (e.g. "You voted: Yes") and disable all vote buttons. No re-vote in V1.
+- Board votes are immutable in v1 via the UNIQUE constraint. Duplicate vote submissions are rejected by the DB and by server-side validation.
+- **Vote button interaction states:** disable all vote buttons during submission (no optimistic updates — wait for server confirmation before updating UI). On submission error, show an error toast (follow wording from tone-of-voice document; include a generic retry message). On success, show a brief toast "Vote recorded." then redirect to People action required.
+- After voting, redirect back to People action required.
 
 **Patterns to follow:**
 - Existing server action style in `src/app/(authenticated)/(app)/groups/[id]/actions.ts`.
-- Existing `sonner` toast pattern in `src/components/people-table.tsx`.
-- Authority helper from U1 for current legal-officer lookup.
+- Authority helper from U1 for officer lookup.
 
 **Test scenarios:**
-- Covers AE6. Legal officer opens resolution detail and sees person, resolution text, status, all legal-officer vote states, legal copy, and four vote options.
-- Covers AE6. After voting, legal officer returns to People action required and receives a confirmation toast.
-- Covers AE7. Two yes votes and no objection approves the resolution.
-- Covers AE7. Any procedure objection stops electronic finalization.
-- Edge case: one yes plus one abstain plus one no does not approve.
-- Edge case: silence never counts as yes.
-- Edge case: same legal officer changing/revoting is rejected because v1 votes are immutable.
-- Edge case: a current legal officer who is not part of this resolution's roster snapshot cannot vote on that resolution.
+- Covers AE6. Legal officer sees person, resolution text, all vote states, and four vote options.
+- Covers AE6. After voting, redirection to People action required.
+- Covers AE7. Two yes votes and no objection cause Inngest to advance to `application_pending`.
+- Covers AE7. Any procedure objection causes Inngest to advance to `manual_followup`.
+- Edge case: one yes plus one abstain plus one no does not reach two yes.
+- Edge case: same legal officer attempting to vote twice is rejected by UNIQUE constraint on (legalMembershipId, voterUserId).
+- Edge case: officer not in `admission_participant` for this tenure cannot vote.
+- Edge case: Inngest event is sent only after the `board_vote` row is successfully committed.
 - Error path: non-legal-officer cannot access or vote on the resolution.
-- Error path: voting on finalized resolution is rejected.
+- Error path: voting when `legal_membership.status != 'admission_pending'` is rejected.
 
 **Verification:**
-- Board resolutions can move from pending to approved, rejected/manual, or procedure-objected according to the product rules.
-- Vote records include the audit-critical snapshots needed for documentation.
+- Board resolutions can move from `admission_pending` to `application_pending`, `manual_followup`, or `cancelled` according to the product rules, driven by Inngest.
+- Vote records are in the `board_vote` table with explicit fields, not buried in JSONB.
 
 ---
 
-- U8. **My Membership Task Card And Application Shell**
+### U8. My Membership Task Card And Application Shell
 
-**Goal:** Replace the current payment-first membership section with a single task card that shows board-pending, application-required, payment-required, or all-done states and opens a dedicated application flow when ready.
+**Goal:** Replace the current payment-first membership section with a single task card that maps `legal_membership.status` to a user-facing task state, and open a dedicated application flow when ready.
 
 **Requirements:** R14, R28-R34, R45; AE8, AE9, AE11
 
 **Dependencies:** U3, U4, U5, U7
 
 **Files:**
-- Modify: `src/app/(authenticated)/(app)/membership/page.tsx`
+- Modify: `src/app/(authenticated)/(app)/membership/page.tsx` — update to use the new task card; remove or replace direct `getStructuredMembershipState` call once task-card logic subsumes it
 - Modify: `src/app/(authenticated)/(app)/membership/onboarding.tsx`
 - Modify: `src/app/(authenticated)/(app)/membership/billing-copy.ts`
 - Create: `src/app/(authenticated)/(app)/membership/task-card.tsx`
@@ -639,37 +727,37 @@ erDiagram
 - Test: `src/app/(authenticated)/(app)/membership/billing-copy.test.ts`
 
 **Approach:**
-- Create a membership task view-state helper that considers legal membership, workflow/application task state, and payment state.
-- Preserve the tools section behavior independently from membership task state.
-- Board-pending members see a waiting state only: no vote details, no legal-officer names, no vote progress.
-- Procedure-objected, rejected, or manual/offline workflows should show a calm waiting/manual-handling state for the affected member and an admin-facing follow-up state in People. Member-facing copy must not expose individual vote details.
-- Application-ready state links to the dedicated application flow.
-- Submitted-processing state tells the user the application is being completed and hides payment/all-done until the Inngest admission-completion workflow finishes.
-- Payment-required state uses existing payment setup copy conventions and payment button.
-- All-done state reassures the user that membership/payment setup is complete.
-- Copy must follow `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
+- Create a membership task view-state helper that reads `legal_membership.status` directly (no JSONB parsing, no Inngest API call needed):
+  - `admission_pending` → waiting card (no vote details, no officer names)
+  - `manual_followup` → calm waiting/contact-admin card: "We need to take a closer look at your application. We'll reach out to you directly — feel free to get in touch if you have questions." Include a contact link/email. No action buttons.
+  - `application_pending` → application-ready card (links into application flow)
+  - `processing` → submitted/processing card (Inngest is working)
+  - `active` + no payment → all-done card (same for Supporting Alumni — the card reads `legalMembershipState`, not `user.status`; no separate variant needed)
+  - `active` + payment required → payment setup card
+  - No active tenure + `legalMembershipState = not_member` → contact-admin safe state
+- Preserve the tools section behavior independently from task state.
+- Copy must follow tone conventions doc.
 
 **Patterns to follow:**
 - Current `MembershipPageContent` split between membership section and tools section.
 - Existing `billing-copy.ts` pure helper and tests.
-- Existing profile completion layout for focused step pages.
+- Follow existing membership page breakpoints and keyboard-navigation conventions.
 
 **Test scenarios:**
-- Covers AE8. Missing-document operational Member with pending admission sees waiting task card and no vote details.
-- Covers AE11. Board-approved member sees application-required card.
-- Happy path: payment-required user sees payment setup card after the admission-completion workflow finishes.
-- Happy path: complete user sees all-done card.
-- Edge case: user with no active workflow and legal state `not_member` receives a safe waiting/contact-admin state rather than payment prompt.
-- Edge case: procedure-objected/manual workflow does not show application or payment setup to the affected member.
+- Covers AE8. Operational Member with `legal_membership.status = admission_pending` sees waiting card and no vote details.
+- Covers AE11. User with `legal_membership.status = application_pending` sees application-ready card.
+- Happy path: `legal_membership.status = processing` shows a processing card until Inngest completes.
+- Happy path: complete user sees all-done or payment-setup card.
+- Edge case: no active tenure and `legalMembershipState = not_member` shows safe waiting state.
 - Regression: Slack/Notion tools visibility remains driven by operational status.
 
 **Verification:**
 - My membership communicates exactly one next membership task.
-- Payment setup is no longer shown before legal application is ready/complete.
+- UI reads `legal_membership.status` column directly — no JSONB parsing, no Inngest API calls.
 
 ---
 
-- U9. **Membership Application Flow**
+### U9. Membership Application Flow
 
 **Goal:** Build the dedicated application flow with Address, Declarations, and Review & submit steps, including explicit fee acknowledgement.
 
@@ -683,51 +771,52 @@ erDiagram
 - Create: `src/app/(authenticated)/(app)/membership/application/[step]/(steps)/step-review.tsx`
 - Create: `src/app/(authenticated)/(app)/membership/application/[step]/application-validation.ts`
 - Create: `src/app/(authenticated)/(app)/membership/application/[step]/submit-application-action.ts`
-- Create: `src/db/membership-applications.ts`
-- Test: `src/db/membership-workflows.test.ts`
 - Test: `src/app/(authenticated)/(app)/membership/application/application-validation.test.ts`
 
 **Approach:**
-- Reuse the focused profile completion feel: clear steps, blocking progression, completion redirect.
-- Application pages and submit actions must load the active application task for the current authenticated user as the affected user. They must reject workflow/application IDs that do not belong to `ctx.user.id` and must never accept a client-supplied affected-user ID for legal activation.
-- Step 1 collects address/contact address and can prefill from existing user address when available.
-- Step 2 collects legal declarations, including natural person/legal capacity, support for START Berlin's purpose, bylaws acceptance, privacy notice acknowledgement, and explicit membership-fee acknowledgement.
-- The fee acknowledgement field should use the origin wording unless legal review replaces it: "I understand that, according to §2 of the Financial Regulations of START Berlin e.V., a membership fee of €20 per semester applies. Upon becoming a member, €40 are due for the first year, and subsequent annual payments of €40 are due every 12 months. I understand that the membership fee is non-refundable if I leave the association early."
-- Fee acknowledgement text direction comes from the origin requirements and must be validated against the Finanzordnung before production.
-- Step 3 shows a review summary and final submit action.
-- Submit creates the immutable application snapshot, updates user address if needed, marks the workflow/application task as submitted-processing, and enqueues the Inngest admission-completion workflow.
-- The Inngest admission-completion workflow renders/stores the required legal document records, archives them in Drive with hashes, writes audit records, then sets legal state `active_member`, transitions onboarding operational status to `member`, preserves `supporting_alumni` where applicable, and creates the payment-required task if billing applies.
-- While the Inngest workflow is running or retrying, My membership shows a processing state rather than payment setup or all-done.
+- **Navigation:** forward-only in V1 — no back button between steps (mirrors the existing onboarding shell). No draft persistence: if the user navigates away mid-flow, they return to step 1 on re-entry. The `[step]` route segment is display-only; the server validates `legal_membership.status = 'application_pending'` on each page load.
+- Application pages and submit action load the active `legal_membership` for the current authenticated user where `status = 'application_pending'`. They reject tenure IDs not belonging to `ctx.user.id`.
+- Step 1: address/contact fields (prefill from `user` if available).
+- Step 2: legal declarations — natural person/legal capacity, support for START's purpose, bylaws acceptance, privacy notice, and explicit fee acknowledgement. All declarations are required; the Next button is disabled until all checkboxes are checked (no inline per-box errors needed). Final label text is determined during legal/Satzung review — use placeholder copy until then.
+- Step 3: review summary and final submit. Shows the address the user entered and a checklist of their confirmed declarations. CTA label: "Submit application". No fee amounts shown on this screen — payment setup follows after legal activation.
+- `submit-application-action`:
+  1. Validates `legal_membership.status = 'application_pending'` for the current user
+  2. Validates required declarations server-side against a fixed Zod schema: `{ naturalPerson: true, legalCapacity: true, supportsPurpose: true, acceptsBylaws: true, acceptsPrivacyNotice: true, acknowledgesFee: true }`. All values must be `true`; any missing key or non-true value is rejected. The client cannot inject additional keys.
+  3. INSERTs a `membership_application` row (legalMembershipId + address snapshot + declarations JSONB + versions + submittedAt)
+  4. Updates `user` address fields if changed
+  5. Sends Inngest event `membership/application.submitted` with `{ legalMembershipId }`
+  6. Returns — Inngest function wakes up and handles all document/legal activation steps
+- While the Inngest function runs (`legal_membership.status = 'processing'`), My membership shows a processing state.
 
 **Patterns to follow:**
 - Existing onboarding step component/action structure under `src/app/(authenticated)/(onboarding)/onboarding/[step]/`.
-- Existing Zod validation style in onboarding and people import schemas.
 - Wording principles from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
+- Follow existing onboarding shell breakpoints and keyboard-navigation conventions.
 
 **Test scenarios:**
 - Covers AE9. Application-ready user can progress through Address, Declarations, and Review & submit.
 - Covers AE9. Submit is blocked unless fee acknowledgement is checked.
-- Happy path: application submit stores address and declaration snapshot, then Inngest completes document/audit records, legal state `active_member`, and workflow progress.
-- Covers AE10. Billing-applicable user is routed into payment setup after the admission-completion workflow finishes.
-- Edge case: user whose board resolution is not approved cannot access application submit.
-- Edge case: authenticated user cannot view or submit another person's application by manipulating route params or action payload.
-- Edge case: user who already submitted application cannot submit a duplicate.
+- Happy path: submit action inserts `membership_application` row with correct `legalMembershipId` and sends Inngest event; `legal_membership` transitions to `processing` via Inngest.
+- Covers AE10. Billing-applicable user is routed into payment setup after Inngest completes.
+- Edge case: user whose `legal_membership.status != 'application_pending'` cannot submit.
+- Edge case: user cannot view or submit another person's application by manipulating route params.
+- Edge case: second submit attempt is rejected (`membership_application` UNIQUE constraint on legalMembershipId).
 - Error path: missing address field returns validation error.
-- Error path: manipulated declaration payload missing required confirmation is rejected server-side.
+- Error path: manipulated declaration payload is rejected server-side.
 
 **Verification:**
-- Application flow is serious and focused without being embedded in My membership.
-- Legal membership activation happens after document/audit completion and before payment setup.
+- Application flow submits a `membership_application` row and sends an Inngest event.
+- Legal membership activation happens inside the Inngest function after document/audit completion — not in the server action.
 
 ---
 
-- U10. **Payment Continuation And Membership State Integration**
+### U10. Payment Continuation And Membership State Integration
 
-**Goal:** Compose existing GoCardless setup with the new admission workflow so billing follows application without becoming the legal membership trigger.
+**Goal:** Compose existing GoCardless setup with the new admission workflow so billing follows application without becoming the legal membership trigger. Fix payment activation to correctly handle Supporting Alumni.
 
 **Requirements:** R28, R37-R39, R46; AE10
 
-**Dependencies:** U3, U8, U9, U11
+**Dependencies:** U3, U8, U9
 
 **Files:**
 - Modify: `src/lib/membership-status.ts`
@@ -740,42 +829,40 @@ erDiagram
 - Test: `src/app/(authenticated)/(app)/membership/billing-copy.test.ts`
 
 **Approach:**
-- Adjust membership view-state logic so payment setup depends on legal/application workflow readiness, not profile onboarding alone.
-- Ensure payment activation does not set legal membership state. Legal membership is already active after application confirmation.
-- Revisit `activateMembershipPayment`, which currently sets `user.status = "member"`. Preserve operational status intentionally: onboarding users should already become member at legal admission; Supporting Alumni should not be overwritten to `member`.
-- Keep delayed GoCardless subscription start behavior for imported paid-through users where it remains relevant.
-- Payment setup should only start when billing applies and the user is already an active legal member with a payment-required task/state. That task can come from the admission-completion Inngest workflow or from the document-verified import path for users who skip admission workflow.
-- Payment return/reconciliation should complete the payment task/workflow, not legal admission.
+- Adjust membership view-state logic so payment setup depends on `user.legalMembershipState = active_member` and a payment-required task state, not profile onboarding alone.
+- Payment activation must not set `user.legalMembershipState`. Legal membership is already active after the Inngest admission-completion steps.
+- **Fix `activateMembershipPayment`**: the function currently sets `user.status = "member"` unconditionally. Change this to a conditional: only set `user.status = "member"` when `user.status === "onboarding"`. Users who are already `"member"` or `"supporting_alumni"` must not have their operational status overwritten.
+- **Guard against race with board resolution finalization**: `activateMembershipPayment` must verify `user.legalMembershipState === "active_member"` before changing operational status. A GoCardless webhook could theoretically arrive before legal activation completes. If `legalMembershipState` is not `active_member`, log and skip the status advancement (payment row update still applies).
+- Payment setup should only start when billing applies and the user is already an active legal member (`legalMembershipState = active_member`).
 
 **Patterns to follow:**
-- Existing GoCardless reconciliation split in `src/lib/gocardless/membership-reconciliation.ts`.
+- Existing GoCardless reconciliation in `src/lib/gocardless/membership-reconciliation.ts`.
 - Existing paid-through handling in `src/lib/gocardless/membership-flow-helpers.ts`.
-- Existing membership-status tests.
 
 **Test scenarios:**
-- Covers AE10. After the admission-completion workflow finishes, billing-applicable user sees/starts payment setup while legal state is already active.
-- Happy path: successful GoCardless reconciliation completes payment task and leaves legal state unchanged.
-- Edge case: Supporting Alumni payment activation does not overwrite operational status to `member`.
-- Edge case: document-verified imported paid-through Member or Supporting Alumni can set up subscription now with delayed first charge, even without an admission workflow.
-- Error path: user without active legal membership and payment-required task/state cannot start payment.
+- Covers AE10. After Inngest admission-completion, billing-applicable user sees/starts payment setup while `legalMembershipState = active_member`.
+- Happy path: successful GoCardless reconciliation completes payment and leaves `legalMembershipState` unchanged.
+- Happy path: onboarding user who completes admission and payment sees `user.status = "member"` after payment activation.
+- Edge case: Supporting Alumni (`user.status = "supporting_alumni"`) who completes admission and payment retains `supporting_alumni` operational status — not overwritten to `"member"`.
+- Error path: user without `legalMembershipState = active_member` cannot start payment.
 - Regression: existing payment return retry/not-ready behavior still works.
 
 **Verification:**
-- Payment state no longer controls legal membership.
+- Payment state no longer controls `legalMembershipState`.
+- `activateMembershipPayment` only changes operational status for `onboarding` users.
 - Existing GoCardless setup remains the payment provider path.
 
 ---
 
-- U11. **Legal Document Rendering, Drive Archival, And Hashes**
+### U11. Legal Document Rendering, Drive Archival, And Hashes
 
-**Goal:** Generate and archive board resolution, membership application, and admission confirmation documents with database references and hashes.
+**Goal:** Generate and archive board resolution, membership application, and admission confirmation documents with `legal_document` DB references and hashes, executed as Inngest steps inside the admission function.
 
 **Requirements:** R27, R41-R43; related R35-R37
 
 **Dependencies:** U3, U7, U9
 
 **Files:**
-- Create: `src/lib/legal-documents/document-renderer.ts`
 - Create: `src/lib/legal-documents/document-hash.ts`
 - Create: `src/lib/legal-documents/drive-archive.ts`
 - Create: `src/lib/legal-documents/templates/brand.tsx`
@@ -784,56 +871,46 @@ erDiagram
 - Create: `src/lib/legal-documents/templates/membership-application.tsx`
 - Create: `src/lib/legal-documents/templates/admission-confirmation.tsx`
 - Modify: `package.json`
-- Modify: `package-lock.json`
+- Modify: `next.config.ts` — add `serverExternalPackages: ['@react-pdf/renderer']` (required: renderer uses native Node.js deps that Next.js bundler cannot process)
 - Modify: `src/env.ts`
-- Modify: `src/db/membership-workflows.ts`
-- Modify: `src/inngest/membership-lifecycle-workflow.ts`
+- Modify: `src/inngest/membership-admission-workflow.ts`
 - Test: `src/lib/legal-documents/document-hash.test.ts`
-- Test: `src/db/membership-workflows.test.ts`
 
 **Approach:**
-- Introduce a server-only legal-document service with a renderer adapter backed by `@react-pdf/renderer` for v1.
-- The adapter should expose a single rendering entry point that returns the generated PDF bytes, the SHA-256 hash of those exact bytes, renderer metadata, and rendered timestamp.
-- Render templates as server-only TSX components using React-PDF primitives such as `Document`, `Page`, `View`, `Text`, and `Image`; do not reuse regular app UI components.
-- Use `renderToBuffer` for the archival flow and keep the affected route/action in the Node.js runtime.
-- Set stable React-PDF document metadata where possible: title, author, creator, creation date, modification date, and language.
-- Use A4 pages with lightweight START Berlin branding, a text-based wordmark, one subtle brand accent, document metadata, fixed footer, generated date, document ID/hash reference, and page numbering.
-- Generate PDFs from database snapshots, not live mutable user fields.
-- Compute and store a hash for the exact generated PDF bytes uploaded to Drive. The hash identifies the archived artifact; it does not replace the immutable database snapshot.
-- Add Drive archival using the existing Google service-account auth pattern with the required Drive scope and configurable archive destination.
-- Keep Drive access private by default: no public sharing, no anyone-with-link URLs, and no member-facing Drive links in v1 unless a later legal/product decision explicitly allows that.
-- Avoid logging full legal-document snapshots, addresses, vote details, or generated PDF bytes. Logs should use IDs, document types, and error categories.
-- Store Drive file ID/URL, document type, related workflow/resolution/application/user, hash, and share/created timestamps.
-- Document generation should happen through Inngest steps at resolution finalization, application submission, and admission confirmation.
-- The admission-completion workflow should not mark legal membership active until the required application/admission document records, hashes, audit entries, and Drive archival have completed successfully.
-- If Drive upload fails, the Inngest step retries. The workflow remains in submitted-processing/document-archival-pending state and My membership shows processing/admin-follow-up copy rather than legal active/payment-ready copy.
-- Each Inngest step must be idempotent using workflow/application/document IDs so retries do not create duplicate legal documents or duplicate legal-state transitions.
+- Introduce a server-only legal-document service. Call `@react-pdf/renderer`'s `renderToBuffer` directly — no adapter abstraction. V1 has one renderer and one consumer; an adapter layer has no second consumer and adds indirection without benefit.
+- Each document generator function returns `{ buffer: Buffer, sha256: string, renderer: string, renderedAt: Date }`.
+- Render templates as server-only TSX using React-PDF primitives (`Document`, `Page`, `View`, `Text`, `Image`).
+- Use `renderToBuffer` for archival. A4 pages with START Berlin branding, fixed footer, document ID/hash reference, and page numbering.
+- Generate PDFs from immutable DB snapshots (`board_resolution`, `admission_participant`, `board_vote`, `membership_application`), not live mutable user fields.
+- Each document render + Drive upload is a separate `step.run` in the Inngest function so Drive failures retry independently without re-rendering or re-uploading other documents.
+- On Drive upload: INSERT `legal_document` row with `legalMembershipId`, driveFileId, driveUrl, sha256, documentType.
+- Drive access private by default: no public sharing, no anyone-with-link URLs.
+- **Drive scope and env var:** use `https://www.googleapis.com/auth/drive.file` scope (narrowest scope — only files the service account created). Add `GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID` to `src/env.ts` as a required string env var; the drive-archive module reads this at runtime to determine the target folder. Add the env var entry to U11's file modifications on `src/env.ts`.
+- Each Inngest step uses the `legalMembershipId` + documentType as a natural idempotency key to prevent duplicate Drive uploads on retry (check `legal_document` for existing row before rendering/uploading).
+- The Inngest function must not advance to `legalMembershipState = active_member` until all three `legal_document` rows exist. Drive upload failures throw inside `step.run` and retry independently — they do not advance `legal_membership.status`. Status only advances after the step completes without error.
+- **Pre-flight access validation:** during application deployment/setup, verify the service account has write access to `GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID` with a test write before going live. Document this in the operational notes.
 
 **Patterns to follow:**
 - `src/lib/google-auth.ts` for Google service-account auth.
 - `src/inngest/create-group.ts` for Google API usage style.
 - Existing env validation in `src/env.ts`.
-- React-PDF's Node API and component model for server-side PDF rendering.
 
 **Test scenarios:**
-- Happy path: generated document render returns a Node `Buffer`, `sha256`, renderer value `@react-pdf/renderer`, and rendered timestamp.
-- Happy path: document templates render from frozen workflow/application/resolution snapshots, including board vote snapshots, fee acknowledgement text, dates, and document IDs.
-- Happy path: legal document record stores type, related IDs, Drive ID/URL, hash, and created timestamp.
-- Happy path: application submission Inngest workflow archives required documents before setting legal state `active_member`.
-- Edge case: changing mutable user address after application does not alter the stored application snapshot used for document generation.
-- Edge case: the same snapshot can be re-rendered for preview/recovery, but workflow integrity relies on the stored snapshot and archived artifact hash rather than assuming byte-identical re-renders.
-- Error path: attempting to render without required snapshot fields fails before Drive upload.
-- Error path: Drive upload failure retries through Inngest, records retryable archival failure state, and does not show payment setup until the admission-completion workflow reaches the legal-active transition.
-- Error path: Drive archival rejects or flags a file that would be created with public/anyone-with-link visibility.
-- Error path: document generation cannot overwrite an already-finalized document record.
+- Happy path: document render returns a Node `Buffer`, `sha256`, and rendered timestamp.
+- Happy path: templates render from frozen snapshots, including board vote data, fee acknowledgement text, and document IDs.
+- Happy path: Drive upload inserts a `legal_document` row with sha256, driveFileId, documentType, and `legalMembershipId`.
+- Happy path: Inngest does not advance to legal activation until all three `legal_document` rows exist.
+- Edge case: idempotent step check: if `legal_document` row already exists for (legalMembershipId, documentType), skip render + upload.
+- Error path: Drive upload failure retries through Inngest; `legal_membership.status` remains `processing`; `legalMembershipState` is not set.
+- Error path: Drive archival rejects files that would be created with public visibility.
 
 **Verification:**
-- Board resolution, application, and admission confirmation can be archived with references.
-- Database records remain authoritative for workflow and legal state.
+- Three `legal_document` rows exist before `user.legalMembershipState` is set to `active_member`.
+- DB records remain authoritative for tenure and legal state; Drive stores the archival artifact.
 
 ---
 
-- U12. **Notifications And Email Templates**
+### U12. Notifications And Email Templates
 
 **Goal:** Add the workflow emails and completion notifications required for board tasks, application readiness, admission/payment continuation, and board completion awareness.
 
@@ -846,43 +923,40 @@ erDiagram
 - Create: `src/emails/membership-application-ready.tsx`
 - Create: `src/emails/membership-admission-confirmed.tsx`
 - Create: `src/emails/membership-admission-completed-board.tsx`
-- Modify: `src/app/(authenticated)/(app)/people/propose-membership-action.ts`
-- Modify: `src/app/(authenticated)/(app)/people/import-google-user-action.ts`
-- Modify: `src/app/(authenticated)/(app)/membership/application/[step]/submit-application-action.ts`
-- Modify: `src/inngest/membership-lifecycle-workflow.ts`
+- Modify: `src/inngest/membership-admission-workflow.ts`
 - Test: `src/emails/membership-admission-confirmed.test.tsx`
-- Test: `src/app/(authenticated)/(app)/people/import-google-user-action.test.ts`
 
 **Approach:**
-- Board task email includes affected person context and direct link to the resolution detail/vote screen.
-- Application-ready email tells the affected person that the board approved admission and the application is ready, linking to My membership or the application flow.
-- Admission-confirmed email tells the person legal membership is active and, when applicable, payment setup is the next required step.
-- Board completion notification tells legal officers that the person completed the application and legal membership is active.
-- Email sends should be Inngest steps triggered by durable lifecycle events, not best-effort sends directly inside server actions. Use idempotency keys based on workflow/task/notification type so retries do not send duplicate emails.
-- Follow tone and support-path guidance from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
-- Do not put sensitive vote details in member-facing emails.
+- All email sends are `step.run` calls inside the Inngest admission function — not best-effort sends in server actions. This ensures retries on Resend failure without corrupting `legal_membership.status`.
+- Board task email: sent in the first Inngest step after the function starts; includes person context and link to resolution detail screen.
+- Application-ready email: sent after Inngest advances `legal_membership` to `application_pending`.
+- Admission-confirmed email: sent after legal activation step; includes payment setup call-to-action when billing applies.
+- Board completion email: sent to legal officers after admission is confirmed.
+- Inngest step IDs for email sends include the notification type to prevent duplicates on retry.
+- Member-facing emails must not include individual board vote details.
+- Follow tone guidance from `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`.
 
 **Patterns to follow:**
 - `src/emails/membership-payment-ready.tsx` for React Email layout.
-- `src/app/(authenticated)/(app)/people/import-google-user-email.ts` for email builder functions.
-- Existing email render tests.
+- Existing Inngest `step.run` email pattern in `src/inngest/new-user-workflow.ts`.
 
 **Test scenarios:**
-- Covers AE5. Missing-document import sends board task email to eligible legal officers.
-- Covers AE11. Approved resolution sends application-ready email with correct link.
-- Covers AE10. Application submission with billing required sends confirmation that payment setup remains required.
-- Happy path: board completion email renders affected person and completed workflow context.
+- Covers AE5. Missing-document import triggers Inngest which sends board task email to eligible legal officers.
+- Covers AE11. Approved resolution triggers Inngest which sends application-ready email.
+- Covers AE10. Admission confirmation email includes payment setup CTA when billing applies.
+- Happy path: board completion email renders person and tenure context.
 - Edge case: member-facing email never includes individual board vote details.
-- Error path: email send failure retries through Inngest and is logged/recorded without corrupting workflow state.
+- Error path: email send failure retries through Inngest step retry and does not corrupt `legal_membership.status`.
 
 **Verification:**
-- Each required lifecycle notification has a template and is triggered by the correct transition.
+- Each required lifecycle notification has a template and is triggered by the correct Inngest transition.
+- Email sends are `step.run` calls — retryable, not fire-and-forget.
 
 ---
 
-- U13. **Legal Privileges, Audit Surfaces, And Rollout Hardening**
+### U13. Legal Privileges, Audit Surfaces, And Rollout Hardening
 
-**Goal:** Tie legal privileges to legal membership state, add operational verification/reporting hooks, and prepare rollout/data migration.
+**Goal:** Tie legal privileges to `user.legalMembershipState`, add operational verification/reporting hooks, and prepare rollout/data migration.
 
 **Requirements:** R40-R43; AE1, AE3, AE8
 
@@ -895,26 +969,20 @@ erDiagram
 - Modify: `src/app/(authenticated)/(app)/people/page.tsx`
 - Create: `docs/membership-lifecycle-setup.md`
 - Test: `src/lib/legal-membership/legal-privileges.test.ts`
-- Test: `src/db/membership-workflows.test.ts`
 
 **Approach:**
-- Add helpers for legal-member eligibility, voting/election eligibility, and formal legal member lists based on `legal_membership_state = active_member`.
-- Show legal membership state and relevant workflow/document status to admins where useful, without exposing unnecessary legal internals to members.
-- Add migration/backfill notes for classifying existing Members and Supporting Alumni as `active_member` only when documents exist, or `not_member` with admission workflow when documents are missing.
+- Add helpers for legal-member eligibility and formal legal member lists based on `user.legalMembershipState = active_member`.
+- Show legal membership state and relevant tenure/document status to admins without exposing legal internals to members.
+- Add migration/backfill notes for classifying existing Members and Supporting Alumni: `active_member` (and a corresponding `legal_membership` active record) only when documents are verified; `not_member` with admission workflow when documents are missing.
 - Add a setup/operations doc covering authority prerequisites, legal-officer assignments, legal review, Drive configuration, import decisions, and rollout order.
-- Keep legal/Satzung review as a launch prerequisite, not a code-level assumption.
-
-**Patterns to follow:**
-- Existing docs style in `docs/gocardless-membership-setup.md`.
-- Existing member profile cards for admin-facing summary display.
 
 **Test scenarios:**
-- Covers AE1. Pending admission workflow does not grant legal voting eligibility.
+- Covers AE1. Pending admission tenure does not grant legal voting eligibility.
 - Covers AE3. Active legal member with missing address is profile-blocked until address is complete.
-- Covers AE8. Operational Member with missing documents is excluded from legal voting/election eligibility until legal state becomes active.
-- Happy path: active legal Supporting Alumni is legal-member eligible.
+- Covers AE8. Operational Member with `legalMembershipState = not_member` is excluded from legal voting/election eligibility.
+- Happy path: `legalMembershipState = active_member` Supporting Alumni is legal-member eligible.
 - Edge case: former member is excluded from legal privileges even if operational status is stale.
-- Integration: admin People/detail surfaces can distinguish operational status, legal state, and workflow attention needed.
+- Integration: admin People/detail surfaces distinguish operational status, legal state, and tenure attention needed.
 
 **Verification:**
 - Legal privileges never depend on `user.status` alone.
@@ -924,12 +992,12 @@ erDiagram
 
 ## System-Wide Impact
 
-- **Interaction graph:** Authority assignments feed typed permission checks, proposal eligibility, legal-officer lookup, People action required, and resolution finalization. Legal membership state feeds profile completion, member task state, legal privileges, and import cleanup. Workflow state feeds People action required, My membership, notifications, documents, and payment continuation.
-- **Error propagation:** Permission denials should fail closed. Workflow transition failures should not partially mark legal membership active without application/audit/document records. Inngest should own retryable Drive/email/document/payment-task side effects with idempotent steps and durable status updates.
-- **State lifecycle risks:** Duplicate workflows, stale legal-officer roster snapshots, revotes, failed document uploads, and payment return retries all need explicit domain handling.
-- **API surface parity:** Server `can()`, client `<Can>`/`useCan()`, People action queries, import actions, proposal actions, application submit, and payment actions must share authority/legal/workflow semantics. Client checks remain UI affordances only; every mutation and sensitive read needs a server-side guard.
-- **Integration coverage:** Unit tests cover pure rules; cross-layer tests should cover proposal -> board task, vote -> application task, application -> legal active -> payment, and import missing docs -> board task.
-- **Unchanged invariants:** Operational status remains separate from legal membership; tools access remains operational-status driven; payment remains GoCardless-based; batch admission remains out of scope.
+- **Interaction graph:** Authority assignments feed typed permission checks, proposal eligibility, legal-officer lookup, People action required, and resolution finalization. `user.legalMembershipState` feeds profile completion, member task state, legal privileges, and import cleanup. `legal_membership.status` feeds People action required, My membership, and Inngest event routing. Inngest functions own all side-effect sequencing and retry.
+- **Error propagation:** Permission denials fail closed. Workflow transition failures (Drive upload, email send) retry through Inngest steps and do not partially advance `user.legalMembershipState`. The `legal_membership.status` column is the source of truth for UI; it is updated by Inngest `step.run` calls, not by server actions.
+- **State lifecycle risks:** Duplicate tenures (mitigated by partial unique index), stale legal-officer roster snapshots (mitigated by `admission_participant` snapshot), duplicate votes (mitigated by UNIQUE constraint on legalMembershipId + voterUserId), failed document uploads (retried via Inngest), and payment return retries all need explicit domain handling.
+- **API surface parity:** Server `can()`, client `<Can>`/`useCan()`, People action queries, import actions, proposal actions, vote actions, application submit, and payment actions must share authority/legal/tenure semantics. Every mutation and sensitive read needs a server-side guard.
+- **Integration coverage:** Unit tests cover pure rules; cross-layer tests should cover proposal → board task, vote → application task (via Inngest), application → legal active → payment (via Inngest), and import missing docs → board task.
+- **Unchanged invariants:** Operational status remains separate from legal membership state; tools access remains operational-status driven; payment remains GoCardless-based; batch admission remains out of scope.
 
 ---
 
@@ -937,24 +1005,29 @@ erDiagram
 
 | Risk | Mitigation |
 |------|------------|
-| Authority migration accidentally grants or removes access | Keep authority policy/type tests green, backfill carefully, verify current admins/legal officers before workflow rollout, and add the remaining boundary tests for protected group and authority-update paths. |
+| Authority migration accidentally grants or removes access | Keep authority policy/type tests green, backfill carefully, verify current admins/legal officers before workflow rollout. |
 | Board resolution legal assumptions do not match Satzung | Treat legal/Satzung review as a launch prerequisite and keep final legal wording configurable/versioned. |
-| Payment activation overwrites operational Supporting Alumni status | Explicitly update payment reconciliation so payment completion does not change legal state and does not blindly set `user.status = "member"`. |
-| Members see board vote details they should not see | Keep board progress only on board/admin resolution screens; My membership board-pending card is a waiting state only. |
-| Document generation or Drive upload fails during admission completion | Run admission completion through Inngest; keep the workflow in processing/archival-pending state until required document/audit work is complete or retryable admin follow-up is recorded. |
+| `activateMembershipPayment` overwrites Supporting Alumni operational status | U10 adds an explicit conditional: only set `user.status = "member"` when current status is `"onboarding"`. Covered by test scenarios. |
+| Members see board vote details they should not see | Keep board progress only on board/admin resolution screens; My membership admission_pending card is a waiting state only. |
+| Inngest step failure mid-admission-completion leaves partial state | All document + legal activation steps come before `legal_membership.status = active`. My membership shows `processing` until all Inngest steps succeed. `legal_document` idempotency check prevents duplicate Drive uploads on retry. |
+| `waitForEvent` misses a vote event sent before the step executes | Server actions send Inngest events only after the DB row is committed. The Inngest function sets up `waitForEvent` immediately on start; the server action sends the event only after confirming the DB write succeeded. |
+| Long-running tenures (90d timeout) hit Inngest step limits | The vote loop runs at most 3 iterations (3 `waitForEvent` + 3 `step.run` = 6 steps for votes). Total steps for the full workflow are well within the 1,000 step limit. |
+| Partial unique index on `legal_membership` fails to enforce correctly | Test that inserting a second active tenure for the same user is rejected by the DB constraint. Use a PostgreSQL partial unique index: UNIQUE on `user_id` WHERE `status IN ('admission_pending', 'application_pending', 'processing', 'active')`. |
+| `user.legalMembershipState` drifts from `legal_membership.status` | Legal state transitions are only written inside Inngest `step.run` calls that update both atomically. Direct column writes outside Inngest are treated as a bug. Audit log entries confirm each transition. |
 | Import cleanup creates too much board noise | V1 intentionally creates individual workflows; admins should batch operational cleanup outside the app until batch resolutions are added. |
-| Plan becomes too large for one PR | Deliver by the staged units above. Authority foundation and legal workflow core can land before UI/payment/document stages. |
+| `membership_payment` UNIQUE userId blocks resign-then-rejoin payment | V1 resign-then-rejoin is out of scope. When digital resignation is implemented, `membership_payment.userId` unique constraint must be relaxed (drop unique, add a soft-delete or FK to `legal_membership.id`) before a second payment row can be created for the same user. Flag in the follow-up resignation plan. |
 
 ---
 
 ## Documentation / Operational Notes
 
 - Update or create `docs/membership-lifecycle-setup.md` before production rollout.
-- Document the required authority assignments: president, vice president, head of finance, department heads, and admins.
-- Document the preflight check for exactly three eligible legal officers and required officer functions before admission workflows can be created.
+- Document required authority assignments: president, vice president, head of finance, department heads, and admins.
+- Document the preflight check for exactly three eligible legal officers before admission workflows can be created.
 - Document how admins decide whether imported Members/Supporting Alumni have sufficient membership documents.
-- Document required Google Drive configuration, private legal archive folder ownership, allowed operator access, and how to verify generated files are not public or anyone-with-link.
+- Document required Google Drive configuration, private legal archive folder ownership, and how to verify generated files are not public.
 - Document legal review checkpoints for resolution text, application declarations, fee acknowledgement, electronic procedure wording, and generated PDFs.
+- Document the `legal_membership` tenure model: how to interpret multiple records per user, what each status means, and how to query current vs. historical tenures.
 - Use `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md` whenever copy is touched.
 
 ---
@@ -969,8 +1042,8 @@ erDiagram
 - Wording conventions: `docs/solutions/conventions/reusable-tone-of-voice-and-wording-decisions-2026-05-02.md`
 - React-PDF Node API: `https://react-pdf.org/node`
 - React-PDF advanced features: `https://react-pdf.org/advanced`
-- React-PDF components and metadata: `https://react-pdf.org/components`
 - Related code: `src/db/schema/auth.ts`
+- Related code: `src/db/schema/workflow.ts` (to be deleted in U3)
 - Related code: `src/lib/authority/model.ts`
 - Related code: `src/lib/authority/board-roster.ts`
 - Related code: `src/lib/permissions/evaluate.ts`
@@ -980,3 +1053,4 @@ erDiagram
 - Related code: `src/app/(authenticated)/(app)/membership/page.tsx`
 - Related code: `src/db/schema/membership.ts`
 - Related code: `src/lib/gocardless/membership-reconciliation.ts`
+- Related code: `src/inngest/new-user-workflow.ts`

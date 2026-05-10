@@ -13,7 +13,7 @@ import {
 import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 
 const voteInputSchema = z.object({
@@ -114,7 +114,7 @@ export const castVoteAction = actionClient
 
     // Send Inngest event after the transaction commits
     await inngest.send({
-      name: "membership/board-vote.cast",
+      name: events.boardVoteCast.name,
       data: {
         legalMembershipId,
         voterId: currentUser.id,

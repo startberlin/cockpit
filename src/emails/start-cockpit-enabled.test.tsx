@@ -8,12 +8,13 @@ process.env.GOOGLE_CLIENT_ID ??= "test-client-id";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-client-secret";
 process.env.RESEND_API_KEY ??= "test-resend-key";
 process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64 ??= "test-credentials";
+process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID ??= "test-folder";
 process.env.SLACK_SIGNING_SECRET ??= "test-slack-secret";
 process.env.NEXT_PUBLIC_COCKPIT_URL ??= "https://cockpit.example.com";
 
 type StartCockpitEnabledEmailProps = {
   firstName: string;
-  statusContext?: "member" | "supporting_alumni" | "alumni";
+  statusContext?: "member" | "supporting_alumni" | "alumni" | "onboarding";
 };
 
 async function renderEmail(props: StartCockpitEnabledEmailProps) {
@@ -41,6 +42,15 @@ describe("StartCockpitEnabledEmail", () => {
     });
 
     assert.match(html, /Alumni/);
+  });
+
+  it("renders onboarding context", async () => {
+    const html = await renderEmail({
+      firstName: "Ada",
+      statusContext: "onboarding",
+    });
+
+    assert.match(html, /Onboarding/);
   });
 
   it("works without explicit status context", async () => {

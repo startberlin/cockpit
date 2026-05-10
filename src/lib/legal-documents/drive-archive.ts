@@ -105,7 +105,11 @@ export async function archiveLegalDocument({
     );
   }
 
-  return { driveFileId: stored.driveFileId, driveUrl: stored.driveUrl, sha256: stored.sha256 };
+  return {
+    driveFileId: stored.driveFileId,
+    driveUrl: stored.driveUrl,
+    sha256: stored.sha256,
+  };
 }
 
 export async function hasArchivedDocument(

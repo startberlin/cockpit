@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { createMetadata } from "@/lib/metadata";
@@ -42,7 +43,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${avenirNext.variable} antialiased`}>
         <NuqsAdapter>
-          <TooltipProvider>{children}</TooltipProvider>
+          <QueryProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </QueryProvider>
         </NuqsAdapter>
         <Toaster theme="light" />
       </body>

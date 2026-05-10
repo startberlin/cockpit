@@ -96,8 +96,17 @@ export interface BoardResolutionTemplateData {
   resolutionText: string;
   resolutionTextHash: string;
   subjectName: string;
-  participants: Array<{ userId: string; name: string; officerFunction: string }>;
-  votes: Array<{ voterUserId: string; voterName: string; value: string; castAt: Date }>;
+  participants: Array<{
+    userId: string;
+    name: string;
+    officerFunction: string;
+  }>;
+  votes: Array<{
+    voterUserId: string;
+    voterName: string;
+    value: string;
+    castAt: Date;
+  }>;
   renderedAt: Date;
 }
 

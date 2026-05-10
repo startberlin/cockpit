@@ -19,7 +19,7 @@ import { USER_STATUS_INFO } from "@/lib/user-status";
 
 type StatusContext = Extract<
   UserStatus,
-  "member" | "supporting_alumni" | "alumni"
+  "member" | "supporting_alumni" | "alumni" | "onboarding"
 >;
 
 interface StartCockpitEnabledEmailProps {

@@ -1,3 +1,0 @@
-CREATE INDEX "admission_participant_legal_membership_id_idx" ON "admission_participant" USING btree ("legal_membership_id");--> statement-breakpoint
-CREATE INDEX "legal_document_legal_membership_id_idx" ON "legal_document" USING btree ("legal_membership_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "legal_membership_active_tenure_idx" ON "legal_membership" USING btree ("user_id") WHERE "legal_membership"."status" IN ('admission_pending', 'application_pending', 'processing', 'active');

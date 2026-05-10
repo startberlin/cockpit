@@ -58,7 +58,7 @@
     "embla-carousel-react": "^8.6.0",
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
-    "inngest": "^3.52.0",
+    "inngest": "^4.3.0",
     "input-otp": "^1.4.2",
     "libphonenumber-js": "^1.12.36",
     "lodash-es": "^4.17.23",

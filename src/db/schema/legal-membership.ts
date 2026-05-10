@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
 export const legalMembershipStatus = pgEnum("legal_membership_status", [

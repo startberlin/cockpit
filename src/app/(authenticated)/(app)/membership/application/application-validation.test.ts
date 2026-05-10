@@ -58,6 +58,14 @@ describe("applicationAddressSchema", () => {
     assert.equal(result.success, true);
   });
 
+  it("accepts a blank state", () => {
+    const result = applicationAddressSchema.safeParse({
+      ...validAddress,
+      state: "",
+    });
+    assert.equal(result.success, true);
+  });
+
   it("rejects an empty street", () => {
     const result = applicationAddressSchema.safeParse({
       ...validAddress,

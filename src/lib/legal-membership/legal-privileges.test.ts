@@ -19,7 +19,6 @@ describe("isLegalMember", () => {
       false,
     );
   });
-
 });
 
 describe("filterLegalMembers", () => {

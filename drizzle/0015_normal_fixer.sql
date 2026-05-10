@@ -1,1 +1,0 @@
-ALTER TABLE "legal_document" ADD CONSTRAINT "legal_document_legal_membership_id_document_type_unique" UNIQUE("legal_membership_id","document_type");

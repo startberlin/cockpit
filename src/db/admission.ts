@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import db from "@/db";
-import { admissionParticipant, boardResolution } from "@/db/schema/board-admission";
+import {
+  admissionParticipant,
+  boardResolution,
+} from "@/db/schema/board-admission";
 import { newId } from "@/lib/id";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
