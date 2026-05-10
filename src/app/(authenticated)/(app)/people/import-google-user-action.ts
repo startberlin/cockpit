@@ -109,15 +109,19 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("Paid-through date must be today or in the future.");
     }
 
+    const joinedAt =
+      (parsedInput.status === "member" ||
+        parsedInput.status === "supporting_alumni") &&
+      parsedInput.joinedAt
+        ? new Date(`${parsedInput.joinedAt}T00:00:00.000Z`)
+        : null;
+
+    const hasHistoricalJoinDate = joinedAt !== null;
+
     const requiresAdmissionWorkflow =
       (parsedInput.status === "member" ||
         parsedInput.status === "supporting_alumni") &&
-      !parsedInput.documentsVerified;
-
-    const documentsVerified =
-      (parsedInput.status === "member" ||
-        parsedInput.status === "supporting_alumni") &&
-      !!parsedInput.documentsVerified;
+      !hasHistoricalJoinDate;
 
     // For admission workflow path, validate board roster before creating any DB rows
     let boardRoster: Awaited<ReturnType<typeof getBoardRosterSetup>> | null =
@@ -135,9 +139,7 @@ export const importGoogleWorkspaceUserAction = actionClient
 
     const createdUser = await db.transaction(async (tx) => {
       // Determine legalMembershipState for the user
-      const legalMembershipState = documentsVerified
-        ? "active_member"
-        : "not_member";
+      const legalMembershipState = "not_member" as const;
 
       const [createdUser] = await tx
         .insert(userTable)
@@ -163,21 +165,16 @@ export const importGoogleWorkspaceUserAction = actionClient
 
       let createdLegalMembershipId: string | null = null;
 
-      if (documentsVerified) {
-        // Documents verified: create active legal_membership and membershipPayment
+      if (hasHistoricalJoinDate && joinedAt) {
+        // Historical join date: create reconfirmation-pending tenure.
+        // Payment row and activation are deferred until the user submits the
+        // application form and the reconfirmation workflow completes.
         await tx.insert(legalMembership).values({
           id: newId("legalMembership"),
           userId: createdUser.id,
-          status: "active",
-          activatedAt: new Date(),
+          status: "membership_reconfirmation_pending",
+          activatedAt: joinedAt,
         });
-
-        await tx.insert(membershipPayment).values(
-          importedMembershipPaymentValues({
-            userId: createdUser.id,
-            paidThroughAt,
-          }),
-        );
       } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
         // Documents missing/unsure: start admission tenure
         const [createdLm] = await tx
