@@ -45,9 +45,11 @@ type OnboardingProgressUser = Pick<
   | "legalMembershipState"
 >;
 
+export type OnboardingProgress = "master-data" | "address" | "completed";
+
 export function getOnboardingProgress(
   user: OnboardingProgressUser,
-): "master-data" | "address" | "completed" {
+): OnboardingProgress {
   const masterDataValidation = stepMasterDataSchema.safeParse({
     personalEmail: user.personalEmail,
     phone: user.phone,

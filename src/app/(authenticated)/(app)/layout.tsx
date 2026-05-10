@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     }
   }
 
-  const onboardingStatus = await getOnboardingProgress(user);
+  const onboardingStatus = getOnboardingProgress(user);
 
   if (onboardingStatus !== "completed") {
     return redirect("/onboarding");

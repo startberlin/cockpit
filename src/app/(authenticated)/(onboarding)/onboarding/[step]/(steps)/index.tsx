@@ -29,9 +29,9 @@ interface StepDefinition {
 export const STEP_DEFINITIONS: Record<OnboardingStep, StepDefinition> = {
   [ONBOARDING_STEPS.WELCOME]: {
     component: StepWelcome,
-    title: "Welcome to START Berlin",
+    title: "Welcome to START Cockpit",
     description:
-      "Let's finish the details START needs for your membership. This only takes a few minutes.",
+      "Let's finish the details START Berlin needs for your membership. This only takes a few minutes.",
   },
   [ONBOARDING_STEPS.MASTER_DATA]: {
     component: StepMasterData,

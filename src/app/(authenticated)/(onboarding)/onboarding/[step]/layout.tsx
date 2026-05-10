@@ -38,7 +38,6 @@ export default async function OnboardingStepLayout({
   }
 
   const onboardingProgress = getOnboardingProgress(user);
-  console.log(onboardingProgress);
 
   if (onboardingProgress === "completed") {
     return redirect("/");
