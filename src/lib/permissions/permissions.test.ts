@@ -326,4 +326,74 @@ describe("permissions", () => {
       officerIds: ["usr_one", "usr_one", "usr_two"],
     });
   });
+
+  it("allows head_of_finance position to manage payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "head_of_finance", scope: "global" }],
+        }),
+        "payments.manage",
+      ),
+      true,
+    );
+  });
+
+  it("allows finance_admin grant to manage payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "finance_admin", scope: "global" }] }),
+        "payments.manage",
+      ),
+      true,
+    );
+  });
+
+  it("denies admin grant from managing payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        "payments.manage",
+      ),
+      false,
+    );
+  });
+
+  it("allows both head_of_finance and finance_admin to manage payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "head_of_finance", scope: "global" }],
+          grants: [{ grant: "finance_admin", scope: "global" }],
+        }),
+        "payments.manage",
+      ),
+      true,
+    );
+  });
+
+  it("denies vice_president position from managing payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "vice_president", scope: "global" }],
+        }),
+        "payments.manage",
+      ),
+      false,
+    );
+  });
+
+  it("denies inactive member with finance_admin grant from managing payments", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          status: "alumni",
+          grants: [{ grant: "finance_admin", scope: "global" }],
+        }),
+        "payments.manage",
+      ),
+      false,
+    );
+  });
 });
