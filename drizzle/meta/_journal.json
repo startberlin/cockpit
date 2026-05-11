@@ -71,6 +71,13 @@
       "when": 1778455116300,
       "tag": "0009_active_tenure_index",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778539275130,
+      "tag": "0010_tired_captain_america",
+      "breakpoints": true
     }
   ]
 }

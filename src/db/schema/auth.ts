@@ -70,6 +70,8 @@ export const user = pgTable("user", {
   legalMembershipState: legalMembershipState("legal_membership_state")
     .notNull()
     .default("not_member"),
+  gocardlessMandateId: text("gocardless_mandate_id"),
+  gocardlessCustomerId: text("gocardless_customer_id"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

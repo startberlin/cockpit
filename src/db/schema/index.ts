@@ -43,6 +43,11 @@ import {
   membershipPaymentStatus,
 } from "./membership";
 import {
+  membershipPaymentCycleStatus,
+  membershipPayments,
+  membershipPaymentsRelations,
+} from "./membership-payments";
+import {
   membershipApplication,
   membershipApplicationRelations,
   membershipApplicationStatus,
@@ -82,6 +87,7 @@ export const usersRelations = relations(user, ({ one, many }) => ({
     fields: [user.id],
     references: [membershipPayment.userId],
   }),
+  membershipPayments: many(membershipPayments),
   legalMemberships: many(legalMembership),
   admissionParticipations: many(admissionParticipant),
   boardVotes: many(boardVote),
@@ -115,6 +121,9 @@ export const schema = {
   membershipPayment,
   membershipPaymentRelations,
   membershipPaymentStatus,
+  membershipPayments,
+  membershipPaymentsRelations,
+  membershipPaymentCycleStatus,
   legalMembershipState,
   legalMembership,
   legalMembershipStatus,
@@ -148,5 +157,6 @@ export * from "./group";
 export * from "./legal-document";
 export * from "./legal-membership";
 export * from "./membership";
+export * from "./membership-payments";
 export * from "./membership-application";
 export * from "./task";
