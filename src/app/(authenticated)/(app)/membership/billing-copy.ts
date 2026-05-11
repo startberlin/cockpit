@@ -20,13 +20,9 @@ type MembershipToolsCopy =
 export function getMembershipBillingCopy({
   mode,
   userStatus = "onboarding",
-  paidThroughAt,
-  now = new Date(),
 }: {
   mode: MembershipBillingMode;
   userStatus?: UserStatus;
-  paidThroughAt?: Date | null;
-  now?: Date;
 }) {
   if (mode === "processing") {
     return {
@@ -46,23 +42,7 @@ export function getMembershipBillingCopy({
     };
   }
 
-  if (
-    mode === "not_started" ||
-    mode === "pending" ||
-    mode === "failed" ||
-    mode === "covered_until_date"
-  ) {
-    const coveredThrough =
-      paidThroughAt && paidThroughAt >= now ? formatDate(paidThroughAt) : null;
-
-    if (coveredThrough) {
-      return {
-        title: "Set up your yearly membership payment",
-        description: `Your START Berlin membership costs 40 EUR per year. It covers the essentials that keep the association running and helps fund internal and external events and member benefits throughout the year. Your current membership period is covered through ${coveredThrough}, so you will not be charged before then.`,
-        paymentNote: `You will not be charged before ${coveredThrough}.`,
-      };
-    }
-
+  if (mode === "not_started" || mode === "pending" || mode === "failed") {
     return {
       title: "Set up your yearly membership payment",
       description:
@@ -77,17 +57,6 @@ export function getMembershipBillingCopy({
         title: "Thanks for supporting START Berlin",
         description:
           "Your yearly payment is set up. Thank you for continuing to support the community as alumni.",
-        paymentNote: null,
-      };
-    }
-
-    const coveredThrough =
-      paidThroughAt && paidThroughAt >= now ? formatDate(paidThroughAt) : null;
-
-    if (coveredThrough) {
-      return {
-        title: "Your membership is active",
-        description: `Your current membership period is covered through ${coveredThrough}. Your yearly membership payment is set up for the following period.`,
         paymentNote: null,
       };
     }
@@ -146,13 +115,4 @@ export function getMembershipToolsCopy(
       "Open the workspaces you use for communication, projects, and resources.",
     actionLabel: "Open",
   };
-}
-
-function formatDate(date: Date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
 }

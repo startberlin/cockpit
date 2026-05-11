@@ -6,27 +6,8 @@ import {
 } from "./billing-copy";
 
 describe("getMembershipBillingCopy", () => {
-  const now = new Date("2026-04-29T10:00:00.000Z");
-
-  it("explains delayed charging for members with future paid-through coverage", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "pending",
-      paidThroughAt: new Date("2026-09-30T23:59:59.999Z"),
-      now,
-    });
-
-    assert.equal(copy.title, "Set up your yearly membership payment");
-    assert.match(copy.description, /covered through September 30, 2026/);
-    assert.match(copy.description, /will not be charged before then/);
-    assert.match(copy.paymentNote ?? "", /not be charged before/);
-  });
-
-  it("uses immediate payment setup copy without paid-through coverage", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "pending",
-      paidThroughAt: null,
-      now,
-    });
+  it("uses simple pending payment setup copy", () => {
+    const copy = getMembershipBillingCopy({ mode: "pending" });
 
     assert.equal(copy.title, "Set up your yearly membership payment");
     assert.match(copy.description, /40 EUR per year/);
@@ -34,59 +15,28 @@ describe("getMembershipBillingCopy", () => {
     assert.equal(copy.paymentNote, null);
   });
 
-  it("does not promise delayed charging for expired coverage", () => {
+  it("uses simple not_started copy for members", () => {
     const copy = getMembershipBillingCopy({
-      mode: "pending",
-      paidThroughAt: new Date("2026-01-01T23:59:59.999Z"),
-      now,
+      mode: "not_started",
+      userStatus: "member",
     });
 
-    assert.doesNotMatch(copy.description, /covered through/);
-    assert.doesNotMatch(copy.description, /not be charged before/);
-    assert.equal(copy.paymentNote, null);
+    assert.equal(copy.title, "Set up your yearly membership payment");
+    assert.match(copy.description, /40 EUR per year/);
   });
 
   it("shows active membership copy without pending actions", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "active",
-      paidThroughAt: null,
-      now,
-    });
+    const copy = getMembershipBillingCopy({ mode: "active" });
 
     assert.equal(copy.title, "Your membership is active");
     assert.match(copy.description, /yearly membership payment is set up/);
     assert.match(copy.description, /Thanks for being part/);
   });
 
-  it("shows active membership paid-through context when available", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "active",
-      paidThroughAt: new Date("2026-09-30T23:59:59.999Z"),
-      now,
-    });
-
-    assert.match(copy.description, /covered through September 30, 2026/);
-    assert.match(copy.description, /yearly membership payment is set up/);
-  });
-
-  it("shows active title for member with future paid-through coverage", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "active",
-      userStatus: "member",
-      paidThroughAt: new Date("2026-12-31T23:59:59.999Z"),
-      now,
-    });
-
-    assert.match(copy.title, /active/);
-    assert.match(copy.description, /covered through December 31, 2026/);
-  });
-
   it("thanks supporting alumni for their support", () => {
     const copy = getMembershipBillingCopy({
       mode: "active",
       userStatus: "supporting_alumni",
-      paidThroughAt: null,
-      now,
     });
 
     assert.equal(copy.title, "Thanks for supporting START Berlin");
@@ -97,7 +47,6 @@ describe("getMembershipBillingCopy", () => {
     const copy = getMembershipBillingCopy({
       mode: "not_required",
       userStatus: "alumni",
-      now,
     });
 
     assert.equal(copy.title, "You're listed as alumni");
@@ -108,7 +57,6 @@ describe("getMembershipBillingCopy", () => {
     const copy = getMembershipBillingCopy({
       mode: "not_required",
       userStatus: "alumni",
-      now,
     });
 
     assert.equal(copy.title, "You're listed as alumni");
@@ -116,10 +64,7 @@ describe("getMembershipBillingCopy", () => {
   });
 
   it("uses simple processing copy", () => {
-    const copy = getMembershipBillingCopy({
-      mode: "processing",
-      now,
-    });
+    const copy = getMembershipBillingCopy({ mode: "processing" });
 
     assert.equal(copy.title, "Finishing your membership setup");
     assert.match(copy.description, /updating your membership status/);

@@ -201,8 +201,7 @@ export function ImportGoogleUserDialog({
       lastName: "",
       batchNumber: undefined,
       status: "member" as const,
-      paidThroughAt: "",
-      joinedAt: "",
+      paidThroughDate: "",
     }),
     [],
   );
@@ -251,11 +250,8 @@ export function ImportGoogleUserDialog({
       form.setValue("department", null);
     }
     if (!requiresMembershipStep) {
-      if (form.getValues("paidThroughAt") !== "") {
-        form.setValue("paidThroughAt", "");
-      }
-      if (form.getValues("joinedAt") !== "") {
-        form.setValue("joinedAt", "");
+      if (form.getValues("paidThroughDate") !== "") {
+        form.setValue("paidThroughDate", "");
       }
     }
   }, [form, shouldShowDepartment, requiresMembershipStep]);
@@ -706,66 +702,32 @@ export function ImportGoogleUserDialog({
             )}
 
             {step === "membership" && (
-              <>
-                <FieldSet>
-                  <FieldLegend>Membership</FieldLegend>
-                  <FieldDescription>
-                    If this person has already paid for their active membership
-                    period, enter the date their membership is covered through.
-                    START Cockpit will schedule the first yearly membership
-                    payment after this date.
-                  </FieldDescription>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="paidThroughAt">
-                        Paid through
-                      </FieldLabel>
-                      <Input
-                        id="paidThroughAt"
-                        type="date"
-                        aria-invalid={!!form.formState.errors.paidThroughAt}
-                        {...form.register("paidThroughAt")}
-                      />
-                      <FieldDescription>
-                        Leave empty if the member should set up payment right
-                        after import.
-                      </FieldDescription>
-                      <FieldError
-                        errors={[form.formState.errors.paidThroughAt]}
-                      />
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-
-                <FieldSet>
-                  <FieldLegend>Membership history</FieldLegend>
-                  <FieldDescription>
-                    If you have the person's original membership documents and
-                    can confirm when they joined, enter that date. The member
-                    will complete an account setup on first login and receive
-                    official documents with the correct join date. Leave empty
-                    if documents are missing — the board will vote on formal
-                    admission.
-                  </FieldDescription>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="joinedAt">
-                        Original join date
-                      </FieldLabel>
-                      <Input
-                        id="joinedAt"
-                        type="date"
-                        aria-invalid={!!form.formState.errors.joinedAt}
-                        {...form.register("joinedAt")}
-                      />
-                      <FieldDescription>
-                        Leave empty to start a board admission vote instead.
-                      </FieldDescription>
-                      <FieldError errors={[form.formState.errors.joinedAt]} />
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-              </>
+              <FieldSet>
+                <FieldLegend>Membership payment</FieldLegend>
+                <FieldDescription>
+                  Enter the date the member last paid their membership fee. If
+                  their coverage hasn't expired yet (last payment + 1 year is
+                  still in the future), the next payment will be scheduled for
+                  that renewal date. Leave empty if you don't have this
+                  information.
+                </FieldDescription>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="paidThroughDate">
+                      Date of last payment
+                    </FieldLabel>
+                    <Input
+                      id="paidThroughDate"
+                      type="date"
+                      aria-invalid={!!form.formState.errors.paidThroughDate}
+                      {...form.register("paidThroughDate")}
+                    />
+                    <FieldError
+                      errors={[form.formState.errors.paidThroughDate]}
+                    />
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
             )}
 
             {form.formState.errors.root && (

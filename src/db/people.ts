@@ -48,7 +48,6 @@ export interface UserDetail {
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
-  paidThroughAt: Date | null;
   organizationPositions: Array<{
     id: string;
     position: OrganizationPosition;
@@ -180,7 +179,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     membershipState: getStructuredMembershipState(user, user.membershipPayment),
     profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.membershipPayment,
-    paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
     organizationPositions: user.organizationPositions.map((assignment) => ({
       id: assignment.id,
       position: assignment.position,

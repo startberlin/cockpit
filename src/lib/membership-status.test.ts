@@ -28,35 +28,31 @@ function user(overrides: Partial<User> = {}): User {
     status: "onboarding",
     department: null,
     legalMembershipState: "not_member",
+    gocardlessMandateId: null,
+    gocardlessCustomerId: null,
     ...overrides,
   };
 }
 
 describe("getStructuredMembershipState", () => {
-  const now = new Date("2026-04-26T00:00:00.000Z");
-
   it("surfaces the user legal membership state directly", () => {
     assert.equal(
-      getStructuredMembershipState(user(), { status: "pending" }, { now })
-        .legal,
+      getStructuredMembershipState(user(), { status: "pending" }).legal,
       "not_member",
     );
     assert.equal(
       getStructuredMembershipState(
         user({ legalMembershipState: "active_member" }),
         { status: "pending" },
-        { now },
       ).legal,
       "active_member",
     );
   });
 
   it("keeps incomplete normal onboarding users away from payment setup", () => {
-    const state = getStructuredMembershipState(
-      user({ personalEmail: "" }),
-      { status: "pending" },
-      { now },
-    );
+    const state = getStructuredMembershipState(user({ personalEmail: "" }), {
+      status: "pending",
+    });
 
     assert.equal(state.profile, "incomplete");
     assert.equal(state.payment, "pending");
@@ -68,7 +64,6 @@ describe("getStructuredMembershipState", () => {
     const state = getStructuredMembershipState(
       user({ legalMembershipState: "active_member" }),
       { status: "pending" },
-      { now },
     );
 
     assert.equal(state.profile, "complete");
@@ -81,29 +76,11 @@ describe("getStructuredMembershipState", () => {
     const state = getStructuredMembershipState(
       user({ legalMembershipState: "not_member" }),
       { status: "pending" },
-      { now },
     );
 
     assert.equal(state.profile, "complete");
     assert.equal(state.payment, "pending");
     assert.equal(state.paymentSetupAllowed, false);
-  });
-
-  it("lets imported members continue payment setup before profile completion", () => {
-    const state = getStructuredMembershipState(
-      user({
-        personalEmail: "",
-        status: "member",
-        legalMembershipState: "active_member",
-      }),
-      { status: "pending", paidThroughAt: new Date("2026-12-31") },
-      { now },
-    );
-
-    assert.equal(state.profile, "incomplete");
-    assert.equal(state.payment, "covered_until_date");
-    assert.equal(state.nextAction, "set_up_payment");
-    assert.equal(state.paymentSetupAllowed, true);
   });
 
   it("represents checkout-started payments as processing", () => {
@@ -113,7 +90,6 @@ describe("getStructuredMembershipState", () => {
         legalMembershipState: "active_member",
       }),
       { status: "checkout_started" },
-      { now },
     );
 
     assert.equal(state.profile, "complete");
@@ -127,7 +103,6 @@ describe("getStructuredMembershipState", () => {
     const state = getStructuredMembershipState(
       user({ status: "member", legalMembershipState: "active_member" }),
       null,
-      { now },
     );
 
     assert.equal(state.payment, "not_started");
@@ -139,7 +114,6 @@ describe("getStructuredMembershipState", () => {
     const state = getStructuredMembershipState(
       user({ status: "alumni" }),
       null,
-      { now },
     );
 
     assert.equal(state.payment, "not_required");
@@ -147,15 +121,10 @@ describe("getStructuredMembershipState", () => {
     assert.equal(state.paymentSetupAllowed, false);
   });
 
-  it("marks active subscriptions as active with no next action", () => {
+  it("marks active membership_payment rows as active with no next action", () => {
     const state = getStructuredMembershipState(
       user({ status: "member", legalMembershipState: "active_member" }),
-      {
-        status: "active",
-        gocardlessSubscriptionId: "SB123",
-        paidThroughAt: new Date("2026-01-01"),
-      },
-      { now },
+      { status: "active" },
     );
 
     assert.equal(state.payment, "active");
@@ -163,24 +132,11 @@ describe("getStructuredMembershipState", () => {
     assert.equal(state.paymentSetupAllowed, false);
   });
 
-  it("marks expired manual coverage without a subscription as pending", () => {
-    const state = getStructuredMembershipState(
-      user({ status: "member", legalMembershipState: "active_member" }),
-      { status: "active", paidThroughAt: new Date("2026-01-01") },
-      { now },
-    );
-
-    assert.equal(state.payment, "pending");
-    assert.equal(state.nextAction, "set_up_payment");
-    assert.equal(state.paymentSetupAllowed, true);
-  });
-
   describe("legalMembershipState gate on paymentSetupAllowed", () => {
     it("blocks payment setup when legalMembershipState is not_member even if status is member", () => {
       const state = getStructuredMembershipState(
         user({ status: "member", legalMembershipState: "not_member" }),
         { status: "pending" },
-        { now },
       );
 
       assert.equal(state.paymentSetupAllowed, false);
@@ -190,7 +146,6 @@ describe("getStructuredMembershipState", () => {
       const state = getStructuredMembershipState(
         user({ status: "member", legalMembershipState: "active_member" }),
         null,
-        { now },
       );
 
       assert.equal(state.payment, "not_started");
@@ -204,7 +159,6 @@ describe("getStructuredMembershipState", () => {
           legalMembershipState: "active_member",
         }),
         { status: "pending" },
-        { now },
       );
 
       assert.equal(state.payment, "pending");

@@ -52,15 +52,12 @@ export const membershipPayments = pgTable(
     // Partial unique index: only one in-flight row per member at a time
     uniqueIndex("membership_payments_user_in_flight_unique")
       .on(table.userId)
-      .where(
-        sql`${table.status} IN ('proposed', 'pending', 'submitted')`,
-      ),
+      .where(sql`${table.status} IN ('proposed', 'pending', 'submitted')`),
     index("membership_payments_user_id_idx").on(table.userId),
   ],
 );
 
-export type MembershipPaymentCycle =
-  typeof membershipPayments.$inferSelect;
+export type MembershipPaymentCycle = typeof membershipPayments.$inferSelect;
 
 export const membershipPaymentsRelations = relations(
   membershipPayments,

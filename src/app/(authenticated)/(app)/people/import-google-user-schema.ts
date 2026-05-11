@@ -35,8 +35,7 @@ export const importGoogleWorkspaceUserSchema = z
       .optional()
       .nullable(),
     status: importableUserStatus,
-    paidThroughAt: z.iso.date().optional().or(z.literal("")),
-    joinedAt: z.iso.date().optional().or(z.literal("")),
+    paidThroughDate: z.iso.date().optional().or(z.literal("")),
   })
   .superRefine((input, ctx) => {
     if (input.status === "member" && !input.department) {

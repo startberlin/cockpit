@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { newMembershipPaymentId } from "@/db/membership";
+import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipPayment } from "@/db/schema/membership";
@@ -209,16 +210,33 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
             id: newMembershipPaymentId(),
             userId: subjectData.userId,
             status: "pending",
-            paidThroughAt: subjectData.importedPaidThroughAt
-              ? new Date(subjectData.importedPaidThroughAt)
-              : null,
           })
           .onConflictDoNothing();
       });
     });
 
-    // Step 4: Archive the admission confirmation PDF.
-    // Board list is empty; activatedAt is the historical join date from import.
+    // Step 4: Create the first proposed membership payment.
+    // If the member had an importedPaidThroughAt date whose coverage hasn't expired
+    // yet (+ 1 year > today), anchor the first cycle to that renewal date.
+    // Otherwise fall back to today so the cron can pick it up on the next run.
+    await step.run("create-proposed-payment", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      let activationDate = today;
+
+      if (subjectData.importedPaidThroughAt) {
+        const d = new Date(subjectData.importedPaidThroughAt);
+        d.setUTCFullYear(d.getUTCFullYear() + 1);
+        const renewalDate = d.toISOString().slice(0, 10);
+        if (renewalDate > today) {
+          activationDate = renewalDate;
+        }
+      }
+
+      await createProposedPayment(subjectData.userId, activationDate);
+    });
+
+    // Step 5: Archive the admission confirmation PDF.
+    // Board list is empty for reconfirmations.
     await step.run("archive-admission-confirmation", async () => {
       const subjectAddress = [
         subjectData.street,
@@ -250,7 +268,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 5: Send confirmation email with both PDFs attached.
+    // Step 6: Send confirmation email with both PDFs attached.
     await step.run("send-confirmation-email", async () => {
       if (!subjectData.email) {
         throw new Error(`Missing email for user ${subjectData.userId}`);

@@ -10,27 +10,15 @@ const baseInput = {
   firstName: "Ada",
   lastName: "Lovelace",
   batchNumber: 1,
-  paidThroughAt: "",
+  paidThroughDate: "",
 };
 
 describe("importGoogleWorkspaceUserSchema", () => {
-  it("accepts member imports with a department and documentsVerified", () => {
+  it("accepts member imports with a department", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
       department: "operations",
-      documentsVerified: true,
-    });
-
-    assert.equal(result.success, true);
-  });
-
-  it("accepts member imports with documentsVerified false (starts admission)", () => {
-    const result = importGoogleWorkspaceUserSchema.safeParse({
-      ...baseInput,
-      status: "member",
-      department: "operations",
-      documentsVerified: false,
     });
 
     assert.equal(result.success, true);
@@ -40,42 +28,21 @@ describe("importGoogleWorkspaceUserSchema", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
-      documentsVerified: true,
     });
 
     assert.equal(result.success, false);
   });
 
-  it("rejects member imports without documentsVerified", () => {
-    const result = importGoogleWorkspaceUserSchema.safeParse({
-      ...baseInput,
-      status: "member",
-      department: "operations",
-    });
-
-    assert.equal(result.success, false);
-  });
-
-  it("accepts supporting alumni imports without a department when documentsVerified is set", () => {
+  it("accepts supporting alumni imports without a department", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "supporting_alumni",
-      documentsVerified: false,
     });
 
     assert.equal(result.success, true);
   });
 
-  it("rejects supporting alumni imports without documentsVerified", () => {
-    const result = importGoogleWorkspaceUserSchema.safeParse({
-      ...baseInput,
-      status: "supporting_alumni",
-    });
-
-    assert.equal(result.success, false);
-  });
-
-  it("accepts alumni imports without a department or documentsVerified", () => {
+  it("accepts alumni imports without a department or paidThroughDate", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "alumni",
@@ -84,15 +51,38 @@ describe("importGoogleWorkspaceUserSchema", () => {
     assert.equal(result.success, true);
   });
 
-  it("accepts onboarding imports without a department or documentsVerified", () => {
+  it("accepts onboarding imports", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "onboarding",
-      department: "operations",
-      documentsVerified: true,
     });
 
     assert.equal(result.success, true);
+  });
+
+  it("accepts a valid ISO paidThroughDate for member imports", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "member",
+      department: "operations",
+      paidThroughDate: "2026-12-31",
+    });
+
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.paidThroughDate, "2026-12-31");
+    }
+  });
+
+  it("rejects invalid date strings for paidThroughDate", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "member",
+      department: "operations",
+      paidThroughDate: "not-a-date",
+    });
+
+    assert.equal(result.success, false);
   });
 });
 

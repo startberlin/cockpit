@@ -25,14 +25,12 @@ import { MembershipTaskCard } from "./task-card";
 interface MembershipPageContentProps {
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
-  paidThroughAt?: Date | null;
   activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
 }
 
 export function MembershipPageContent({
   membershipState,
   userStatus,
-  paidThroughAt,
   activeLegalMembership,
 }: MembershipPageContentProps) {
   const tools = getMembershipToolsCopy(userStatus);
@@ -43,7 +41,6 @@ export function MembershipPageContent({
         legalMembershipStatus={activeLegalMembership?.status ?? null}
         legalMembershipState={membershipState.legal}
         hasPayment={membershipState.payment !== "not_started"}
-        paidThroughAt={paidThroughAt ?? null}
         membershipState={membershipState}
         userStatus={userStatus}
       />
@@ -61,7 +58,6 @@ export function MembershipPageContent({
 export function MembershipSection({
   membershipState,
   userStatus,
-  paidThroughAt,
 }: MembershipPageContentProps) {
   const isPaymentProcessing = membershipState.payment === "processing";
   const showPaymentButton =
@@ -69,7 +65,6 @@ export function MembershipSection({
   const copy = getMembershipBillingCopy({
     mode: membershipState.payment,
     userStatus,
-    paidThroughAt,
   });
 
   return (

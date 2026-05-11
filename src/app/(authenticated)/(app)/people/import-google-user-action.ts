@@ -1,14 +1,9 @@
 "use server";
 
 import db from "@/db";
-import { createAdmissionWorkflow } from "@/db/admission";
-import { getAllUserAuthorities } from "@/db/authority";
-import { importedMembershipPaymentValues } from "@/db/membership";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import { membershipPayment } from "@/db/schema/membership";
 import { actionClient } from "@/lib/action-client";
-import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import {
   fetchWorkspaceUsersPage,
   getWorkspaceUser,
@@ -98,49 +93,17 @@ export const importGoogleWorkspaceUserAction = actionClient
       throw new Error("This Google Workspace user is already imported.");
     }
 
-    const paidThroughAt =
-      (parsedInput.status === "member" ||
-        parsedInput.status === "supporting_alumni") &&
-      parsedInput.paidThroughAt
-        ? new Date(`${parsedInput.paidThroughAt}T23:59:59.999Z`)
+    // Convert the optional last-payment date string to a Date for DB storage.
+    const isMemberStatus =
+      parsedInput.status === "member" ||
+      parsedInput.status === "supporting_alumni";
+
+    const importedPaidThroughAt =
+      isMemberStatus && parsedInput.paidThroughDate
+        ? new Date(`${parsedInput.paidThroughDate}T23:59:59.999Z`)
         : null;
-
-    if (paidThroughAt && paidThroughAt < new Date()) {
-      throw new Error("Paid-through date must be today or in the future.");
-    }
-
-    const joinedAt =
-      (parsedInput.status === "member" ||
-        parsedInput.status === "supporting_alumni") &&
-      parsedInput.joinedAt
-        ? new Date(`${parsedInput.joinedAt}T00:00:00.000Z`)
-        : null;
-
-    const hasHistoricalJoinDate = joinedAt !== null;
-
-    const requiresAdmissionWorkflow =
-      (parsedInput.status === "member" ||
-        parsedInput.status === "supporting_alumni") &&
-      !hasHistoricalJoinDate;
-
-    // For admission workflow path, validate board roster before creating any DB rows
-    let boardRoster: Awaited<ReturnType<typeof getBoardRosterSetup>> | null =
-      null;
-    if (requiresAdmissionWorkflow) {
-      const allAuthorities = await getAllUserAuthorities();
-      boardRoster = getBoardRosterSetup(allAuthorities);
-
-      if (!boardRoster.ok) {
-        throw new Error(
-          `Board roster is not properly configured: ${boardRoster.reason}`,
-        );
-      }
-    }
 
     const createdUser = await db.transaction(async (tx) => {
-      // Determine legalMembershipState for the user
-      const legalMembershipState = "not_member" as const;
-
       const [createdUser] = await tx
         .insert(userTable)
         .values({
@@ -159,88 +122,40 @@ export const importGoogleWorkspaceUserAction = actionClient
           ),
           status: parsedInput.status,
           emailVerified: true,
-          legalMembershipState,
+          legalMembershipState: "not_member",
         })
         .returning({ id: userTable.id });
 
       let createdLegalMembershipId: string | null = null;
 
-      if (hasHistoricalJoinDate && joinedAt) {
-        // Historical join date: create reconfirmation-pending tenure.
-        // Payment row and activation are deferred until the user submits the
-        // application form and the reconfirmation workflow completes.
-        await tx.insert(legalMembership).values({
-          id: newId("legalMembership"),
-          userId: createdUser.id,
-          status: "membership_reconfirmation_pending",
-          activatedAt: joinedAt,
-          importedPaidThroughAt: paidThroughAt,
-        });
-      } else if (requiresAdmissionWorkflow && boardRoster?.ok) {
-        // Documents missing/unsure: start admission tenure
+      if (isMemberStatus) {
+        // Existing members always need to reconfirm their membership docs on
+        // first login. The reconfirmation workflow activates the tenure and
+        // creates the first proposed payment row (anchored to importedPaidThroughAt
+        // if present, otherwise today).
         const [createdLm] = await tx
           .insert(legalMembership)
           .values({
             id: newId("legalMembership"),
             userId: createdUser.id,
-            status: "admission_pending",
+            status: "membership_reconfirmation_pending",
+            importedPaidThroughAt,
           })
           .returning({ id: legalMembership.id });
 
         createdLegalMembershipId = createdLm.id;
-
-        await createAdmissionWorkflow(tx, {
-          legalMembershipId: createdLm.id,
-          subjectUser: {
-            firstName: parsedInput.firstName,
-            lastName: parsedInput.lastName,
-          },
-          officers: boardRoster.officers,
-        });
-      } else if (
-        parsedInput.status === "alumni" ||
-        parsedInput.status === "onboarding"
-      ) {
-        // Alumni and onboarding imports do not create legal admission or payment rows.
-      } else {
-        // Fallback for non-alumni without documentsVerified flag: create membershipPayment only
-        await tx.insert(membershipPayment).values(
-          importedMembershipPaymentValues({
-            userId: createdUser.id,
-            paidThroughAt,
-          }),
-        );
       }
+      // alumni/onboarding: no legal admission or payment rows
 
       return { id: createdUser.id, createdLegalMembershipId };
     });
-
-    // Send Inngest event for admission workflow after transaction commits.
-    // inngest.send() is intentionally not guarded — if the transaction committed,
-    // the legal_membership row exists. Failures surface as thrown errors.
-    if (requiresAdmissionWorkflow) {
-      if (!createdUser.createdLegalMembershipId) {
-        throw new Error(
-          "Could not start admission workflow. Please try again. If this keeps happening, email operations@start-berlin.com.",
-        );
-      }
-      await inngest.send({
-        name: events.admissionWorkflowStarted.name,
-        data: {
-          legalMembershipId: createdUser.createdLegalMembershipId,
-          subjectUserId: createdUser.id,
-        },
-      });
-    }
 
     await inngest.send({
       name: events.cockpitUserUpdated.name,
       data: { id: createdUser.id },
     });
 
-    // Non-fatal: notification email failure must not block import success — all
-    // durable state (user row, Inngest workflow) is already committed. Log and
-    // continue so callers aren't blocked and can't retry into a duplicate-email error.
+    // Non-fatal: notification email failure must not block import success.
     try {
       await resend.emails.send(
         buildImportedUserNotificationEmail({

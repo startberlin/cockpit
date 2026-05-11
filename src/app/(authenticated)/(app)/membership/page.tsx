@@ -31,7 +31,6 @@ export default async function Home() {
     <MembershipPageContent
       membershipState={membershipState}
       userStatus={user.status}
-      paidThroughAt={payment?.paidThroughAt}
       activeLegalMembership={activeLegalMembership}
     />
   );

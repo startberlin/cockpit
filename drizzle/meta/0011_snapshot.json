@@ -1,6 +1,6 @@
 {
-  "id": "fa4b4640-60a7-4670-b863-cbbce1d9eb81",
-  "prevId": "0ce5cc28-c2ab-4efe-aaee-5683971b7312",
+  "id": "8efa1a26-214b-4278-a387-e2a53b9710b6",
+  "prevId": "fa4b4640-60a7-4670-b863-cbbce1d9eb81",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1268,12 +1268,6 @@
         },
         "activated_at": {
           "name": "activated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "imported_paid_through_at": {
-          "name": "imported_paid_through_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false

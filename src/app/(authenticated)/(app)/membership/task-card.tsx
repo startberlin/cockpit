@@ -18,8 +18,6 @@ interface MembershipTaskCardProps {
   legalMembershipStatus: LegalMembershipStatus | null;
   legalMembershipState: LegalMembershipState;
   hasPayment: boolean;
-  paidThroughAt: Date | null;
-  // existing props for backward compat (used by MembershipSection)
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
 }
@@ -28,7 +26,6 @@ export function MembershipTaskCard({
   legalMembershipStatus,
   legalMembershipState,
   hasPayment,
-  paidThroughAt,
   membershipState,
   userStatus,
 }: MembershipTaskCardProps) {
@@ -147,7 +144,6 @@ export function MembershipTaskCard({
       <MembershipSection
         membershipState={membershipState}
         userStatus={userStatus}
-        paidThroughAt={paidThroughAt}
       />
     );
   }
@@ -158,7 +154,6 @@ export function MembershipTaskCard({
     <MembershipSection
       membershipState={membershipState}
       userStatus={userStatus}
-      paidThroughAt={paidThroughAt}
     />
   );
 }

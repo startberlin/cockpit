@@ -82,23 +82,14 @@ export async function createOrReuseMembershipPayment(userId: string) {
 
 export function importedMembershipPaymentValues({
   userId,
-  paidThroughAt,
 }: {
   userId: string;
-  paidThroughAt?: Date | null;
 }) {
   return {
     id: newMembershipPaymentId(),
     userId,
-    ...importedMembershipPaymentCoverage(paidThroughAt),
-  };
-}
-
-function importedMembershipPaymentCoverage(paidThroughAt?: Date | null) {
-  return {
     status: "pending" as const,
     provider: "gocardless",
-    paidThroughAt: paidThroughAt ?? null,
     activatedAt: null,
   };
 }
@@ -139,12 +130,10 @@ export async function activateMembershipPayment({
   membershipPaymentId,
   gocardlessCustomerId,
   gocardlessMandateId,
-  gocardlessSubscriptionId,
 }: {
   membershipPaymentId: string;
   gocardlessCustomerId?: string | null;
   gocardlessMandateId: string;
-  gocardlessSubscriptionId: string;
 }) {
   return db.transaction(async (tx) => {
     const [payment] = await tx
@@ -153,7 +142,6 @@ export async function activateMembershipPayment({
         status: "active",
         gocardlessCustomerId,
         gocardlessMandateId,
-        gocardlessSubscriptionId,
         activatedAt: new Date(),
       })
       .where(eq(membershipPayment.id, membershipPaymentId))
@@ -189,7 +177,6 @@ export async function recordMembershipProviderState({
   gocardlessBillingRequestId,
   gocardlessBillingRequestFlowId,
   gocardlessMandateId,
-  gocardlessSubscriptionId,
 }: {
   membershipPaymentId: string;
   status?: MembershipPaymentStatus;
@@ -197,7 +184,6 @@ export async function recordMembershipProviderState({
   gocardlessBillingRequestId?: string | null;
   gocardlessBillingRequestFlowId?: string | null;
   gocardlessMandateId?: string | null;
-  gocardlessSubscriptionId?: string | null;
 }) {
   const [updated] = await db
     .update(membershipPayment)
@@ -211,9 +197,6 @@ export async function recordMembershipProviderState({
         ? { gocardlessBillingRequestFlowId }
         : {}),
       ...(gocardlessMandateId !== undefined ? { gocardlessMandateId } : {}),
-      ...(gocardlessSubscriptionId !== undefined
-        ? { gocardlessSubscriptionId }
-        : {}),
       activatedAt: status === "active" ? new Date() : undefined,
     })
     .where(eq(membershipPayment.id, membershipPaymentId))

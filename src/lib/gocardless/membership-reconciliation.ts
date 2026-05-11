@@ -7,13 +7,9 @@ import {
   getMembershipPaymentByUserId,
   recordMembershipProviderState,
 } from "@/db/membership";
+import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
-import {
-  createMembershipSubscription,
-  getBillingRequest,
-  getBillingRequestFlow,
-} from "./membership-flow";
-import { membershipSubscriptionStartDate } from "./membership-flow-helpers";
+import { getBillingRequest, getBillingRequestFlow } from "./membership-flow";
 
 export type MembershipReconciliationResult =
   | { status: "activated" | "already_active"; hostedRedirect: "/membership" }
@@ -65,7 +61,7 @@ async function reconcileMembershipPayment(
     Awaited<ReturnType<typeof getMembershipPaymentByUserId>>
   >,
 ): Promise<MembershipReconciliationResult> {
-  if (payment.status === "active" && payment.gocardlessSubscriptionId) {
+  if (payment.status === "active") {
     return { status: "already_active", hostedRedirect: "/membership" };
   }
 
@@ -133,23 +129,24 @@ async function reconcileMembershipPayment(
     };
   }
 
-  const subscription =
-    payment.gocardlessSubscriptionId ??
-    (
-      await createMembershipSubscription({
-        mandateId,
-        userId: payment.userId,
-        email: member.email,
-        localSessionId: payment.id,
-        startDate: membershipSubscriptionStartDate(payment.paidThroughAt),
-      })
-    ).subscriptions.id;
+  // Store mandate/customer IDs on the user record and create the first proposed
+  // payment row. Both writes happen before activating the membership_payment row
+  // so that if either fails the mandate setup can be retried cleanly.
+  await db
+    .update(user)
+    .set({
+      gocardlessMandateId: mandateId,
+      gocardlessCustomerId: customerId ?? null,
+    })
+    .where(eq(user.id, payment.userId));
+
+  const today = new Date().toISOString().slice(0, 10);
+  await createProposedPayment(payment.userId, today);
 
   await activateMembershipPayment({
     membershipPaymentId: payment.id,
     gocardlessCustomerId: customerId,
     gocardlessMandateId: mandateId,
-    gocardlessSubscriptionId: subscription,
   });
 
   return { status: "activated", hostedRedirect: "/membership" };

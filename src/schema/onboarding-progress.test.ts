@@ -28,6 +28,8 @@ function user(overrides: Partial<User> = {}): User {
     status: "onboarding",
     department: null,
     legalMembershipState: "not_member",
+    gocardlessMandateId: null,
+    gocardlessCustomerId: null,
     ...overrides,
   };
 }

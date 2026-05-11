@@ -43,15 +43,15 @@ import {
   membershipPaymentStatus,
 } from "./membership";
 import {
-  membershipPaymentCycleStatus,
-  membershipPayments,
-  membershipPaymentsRelations,
-} from "./membership-payments";
-import {
   membershipApplication,
   membershipApplicationRelations,
   membershipApplicationStatus,
 } from "./membership-application";
+import {
+  membershipPaymentCycleStatus,
+  membershipPayments,
+  membershipPaymentsRelations,
+} from "./membership-payments";
 import { task, taskRelations, taskStatus } from "./task";
 
 // Define relations here to avoid circular dependencies between schema files
@@ -157,6 +157,6 @@ export * from "./group";
 export * from "./legal-document";
 export * from "./legal-membership";
 export * from "./membership";
-export * from "./membership-payments";
 export * from "./membership-application";
+export * from "./membership-payments";
 export * from "./task";

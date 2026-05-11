@@ -4,8 +4,6 @@ import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 export interface MembershipPaymentState {
   status: MembershipPaymentStatus;
-  gocardlessSubscriptionId?: string | null;
-  paidThroughAt?: Date | null;
 }
 
 export type MembershipProfileState = "incomplete" | "complete";
@@ -16,8 +14,7 @@ export type MembershipPaymentViewState =
   | "pending"
   | "processing"
   | "active"
-  | "failed"
-  | "covered_until_date";
+  | "failed";
 
 export type MembershipNextAction =
   | "complete_profile"
@@ -50,7 +47,6 @@ type MembershipStatusUser = Pick<
 export function getStructuredMembershipState(
   user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
-  { now = new Date() }: { now?: Date } = {},
 ): StructuredMembershipState {
   const profileOnboardingComplete = getOnboardingProgress(user) === "completed";
   const canContinueBilling =
@@ -60,7 +56,7 @@ export function getStructuredMembershipState(
   const profile: MembershipProfileState = profileOnboardingComplete
     ? "complete"
     : "incomplete";
-  const paymentState = getPaymentViewState(user, payment, now);
+  const paymentState = getPaymentViewState(user, payment);
   const paymentSetupAllowed =
     user.legalMembershipState === "active_member" &&
     (profileOnboardingComplete || canContinueBilling) &&
@@ -83,7 +79,6 @@ export function getStructuredMembershipState(
 function getPaymentViewState(
   user: MembershipStatusUser,
   payment: MembershipPaymentState | null | undefined,
-  now: Date,
 ): MembershipPaymentViewState {
   if (user.status === "alumni" && !payment) {
     return "not_required";
@@ -101,12 +96,8 @@ function getPaymentViewState(
     return "failed";
   }
 
-  if (isFullMemberPaymentState(payment, now)) {
+  if (isFullMemberPaymentState(payment)) {
     return "active";
-  }
-
-  if (payment.paidThroughAt && payment.paidThroughAt >= now) {
-    return "covered_until_date";
   }
 
   return "pending";
@@ -127,14 +118,8 @@ function canSetUpPayment(
 
 function isFullMemberPaymentState(
   payment: MembershipPaymentState | null | undefined,
-  now: Date,
 ) {
-  return (
-    payment?.status === "active" &&
-    (payment.gocardlessSubscriptionId ||
-      !payment.paidThroughAt ||
-      payment.paidThroughAt >= now)
-  );
+  return payment?.status === "active";
 }
 
 function isPaymentSetupState(state: MembershipPaymentViewState) {
@@ -142,8 +127,7 @@ function isPaymentSetupState(state: MembershipPaymentViewState) {
     state === "not_started" ||
     state === "pending" ||
     state === "processing" ||
-    state === "failed" ||
-    state === "covered_until_date"
+    state === "failed"
   );
 }
 
