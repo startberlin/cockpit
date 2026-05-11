@@ -5,9 +5,11 @@ import { verifyGoCardlessWebhook } from "../verify-request";
 import {
   GoCardlessWebhookSchema,
   getGoCardlessEventUserHints,
+  getGoCardlessPaymentId,
   isMembershipActivationEvent,
   isMembershipFailureEvent,
   isMembershipMandateReadyEvent,
+  isPaymentLifecycleEvent,
 } from "./webhook";
 
 describe("GoCardless webhook helpers", () => {
@@ -70,6 +72,72 @@ describe("GoCardless webhook helpers", () => {
         links: {},
       }),
       true,
+    );
+  });
+
+  it("identifies payment lifecycle events", () => {
+    for (const action of [
+      "submitted",
+      "confirmed",
+      "paid_out",
+      "failed",
+      "cancelled",
+      "charged_back",
+    ] as const) {
+      assert.equal(
+        isPaymentLifecycleEvent({
+          id: "EV999",
+          action,
+          resource_type: "payments",
+          links: { payment: "PM123" },
+        }),
+        true,
+        `action=${action} should be a payment lifecycle event`,
+      );
+    }
+
+    assert.equal(
+      isPaymentLifecycleEvent({
+        id: "EV999",
+        action: "created",
+        resource_type: "payments",
+        links: {},
+      }),
+      false,
+      "created is not a lifecycle event we handle",
+    );
+
+    assert.equal(
+      isPaymentLifecycleEvent({
+        id: "EV999",
+        action: "submitted",
+        resource_type: "subscriptions",
+        links: {},
+      }),
+      false,
+      "subscriptions resource_type is not a payment event",
+    );
+  });
+
+  it("extracts GC payment ID from payment event links", () => {
+    assert.equal(
+      getGoCardlessPaymentId({
+        id: "EV999",
+        action: "confirmed",
+        resource_type: "payments",
+        links: { payment: "PM123" },
+      }),
+      "PM123",
+    );
+
+    assert.equal(
+      getGoCardlessPaymentId({
+        id: "EV999",
+        action: "confirmed",
+        resource_type: "payments",
+        links: {},
+      }),
+      null,
     );
   });
 
