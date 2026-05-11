@@ -78,7 +78,7 @@ async function handlePaymentEvent(event: GoCardlessEvent & { action: string }) {
   }
 
   await advancePaymentStatus(row.id, transition.from, transition.to);
-  return { status: event.action as const };
+  return { status: event.action };
 }
 
 async function findMembershipPaymentForEvent(

@@ -14,6 +14,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   batches: "Batches",
   resolutions: "Resolutions",
   groups: "Groups",
+  payments: "Payments",
 };
 
 /**

@@ -9,7 +9,7 @@ import { describe, it } from "node:test";
 describe("charge action idempotency guard", () => {
   it("returns alreadyProcessed when row status is not proposed", () => {
     // Simulates the guard: if status !== 'proposed', no second GC payment is issued.
-    const nonProposedStatuses = [
+    const nonProposedStatuses: string[] = [
       "pending",
       "submitted",
       "confirmed",
@@ -18,7 +18,7 @@ describe("charge action idempotency guard", () => {
       "cancelled",
       "charged_back",
       "declined",
-    ] as const;
+    ];
 
     for (const status of nonProposedStatuses) {
       const shouldProcess = status === "proposed";
@@ -38,7 +38,7 @@ describe("charge action idempotency guard", () => {
 
 describe("decline action idempotency guard", () => {
   it("returns alreadyProcessed for any non-proposed status", () => {
-    const terminalStatuses = [
+    const terminalStatuses: string[] = [
       "pending",
       "submitted",
       "confirmed",
@@ -47,7 +47,7 @@ describe("decline action idempotency guard", () => {
       "cancelled",
       "charged_back",
       "declined",
-    ] as const;
+    ];
 
     for (const status of terminalStatuses) {
       assert.equal(

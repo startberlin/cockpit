@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, IdCard, Layers, Users } from "lucide-react";
+import { ChevronRight, CreditCard, IdCard, Layers, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Can } from "@/components/can";
@@ -32,6 +32,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   isActive: (pathname: string) => boolean;
+  permission?: GlobalAction;
   items?: SubItem[];
 };
 
@@ -68,6 +69,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: Layers,
     isActive: (p) => p === "/groups" || p.startsWith("/groups/"),
   },
+  {
+    href: "/payments",
+    label: "Payments",
+    icon: CreditCard,
+    permission: "payments.manage",
+    isActive: (p) => p === "/payments" || p.startsWith("/payments/"),
+  },
 ];
 
 export function NavMain() {
@@ -78,7 +86,7 @@ export function NavMain() {
       <SidebarMenu>
         {NAV_ITEMS.map((item) => {
           if (!item.items?.length) {
-            return (
+            const menuItem = (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
@@ -91,6 +99,14 @@ export function NavMain() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            );
+
+            return item.permission ? (
+              <Can key={item.href} permission={item.permission}>
+                {menuItem}
+              </Can>
+            ) : (
+              menuItem
             );
           }
 
