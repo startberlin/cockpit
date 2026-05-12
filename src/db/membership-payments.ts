@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { newId } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
@@ -19,9 +19,10 @@ const IN_FLIGHT_STATUSES: MembershipPaymentCycleStatus[] = [
 const COVERED_STATUSES: MembershipPaymentCycleStatus[] = [
   "confirmed",
   "paid_out",
+  "declined", // waived period — blocks re-proposal until the activation year expires
 ];
 
-const APPROVED_STATUSES: MembershipPaymentCycleStatus[] = [
+export const DEFAULT_HISTORY_STATUSES: MembershipPaymentCycleStatus[] = [
   "pending",
   "submitted",
   "confirmed",
@@ -29,6 +30,11 @@ const APPROVED_STATUSES: MembershipPaymentCycleStatus[] = [
   "failed",
   "cancelled",
   "charged_back",
+];
+
+export const ALL_HISTORY_STATUSES: MembershipPaymentCycleStatus[] = [
+  ...DEFAULT_HISTORY_STATUSES,
+  "declined",
 ];
 
 export async function isMemberCovered(userId: string): Promise<boolean> {
@@ -172,49 +178,44 @@ export async function getProposedPayments(): Promise<
     .orderBy(membershipPayments.activationDate);
 }
 
-export async function getApprovedPaymentsPage(
+function sanitizeLikeTerm(value: string): string {
+  // Strip ILIKE metacharacters — names and emails don't use % or _
+  return value.trim().slice(0, 200).replace(/[%_]/g, "");
+}
+
+export async function getPaymentHistoryPage(
   page: number,
   pageSize: number,
+  search?: string,
+  statuses?: MembershipPaymentCycleStatus[],
 ): Promise<{ rows: MembershipPaymentCycleWithUser[]; total: number }> {
   const offset = (page - 1) * pageSize;
+  const term = search ? sanitizeLikeTerm(search) : null;
+  const effectiveStatuses =
+    statuses && statuses.length > 0 ? statuses : DEFAULT_HISTORY_STATUSES;
+
+  const searchFilter = term
+    ? sql`(lower(${user.firstName} || ' ' || ${user.lastName}) like lower(${`%${term}%`}) or lower(${user.email}) like lower(${`%${term}%`}))`
+    : null;
+
+  const whereClause = searchFilter
+    ? and(inArray(membershipPayments.status, effectiveStatuses), searchFilter)
+    : inArray(membershipPayments.status, effectiveStatuses);
 
   const [rows, [{ total }]] = await Promise.all([
     db
       .select(userPaymentColumns)
       .from(membershipPayments)
       .innerJoin(user, eq(user.id, membershipPayments.userId))
-      .where(inArray(membershipPayments.status, APPROVED_STATUSES))
+      .where(whereClause)
       .orderBy(membershipPayments.activationDate)
       .limit(pageSize)
       .offset(offset),
     db
       .select({ total: count() })
       .from(membershipPayments)
-      .where(inArray(membershipPayments.status, APPROVED_STATUSES)),
-  ]);
-
-  return { rows, total };
-}
-
-export async function getDeclinedPaymentsPage(
-  page: number,
-  pageSize: number,
-): Promise<{ rows: MembershipPaymentCycleWithUser[]; total: number }> {
-  const offset = (page - 1) * pageSize;
-
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select(userPaymentColumns)
-      .from(membershipPayments)
       .innerJoin(user, eq(user.id, membershipPayments.userId))
-      .where(eq(membershipPayments.status, "declined"))
-      .orderBy(desc(membershipPayments.updatedAt))
-      .limit(pageSize)
-      .offset(offset),
-    db
-      .select({ total: count() })
-      .from(membershipPayments)
-      .where(eq(membershipPayments.status, "declined")),
+      .where(whereClause),
   ]);
 
   return { rows, total };

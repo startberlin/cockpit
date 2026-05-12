@@ -1,9 +1,17 @@
 "use client";
 
 import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
   AlertTriangleIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
+  FilterIcon,
   InfoIcon,
   Loader2,
   SearchIcon,
@@ -12,7 +20,12 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { parseAsInteger, useQueryState } from "nuqs";
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  useQueryState,
+} from "nuqs";
 import * as React from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +38,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Pagination,
@@ -66,21 +82,28 @@ import type {
 import type { GcPaymentRecord } from "@/lib/gocardless/payments";
 import { chargeAction } from "./charge-action";
 import { declineAction } from "./decline-action";
+import {
+  GcPaymentStatusBadge,
+  type PaymentStatus,
+  PaymentStatusBadge,
+} from "./payment-status-badge";
 
-type MembershipPaymentCycleStatus =
-  | "proposed"
-  | "declined"
-  | "pending"
-  | "submitted"
-  | "confirmed"
-  | "paid_out"
-  | "failed"
-  | "cancelled"
-  | "charged_back";
+const DEFAULT_HISTORY_STATUSES = [
+  "pending",
+  "submitted",
+  "confirmed",
+  "paid_out",
+  "failed",
+  "cancelled",
+  "charged_back",
+] as const satisfies string[];
 
-const STATUS_LABELS: Record<MembershipPaymentCycleStatus, string> = {
-  proposed: "Proposed",
-  declined: "Declined",
+const ALL_HISTORY_STATUSES = [
+  ...DEFAULT_HISTORY_STATUSES,
+  "declined",
+] as const satisfies string[];
+
+const HISTORY_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   submitted: "Submitted",
   confirmed: "Confirmed",
@@ -88,45 +111,7 @@ const STATUS_LABELS: Record<MembershipPaymentCycleStatus, string> = {
   failed: "Failed",
   cancelled: "Cancelled",
   charged_back: "Charged back",
-};
-
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
-
-const STATUS_BADGE_VARIANT: Record<MembershipPaymentCycleStatus, BadgeVariant> =
-  {
-    proposed: "outline",
-    declined: "secondary",
-    pending: "secondary",
-    submitted: "secondary",
-    confirmed: "default",
-    paid_out: "default",
-    failed: "destructive",
-    cancelled: "destructive",
-    charged_back: "destructive",
-  };
-
-const GC_STATUS_LABELS: Record<string, string> = {
-  pending_customer_approval: "Pending approval",
-  pending_submission: "Pending",
-  submitted: "Submitted",
-  confirmed: "Confirmed",
-  paid_out: "Paid out",
-  cancelled: "Cancelled",
-  customer_approval_denied: "Approval denied",
-  failed: "Failed",
-  charged_back: "Charged back",
-};
-
-const GC_STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
-  pending_customer_approval: "secondary",
-  pending_submission: "secondary",
-  submitted: "secondary",
-  confirmed: "default",
-  paid_out: "default",
-  cancelled: "secondary",
-  customer_approval_denied: "destructive",
-  failed: "destructive",
-  charged_back: "destructive",
+  declined: "Declined",
 };
 
 function formatAmount(amountCents: number) {
@@ -138,15 +123,6 @@ function formatAmount(amountCents: number) {
 
 function formatDate(isoDate: string) {
   return new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(date: Date | string) {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -178,10 +154,16 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
+function isDefaultStatuses(statuses: string[]): boolean {
+  return (
+    statuses.length === DEFAULT_HISTORY_STATUSES.length &&
+    DEFAULT_HISTORY_STATUSES.every((s) => statuses.includes(s))
+  );
+}
+
 interface Props {
   proposed: MembershipPaymentCycleWithUser[];
-  approved: { rows: MembershipPaymentCycleWithUser[]; total: number };
-  declined: { rows: MembershipPaymentCycleWithUser[]; total: number };
+  history: { rows: MembershipPaymentCycleWithUser[]; total: number };
   stats: PaymentStats;
   selectedRow: MembershipPaymentCycleWithUser | null;
   gcHistoryPromise: Promise<GcPaymentRecord[]>;
@@ -190,8 +172,7 @@ interface Props {
 
 export default function PaymentsPageClient({
   proposed,
-  approved,
-  declined,
+  history,
   stats,
   selectedRow,
   gcHistoryPromise,
@@ -205,32 +186,147 @@ export default function PaymentsPageClient({
     "page",
     parseAsInteger.withDefault(1).withOptions({ shallow: false }),
   );
-  const [dpage, setDpage] = useQueryState(
-    "dpage",
-    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+  const [q, setQ] = useQueryState(
+    "q",
+    parseAsString.withDefault("").withOptions({ shallow: false }),
   );
-  const [q, setQ] = React.useState("");
+  const [statuses, setStatuses] = useQueryState(
+    "statuses",
+    parseAsArrayOf(parseAsString)
+      .withDefault([...DEFAULT_HISTORY_STATUSES])
+      .withOptions({ shallow: false }),
+  );
+  const [inputValue, setInputValue] = React.useState(q);
 
-  const approvedTotalPages = Math.max(1, Math.ceil(approved.total / pageSize));
-  const declinedTotalPages = Math.max(1, Math.ceil(declined.total / pageSize));
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (inputValue !== q) {
+        setQ(inputValue);
+        setPage(1);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [inputValue, q, setPage, setQ]);
 
-  const filteredProposed = q
-    ? proposed.filter((r) => {
-        const lower = q.toLowerCase();
-        return (
-          r.userName.toLowerCase().includes(lower) ||
-          (r.userEmail ?? "").toLowerCase().includes(lower)
-        );
-      })
-    : proposed;
+  const historyTotalPages = Math.max(1, Math.ceil(history.total / pageSize));
+  const isFiltered = !isDefaultStatuses(statuses);
+
+  const toggleStatus = React.useCallback(
+    (status: string) => {
+      const next = statuses.includes(status)
+        ? statuses.filter((s) => s !== status)
+        : [...statuses, status];
+      setStatuses(next.length === 0 ? [...DEFAULT_HISTORY_STATUSES] : next);
+      setPage(1);
+    },
+    [statuses, setStatuses, setPage],
+  );
+
+  const columns = React.useMemo<ColumnDef<MembershipPaymentCycleWithUser>[]>(
+    () => [
+      {
+        id: "member",
+        header: "Member",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 text-xs">
+              <AvatarFallback>
+                {getInitials(row.original.userName)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-medium text-sm">{row.original.userName}</div>
+              <div className="text-muted-foreground text-xs">
+                {row.original.userEmail}
+              </div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "activationDate",
+        header: "Coverage period",
+        cell: ({ getValue }) => (
+          <span className="font-mono text-xs">
+            {coveragePeriod(getValue() as string)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "amount",
+        header: () => <div className="text-right">Amount</div>,
+        cell: ({ getValue }) => (
+          <div className="text-right font-semibold text-sm">
+            {formatAmount(getValue() as number)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: () => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-3 h-8 gap-1 font-normal data-[state=open]:bg-accent"
+              >
+                Status
+                {isFiltered && (
+                  <FilterIcon className="h-2.5 w-2.5 text-primary" />
+                )}
+                <ChevronDownIcon className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              {ALL_HISTORY_STATUSES.map((status) => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={statuses.includes(status)}
+                  onCheckedChange={() => toggleStatus(status)}
+                >
+                  {HISTORY_STATUS_LABELS[status]}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {isFiltered && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="justify-center text-xs text-muted-foreground"
+                    onClick={() => {
+                      setStatuses([...DEFAULT_HISTORY_STATUSES]);
+                      setPage(1);
+                    }}
+                  >
+                    Reset to default
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+        cell: ({ getValue }) => (
+          <PaymentStatusBadge status={getValue() as PaymentStatus} />
+        ),
+      },
+    ],
+    [statuses, isFiltered, toggleStatus, setStatuses, setPage],
+  );
+
+  const table = useReactTable({
+    data: history.rows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <>
       <div className="pb-6">
         <h1 className="text-xl font-semibold">Payments</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Proposed yearly charges ready to be collected via GoCardless Direct
-          Debit.
+          When a member's annual fee comes due, START Cockpit proposes a charge
+          here. Review their mandate and payment history, then approve to
+          collect the payment.
         </p>
       </div>
 
@@ -307,21 +403,9 @@ export default function PaymentsPageClient({
       <div className="mb-6">
         <div className="flex items-center justify-between gap-4 pb-3">
           <h2 className="text-sm font-semibold">Proposed payments</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative w-64">
-              <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search by name or email"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
-            </div>
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {filteredProposed.length} proposal
-              {filteredProposed.length === 1 ? "" : "s"}
-            </span>
-          </div>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {proposed.length} proposal{proposed.length === 1 ? "" : "s"}
+          </span>
         </div>
         <div className="rounded-md border">
           <Table>
@@ -335,19 +419,17 @@ export default function PaymentsPageClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProposed.length === 0 ? (
+              {proposed.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={5}
                     className="py-10 text-center text-muted-foreground text-sm"
                   >
-                    {q
-                      ? "No proposed payments match this search."
-                      : "No proposed payments. All members are covered or in-flight."}
+                    No payments are waiting for review.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredProposed.map((row) => (
+                proposed.map((row) => (
                   <TableRow
                     key={row.id}
                     data-state={selectedId === row.id ? "selected" : undefined}
@@ -400,238 +482,104 @@ export default function PaymentsPageClient({
         </div>
       </div>
 
-      {/* ── Approved / historical ────────────────────────────── */}
+      {/* ── Payment history ───────────────────────────────────── */}
       <div className="mb-6">
-        <div className="flex items-center justify-between pb-3">
+        <div className="flex items-center justify-between gap-4 pb-3">
           <h2 className="text-sm font-semibold">Payment history</h2>
-          <span className="text-sm text-muted-foreground">
-            {approved.total} payment{approved.total === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                className="h-8 text-sm pl-8 w-48"
+                placeholder="Search by name or email"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+              />
+            </div>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {history.total} payment{history.total === 1 ? "" : "s"}
+            </span>
+          </div>
         </div>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Coverage period</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
-              {approved.rows.length === 0 ? (
+              {table.getRowModel().rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={columns.length}
                     className="py-10 text-center text-muted-foreground text-sm"
                   >
-                    No payments have been approved yet.
+                    {q || isFiltered
+                      ? "No payments match your filters."
+                      : "No payments have been approved yet."}
                   </TableCell>
                 </TableRow>
               ) : (
-                approved.rows.map((row) => (
+                table.getRowModel().rows.map((row) => (
                   <TableRow key={row.id} className="opacity-75">
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="h-8 w-8 text-xs">
-                          <AvatarFallback>
-                            {getInitials(row.userName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {row.userName}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            {row.userEmail}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {coveragePeriod(row.activationDate)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-sm">
-                      {formatAmount(row.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          STATUS_BADGE_VARIANT[
-                            row.status as MembershipPaymentCycleStatus
-                          ]
-                        }
-                      >
-                        {
-                          STATUS_LABELS[
-                            row.status as MembershipPaymentCycleStatus
-                          ]
-                        }
-                      </Badge>
-                    </TableCell>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
-        {approvedTotalPages > 1 && (
-          <div className="flex items-center justify-between pt-3">
-            <span className="text-xs text-muted-foreground">
-              Page {page} of {approvedTotalPages}
-            </span>
-            <Pagination className="mx-0 w-auto">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    aria-disabled={page <= 1}
-                    className={
-                      page <= 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setPage(Math.min(approvedTotalPages, page + 1))
-                    }
-                    aria-disabled={page >= approvedTotalPages}
-                    className={
-                      page >= approvedTotalPages
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
-      </div>
-
-      {/* ── Declined (collapsible) ───────────────────────────── */}
-      <Collapsible>
-        <div className="rounded-md border">
-          <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors">
-            <div className="flex items-center gap-2">
-              <ChevronRightIcon className="h-4 w-4 text-muted-foreground transition-transform duration-150 [[data-state=open]_&]:rotate-90" />
-              <span className="text-sm font-semibold">Declined</span>
-              <Badge variant="secondary" className="text-xs">
-                {declined.total}
-              </Badge>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Audit trail — not re-proposed
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="border-t">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Coverage period</TableHead>
-                    <TableHead>Declined on</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="w-8" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {declined.rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="py-10 text-center text-muted-foreground text-sm"
-                      >
-                        No declined payments.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    declined.rows.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        data-state={
-                          selectedId === row.id ? "selected" : undefined
-                        }
-                        className="cursor-pointer opacity-75"
-                        onClick={() => setSelectedId(row.id)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-2.5">
-                            <Avatar className="h-8 w-8 text-xs">
-                              <AvatarFallback>
-                                {getInitials(row.userName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium text-sm">
-                                {row.userName}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                {row.userEmail}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {coveragePeriod(row.activationDate)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDateTime(row.updatedAt)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                          {row.declineReason ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              {declinedTotalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <span className="text-xs text-muted-foreground">
-                    Page {dpage} of {declinedTotalPages}
-                  </span>
-                  <Pagination className="mx-0 w-auto">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setDpage(Math.max(1, dpage - 1))}
-                          aria-disabled={dpage <= 1}
-                          className={
-                            dpage <= 1
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() =>
-                            setDpage(Math.min(declinedTotalPages, dpage + 1))
-                          }
-                          aria-disabled={dpage >= declinedTotalPages}
-                          className={
-                            dpage >= declinedTotalPages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </div>
-          </CollapsibleContent>
+        <div className="flex items-center justify-between pt-3">
+          <span className="text-xs text-muted-foreground">
+            Page {page} of {historyTotalPages}
+          </span>
+          <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  aria-disabled={page <= 1}
+                  className={
+                    page <= 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setPage(Math.min(historyTotalPages, page + 1))}
+                  aria-disabled={page >= historyTotalPages}
+                  className={
+                    page >= historyTotalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
-      </Collapsible>
+      </div>
 
       {/* ── Drawer ──────────────────────────────────────────── */}
       <Sheet
@@ -644,23 +592,17 @@ export default function PaymentsPageClient({
           side="right"
           className="w-full sm:max-w-lg overflow-y-auto flex flex-col"
         >
-          {selectedRow &&
-            (selectedRow.status === "declined" ? (
-              <DeclinedDrawer
-                row={selectedRow}
-                onClose={() => setSelectedId(null)}
-              />
-            ) : (
-              <ProposedDrawer
-                row={selectedRow}
-                gcHistoryPromise={gcHistoryPromise}
-                onSuccess={() => {
-                  setSelectedId(null);
-                  router.refresh();
-                }}
-                onClose={() => setSelectedId(null)}
-              />
-            ))}
+          {selectedRow && (
+            <ProposedDrawer
+              row={selectedRow}
+              gcHistoryPromise={gcHistoryPromise}
+              onSuccess={() => {
+                setSelectedId(null);
+                router.refresh();
+              }}
+              onClose={() => setSelectedId(null)}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </>
@@ -696,11 +638,7 @@ function GcHistoryTable({ promise }: { promise: Promise<GcPaymentRecord[]> }) {
                   {formatAmount(p.amount)}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={GC_STATUS_BADGE_VARIANT[p.status] ?? "outline"}
-                  >
-                    {GC_STATUS_LABELS[p.status] ?? p.status}
-                  </Badge>
+                  <GcPaymentStatusBadge status={p.status} />
                 </TableCell>
               </TableRow>
             ))}
@@ -829,7 +767,7 @@ function ProposedDrawer({
           </div>
           <div className="flex items-center justify-between px-4 py-2.5">
             <span className="text-muted-foreground">Status</span>
-            <Badge variant={STATUS_BADGE_VARIANT.proposed}>Proposed</Badge>
+            <PaymentStatusBadge status="proposed" />
           </div>
           <div className="flex items-center justify-between px-4 py-2.5">
             <span className="text-muted-foreground">Starts</span>
@@ -934,81 +872,6 @@ function ProposedDrawer({
           Charging executes a GoCardless Direct Debit. No further proposals
           appear until 1 year after the activation date.
         </p>
-      </div>
-    </>
-  );
-}
-
-// ── Declined drawer ──────────────────────────────────────────
-
-function DeclinedDrawer({
-  row,
-  onClose,
-}: {
-  row: MembershipPaymentCycleWithUser;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      <SheetHeader className="border-b pb-4">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarFallback>{getInitials(row.userName)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <SheetTitle className="text-base leading-tight">
-              {row.userName}
-            </SheetTitle>
-            <SheetDescription className="text-sm leading-snug">
-              {row.userEmail}
-            </SheetDescription>
-            <div className="mt-1.5">
-              <Badge variant="secondary">Declined</Badge>
-            </div>
-          </div>
-        </div>
-      </SheetHeader>
-
-      <div className="flex flex-col gap-5 pt-5 flex-1">
-        <div className="rounded-lg border divide-y text-sm">
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-muted-foreground">Membership year</span>
-            <span className="font-medium">
-              {coveragePeriod(row.activationDate)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-muted-foreground">Amount</span>
-            <span className="font-medium">{formatAmount(row.amount)}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-muted-foreground">Status</span>
-            <Badge variant="secondary">Declined</Badge>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-muted-foreground">Declined on</span>
-            <span className="text-muted-foreground">
-              {formatDateTime(row.updatedAt)}
-            </span>
-          </div>
-        </div>
-
-        {row.declineReason && (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Reason
-            </p>
-            <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm">
-              {row.declineReason}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-auto border-t pt-4">
-        <Button variant="outline" onClick={onClose} className="w-full">
-          Close
-        </Button>
       </div>
     </>
   );
