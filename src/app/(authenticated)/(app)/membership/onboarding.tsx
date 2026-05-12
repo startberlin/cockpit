@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import Image from "next/image";
 import NotionIcon from "@/assets/notion-logo.svg";
 import SlackIcon from "@/assets/slack-icon.svg";
@@ -18,7 +17,6 @@ import {
 } from "./billing-copy";
 import { NotionDialog } from "./notion-dialog";
 import { PaymentButton } from "./payment-button";
-import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
 import { MembershipTaskCard } from "./task-card";
 
@@ -59,9 +57,6 @@ export function MembershipSection({
   membershipState,
   userStatus,
 }: MembershipPageContentProps) {
-  const isPaymentProcessing = membershipState.payment === "processing";
-  const showPaymentButton =
-    membershipState.paymentSetupAllowed && !isPaymentProcessing;
   const copy = getMembershipBillingCopy({
     mode: membershipState.payment,
     userStatus,
@@ -73,14 +68,7 @@ export function MembershipSection({
         <CardTitle>{copy.title}</CardTitle>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
-      {isPaymentProcessing && (
-        <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
-          <Loader2Icon className="h-4 w-4 animate-spin" />
-          Updating your membership status...
-          <PaymentProcessingRefresh />
-        </CardFooter>
-      )}
-      {showPaymentButton && (
+      {membershipState.paymentSetupAllowed && (
         <CardFooter className="flex-col items-start gap-3">
           <PaymentButton />
           {copy.paymentNote && (

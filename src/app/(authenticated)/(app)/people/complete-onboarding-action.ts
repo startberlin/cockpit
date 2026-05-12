@@ -2,10 +2,8 @@
 
 import { z } from "zod";
 import db from "@/db";
-import { createOrReuseMembershipPayment } from "@/db/membership";
 import { MembershipPaymentReadyEmail } from "@/emails/membership-payment-ready";
 import { actionClient } from "@/lib/action-client";
-import { getStructuredMembershipState } from "@/lib/membership-status";
 import { can } from "@/lib/permissions/server";
 import { resend } from "@/lib/resend";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
@@ -15,9 +13,6 @@ export const completeUserOnboardingAction = actionClient
   .action(async ({ parsedInput }) => {
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
-      with: {
-        membershipPayment: true,
-      },
     });
 
     if (!targetUser) {
@@ -36,20 +31,9 @@ export const completeUserOnboardingAction = actionClient
       throw new Error("The user has not completed their profile onboarding.");
     }
 
-    const membershipState = getStructuredMembershipState(
-      targetUser,
-      targetUser.membershipPayment,
-    );
-
-    if (membershipState.payment === "active") {
+    if (targetUser.gocardlessMandateId) {
       throw new Error("This user is already a full member.");
     }
-
-    if (targetUser.membershipPayment) {
-      return { alreadyCompleted: true };
-    }
-
-    await createOrReuseMembershipPayment(targetUser.id);
 
     await resend.emails.send({
       from: "START Berlin <notifications@cockpit.start-berlin.com>",
@@ -60,5 +44,5 @@ export const completeUserOnboardingAction = actionClient
       }),
     });
 
-    return { alreadyCompleted: false };
+    return { success: true };
   });

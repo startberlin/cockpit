@@ -119,8 +119,7 @@ export function MembershipTaskCard({
   // active + payment not yet set up: welcome, set up payment
   if (
     legalMembershipStatus === "active" &&
-    (membershipState.payment === "not_started" ||
-      membershipState.payment === "pending")
+    membershipState.payment === "not_started"
   ) {
     return (
       <Card>

@@ -6,15 +6,6 @@ import {
 } from "./billing-copy";
 
 describe("getMembershipBillingCopy", () => {
-  it("uses simple pending payment setup copy", () => {
-    const copy = getMembershipBillingCopy({ mode: "pending" });
-
-    assert.equal(copy.title, "Set up your yearly membership payment");
-    assert.match(copy.description, /40 EUR per year/);
-    assert.match(copy.description, /internal and external events/);
-    assert.equal(copy.paymentNote, null);
-  });
-
   it("uses simple not_started copy for members", () => {
     const copy = getMembershipBillingCopy({
       mode: "not_started",
@@ -61,14 +52,6 @@ describe("getMembershipBillingCopy", () => {
 
     assert.equal(copy.title, "You're listed as alumni");
     assert.doesNotMatch(copy.description, /onboarding phase/);
-  });
-
-  it("uses simple processing copy", () => {
-    const copy = getMembershipBillingCopy({ mode: "processing" });
-
-    assert.equal(copy.title, "Finishing your membership setup");
-    assert.match(copy.description, /updating your membership status/);
-    assert.doesNotMatch(copy.description, /GoCardless/);
   });
 });
 

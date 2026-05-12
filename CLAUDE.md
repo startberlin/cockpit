@@ -55,6 +55,7 @@ Routes use Next.js 15+ App Router with route groups:
 ### Authentication Flow
 
 Uses Better Auth (`src/lib/auth.ts`) with Google OAuth only:
+
 - Social provider: Google Workspace (signup disabled, must pre-exist in system)
 - User schema extended with custom fields (firstName, lastName, address, phone, status)
 - Drizzle adapter connects auth to PostgreSQL
@@ -63,6 +64,7 @@ Uses Better Auth (`src/lib/auth.ts`) with Google OAuth only:
 ### Database Patterns
 
 Drizzle ORM (`src/db/`) with schema-first approach:
+
 - Schema defined in `src/db/schema/*` (auth, groups, users, etc.)
 - Migrations generated via `npm run db:generate`
 - Applied via `npm run db:migrate`
@@ -70,6 +72,7 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 - Relations defined in schema for type-safe queries
 
 **CRITICAL: Migration rules — never violate these:**
+
 1. **Never manually edit migration files** in `src/db/migrations/`. They are auto-generated and must not be touched by hand.
 2. **Always modify schema files** in `src/db/schema/*` to make database changes.
 3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
@@ -79,6 +82,7 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 ### Server Actions
 
 Server-side mutations use `next-safe-action`:
+
 - Server actions typically colocated with components or in dedicated files
 - React Hook Form integration via `@next-safe-action/adapter-react-hook-form`
 - Form validation with Zod schemas (converted from Drizzle schema via `drizzle-zod`)
@@ -86,6 +90,7 @@ Server-side mutations use `next-safe-action`:
 ### Background Jobs (Inngest)
 
 Inngest workflows in `src/inngest/`:
+
 - `new-user-workflow.ts` - Creates Google Workspace account, database user, sends welcome email
 - `create-group.ts` - Creates Google Group via Admin SDK
 - `slack-user-joined.ts` - Handles Slack workspace join events
@@ -97,6 +102,7 @@ Each workflow uses `step.run()` for automatic retries and observability.
 ### Email System
 
 React Email components in `src/emails/`:
+
 - Preview templates via `npm run email:dev`
 - Sent via Resend API (`src/lib/resend.ts`)
 - Typically triggered from Inngest workflows
@@ -132,6 +138,7 @@ Service credentials configured in `.env` file.
 ### Database Queries
 
 Always import db and schema:
+
 ```typescript
 import db from "@/db";
 import { user, group } from "@/db/schema";
@@ -142,9 +149,14 @@ Use Drizzle's query API for type-safe operations with relations.
 ### ID Generation
 
 Use custom ID generator for prefixed IDs:
+
 ```typescript
 import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
 Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`
+
+### Forms
+
+Whenever you have a form, use React Hook Form with Zod validation. When using server actions, integrate with `@next-safe-action/adapter-react-hook-form` for seamless server-side handling. See here for an example: https://next-safe-action.dev/docs/integrations/react-hook-form

@@ -57,19 +57,6 @@ describe("buildImportedUserNotificationEmail", () => {
   });
 });
 
-describe("importedMembershipPaymentValues", () => {
-  it("creates a pending GoCardless setup row", async () => {
-    const { importedMembershipPaymentValues } = await import("@/db/membership");
-
-    const values = importedMembershipPaymentValues({ userId: "usr_imported" });
-
-    assert.equal(values.userId, "usr_imported");
-    assert.equal(values.provider, "gocardless");
-    assert.equal(values.status, "pending");
-    assert.equal(values.activatedAt, null);
-  });
-});
-
 describe("requiresMembershipBilling", () => {
   it("requires billing for member and supporting alumni imports", async () => {
     const { requiresMembershipBilling } = await import("@/db/membership");

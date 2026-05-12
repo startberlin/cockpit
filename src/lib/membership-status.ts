@@ -1,20 +1,12 @@
 import type { LegalMembershipState, User } from "@/db/schema/auth";
-import type { MembershipPaymentStatus } from "@/db/schema/membership";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
-
-export interface MembershipPaymentState {
-  status: MembershipPaymentStatus;
-}
 
 export type MembershipProfileState = "incomplete" | "complete";
 
 export type MembershipPaymentViewState =
   | "not_required"
   | "not_started"
-  | "pending"
-  | "processing"
-  | "active"
-  | "failed";
+  | "active";
 
 export type MembershipNextAction =
   | "complete_profile"
@@ -42,26 +34,26 @@ type MembershipStatusUser = Pick<
   | "country"
   | "status"
   | "legalMembershipState"
+  | "gocardlessMandateId"
 >;
 
 export function getStructuredMembershipState(
   user: MembershipStatusUser,
-  payment: MembershipPaymentState | null | undefined,
 ): StructuredMembershipState {
   const profileOnboardingComplete = getOnboardingProgress(user) === "completed";
+  const hasMandate = !!user.gocardlessMandateId;
   const canContinueBilling =
-    (user.status === "member" || user.status === "supporting_alumni") &&
-    !!payment;
+    user.status === "member" || user.status === "supporting_alumni";
 
   const profile: MembershipProfileState = profileOnboardingComplete
     ? "complete"
     : "incomplete";
-  const paymentState = getPaymentViewState(user, payment);
+  const paymentState = getPaymentViewState(user);
   const paymentSetupAllowed =
     user.legalMembershipState === "active_member" &&
     (profileOnboardingComplete || canContinueBilling) &&
-    canSetUpPayment(user, payment) &&
-    isPaymentSetupState(paymentState);
+    !hasMandate &&
+    user.status !== "alumni";
 
   return {
     profile,
@@ -71,6 +63,7 @@ export function getStructuredMembershipState(
     nextAction: getNextAction({
       paymentSetupAllowed,
       profileOnboardingComplete,
+      paymentState,
     }),
     paymentSetupAllowed,
   };
@@ -78,66 +71,31 @@ export function getStructuredMembershipState(
 
 function getPaymentViewState(
   user: MembershipStatusUser,
-  payment: MembershipPaymentState | null | undefined,
 ): MembershipPaymentViewState {
-  if (user.status === "alumni" && !payment) {
-    return "not_required";
-  }
-
-  if (!payment) {
-    return "not_started";
-  }
-
-  if (payment.status === "checkout_started") {
-    return "processing";
-  }
-
-  if (payment.status === "failed") {
-    return "failed";
-  }
-
-  if (isFullMemberPaymentState(payment)) {
+  if (user.gocardlessMandateId) {
     return "active";
   }
 
-  return "pending";
-}
-
-function canSetUpPayment(
-  user: MembershipStatusUser,
-  payment: MembershipPaymentState | null | undefined,
-) {
   if (user.status === "alumni") {
-    return false;
+    return "not_required";
   }
 
-  return (
-    !!payment || user.status === "member" || user.status === "supporting_alumni"
-  );
-}
-
-function isFullMemberPaymentState(
-  payment: MembershipPaymentState | null | undefined,
-) {
-  return payment?.status === "active";
-}
-
-function isPaymentSetupState(state: MembershipPaymentViewState) {
-  return (
-    state === "not_started" ||
-    state === "pending" ||
-    state === "processing" ||
-    state === "failed"
-  );
+  return "not_started";
 }
 
 function getNextAction({
   paymentSetupAllowed,
   profileOnboardingComplete,
+  paymentState,
 }: {
   paymentSetupAllowed: boolean;
   profileOnboardingComplete: boolean;
+  paymentState: MembershipPaymentViewState;
 }): MembershipNextAction {
+  if (paymentState === "active" || paymentState === "not_required") {
+    return "none";
+  }
+
   if (!profileOnboardingComplete && !paymentSetupAllowed) {
     return "complete_profile";
   }

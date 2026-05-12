@@ -1,12 +1,6 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import {
-  activateMembershipPayment,
-  getMembershipPaymentByBillingRequestFlowId,
-  getMembershipPaymentByBillingRequestId,
-  getMembershipPaymentByUserId,
-  recordMembershipProviderState,
-} from "@/db/membership";
+import { getUserByCustomerId } from "@/db/membership";
 import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { getBillingRequest, getBillingRequestFlow } from "./membership-flow";
@@ -26,95 +20,76 @@ export async function reconcileMembershipPaymentForUser({
   userId: string;
   billingRequestFlowId?: string | null;
 }): Promise<MembershipReconciliationResult> {
-  const payment = billingRequestFlowId
-    ? await getMembershipPaymentByBillingRequestFlowId(billingRequestFlowId)
-    : await getMembershipPaymentByUserId(userId);
-
-  if (!payment || payment.userId !== userId) {
-    return {
-      status: "failed",
-      message: "We could not find a matching membership payment attempt.",
-    };
-  }
-
-  return reconcileMembershipPayment(payment);
-}
-
-export async function reconcileMembershipPaymentByBillingRequestId(
-  billingRequestId: string,
-): Promise<MembershipReconciliationResult> {
-  const payment =
-    await getMembershipPaymentByBillingRequestId(billingRequestId);
-
-  if (!payment) {
-    return {
-      status: "failed",
-      message: "No local membership payment matched this GoCardless request.",
-    };
-  }
-
-  return reconcileMembershipPayment(payment);
-}
-
-async function reconcileMembershipPayment(
-  payment: NonNullable<
-    Awaited<ReturnType<typeof getMembershipPaymentByUserId>>
-  >,
-): Promise<MembershipReconciliationResult> {
-  if (payment.status === "active") {
-    return { status: "already_active", hostedRedirect: "/membership" };
-  }
-
   const member = await db.query.user.findFirst({
-    where: eq(user.id, payment.userId),
+    where: eq(user.id, userId),
   });
 
   if (!member) {
     return {
       status: "failed",
-      message: "We could not find the member connected to this payment.",
+      message: "We could not find your account.",
     };
   }
 
-  let billingRequestId = payment.gocardlessBillingRequestId;
-
-  if (!billingRequestId && payment.gocardlessBillingRequestFlowId) {
-    const flow = await getBillingRequestFlow(
-      payment.gocardlessBillingRequestFlowId,
-    );
-    billingRequestId = flow.billingRequestId;
-    await recordMembershipProviderState({
-      membershipPaymentId: payment.id,
-      gocardlessBillingRequestId: billingRequestId,
-      gocardlessBillingRequestFlowId: flow.id,
-    });
+  if (member.gocardlessMandateId) {
+    return { status: "already_active", hostedRedirect: "/membership" };
   }
 
-  if (!billingRequestId) {
+  if (!billingRequestFlowId) {
+    return {
+      status: "not_ready",
+      message:
+        "No billing request flow provided. Please try setting up payment again.",
+    };
+  }
+
+  const flow = await getBillingRequestFlow(billingRequestFlowId);
+  return reconcileMembershipPayment(member, flow.billingRequestId);
+}
+
+export async function reconcileMembershipPaymentByBillingRequestId(
+  billingRequestId: string,
+): Promise<MembershipReconciliationResult> {
+  const billingRequest = await getBillingRequest(billingRequestId);
+
+  if (!billingRequest.customerId) {
     return {
       status: "failed",
-      message: "GoCardless did not return a billing request for this payment.",
+      message: "GoCardless did not return a customer for this billing request.",
     };
   }
 
-  const billingRequest = await getBillingRequest(billingRequestId);
-  const customerId =
-    billingRequest.customerId ?? payment.gocardlessCustomerId ?? null;
-  const mandateId = billingRequest.mandateId ?? payment.gocardlessMandateId;
+  const member = await getUserByCustomerId(billingRequest.customerId);
 
-  await recordMembershipProviderState({
-    membershipPaymentId: payment.id,
-    gocardlessCustomerId: customerId,
-    gocardlessBillingRequestId: billingRequest.id,
-    gocardlessMandateId: mandateId ?? null,
-  });
+  if (!member) {
+    // Customer not yet stored locally — user will re-trigger via the redirect path.
+    return {
+      status: "failed",
+      message: "No local user matched this GoCardless customer.",
+    };
+  }
+
+  if (member.gocardlessMandateId) {
+    return { status: "already_active", hostedRedirect: "/membership" };
+  }
+
+  return reconcileMembershipPayment(member, billingRequestId);
+}
+
+async function reconcileMembershipPayment(
+  member: {
+    id: string;
+    status: string;
+    legalMembershipState: string;
+    gocardlessMandateId: string | null;
+  },
+  billingRequestId: string,
+): Promise<MembershipReconciliationResult> {
+  const billingRequest = await getBillingRequest(billingRequestId);
+  const customerId = billingRequest.customerId ?? null;
+  const mandateId = billingRequest.mandateId ?? null;
 
   if (billingRequest.status === "cancelled") {
-    await recordMembershipProviderState({
-      membershipPaymentId: payment.id,
-      status: "failed",
-    });
-
     return {
       status: "failed",
       message: "This GoCardless setup was cancelled. Please start again.",
@@ -129,24 +104,22 @@ async function reconcileMembershipPayment(
     };
   }
 
-  // Store mandate/customer IDs on the user record and create the first proposed
-  // payment row. Both writes happen before activating the membership_payment row
-  // so that if either fails the mandate setup can be retried cleanly.
-  await db
-    .update(user)
-    .set({
-      gocardlessMandateId: mandateId,
-      gocardlessCustomerId: customerId ?? null,
-    })
-    .where(eq(user.id, payment.userId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(user)
+      .set({
+        gocardlessMandateId: mandateId,
+        gocardlessCustomerId: customerId,
+        // Advance onboarding → member once mandate is confirmed
+        ...(member.status === "onboarding" &&
+        member.legalMembershipState === "active_member"
+          ? { status: "member" as const }
+          : {}),
+      })
+      .where(eq(user.id, member.id));
 
-  const today = new Date().toISOString().slice(0, 10);
-  await createProposedPayment(payment.userId, today);
-
-  await activateMembershipPayment({
-    membershipPaymentId: payment.id,
-    gocardlessCustomerId: customerId,
-    gocardlessMandateId: mandateId,
+    const today = new Date().toISOString().slice(0, 10);
+    await createProposedPayment(member.id, today, tx);
   });
 
   return { status: "activated", hostedRedirect: "/membership" };

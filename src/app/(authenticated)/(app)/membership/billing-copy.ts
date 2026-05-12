@@ -24,33 +24,6 @@ export function getMembershipBillingCopy({
   mode: MembershipBillingMode;
   userStatus?: UserStatus;
 }) {
-  if (mode === "processing") {
-    return {
-      title: "Finishing your membership setup",
-      description:
-        "We're updating your membership status. This usually only takes a moment.",
-      paymentNote: null,
-    };
-  }
-
-  if (userStatus === "onboarding") {
-    return {
-      title: "You're in the onboarding phase.",
-      description:
-        "We're glad to have you on board. After the onboarding phase, you'll see your membership details here.",
-      paymentNote: null,
-    };
-  }
-
-  if (mode === "not_started" || mode === "pending" || mode === "failed") {
-    return {
-      title: "Set up your yearly membership payment",
-      description:
-        "Your START Berlin membership costs 40 EUR per year. It covers the essentials that keep the association running and helps fund internal and external events and member benefits throughout the year.",
-      paymentNote: null,
-    };
-  }
-
   if (mode === "active") {
     if (userStatus === "supporting_alumni") {
       return {
@@ -74,6 +47,24 @@ export function getMembershipBillingCopy({
       title: "You're listed as alumni",
       description:
         "No membership payment is needed. START Cockpit will show anything relevant to your alumni status here.",
+      paymentNote: null,
+    };
+  }
+
+  if (userStatus === "onboarding") {
+    return {
+      title: "You're in the onboarding phase.",
+      description:
+        "We're glad to have you on board. After the onboarding phase, you'll see your membership details here.",
+      paymentNote: null,
+    };
+  }
+
+  if (mode === "not_started") {
+    return {
+      title: "Set up your yearly membership payment",
+      description:
+        "Your START Berlin membership costs 40 EUR per year. It covers the essentials that keep the association running and helps fund internal and external events and member benefits throughout the year.",
       paymentNote: null,
     };
   }

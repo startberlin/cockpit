@@ -1,10 +1,8 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { newMembershipPaymentId } from "@/db/membership";
 import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import { membershipPayment } from "@/db/schema/membership";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
 import { env } from "@/env";
 import { events, inngest } from "@/lib/inngest";
@@ -203,15 +201,6 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
           .update(user)
           .set({ legalMembershipState: "active_member" })
           .where(eq(user.id, subjectData.userId));
-
-        await tx
-          .insert(membershipPayment)
-          .values({
-            id: newMembershipPaymentId(),
-            userId: subjectData.userId,
-            status: "pending",
-          })
-          .onConflictDoNothing();
       });
     });
 
@@ -274,7 +263,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         throw new Error(`Missing email for user ${subjectData.userId}`);
       }
 
-      const [applicationDoc, confirmationDoc, payment] = await Promise.all([
+      const [applicationDoc, confirmationDoc, freshUser] = await Promise.all([
         db.query.legalDocument.findFirst({
           where: (d, { and: andFn, eq: eqFn }) =>
             andFn(
@@ -291,9 +280,9 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
             ),
           columns: { driveFileId: true },
         }),
-        db.query.membershipPayment.findFirst({
-          where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectData.userId),
-          columns: { id: true },
+        db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
+          columns: { status: true, gocardlessMandateId: true },
         }),
       ]);
 
@@ -316,7 +305,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       }
 
       const includesPaymentCta =
-        subjectData.userStatus === "member" && !payment;
+        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
 
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",

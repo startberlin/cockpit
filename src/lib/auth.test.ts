@@ -18,6 +18,8 @@ describe("Better Auth user fields", () => {
       "birthDate",
       "status",
       "legalMembershipState",
+      "gocardlessMandateId",
+      "gocardlessCustomerId",
     ]);
   });
 

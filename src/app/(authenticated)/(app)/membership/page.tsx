@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  getActiveLegalMembership,
-  getMembershipPaymentByUserId,
-} from "@/db/membership";
+import { getActiveLegalMembership } from "@/db/membership";
 import { getCurrentUser } from "@/db/user";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { createMetadata } from "@/lib/metadata";
@@ -20,12 +17,8 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  const [payment, activeLegalMembership] = await Promise.all([
-    getMembershipPaymentByUserId(user.id),
-    getActiveLegalMembership(user.id),
-  ]);
-
-  const membershipState = getStructuredMembershipState(user, payment);
+  const activeLegalMembership = await getActiveLegalMembership(user.id);
+  const membershipState = getStructuredMembershipState(user);
 
   return (
     <MembershipPageContent
