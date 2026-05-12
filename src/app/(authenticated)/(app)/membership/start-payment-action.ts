@@ -1,6 +1,9 @@
 "use server";
 
+import { eq } from "drizzle-orm";
+import db from "@/db";
 import { newMembershipSessionId } from "@/db/membership";
+import { user } from "@/db/schema/auth";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
@@ -42,6 +45,14 @@ export const startMembershipPaymentAction = actionClient.action(
       localSessionId,
       existingCustomerId: ctx.user.gocardlessCustomerId,
     });
+
+    // Immediately persist the GoCardless customer ID so retries reuse the same customer.
+    if (flow.customerId && !ctx.user.gocardlessCustomerId) {
+      await db
+        .update(user)
+        .set({ gocardlessCustomerId: flow.customerId })
+        .where(eq(user.id, ctx.user.id));
+    }
 
     return { hostedUrl: flow.hostedUrl };
   },

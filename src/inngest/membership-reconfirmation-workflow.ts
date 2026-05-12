@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import db from "@/db";
 import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
@@ -190,6 +190,8 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
 
     // Step 3: Activate the legal membership and insert the payment row.
     // Preserves the historical activatedAt set at import time.
+    // Also promotes onboarding → member, mirroring the admission workflow:
+    // legal membership and payment are independent.
     await step.run("activate-legal-membership", async () => {
       await db.transaction(async (tx) => {
         await tx
@@ -201,6 +203,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
           .update(user)
           .set({ legalMembershipState: "active_member" })
           .where(eq(user.id, subjectData.userId));
+
+        await tx
+          .update(user)
+          .set({ status: "member" })
+          .where(
+            and(eq(user.id, subjectData.userId), eq(user.status, "onboarding")),
+          );
       });
     });
 

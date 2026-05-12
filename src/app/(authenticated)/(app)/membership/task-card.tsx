@@ -29,21 +29,6 @@ export function MembershipTaskCard({
   membershipState,
   userStatus,
 }: MembershipTaskCardProps) {
-  // admission_pending: board reviewing application
-  if (legalMembershipStatus === "admission_pending") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Your membership application is in review</CardTitle>
-          <CardDescription>
-            The board is reviewing your application. You'll hear from us once
-            the vote is complete.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
   // manual_followup: needs closer look
   if (legalMembershipStatus === "manual_followup") {
     return (
@@ -127,7 +112,7 @@ export function MembershipTaskCard({
           <CardTitle>Welcome to START Berlin</CardTitle>
           <CardDescription>
             Your membership is confirmed. Set up your yearly membership payment
-            to complete your onboarding.
+            to finalize your account.
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-3">

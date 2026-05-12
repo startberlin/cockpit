@@ -6,7 +6,6 @@ import {
   prefilledCustomerFromMembershipInput,
 } from "./membership-flow-helpers";
 import type {
-  BillingRequestFlowState,
   BillingRequestState,
   MembershipFlowInput,
   MembershipFlowResult,
@@ -56,9 +55,17 @@ export async function createMembershipFlow(
     input.localSessionId,
   );
 
-  const billingRequestId =
-    input.existingBillingRequestId ??
-    (await createMembershipBillingRequest(input, idempotencyKey));
+  let billingRequestId: string;
+  let customerId: string | null;
+
+  if (input.existingBillingRequestId) {
+    billingRequestId = input.existingBillingRequestId;
+    customerId = input.existingCustomerId ?? null;
+  } else {
+    const br = await createMembershipBillingRequest(input, idempotencyKey);
+    billingRequestId = br.billingRequestId;
+    customerId = br.customerId;
+  }
 
   if (!input.existingCustomerId) {
     await collectMembershipCustomerDetails({
@@ -78,6 +85,7 @@ export async function createMembershipFlow(
     hostedUrl: billingRequestFlow.hostedUrl,
     billingRequestId,
     billingRequestFlowId: billingRequestFlow.id,
+    customerId,
     idempotencyKey,
   };
 }
@@ -85,7 +93,7 @@ export async function createMembershipFlow(
 async function createMembershipBillingRequest(
   input: MembershipFlowInput,
   idempotencyKey: string,
-) {
+): Promise<{ billingRequestId: string; customerId: string | null }> {
   const metadata = membershipFlowMetadata(input);
 
   const billingRequest = await goCardlessRequest<BillingRequestResponse>(
@@ -110,7 +118,10 @@ async function createMembershipBillingRequest(
     },
   );
 
-  return billingRequest.billing_requests.id;
+  return {
+    billingRequestId: billingRequest.billing_requests.id,
+    customerId: billingRequest.billing_requests.links?.customer ?? null,
+  };
 }
 
 async function collectMembershipCustomerDetails({
@@ -158,6 +169,7 @@ export async function createMembershipBillingRequestFlow({
           billing_request_flows: {
             redirect_uri: input.returnUrl,
             exit_uri: input.exitUrl,
+            skip_success_screen: true,
             prefilled_customer: prefilledCustomerFromMembershipInput(input),
             links: {
               billing_request: billingRequestId,
@@ -191,18 +203,5 @@ export async function getBillingRequest(
       billingRequest.links?.mandate_request_mandate ??
       billingRequest.mandate_request?.links?.mandate ??
       null,
-  };
-}
-
-export async function getBillingRequestFlow(
-  billingRequestFlowId: string,
-): Promise<BillingRequestFlowState> {
-  const response = await goCardlessRequest<BillingRequestFlowResponse>(
-    `/billing_request_flows/${billingRequestFlowId}`,
-  );
-
-  return {
-    id: response.billing_request_flows.id,
-    billingRequestId: response.billing_request_flows.links.billing_request,
   };
 }

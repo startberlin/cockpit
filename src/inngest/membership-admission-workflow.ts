@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
 import {
@@ -486,10 +486,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 10: Activate the legal membership and set legalMembershipState.
     // Only reached after all documents are archived.
-    // All three updates are wrapped in a transaction to prevent split-brain where
-    // legal_membership.status = 'active' but user.legalMembershipState is stale,
-    // and to ensure the membership_payment row exists before the user can reach
-    // the payment setup page.
+    // Both updates are wrapped in a transaction to prevent split-brain where
+    // legal_membership.status = 'active' but user.legalMembershipState is stale.
+    // The status promotion (onboarding → member) happens here, not at payment
+    // setup, since legal membership and payment are independent.
     const activatedAt = await step.run(
       "activate-legal-membership",
       async () => {
@@ -503,6 +503,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             .update(user)
             .set({ legalMembershipState: "active_member" })
             .where(eq(user.id, subjectUserId));
+          await tx
+            .update(user)
+            .set({ status: "member" })
+            .where(
+              and(eq(user.id, subjectUserId), eq(user.status, "onboarding")),
+            );
         });
         return now.toISOString();
       },
