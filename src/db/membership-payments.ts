@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { newId } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
@@ -19,6 +19,16 @@ const IN_FLIGHT_STATUSES: MembershipPaymentCycleStatus[] = [
 const COVERED_STATUSES: MembershipPaymentCycleStatus[] = [
   "confirmed",
   "paid_out",
+];
+
+const APPROVED_STATUSES: MembershipPaymentCycleStatus[] = [
+  "pending",
+  "submitted",
+  "confirmed",
+  "paid_out",
+  "failed",
+  "cancelled",
+  "charged_back",
 ];
 
 export async function isMemberCovered(userId: string): Promise<boolean> {
@@ -110,7 +120,9 @@ export async function advancePaymentStatus(
   id: string,
   from: MembershipPaymentCycleStatus | MembershipPaymentCycleStatus[],
   to: MembershipPaymentCycleStatus,
-  extra?: Partial<Pick<MembershipPaymentCycle, "gocardlessPaymentId">>,
+  extra?: Partial<
+    Pick<MembershipPaymentCycle, "gocardlessPaymentId" | "declineReason">
+  >,
 ): Promise<boolean> {
   const fromArray = Array.isArray(from) ? from : [from];
   const [updated] = await db
@@ -126,6 +138,22 @@ export async function advancePaymentStatus(
   return updated !== undefined;
 }
 
+const userPaymentColumns = {
+  id: membershipPayments.id,
+  userId: membershipPayments.userId,
+  status: membershipPayments.status,
+  activationDate: membershipPayments.activationDate,
+  amount: membershipPayments.amount,
+  gocardlessPaymentId: membershipPayments.gocardlessPaymentId,
+  declineReason: membershipPayments.declineReason,
+  createdAt: membershipPayments.createdAt,
+  updatedAt: membershipPayments.updatedAt,
+  userName: sql<string>`${user.firstName} || ' ' || ${user.lastName}`,
+  userEmail: user.email,
+  gocardlessMandateId: user.gocardlessMandateId,
+  gocardlessCustomerId: user.gocardlessCustomerId,
+} as const;
+
 export interface MembershipPaymentCycleWithUser extends MembershipPaymentCycle {
   userName: string;
   userEmail: string;
@@ -133,31 +161,125 @@ export interface MembershipPaymentCycleWithUser extends MembershipPaymentCycle {
   gocardlessCustomerId: string | null;
 }
 
-export async function getAllPaymentsForPage(): Promise<
+export async function getProposedPayments(): Promise<
   MembershipPaymentCycleWithUser[]
 > {
-  const today = new Date().toISOString().slice(0, 10);
+  return db
+    .select(userPaymentColumns)
+    .from(membershipPayments)
+    .innerJoin(user, eq(user.id, membershipPayments.userId))
+    .where(eq(membershipPayments.status, "proposed"))
+    .orderBy(membershipPayments.activationDate);
+}
+
+export async function getApprovedPaymentsPage(
+  page: number,
+  pageSize: number,
+): Promise<{ rows: MembershipPaymentCycleWithUser[]; total: number }> {
+  const offset = (page - 1) * pageSize;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select(userPaymentColumns)
+      .from(membershipPayments)
+      .innerJoin(user, eq(user.id, membershipPayments.userId))
+      .where(inArray(membershipPayments.status, APPROVED_STATUSES))
+      .orderBy(membershipPayments.activationDate)
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ total: count() })
+      .from(membershipPayments)
+      .where(inArray(membershipPayments.status, APPROVED_STATUSES)),
+  ]);
+
+  return { rows, total };
+}
+
+export async function getDeclinedPaymentsPage(
+  page: number,
+  pageSize: number,
+): Promise<{ rows: MembershipPaymentCycleWithUser[]; total: number }> {
+  const offset = (page - 1) * pageSize;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select(userPaymentColumns)
+      .from(membershipPayments)
+      .innerJoin(user, eq(user.id, membershipPayments.userId))
+      .where(eq(membershipPayments.status, "declined"))
+      .orderBy(desc(membershipPayments.updatedAt))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ total: count() })
+      .from(membershipPayments)
+      .where(eq(membershipPayments.status, "declined")),
+  ]);
+
+  return { rows, total };
+}
+
+export interface PaymentStats {
+  proposedCount: number;
+  proposedAmount: number;
+  inFlightCount: number;
+  inFlightAmount: number;
+  confirmedAmount: number;
+  collectedAmount: number;
+}
+
+export async function getPaymentStats(): Promise<PaymentStats> {
+  const oneYearAgo = new Date();
+  oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1);
+  const cutoff = oneYearAgo.toISOString().slice(0, 10);
+
   const rows = await db
     .select({
-      id: membershipPayments.id,
-      userId: membershipPayments.userId,
       status: membershipPayments.status,
       activationDate: membershipPayments.activationDate,
       amount: membershipPayments.amount,
-      gocardlessPaymentId: membershipPayments.gocardlessPaymentId,
-      createdAt: membershipPayments.createdAt,
-      updatedAt: membershipPayments.updatedAt,
-      userName: sql<string>`${user.firstName} || ' ' || ${user.lastName}`,
-      userEmail: user.email,
-      gocardlessMandateId: user.gocardlessMandateId,
-      gocardlessCustomerId: user.gocardlessCustomerId,
     })
     .from(membershipPayments)
-    .innerJoin(user, eq(user.id, membershipPayments.userId))
-    .where(lte(membershipPayments.activationDate, today))
-    .orderBy(membershipPayments.activationDate);
+    .where(
+      inArray(membershipPayments.status, [
+        "proposed",
+        "pending",
+        "submitted",
+        "confirmed",
+        "paid_out",
+      ]),
+    );
 
-  return rows;
+  let proposedCount = 0;
+  let proposedAmount = 0;
+  let inFlightCount = 0;
+  let inFlightAmount = 0;
+  let confirmedAmount = 0;
+  let collectedAmount = 0;
+
+  for (const row of rows) {
+    if (row.status === "proposed") {
+      proposedCount++;
+      proposedAmount += row.amount;
+    } else if (row.status === "pending" || row.status === "submitted") {
+      inFlightCount++;
+      inFlightAmount += row.amount;
+    } else if (row.status === "confirmed") {
+      confirmedAmount += row.amount;
+    } else if (row.status === "paid_out" && row.activationDate >= cutoff) {
+      collectedAmount += row.amount;
+    }
+  }
+
+  return {
+    proposedCount,
+    proposedAmount,
+    inFlightCount,
+    inFlightAmount,
+    confirmedAmount,
+    collectedAmount,
+  };
 }
 
 export async function getMembersNeedingProposal(): Promise<

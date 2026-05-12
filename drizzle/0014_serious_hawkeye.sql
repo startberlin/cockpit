@@ -1,0 +1,1 @@
+ALTER TABLE "membership_payments" ADD COLUMN "decline_reason" text;

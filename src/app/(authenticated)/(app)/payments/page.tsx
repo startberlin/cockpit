@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
-import { getAllPaymentsForPage } from "@/db/membership-payments";
+import {
+  getApprovedPaymentsPage,
+  getDeclinedPaymentsPage,
+  getPaymentStats,
+  getProposedPayments,
+} from "@/db/membership-payments";
 import {
   type GcPaymentRecord,
   getGcPaymentHistoryForMember,
@@ -13,26 +18,53 @@ export const metadata = createMetadata({
   description: "Review and approve member payment proposals.",
 });
 
-export default async function PaymentsPage() {
+const PAGE_SIZE = 20;
+
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ selected?: string; page?: string; dpage?: string }>;
+}) {
   if (!(await can("payments.manage"))) {
     redirect("/people/directory");
   }
 
-  const rows = await getAllPaymentsForPage();
+  const { selected, page: pageParam, dpage: dpageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+  const dpage = Math.max(1, Number.parseInt(dpageParam ?? "1", 10) || 1);
 
-  const gcHistoryMap: Record<string, GcPaymentRecord[]> = {};
-  await Promise.all(
-    rows
-      .filter((r) => r.gocardlessCustomerId)
-      .map(async (r) => {
-        const customerId = r.gocardlessCustomerId as string;
-        if (!(customerId in gcHistoryMap)) {
-          gcHistoryMap[customerId] = await getGcPaymentHistoryForMember(
-            customerId,
-          ).catch(() => []);
-        }
-      }),
+  const [proposed, approved, declined, stats] = await Promise.all([
+    getProposedPayments(),
+    getApprovedPaymentsPage(page, PAGE_SIZE),
+    getDeclinedPaymentsPage(dpage, PAGE_SIZE),
+    getPaymentStats(),
+  ]);
+
+  // Selected row can only come from proposed or declined — approved rows are not clickable.
+  const selectedRow = selected
+    ? (proposed.find((r) => r.id === selected) ??
+      declined.rows.find((r) => r.id === selected) ??
+      null)
+    : null;
+
+  // Start the GC fetch without awaiting — streamed to client via React.use() + Suspense.
+  // Only fetch for proposed rows (declined show reason instead of GC history).
+  const gcHistoryPromise: Promise<GcPaymentRecord[]> =
+    selectedRow?.gocardlessCustomerId && selectedRow.status !== "declined"
+      ? getGcPaymentHistoryForMember(selectedRow.gocardlessCustomerId).catch(
+          () => [],
+        )
+      : Promise.resolve([]);
+
+  return (
+    <PaymentsPageClient
+      proposed={proposed}
+      approved={approved}
+      declined={declined}
+      stats={stats}
+      selectedRow={selectedRow}
+      gcHistoryPromise={gcHistoryPromise}
+      pageSize={PAGE_SIZE}
+    />
   );
-
-  return <PaymentsPageClient rows={rows} gcHistoryMap={gcHistoryMap} />;
 }

@@ -7,7 +7,12 @@ import { actionClient } from "@/lib/action-client";
 import { can } from "@/lib/permissions/server";
 
 export const declineAction = actionClient
-  .inputSchema(z.object({ id: z.string() }))
+  .inputSchema(
+    z.object({
+      id: z.string(),
+      reason: z.string().min(1, "Reason is required"),
+    }),
+  )
   .action(async ({ parsedInput }) => {
     if (!(await can("payments.manage"))) {
       throw new Error("Not authorized.");
@@ -22,7 +27,9 @@ export const declineAction = actionClient
       return { alreadyProcessed: true };
     }
 
-    await advancePaymentStatus(row.id, "proposed", "declined");
+    await advancePaymentStatus(row.id, "proposed", "declined", {
+      declineReason: parsedInput.reason,
+    });
 
     revalidatePath("/payments");
 

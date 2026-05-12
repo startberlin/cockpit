@@ -42,6 +42,7 @@ export const membershipPayments = pgTable(
     activationDate: date("activation_date").notNull(),
     amount: integer("amount").notNull().default(4000),
     gocardlessPaymentId: text("gocardless_payment_id").unique(),
+    declineReason: text("decline_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
