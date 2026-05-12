@@ -24,7 +24,18 @@ export default async function Home() {
     <MembershipPageContent
       membershipState={membershipState}
       userStatus={user.status}
+      firstName={user.firstName}
       activeLegalMembership={activeLegalMembership}
+      contactDetails={{
+        email: user.email,
+        personalEmail: user.personalEmail,
+        phone: user.phone,
+        street: user.street,
+        city: user.city,
+        state: user.state,
+        zip: user.zip,
+        country: user.country,
+      }}
     />
   );
 }

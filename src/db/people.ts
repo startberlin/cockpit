@@ -142,6 +142,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
       status: true,
       legalMembershipState: true,
       gocardlessMandateId: true,
+      gocardlessCustomerId: true,
       createdAt: true,
     },
     with: {

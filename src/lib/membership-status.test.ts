@@ -107,6 +107,44 @@ describe("getStructuredMembershipState", () => {
     assert.equal(state.paymentSetupAllowed, false);
   });
 
+  describe("mandateCancelled", () => {
+    it("is false when mandate is active", () => {
+      const state = getStructuredMembershipState(
+        user({ gocardlessMandateId: "MD123", gocardlessCustomerId: "CU123" }),
+      );
+
+      assert.equal(state.mandateCancelled, false);
+      assert.equal(state.payment, "active");
+    });
+
+    it("is true when customer id is set but mandate id is null", () => {
+      const state = getStructuredMembershipState(
+        user({ gocardlessCustomerId: "CU123", gocardlessMandateId: null }),
+      );
+
+      assert.equal(state.mandateCancelled, true);
+      assert.equal(state.payment, "not_started");
+    });
+
+    it("is false when neither customer id nor mandate id is set", () => {
+      const state = getStructuredMembershipState(
+        user({ gocardlessCustomerId: null, gocardlessMandateId: null }),
+      );
+
+      assert.equal(state.mandateCancelled, false);
+      assert.equal(state.payment, "not_started");
+    });
+
+    it("is false for alumni regardless of customer id", () => {
+      const state = getStructuredMembershipState(
+        user({ status: "alumni", gocardlessCustomerId: "CU123" }),
+      );
+
+      assert.equal(state.mandateCancelled, false);
+      assert.equal(state.payment, "not_required");
+    });
+  });
+
   describe("legalMembershipState gate on paymentSetupAllowed", () => {
     it("blocks payment setup when legalMembershipState is not_member even if status is member", () => {
       const state = getStructuredMembershipState(

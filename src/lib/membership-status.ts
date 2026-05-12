@@ -20,6 +20,7 @@ export interface StructuredMembershipState {
   payment: MembershipPaymentViewState;
   nextAction: MembershipNextAction;
   paymentSetupAllowed: boolean;
+  mandateCancelled: boolean;
 }
 
 type MembershipStatusUser = Pick<
@@ -35,6 +36,7 @@ type MembershipStatusUser = Pick<
   | "status"
   | "legalMembershipState"
   | "gocardlessMandateId"
+  | "gocardlessCustomerId"
 >;
 
 export function getStructuredMembershipState(
@@ -54,6 +56,10 @@ export function getStructuredMembershipState(
     (profileOnboardingComplete || canContinueBilling) &&
     !hasMandate &&
     user.status !== "alumni";
+  const mandateCancelled =
+    user.status !== "alumni" &&
+    !!user.gocardlessCustomerId &&
+    !user.gocardlessMandateId;
 
   return {
     profile,
@@ -66,6 +72,7 @@ export function getStructuredMembershipState(
       paymentState,
     }),
     paymentSetupAllowed,
+    mandateCancelled,
   };
 }
 

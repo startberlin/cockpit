@@ -11,72 +11,80 @@ import {
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
-import {
-  getMembershipBillingCopy,
-  getMembershipToolsCopy,
-} from "./billing-copy";
+import { ContactDetailsCard } from "./contact-details-card";
+import { MembershipHeroCard } from "./membership-hero-card";
+import { MembershipNoticeBlock } from "./membership-notice-block";
+import { deriveMembershipNotice } from "./membership-notice-state";
 import { NotionDialog } from "./notion-dialog";
-import { PaymentButton } from "./payment-button";
 import { SlackDialog } from "./slack-dialog";
-import { MembershipTaskCard } from "./task-card";
+
+interface ContactDetails {
+  email: string;
+  personalEmail: string | null;
+  phone: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+}
 
 interface MembershipPageContentProps {
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
+  firstName: string;
   activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
+  contactDetails: ContactDetails;
 }
 
 export function MembershipPageContent({
   membershipState,
   userStatus,
+  firstName,
   activeLegalMembership,
+  contactDetails,
 }: MembershipPageContentProps) {
-  const tools = getMembershipToolsCopy(userStatus);
+  const legalMembershipStatus = activeLegalMembership?.status ?? null;
+  const hasNotice =
+    deriveMembershipNotice(
+      membershipState,
+      legalMembershipStatus,
+      userStatus,
+    ) !== null;
+  const showTools = userStatus !== "alumni";
+  const toolsActionLabel = userStatus === "onboarding" ? "Join" : "Open";
 
   return (
     <div className="flex flex-col gap-10">
-      <MembershipTaskCard
-        legalMembershipStatus={activeLegalMembership?.status ?? null}
-        legalMembershipState={membershipState.legal}
-        hasPayment={membershipState.payment !== "not_started"}
+      <MembershipHeroCard
         membershipState={membershipState}
+        legalMembershipStatus={legalMembershipStatus}
+        userStatus={userStatus}
+        firstName={firstName}
+        hasNotice={hasNotice}
+      />
+      <MembershipNoticeBlock
+        membershipState={membershipState}
+        legalMembershipStatus={legalMembershipStatus}
         userStatus={userStatus}
       />
-      {tools.visible && (
+      <ContactDetailsCard {...contactDetails} />
+      {showTools && (
         <ToolsSection
-          title={tools.title}
-          description={tools.description}
-          actionLabel={tools.actionLabel}
+          title={
+            userStatus === "onboarding"
+              ? "Get connected"
+              : "Your START Berlin tools"
+          }
+          description={
+            userStatus === "onboarding"
+              ? "Join the START Berlin workspaces where members coordinate, share resources, and work on projects."
+              : "Open the workspaces you use for communication, projects, and resources."
+          }
+          actionLabel={toolsActionLabel}
         />
       )}
     </div>
-  );
-}
-
-export function MembershipSection({
-  membershipState,
-  userStatus,
-}: MembershipPageContentProps) {
-  const copy = getMembershipBillingCopy({
-    mode: membershipState.payment,
-    userStatus,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
-      </CardHeader>
-      {membershipState.paymentSetupAllowed && (
-        <CardFooter className="flex-col items-start gap-3">
-          <PaymentButton />
-          {copy.paymentNote && (
-            <p className="text-sm text-muted-foreground">{copy.paymentNote}</p>
-          )}
-        </CardFooter>
-      )}
-    </Card>
   );
 }
 
