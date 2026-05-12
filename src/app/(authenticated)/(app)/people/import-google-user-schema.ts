@@ -22,30 +22,20 @@ export function normalizeImportedDepartment(
   return status === "member" ? department : null;
 }
 
-export const importGoogleWorkspaceUserSchema = z
-  .object({
-    googleWorkspaceUserId: z.string().min(1),
-    firstName: z.string().min(1, "Please enter a first name."),
-    lastName: z.string().min(1, "Please enter a last name."),
-    batchNumber: z.number().optional(),
-    department: z
-      .enum(departmentSchema.options, {
-        error: "Please select a department.",
-      })
-      .optional()
-      .nullable(),
-    status: importableUserStatus,
-    paidThroughDate: z.iso.date().optional().or(z.literal("")),
-  })
-  .superRefine((input, ctx) => {
-    if (input.status === "member" && !input.department) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Please select a department.",
-        path: ["department"],
-      });
-    }
-  });
+export const importGoogleWorkspaceUserSchema = z.object({
+  googleWorkspaceUserId: z.string().min(1),
+  firstName: z.string().min(1, "Please enter a first name."),
+  lastName: z.string().min(1, "Please enter a last name."),
+  batchNumber: z.number().optional(),
+  department: z
+    .enum(departmentSchema.options, {
+      error: "Please select a department.",
+    })
+    .optional()
+    .nullable(),
+  status: importableUserStatus,
+  paidThroughDate: z.iso.date().optional().or(z.literal("")),
+});
 
 export type ImportGoogleWorkspaceUserData = z.infer<
   typeof importGoogleWorkspaceUserSchema

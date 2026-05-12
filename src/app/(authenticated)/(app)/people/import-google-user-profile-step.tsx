@@ -243,12 +243,15 @@ export function ProfileStep({
                   <FieldLabel>Department</FieldLabel>
                   <Select
                     value={field.value ?? ""}
-                    onValueChange={field.onChange}
+                    onValueChange={(v) =>
+                      field.onChange(v === "__none__" ? null : v)
+                    }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
+                      <SelectValue placeholder="Department (optional)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
                       {Object.entries(DEPARTMENTS).map(([id, name]) => (
                         <SelectItem key={id} value={id}>
                           {name}

@@ -18,6 +18,7 @@ export const createUserAction = actionClient
       parsedInput.firstName,
       parsedInput.lastName,
     );
+
     const existingWorkspaceUser = await findWorkspaceUserByEmail(companyEmail);
 
     if (existingWorkspaceUser) {

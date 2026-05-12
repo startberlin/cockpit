@@ -24,13 +24,14 @@ export function BatchSelect({
   return (
     <Select
       value={value != null ? String(value) : ""}
-      onValueChange={(v) => onChange(v === "" ? undefined : Number(v))}
+      onValueChange={(v) => onChange(v === "__none__" ? undefined : Number(v))}
       disabled={disabled}
     >
       <SelectTrigger>
-        <SelectValue placeholder="No batch (optional)" />
+        <SelectValue placeholder="Batch (optional)" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="__none__">None</SelectItem>
         {batches.map((b) => (
           <SelectItem key={b.number} value={String(b.number)}>
             Batch {b.number}

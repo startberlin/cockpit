@@ -53,7 +53,7 @@ type PositionInput =
     };
 
 type GrantInput = {
-  grant: "admin";
+  grant: "admin" | "finance_admin";
   scope: "global";
   department: null;
 };
@@ -112,6 +112,12 @@ export function AuthorityEditor({
         assignment.grant === "admin" && assignment.scope === "global",
     ),
   );
+  const [isFinanceAdmin, setIsFinanceAdmin] = useState(
+    grants.some(
+      (assignment) =>
+        assignment.grant === "finance_admin" && assignment.scope === "global",
+    ),
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const toggleGlobalPosition = (position: GlobalOrganizationPosition) => {
@@ -159,8 +165,11 @@ export function AuthorityEditor({
 
       const nextGrants: GrantInput[] = [];
       if (isAdmin) {
+        nextGrants.push({ grant: "admin", scope: "global", department: null });
+      }
+      if (isFinanceAdmin) {
         nextGrants.push({
-          grant: "admin",
+          grant: "finance_admin",
           scope: "global",
           department: null,
         });
@@ -240,6 +249,24 @@ export function AuthorityEditor({
                   <span className="text-muted-foreground text-xs">
                     Can manage members, groups, positions, and permissions
                     across START Cockpit.
+                  </span>
+                </span>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+              <Checkbox
+                checked={isFinanceAdmin}
+                onCheckedChange={(checked) =>
+                  setIsFinanceAdmin(checked === true)
+                }
+              />
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck className="size-4" />
+                <span className="flex flex-col gap-0.5">
+                  <span>Finance Admin</span>
+                  <span className="text-muted-foreground text-xs">
+                    Can view and manage membership payments across START
+                    Cockpit.
                   </span>
                 </span>
               </span>

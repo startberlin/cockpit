@@ -157,6 +157,18 @@ const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 
 Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`
 
+### Query State / URL Params
+
+Always use **Nuqs** for reading and writing URL query parameters. Never use `useSearchParams` directly, `router.push` with manual query string construction, or `URLSearchParams` for state that belongs in the URL.
+
+```typescript
+import { useQueryState, parseAsString } from "nuqs";
+
+const [tab, setTab] = useQueryState("tab", parseAsString.withDefault("overview"));
+```
+
+For server components, use `createSearchParamsCache` to read params server-side.
+
 ### Forms
 
 Whenever you have a form, use React Hook Form with Zod validation. When using server actions, integrate with `@next-safe-action/adapter-react-hook-form` for seamless server-side handling. See here for an example: https://next-safe-action.dev/docs/integrations/react-hook-form

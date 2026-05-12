@@ -52,9 +52,7 @@ export const SignInInstructionsEmail = ({
       </Head>
       <Tailwind config={{ presets: [pixelBasedPreset] }}>
         <Body className="mx-auto my-auto bg-white px-2 font-sans">
-          <Preview>
-            Your START Berlin Google account sign-in instructions
-          </Preview>
+          <Preview>Your START Berlin Google account details</Preview>
           <Container className="mx-auto my-[40px] max-w-[465px] border border-[#E7E5E4] border-solid p-[20px]">
             <Section className="mt-[10px]">
               <Img
@@ -66,36 +64,39 @@ export const SignInInstructionsEmail = ({
               />
             </Section>
             <Heading className="mx-0 my-[30px] p-0 font-bold text-[24px] text-black uppercase">
-              Your START Berlin Sign-in Instructions
+              Welcome to START Berlin
             </Heading>
             <Text className="text-[14px] text-black leading-[24px]">
               Hello {firstName},
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
-              Welcome to START Berlin! Your Google Workspace account has been
-              created. Please find your sign-in details below:
+              Your START Berlin Google account is ready. Here are your sign-in
+              details:
             </Text>
             <Container className="my-[20px] p-[16px] bg-[#F0F9FF] border border-[#0EA5E9] border-solid rounded-[4px]">
               <Text className="text-[14px] text-black leading-[20px] mt-[8px] mb-0">
                 <strong>Email:</strong> {companyEmail}
                 <br />
-                <strong>Password:</strong> {initialPassword}
+                <strong>Initial password:</strong> {initialPassword}
                 <br />
-                <strong>Sign-in Link:</strong>{" "}
-                <Link href={env.NEXT_PUBLIC_COCKPIT_URL}>
-                  {env.NEXT_PUBLIC_COCKPIT_URL}
+                <strong>Sign in at:</strong>{" "}
+                <Link href="https://accounts.google.com">
+                  accounts.google.com
                 </Link>
               </Text>
             </Container>
             <Text className="text-[14px] text-black leading-[24px]">
-              <b>What happens next?</b>
-              <br />
-              You will be prompted to change your password the first time you
-              sign in. For security, please choose a personal password you have
-              never used anywhere else. If you run into any issues, contact the
-              Operations & Digital department:
+              You will be asked to set a new password when you first sign in.
+              Choose something personal that you have not used anywhere else.
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
+              Once you are signed in, open your new inbox at{" "}
+              <Link href="https://mail.google.com">mail.google.com</Link>. You
+              will find your START Cockpit access instructions there.
+            </Text>
+            <Text className="text-[14px] text-black leading-[24px]">
+              If you run into any issues, contact the Operations &amp; Digital
+              department:{" "}
               <Link href="mailto:operations@start-berlin.com">
                 operations@start-berlin.com
               </Link>

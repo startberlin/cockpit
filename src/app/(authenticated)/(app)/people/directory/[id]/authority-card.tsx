@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const PERMISSION_LABELS: Record<string, string> = {
   admin: "Admin",
+  finance_admin: "Finance Admin",
 };
 
 function formatScope(department: string | null) {
@@ -58,7 +59,7 @@ export function AuthorityCard({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              START positions
+              Positions
             </p>
             <div className="flex flex-wrap gap-2">
               {user.organizationPositions.length > 0 ? (
@@ -72,7 +73,7 @@ export function AuthorityCard({
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No START positions assigned.
+                  No positions assigned.
                 </p>
               )}
             </div>
