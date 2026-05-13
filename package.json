@@ -19,7 +19,9 @@
     "google:add-member": "dotenv -e .env -- tsx scripts/google.ts",
     "email:dev": "email dev --dir src/emails",
     "docs:generate": "tsx scripts/generate-documents.tsx",
-    "inngest:dev": "npx inngest-cli@latest dev"
+    "inngest:dev": "npx inngest-cli@latest dev",
+    "env:pull": "vercel env pull .env.local",
+    "db:check": "drizzle-kit check --config=drizzle.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
