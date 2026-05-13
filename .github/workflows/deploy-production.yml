@@ -35,7 +35,7 @@ jobs:
             --scope=start-berlin 2>&1)
 
           echo "$output"
-          deployment_url=$(echo "$output" | grep -E 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
+          deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
