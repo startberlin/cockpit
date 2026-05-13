@@ -30,11 +30,28 @@ export function prefilledCustomerFromMembershipInput(
   });
 }
 
+export function billingDetailFromMembershipInput(input: MembershipFlowInput) {
+  return stripEmptyValues({
+    address_line1: input.address?.street,
+    city: input.address?.city,
+    region: input.address?.state,
+    postal_code: input.address?.zip,
+    country_code: input.address?.country,
+  });
+}
+
 export function customerMetadata(input: MembershipFlowInput) {
   return {
     start_cockpit_user_id: input.userId,
     start_cockpit_user_email: input.email,
   };
+}
+
+export function subscriptionIdempotencyKey(
+  membershipPaymentId: string,
+  startDate: string | null | undefined,
+) {
+  return `membership-subscription:${membershipPaymentId}:${startDate ?? "no-date"}`;
 }
 
 export function membershipSubscriptionStartDate(

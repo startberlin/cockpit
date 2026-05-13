@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  billingDetailFromMembershipInput,
   extractIdempotencyConflictId,
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
   membershipSubscriptionStartDate,
   prefilledCustomerFromMembershipInput,
+  subscriptionIdempotencyKey,
 } from "./membership-flow-helpers";
 import type { MembershipFlowInput } from "./types";
 
@@ -51,6 +53,41 @@ describe("membership GoCardless flow helpers", () => {
       postal_code: "10115",
       country_code: "DE",
     });
+  });
+
+  it("builds billing detail for collectCustomerDetails including region", () => {
+    const inputWithState = {
+      ...input,
+      address: { ...input.address, state: "BE" },
+    };
+    assert.deepEqual(billingDetailFromMembershipInput(inputWithState), {
+      address_line1: "1 Infinite Loop",
+      city: "Berlin",
+      region: "BE",
+      postal_code: "10115",
+      country_code: "DE",
+    });
+  });
+
+  it("omits empty values from billing detail", () => {
+    const sparse = { ...input, address: { country: "DE" } };
+    assert.deepEqual(billingDetailFromMembershipInput(sparse), {
+      country_code: "DE",
+    });
+  });
+
+  it("builds subscription idempotency key with start date", () => {
+    assert.equal(
+      subscriptionIdempotencyKey("mp_123", "2026-01-01"),
+      "membership-subscription:mp_123:2026-01-01",
+    );
+  });
+
+  it("builds subscription idempotency key without start date", () => {
+    assert.equal(
+      subscriptionIdempotencyKey("mp_123", null),
+      "membership-subscription:mp_123:no-date",
+    );
   });
 
   it("derives the first subscription charge date after paid-through coverage", () => {
