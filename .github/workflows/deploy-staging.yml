@@ -11,7 +11,7 @@ concurrency:
 jobs:
   deploy-staging:
     runs-on: ubuntu-latest
-    environment: staging
+    environment: preview
 
     steps:
       - uses: actions/checkout@v4
@@ -52,19 +52,6 @@ jobs:
         run: npm run db:migrate
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-
-      - name: Alias staging domain
-        run: |
-          npx vercel alias set \
-            "${{ steps.deploy.outputs.url }}" \
-            staging.cockpit.start-berlin.com \
-            --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Smoke test staging domain
-        run: curl --fail "https://staging.cockpit.start-berlin.com/api/health"
 
       - name: Sync Inngest staging
         run: |
