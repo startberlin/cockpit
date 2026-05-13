@@ -1,5 +1,3 @@
-export const GOCARDLESS_API_VERSION = "2015-07-06";
-
 export interface MembershipFlowInput {
   userId: string;
   email: string;
@@ -33,29 +31,4 @@ export interface BillingRequestState {
   status: string;
   customerId?: string | null;
   mandateId?: string | null;
-}
-
-export class GoCardlessConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GoCardlessConfigurationError";
-  }
-}
-
-export class GoCardlessCapabilityError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GoCardlessCapabilityError";
-  }
-}
-
-export class GoCardlessRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly responseBody: string,
-  ) {
-    super(message);
-    this.name = "GoCardlessRequestError";
-  }
 }
