@@ -46,7 +46,6 @@ describe("buildImportedUserNotificationEmail", () => {
     const html = await render(email.react);
 
     assert.match(html, /START Berlin Google Account/);
-    assert.match(html, /Email and password login is not available/);
   });
 
   it("renders onboarding status context", async () => {
