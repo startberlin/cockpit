@@ -17,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import type { GlobalAction } from "@/lib/permissions";
 
@@ -80,6 +81,11 @@ const NAV_ITEMS: NavItem[] = [
 
 export function NavMain() {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <SidebarGroup>
@@ -93,7 +99,7 @@ export function NavMain() {
                   isActive={item.isActive(pathname)}
                   tooltip={item.label}
                 >
-                  <Link href={item.href}>
+                  <Link href={item.href} onClick={closeMobile}>
                     <item.icon />
                     <span>{item.label}</span>
                   </Link>
@@ -115,6 +121,7 @@ export function NavMain() {
               key={item.href}
               item={item as NavItem & { items: SubItem[] }}
               pathname={pathname}
+              onNavigate={closeMobile}
             />
           );
         })}
@@ -126,9 +133,11 @@ export function NavMain() {
 function NavMainCollapsibleItem({
   item,
   pathname,
+  onNavigate,
 }: {
   item: NavItem & { items: SubItem[] };
   pathname: string;
+  onNavigate: () => void;
 }) {
   const isParentActive = item.isActive(pathname);
 
@@ -155,7 +164,7 @@ function NavMainCollapsibleItem({
                     asChild
                     isActive={sub.isActive(pathname)}
                   >
-                    <Link href={sub.href}>
+                    <Link href={sub.href} onClick={onNavigate}>
                       <span>{sub.label}</span>
                     </Link>
                   </SidebarMenuSubButton>

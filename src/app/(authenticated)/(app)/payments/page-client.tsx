@@ -331,14 +331,14 @@ export default function PaymentsPageClient({
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-3 pb-6 *:data-[slot=card]:shadow-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-6 *:data-[slot=card]:shadow-xs">
         <Card>
-          <CardHeader>
+          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
             <CardDescription>Proposed</CardDescription>
             <CardTitle className="text-3xl font-bold tabular-nums">
               {stats.proposedCount}
             </CardTitle>
-            <CardAction>
+            <CardAction className="max-sm:[grid-area:auto] max-sm:justify-self-start">
               <Badge variant="outline">
                 {formatAmount(stats.proposedAmount)}
               </Badge>
@@ -346,12 +346,12 @@ export default function PaymentsPageClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
             <CardDescription>Processing</CardDescription>
             <CardTitle className="text-3xl font-bold tabular-nums">
               {stats.inFlightCount}
             </CardTitle>
-            <CardAction>
+            <CardAction className="max-sm:[grid-area:auto] max-sm:justify-self-start">
               <Badge variant="outline">
                 {formatAmount(stats.inFlightAmount)}
               </Badge>
@@ -359,12 +359,15 @@ export default function PaymentsPageClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
             <CardDescription>Confirmed</CardDescription>
             <CardTitle className="text-3xl font-bold tabular-nums">
               {formatAmount(stats.confirmedAmount)}
             </CardTitle>
-            <CardAction>
+            <CardDescription className="text-xs sm:hidden">
+              Payout confirmed
+            </CardDescription>
+            <CardAction className="max-sm:hidden">
               <Tooltip>
                 <TooltipTrigger>
                   <InfoIcon className="size-3 text-muted-foreground" />
@@ -380,12 +383,15 @@ export default function PaymentsPageClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
             <CardDescription>Collected</CardDescription>
             <CardTitle className="text-3xl font-bold tabular-nums">
               {formatAmount(stats.collectedAmount)}
             </CardTitle>
-            <CardAction>
+            <CardDescription className="text-xs sm:hidden">
+              Payments collected within the last 365 days.
+            </CardDescription>
+            <CardAction className="max-sm:hidden">
               <Tooltip>
                 <TooltipTrigger>
                   <InfoIcon className="size-3 text-muted-foreground" />
@@ -407,6 +413,7 @@ export default function PaymentsPageClient({
             {proposed.length} proposal{proposed.length === 1 ? "" : "s"}
           </span>
         </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -484,13 +491,13 @@ export default function PaymentsPageClient({
 
       {/* ── Payment history ───────────────────────────────────── */}
       <div className="mb-6">
-        <div className="flex items-center justify-between gap-4 pb-3">
+        <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h2 className="text-sm font-semibold">Payment history</h2>
           <div className="flex items-center gap-3">
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
-                className="h-8 text-sm pl-8 w-48"
+                className="h-8 text-sm pl-8 w-full sm:w-48"
                 placeholder="Search by name or email"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
@@ -501,6 +508,7 @@ export default function PaymentsPageClient({
             </span>
           </div>
         </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -548,6 +556,7 @@ export default function PaymentsPageClient({
             </TableBody>
           </Table>
         </div>
+
         <div className="flex items-center justify-between pt-3">
           <span className="text-xs text-muted-foreground">
             Page {page} of {historyTotalPages}
