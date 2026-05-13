@@ -33,7 +33,8 @@ export function StepFees({ legalMembershipId, declarations }: StepFeesProps) {
   const form = useForm<FeesFormData>({
     resolver: zodResolver(feesFormSchema),
     defaultValues: {
-      acceptsFinancialRegulations: declarations?.acceptsFinancialRegulations ?? undefined,
+      acceptsFinancialRegulations:
+        declarations?.acceptsFinancialRegulations ?? undefined,
       acknowledgesFee: declarations?.acknowledgesFee ?? undefined,
     },
     mode: "onChange",

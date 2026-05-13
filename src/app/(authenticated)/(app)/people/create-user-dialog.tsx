@@ -106,8 +106,10 @@ export function CreateUserDialog({
 
   const [debouncedEmail] = useDebounce(watchedCompanyEmail, 300);
 
-  const isValidDebouncedEmail = companyEmailSchema.safeParse(debouncedEmail).success;
-  const isValidCurrentEmail = companyEmailSchema.safeParse(watchedCompanyEmail).success;
+  const isValidDebouncedEmail =
+    companyEmailSchema.safeParse(debouncedEmail).success;
+  const isValidCurrentEmail =
+    companyEmailSchema.safeParse(watchedCompanyEmail).success;
 
   const emailQuery = useQuery({
     queryKey: ["email-availability", debouncedEmail],
@@ -117,12 +119,17 @@ export function CreateUserDialog({
     },
     enabled: isValidDebouncedEmail,
     // Cache taken emails forever (a taken email won't become free); always re-check available ones.
-    staleTime: (query) => (query.state.data?.available === false ? Infinity : 0),
+    staleTime: (query) =>
+      query.state.data?.available === false ? Infinity : 0,
   });
 
-  const emailCheckPending = isValidCurrentEmail && (watchedCompanyEmail !== debouncedEmail || emailQuery.isFetching);
-  const emailConflict = !emailCheckPending && emailQuery.data?.available === false;
-  const emailAvailable = !emailCheckPending && emailQuery.data?.available === true;
+  const emailCheckPending =
+    isValidCurrentEmail &&
+    (watchedCompanyEmail !== debouncedEmail || emailQuery.isFetching);
+  const emailConflict =
+    !emailCheckPending && emailQuery.data?.available === false;
+  const emailAvailable =
+    !emailCheckPending && emailQuery.data?.available === true;
   const emailCheckUnavailable = !emailCheckPending && emailQuery.isError;
 
   return (
@@ -257,11 +264,15 @@ export function CreateUserDialog({
                         )}
                       </InputGroupAddon>
                     </InputGroup>
-                    {emailUnlocked && <FieldError errors={[fieldState.error]} />}
+                    {emailUnlocked && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
                     {(!emailUnlocked || !fieldState.error) && (
                       <FieldDescription className="pt-0.5 text-xs">
                         {emailConflict ? (
-                          <span className="text-destructive">Not available</span>
+                          <span className="text-destructive">
+                            Not available
+                          </span>
                         ) : (
                           "This will become their START Berlin email address."
                         )}

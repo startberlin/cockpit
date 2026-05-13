@@ -16,7 +16,15 @@ export const createUserAction = actionClient
       throw new Error("You are not authorized to create users.");
     }
 
-    const { firstName, lastName, personalEmail, companyEmail, batchNumber, department, status } = parsedInput;
+    const {
+      firstName,
+      lastName,
+      personalEmail,
+      companyEmail,
+      batchNumber,
+      department,
+      status,
+    } = parsedInput;
 
     const existingWorkspaceUser = await findWorkspaceUserByEmail(companyEmail);
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { LandmarkIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

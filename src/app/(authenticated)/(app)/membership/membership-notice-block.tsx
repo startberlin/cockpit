@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
+import { cn } from "@/lib/utils";
 import {
   deriveMembershipNotice,
   type MembershipNoticeType,
 } from "./membership-notice-state";
 import { PaymentButton } from "./payment-button";
-import { cn } from "@/lib/utils";
 
 export { deriveMembershipNotice, type MembershipNoticeType };
 
