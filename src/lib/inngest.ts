@@ -63,4 +63,7 @@ export const events = {
 
 export const inngest = new Inngest({
   id: "start-cockpit",
+  checkpointing: {
+    maxRuntime: 240, // 4 minutes
+  },
 });

@@ -3,31 +3,14 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
-const rawUrl =
-  process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+const rawUrl = process.env.DATABASE_URL;
 
 if (!rawUrl) {
-  console.error(
-    "error: neither MIGRATE_DATABASE_URL nor DATABASE_URL is set\n" +
-      "  For migrations, set MIGRATE_DATABASE_URL to a direct (non-pooler) connection string.",
-  );
+  console.error("DATABASE_URL must be set");
   process.exit(1);
 }
 
-function maskUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    u.password = u.password ? "***" : "";
-    return u.toString();
-  } catch {
-    return "(could not parse URL)";
-  }
-}
-
-const usingVar = process.env.MIGRATE_DATABASE_URL
-  ? "MIGRATE_DATABASE_URL"
-  : "DATABASE_URL";
-console.log(`db:migrate  url=${maskUrl(rawUrl)}  (from ${usingVar})`);
+console.log(`Running migrations`);
 
 const pool = new Pool({
   connectionString: rawUrl,
@@ -36,20 +19,20 @@ const pool = new Pool({
 });
 
 async function main() {
-  console.log("db:migrate  connecting...");
+  console.log("Connecting to database...");
   const client = await pool.connect();
   client.release();
-  console.log("db:migrate  connected");
+  console.log("Connected to database");
 
-  console.log("db:migrate  applying migrations...");
+  console.log("Applying migrations...");
   const db = drizzle({ client: pool });
   await migrate(db, { migrationsFolder: "./drizzle" });
-  console.log("db:migrate  done");
+  console.log("Applied migrations");
 }
 
 main()
   .catch((err: Error) => {
-    console.error("db:migrate  failed:", err.message);
+    console.error("Migragtions failed:", err.message);
     console.error(err);
     process.exit(1);
   })
