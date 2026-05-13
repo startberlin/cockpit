@@ -28,22 +28,18 @@ jobs:
       - name: Create Vercel Preview deployment
         id: deploy
         run: |
-          deployment_url=$(npx vercel deploy \
+          output=$(npx vercel deploy \
             --target=preview \
             --yes \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            2>vercel-error.txt)
+            --scope=start-berlin 2>&1)
 
-          code=$?
-          if [ $code -ne 0 ]; then
-            cat vercel-error.txt
-            exit $code
-          fi
-
+          echo "$output"
+          deployment_url=$(echo "$output" | tail -1)
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Smoke test Preview deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
