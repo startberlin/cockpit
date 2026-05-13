@@ -115,6 +115,8 @@
   },
   "overrides": {
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "zod@<4.4.0": "4.4.0",
+    "cjs-module-lexer@<2.2.0": "2.2.0"
   }
 }
