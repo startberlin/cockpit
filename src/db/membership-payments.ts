@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { newId } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
@@ -287,18 +287,104 @@ export async function getMembersNeedingProposal(): Promise<
   Array<{
     id: string;
     gocardlessMandateId: string;
+    lastActivationDate: string | null;
   }>
 > {
+  const today = new Date().toISOString().slice(0, 10);
   return db
     .select({
       id: user.id,
       gocardlessMandateId: user.gocardlessMandateId,
+      lastActivationDate: sql<string | null>`(
+        SELECT mp.activation_date
+        FROM membership_payments mp
+        WHERE mp.user_id = ${user.id}
+        ORDER BY mp.activation_date DESC
+        LIMIT 1
+      )`,
     })
     .from(user)
     .where(
       and(
         eq(user.status, "member"),
-        sql`${user.gocardlessMandateId} IS NOT NULL`,
+        isNotNull(user.gocardlessMandateId),
+        // Exclude members who are already covered for this cycle
+        sql`NOT EXISTS (
+          SELECT 1 FROM membership_payments mp
+          WHERE mp.user_id = ${user.id}
+          AND mp.status IN ('confirmed', 'paid_out', 'declined')
+          AND mp.activation_date::date + interval '1 year' > ${today}::date
+        )`,
+        // Exclude members who already have an in-flight payment
+        sql`NOT EXISTS (
+          SELECT 1 FROM membership_payments mp
+          WHERE mp.user_id = ${user.id}
+          AND mp.status IN ('proposed', 'pending', 'submitted')
+        )`,
       ),
-    ) as Promise<Array<{ id: string; gocardlessMandateId: string }>>;
+    ) as Promise<
+    Array<{
+      id: string;
+      gocardlessMandateId: string;
+      lastActivationDate: string | null;
+    }>
+  >;
+}
+
+export async function getActivePaymentTerm(userId: string): Promise<{
+  activationDate: string;
+  status: MembershipPaymentCycleStatus;
+} | null> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const covered = await db.query.membershipPayments.findFirst({
+    where: and(
+      eq(membershipPayments.userId, userId),
+      inArray(membershipPayments.status, ["confirmed", "paid_out"]),
+      sql`${membershipPayments.activationDate}::date + interval '1 year' > ${today}::date`,
+    ),
+    columns: { activationDate: true, status: true },
+    orderBy: (t, { desc }) => [desc(t.activationDate)],
+  });
+
+  if (covered) return covered;
+
+  const inFlight = await db.query.membershipPayments.findFirst({
+    where: and(
+      eq(membershipPayments.userId, userId),
+      inArray(membershipPayments.status, ["pending", "submitted"]),
+    ),
+    columns: { activationDate: true, status: true },
+    orderBy: (t, { desc }) => [desc(t.activationDate)],
+  });
+
+  return inFlight ?? null;
+}
+
+export async function batchCreateProposedPayments(
+  members: Array<{ id: string; lastActivationDate: string | null }>,
+): Promise<number> {
+  if (members.length === 0) return 0;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = members.map((m) => {
+    let activationDate: string;
+    if (m.lastActivationDate) {
+      const d = new Date(m.lastActivationDate);
+      d.setFullYear(d.getFullYear() + 1);
+      activationDate = d.toISOString().slice(0, 10);
+    } else {
+      activationDate = today;
+    }
+    return {
+      id: newId("membershipPaymentCycle"),
+      userId: m.id,
+      activationDate,
+      status: "proposed" as const,
+      amount: 4000,
+    };
+  });
+
+  await db.insert(membershipPayments).values(rows).onConflictDoNothing();
+  return rows.length;
 }

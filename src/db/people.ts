@@ -68,6 +68,23 @@ export interface UserDetail {
   }>;
 }
 
+export async function getDepartmentHeadForDepartment(
+  dept: Department,
+): Promise<{
+  firstName: string;
+  lastName: string;
+  image: string | null;
+} | null> {
+  const row = await db.query.userOrganizationPosition.findFirst({
+    where: (t, { eq, and }) =>
+      and(eq(t.position, "department_head"), eq(t.department, dept)),
+    with: {
+      user: { columns: { firstName: true, lastName: true, image: true } },
+    },
+  });
+  return row?.user ?? null;
+}
+
 export async function getAllUserPublicData(): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
     columns: {

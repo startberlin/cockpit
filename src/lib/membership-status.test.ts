@@ -22,6 +22,7 @@ function user(overrides: Partial<User> = {}): User {
     zip: "10115",
     country: "DE",
     birthDate: "1990-01-01",
+    memberSinceDate: null,
     personalEmail: "ada.personal@example.com",
     batchNumber: 1,
     phone: "+491234567890",

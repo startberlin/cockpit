@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { UserStatus } from "@/db/schema/auth";
 import {
   ACTIVE_TENURE_STATUSES,
@@ -36,4 +36,37 @@ export async function getUserByCustomerId(customerId: string) {
   return db.query.user.findFirst({
     where: eq(user.gocardlessCustomerId, customerId),
   });
+}
+
+export async function getMemberSinceDate(userId: string): Promise<Date | null> {
+  // Priority 1: explicit memberSinceDate set on the user (e.g. via import or admin)
+  const userRow = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+    columns: { memberSinceDate: true, batchNumber: true },
+    with: { batch: { columns: { startDate: true } } },
+  });
+
+  if (!userRow) return null;
+
+  if (userRow.memberSinceDate) {
+    return new Date(`${userRow.memberSinceDate}T00:00:00`);
+  }
+
+  // Priority 2: batch start date (reflects when the cohort actually joined)
+  if (userRow.batch) {
+    return new Date(`${userRow.batch.startDate}T00:00:00`);
+  }
+
+  // Priority 3: activatedAt from a non-imported legal membership
+  const membership = await db.query.legalMembership.findFirst({
+    where: and(
+      eq(legalMembership.userId, userId),
+      isNotNull(legalMembership.activatedAt),
+      isNull(legalMembership.importedPaidThroughAt),
+    ),
+    orderBy: asc(legalMembership.activatedAt),
+    columns: { activatedAt: true },
+  });
+
+  return membership?.activatedAt ?? null;
 }
