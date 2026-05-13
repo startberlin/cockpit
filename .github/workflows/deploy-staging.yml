@@ -51,7 +51,7 @@ jobs:
       - name: Apply staging database migrations
         run: npm run db:migrate
         env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
 
       - name: Sync Inngest staging
         run: |
@@ -60,6 +60,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"url\":\"$INNGEST_APP_URL\"}"
         env:
-          INNGEST_API_KEY: ${{ secrets.STAGING_INNGEST_API_KEY }}
-          INNGEST_APP_ID: ${{ secrets.STAGING_INNGEST_APP_ID }}
+          INNGEST_API_KEY: ${{ secrets.INNGEST_API_KEY_STAGING }}
+          INNGEST_APP_ID: ${{ secrets.INNGEST_APP_ID_STAGING }}
           INNGEST_APP_URL: https://staging.cockpit.start-berlin.com/api/inngest

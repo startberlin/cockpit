@@ -52,7 +52,7 @@ jobs:
       - name: Apply production database migrations
         run: npm run db:migrate
         env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
       - name: Promote production deployment
         run: |
@@ -75,6 +75,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"url\":\"$INNGEST_APP_URL\"}"
         env:
-          INNGEST_API_KEY: ${{ secrets.PRODUCTION_INNGEST_API_KEY }}
-          INNGEST_APP_ID: ${{ secrets.PRODUCTION_INNGEST_APP_ID }}
+          INNGEST_API_KEY: ${{ secrets.INNGEST_API_KEY_PROD }}
+          INNGEST_APP_ID: ${{ secrets.INNGEST_APP_ID_PROD }}
           INNGEST_APP_URL: https://cockpit.start-berlin.com/api/inngest
