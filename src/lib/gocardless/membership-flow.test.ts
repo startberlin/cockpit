@@ -119,4 +119,3 @@ describe("membership GoCardless flow helpers", () => {
     );
   });
 });
-
