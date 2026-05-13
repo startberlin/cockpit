@@ -40,7 +40,7 @@ Triggered on push to `main`. Sequence:
 2. `npm test`
 3. `vercel deploy --target=preview --yes` → capture deployment URL
 4. `curl --fail <deployment-url>/api/health`
-5. `npm run db:migrate` with `DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}`
+5. `npm run db:migrate` with `DATABASE_URL=${{ secrets.DATABASE_URL_STAGING }}`
 6. `vercel alias set <deployment-url> staging.cockpit.start-berlin.com`
 7. `curl --fail https://staging.cockpit.start-berlin.com/api/health`
 8. Inngest sync via `POST https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs`
@@ -55,7 +55,7 @@ Triggered on push to `production`. Sequence:
 2. `npm test`
 3. `vercel deploy --prod --skip-domain --yes` → capture deployment URL
 4. `curl --fail <deployment-url>/api/health`
-5. `npm run db:migrate` with `DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}`
+5. `npm run db:migrate` with `DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}`
 6. `vercel promote <deployment-url>`
 7. `curl --fail https://cockpit.start-berlin.com/api/health`
 8. Inngest sync via `POST https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs`
@@ -120,17 +120,17 @@ Create two environments in **Settings → Environments**:
 
 | Secret | Value |
 |--------|-------|
-| `STAGING_DATABASE_URL` | PlanetScale staging branch direct connection string |
-| `STAGING_INNGEST_API_KEY` | Inngest staging environment event key |
-| `STAGING_INNGEST_APP_ID` | Inngest staging app ID |
+| `DATABASE_URL_STAGING` | PlanetScale staging branch direct connection string |
+| `INNGEST_API_KEY_STAGING` | Inngest staging environment event key |
+| `INNGEST_APP_ID_STAGING` | Inngest staging app ID |
 
 **`production` environment secrets:**
 
 | Secret | Value |
 |--------|-------|
-| `PRODUCTION_DATABASE_URL` | PlanetScale production branch direct connection string |
-| `PRODUCTION_INNGEST_API_KEY` | Inngest production event key |
-| `PRODUCTION_INNGEST_APP_ID` | Inngest production app ID |
+| `DATABASE_URL_PROD` | PlanetScale production branch direct connection string |
+| `INNGEST_API_KEY_PROD` | Inngest production event key |
+| `INNGEST_APP_ID_PROD` | Inngest production app ID |
 
 ### C. Inngest
 
@@ -140,7 +140,7 @@ Create two environments in **Settings → Environments**:
 
 ### D. PlanetScale
 
-Ensure staging and production Postgres branches exist and you have direct connection strings for each. Set these as `STAGING_DATABASE_URL` / `PRODUCTION_DATABASE_URL` in GitHub secrets.
+Ensure staging and production Postgres branches exist and you have direct connection strings for each. Set these as `DATABASE_URL_STAGING` / `DATABASE_URL_PROD` in GitHub secrets.
 
 ### E. Git
 
