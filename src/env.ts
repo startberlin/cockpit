@@ -13,6 +13,10 @@ export const env = createEnv({
     SLACK_SIGNING_SECRET: z.string().min(1),
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     GOCARDLESS_API_KEY: z.string().min(1).optional(),
+    GOCARDLESS_ENVIRONMENT: z
+      .enum(["live", "sandbox"])
+      .optional()
+      .default("live"),
     GOCARDLESS_BASE_URL: z
       .url()
       .optional()
@@ -43,6 +47,7 @@ export const env = createEnv({
     SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
     GOCARDLESS_API_KEY: process.env.GOCARDLESS_API_KEY,
+    GOCARDLESS_ENVIRONMENT: process.env.GOCARDLESS_ENVIRONMENT,
     GOCARDLESS_BASE_URL: process.env.GOCARDLESS_BASE_URL,
     GOCARDLESS_WEBHOOK_SECRET: process.env.GOCARDLESS_WEBHOOK_SECRET,
     GOCARDLESS_MEMBERSHIP_TEMPLATE_ID:
