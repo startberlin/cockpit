@@ -8,10 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { UserStatus } from "@/db/schema/auth";
+import type { Department, UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
+import type { MembershipPaymentCycleStatus } from "@/db/schema/membership-payments";
 import type { StructuredMembershipState } from "@/lib/membership-status";
 import { ContactDetailsCard } from "./contact-details-card";
+import { MembershipDetailsCard } from "./membership-details-card";
 import { MembershipHeroCard } from "./membership-hero-card";
 import { MembershipNoticeBlock } from "./membership-notice-block";
 import { deriveMembershipNotice } from "./membership-notice-state";
@@ -29,12 +31,29 @@ interface ContactDetails {
   country: string | null;
 }
 
+interface MembershipDetails {
+  memberSince: Date | null;
+  batchNumber: number | null;
+  department: Department | null;
+  departmentHead: {
+    firstName: string;
+    lastName: string;
+    image: string | null;
+  } | null;
+  paymentTerm: {
+    activationDate: string;
+    status: MembershipPaymentCycleStatus;
+  } | null;
+  showBillingInfo: boolean;
+}
+
 interface MembershipPageContentProps {
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
   firstName: string;
   activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
   contactDetails: ContactDetails;
+  membershipDetails: MembershipDetails;
 }
 
 export function MembershipPageContent({
@@ -43,38 +62,44 @@ export function MembershipPageContent({
   firstName,
   activeLegalMembership,
   contactDetails,
+  membershipDetails,
 }: MembershipPageContentProps) {
   const legalMembershipStatus = activeLegalMembership?.status ?? null;
-  const hasNotice =
-    deriveMembershipNotice(
-      membershipState,
-      legalMembershipStatus,
-      userStatus,
-    ) !== null;
+  const noticeType = deriveMembershipNotice(
+    membershipState,
+    legalMembershipStatus,
+    userStatus,
+  );
   const showTools = userStatus !== "alumni";
   const toolsActionLabel = userStatus === "onboarding" ? "Join" : "Open";
+  const showMembershipDetails = userStatus !== "onboarding";
 
   return (
     <div className="flex flex-col gap-10">
-      <MembershipHeroCard
-        membershipState={membershipState}
-        legalMembershipStatus={legalMembershipStatus}
-        userStatus={userStatus}
-        firstName={firstName}
-        hasNotice={hasNotice}
-      />
-      <MembershipNoticeBlock
-        membershipState={membershipState}
-        legalMembershipStatus={legalMembershipStatus}
-        userStatus={userStatus}
-      />
+      <div className="flex flex-col gap-4">
+        <MembershipHeroCard
+          membershipState={membershipState}
+          legalMembershipStatus={legalMembershipStatus}
+          userStatus={userStatus}
+          firstName={firstName}
+          noticeType={noticeType}
+        />
+        <MembershipNoticeBlock
+          membershipState={membershipState}
+          legalMembershipStatus={legalMembershipStatus}
+          userStatus={userStatus}
+        />
+      </div>
+      {showMembershipDetails && (
+        <MembershipDetailsCard {...membershipDetails} />
+      )}
       <ContactDetailsCard {...contactDetails} />
       {showTools && (
         <ToolsSection
           title={
             userStatus === "onboarding"
               ? "Get connected"
-              : "Your START Berlin tools"
+              : "My START Berlin tools"
           }
           description={
             userStatus === "onboarding"
@@ -103,7 +128,7 @@ function ToolsSection({
   return (
     <div className="flex flex-col gap-6">
       <span className="flex flex-col gap-1">
-        <h2 className="text-md font-semibold">{title}</h2>
+        <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </span>
       <div className="grid md:grid-cols-3 grid-cols-1 sm:grid-cols-2 gap-2">

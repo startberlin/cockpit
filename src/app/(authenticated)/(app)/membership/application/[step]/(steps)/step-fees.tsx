@@ -16,7 +16,7 @@ import { handleError } from "@/lib/utils";
 import { saveFeesDeclarationsAction } from "./step-fees-action";
 
 const feesFormSchema = z.object({
-  acceptsPrivacyNotice: z.literal(true),
+  acceptsFinancialRegulations: z.literal(true),
   acknowledgesFee: z.literal(true),
 });
 
@@ -33,7 +33,7 @@ export function StepFees({ legalMembershipId, declarations }: StepFeesProps) {
   const form = useForm<FeesFormData>({
     resolver: zodResolver(feesFormSchema),
     defaultValues: {
-      acceptsPrivacyNotice: declarations?.acceptsPrivacyNotice ?? undefined,
+      acceptsFinancialRegulations: declarations?.acceptsFinancialRegulations ?? undefined,
       acknowledgesFee: declarations?.acknowledgesFee ?? undefined,
     },
     mode: "onChange",
@@ -90,19 +90,19 @@ export function StepFees({ legalMembershipId, declarations }: StepFeesProps) {
       <FieldSet>
         <FieldGroup>
           <Controller
-            name="acceptsPrivacyNotice"
+            name="acceptsFinancialRegulations"
             control={form.control}
             render={({ field }) => (
               <Field orientation="horizontal">
                 <Checkbox
-                  id="acceptsPrivacyNotice"
+                  id="acceptsFinancialRegulations"
                   checked={field.value === true}
                   onCheckedChange={(checked) =>
                     field.onChange(checked === true ? true : undefined)
                   }
                 />
-                <FieldLabel htmlFor="acceptsPrivacyNotice">
-                  I have read and accept the privacy notice.
+                <FieldLabel htmlFor="acceptsFinancialRegulations">
+                  I have read and accept the financial regulations.
                 </FieldLabel>
               </Field>
             )}

@@ -69,7 +69,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         <FieldLegend>Account</FieldLegend>
         <FieldGroup>
           <Field>
-            <FieldLabel>Workspace email</FieldLabel>
+            <FieldLabel>START Berlin email</FieldLabel>
             <InputGroup>
               <InputGroupInput value={user.email} disabled className="w-full" />
               <InputGroupAddon align="inline-end">
@@ -80,8 +80,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
                     </InputGroupButton>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Your workspace email is managed by START Berlin and cannot
-                    be changed here.
+                    Your START Berlin email is managed by START Berlin and
+                    cannot be changed here.
                   </TooltipContent>
                 </Tooltip>
               </InputGroupAddon>

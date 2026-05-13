@@ -3,14 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
@@ -19,13 +12,14 @@ import {
   deriveMembershipHeroVariant,
   type MembershipHeroVariant,
 } from "./membership-hero-state";
+import type { MembershipNoticeType } from "./membership-notice-state";
 
 interface MembershipHeroCardProps {
   membershipState: StructuredMembershipState;
   legalMembershipStatus: LegalMembershipStatus | null;
   userStatus: UserStatus;
   firstName: string;
-  hasNotice: boolean;
+  noticeType: MembershipNoticeType;
 }
 
 function getHeroContent(
@@ -48,12 +42,12 @@ function getHeroContent(
     case "active_cancelled":
       return {
         headline: `Hi ${firstName}`,
-        body: "Your membership is active but there is a problem with your payment.",
+        body: "It's good to have you at START Berlin! We noticed there was a problem with your direct debit. Please update your direct debit authorization.",
       };
     case "active_no_payment":
       return {
         headline: `Hi ${firstName}`,
-        body: "Your membership is active. We still need your payment details.",
+        body: "We're glad to have you at START Berlin! Please set up a direct debit for your membership payment.",
       };
     case "processing":
       return {
@@ -74,7 +68,7 @@ function getHeroContent(
     case "membership_reconfirmation_pending":
       return {
         headline: "Confirm your START Berlin membership",
-        body: "We have you on record as a member, but we still need your official confirmation and a few details. This only takes a few minutes.",
+        body: "We have you on record as a member. Please confirm your membership to keep our records up to date. This is a one-time step and only takes a few minutes.",
       };
     case "cancelled":
       return {
@@ -84,8 +78,23 @@ function getHeroContent(
     case "onboarding":
       return {
         headline: "Welcome to START Berlin",
-        body: "Your membership details will appear here once your onboarding is complete.",
+        body: "Once your onboarding is complete, you can submit your membership application here. We'll notify you by email when it's time.",
       };
+  }
+}
+
+function getBadgeLabel(noticeType: MembershipNoticeType): string | null {
+  switch (noticeType) {
+    case "application_pending":
+      return "Application pending";
+    case "membership_reconfirmation_pending":
+      return "Confirmation needed";
+    case "payment_not_started":
+      return "Direct debit needed";
+    case "payment_cancelled":
+      return "Direct debit expired";
+    default:
+      return "Membership active";
   }
 }
 
@@ -94,7 +103,7 @@ export function MembershipHeroCard({
   legalMembershipStatus,
   userStatus,
   firstName,
-  hasNotice,
+  noticeType,
 }: MembershipHeroCardProps) {
   const router = useRouter();
 
@@ -108,15 +117,18 @@ export function MembershipHeroCard({
     enabled: legalMembershipStatus === "processing",
   });
 
-  useEffect(() => {
-    if (
-      polledStatus &&
-      polledStatus !== "processing" &&
-      polledStatus !== "active"
-    ) {
+  useQuery({
+    queryKey: ["membership-page-refresh", polledStatus],
+    queryFn: () => {
       router.refresh();
-    }
-  }, [polledStatus, router]);
+      return null;
+    },
+    enabled:
+      !!polledStatus &&
+      polledStatus !== "processing" &&
+      polledStatus !== "active",
+    staleTime: Infinity,
+  });
 
   const variant = deriveMembershipHeroVariant(
     membershipState,
@@ -125,22 +137,30 @@ export function MembershipHeroCard({
   );
 
   const { headline, body } = getHeroContent(variant, firstName);
+  const badgeLabel = getBadgeLabel(noticeType);
 
   return (
-    <Card>
-      <CardHeader>
-        {hasNotice && (
-          <Badge className="w-fit" variant="secondary">
-            Action required
-          </Badge>
+    <Card className="gap-0">
+      <CardHeader className="gap-0">
+        {badgeLabel && (
+          <span className="mb-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+            {badgeLabel}
+          </span>
         )}
-        <CardTitle className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {variant === "processing" && (
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           )}
-          {headline}
-        </CardTitle>
-        {body && <CardDescription>{body}</CardDescription>}
+          <h2 className="text-3xl font-black uppercase tracking-tight leading-none">
+            {headline}
+          </h2>
+        </div>
+        {body && (
+          <CardDescription className="mt-3 text-sm leading-relaxed">
+            {body}
+          </CardDescription>
+        )}
       </CardHeader>
     </Card>
   );

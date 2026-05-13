@@ -1,11 +1,6 @@
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface ContactDetailsCardProps {
   email: string;
@@ -26,9 +21,11 @@ function ContactField({
   value: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm">{value ?? "—"}</span>
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
+        {label}
+      </span>
+      <span className="text-sm font-medium">{value ?? "—"}</span>
     </div>
   );
 }
@@ -53,24 +50,29 @@ export function ContactDetailsCard({
     .join(", ");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Contact details</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <ContactField label="Workspace email" value={email} />
-        <ContactField label="Personal email" value={personalEmail} />
-        <ContactField label="Phone" value={phone} />
-        <ContactField label="Address" value={addressLine || null} />
-      </CardContent>
-      <CardFooter>
-        <Link
-          href="/membership/settings"
-          className="text-sm font-medium underline underline-offset-4"
-        >
-          Edit details
-        </Link>
-      </CardFooter>
-    </Card>
+    <div className="flex flex-col gap-6">
+      <span className="flex flex-col gap-1">
+        <h2 className="text-sm font-semibold">Contact details</h2>
+        <p className="text-sm text-muted-foreground">
+          How START Berlin reaches you. Keep these up to date so we can contact
+          you about your membership.
+        </p>
+      </span>
+      <Card className="gap-0">
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <ContactField label="Personal email" value={personalEmail} />
+            <ContactField label="Phone" value={phone} />
+            <ContactField label="START Berlin email" value={email} />
+            <ContactField label="Address" value={addressLine || null} />
+          </div>
+          <div className="mt-6">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/membership/settings">Edit details</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

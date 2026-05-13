@@ -1,7 +1,7 @@
 ---
 title: "Membership Hero Card and Settings Subpage"
 type: feat
-status: active
+status: completed
 date: 2026-05-12
 origin: docs/brainstorms/2026-05-12-membership-hero-card-and-settings-requirements.md
 ---

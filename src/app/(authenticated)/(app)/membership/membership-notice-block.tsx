@@ -1,12 +1,13 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  FileTextIcon,
+  InfoIcon,
+  LandmarkIcon,
+  MailIcon,
+  UserCheckIcon,
+} from "lucide-react";
+import Link from "next/link";
+import type React from "react";
+import { Button } from "@/components/ui/button";
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
@@ -15,6 +16,7 @@ import {
   type MembershipNoticeType,
 } from "./membership-notice-state";
 import { PaymentButton } from "./payment-button";
+import { cn } from "@/lib/utils";
 
 export { deriveMembershipNotice, type MembershipNoticeType };
 
@@ -22,6 +24,37 @@ interface MembershipNoticeBlockProps {
   membershipState: StructuredMembershipState;
   legalMembershipStatus: LegalMembershipStatus | null;
   userStatus: UserStatus;
+}
+
+function NoticePanel({
+  icon,
+  title,
+  body,
+  action,
+  className,
+  iconClassName,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+  iconClassName?: string;
+}) {
+  return (
+    <div
+      className={`flex gap-4 items-start border p-6 ${className ?? "bg-blue-50 border-blue-200"}`}
+    >
+      <span className={cn("shrink-0 mt-0.5", iconClassName)}>{icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-base leading-snug">{title}</div>
+        <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+          {body}
+        </p>
+        {action && <div className="mt-4">{action}</div>}
+      </div>
+    </div>
+  );
 }
 
 export function MembershipNoticeBlock({
@@ -39,112 +72,100 @@ export function MembershipNoticeBlock({
 
   if (notice === "alumni") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>You're listed as alumni</CardTitle>
-          <CardDescription>
-            You are no longer a member of START Berlin e.V. If you would like to
-            rejoin, get in touch with us — we'd love to have you back.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoticePanel
+        icon={<InfoIcon className="size-5" />}
+        title="You're listed as alumni"
+        body="You are no longer a member of START Berlin e.V. If you would like to rejoin, get in touch with us — we'd love to have you back."
+        className="bg-secondary/50 border-border"
+        iconClassName="text-muted-foreground"
+      />
     );
   }
 
   if (notice === "application_pending") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Fill out your membership application</CardTitle>
-          <CardDescription>
-            A few details are needed to generate your membership documents. This
-            only takes a few minutes.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <Button asChild>
+      <NoticePanel
+        icon={<FileTextIcon className="size-5" />}
+        title="Fill out your membership application"
+        body="A few details are needed to generate your membership documents. This only takes a few minutes."
+        action={
+          <Button asChild size="sm">
             <Link href="/membership/application/personal-information">
-              Start application
+              Start membership application
             </Link>
           </Button>
-        </CardFooter>
-      </Card>
+        }
+      />
     );
   }
 
   if (notice === "membership_reconfirmation_pending") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Confirm your membership</CardTitle>
-          <CardDescription>
-            We need a few details to confirm your membership. This only takes a
-            few minutes.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <Button asChild>
+      <NoticePanel
+        icon={<UserCheckIcon className="size-5" />}
+        title="Confirm your membership"
+        body="We need a few details to confirm your membership. This only takes a few minutes."
+        action={
+          <Button asChild size="sm">
             <Link href="/membership/application/personal-information">
-              Confirm membership
+              Start membership confirmation
             </Link>
           </Button>
-        </CardFooter>
-      </Card>
+        }
+      />
     );
   }
 
   if (notice === "manual_followup") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>We'll be in touch</CardTitle>
-          <CardDescription>
-            We need to take a closer look at your application. We'll reach out
-            to you directly.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
+      <NoticePanel
+        icon={<MailIcon className="size-5" />}
+        title="We'll be in touch"
+        body="We need to take a closer look at your application. We'll reach out to you directly."
+        action={
           <a
-            href="mailto:hello@startberlin.com"
+            href="mailto:membership@start-berlin.com"
             className="text-sm font-medium underline underline-offset-4"
           >
-            hello@startberlin.com
+            membership@start-berlin.com
           </a>
-        </CardFooter>
-      </Card>
+        }
+        className="bg-secondary/50 border-border"
+        iconClassName="text-muted-foreground"
+      />
     );
   }
 
   if (notice === "payment_cancelled") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>There is a problem with your payment</CardTitle>
-          <CardDescription>
-            Your membership is active but your payment details are no longer
-            valid. Please update your payment details to continue.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <PaymentButton />
-        </CardFooter>
-      </Card>
+      <NoticePanel
+        icon={<LandmarkIcon className="size-5" />}
+        title="Update your direct debit"
+        body="Your direct debit authorization has expired or been cancelled. Set up a new one to keep your membership running smoothly."
+        action={<PaymentButton variant="update" />}
+      />
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Set up your yearly membership payment</CardTitle>
-        <CardDescription>
-          START Berlin membership costs 40 EUR per year. It covers the
-          essentials that keep the association running and helps fund events and
-          member benefits throughout the year.
-        </CardDescription>
-      </CardHeader>
-      <CardFooter>
-        <PaymentButton />
-      </CardFooter>
-    </Card>
+    <NoticePanel
+      icon={<LandmarkIcon className="size-5" />}
+      title="Set up your direct debit"
+      body={
+        <>
+          Your annual membership fee will be collected automatically via{" "}
+          <a
+            href="https://payersupport.gocardless.com/hc/articles/5602098685852-Was-ist-GoCardless"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            GoCardless
+          </a>
+          , our payment provider. We'll notify you before each payment.
+        </>
+      }
+      action={<PaymentButton variant="setup" />}
+    />
   );
 }

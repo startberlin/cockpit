@@ -15,6 +15,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   resolutions: "Resolutions",
   groups: "Groups",
   payments: "Payments",
+  settings: "Settings",
 };
 
 /**

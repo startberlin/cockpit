@@ -181,7 +181,9 @@ export function SlackDialog({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-          <Button variant="default">{title}</Button>
+          <Button variant="default" size="sm">
+            {title}
+          </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -202,7 +204,9 @@ export function SlackDialog({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerTrigger asChild>
-        <Button variant="default">{title}</Button>
+        <Button variant="default" size="sm">
+          {title}
+        </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="text-left">

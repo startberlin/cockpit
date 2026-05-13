@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
-import { getActiveLegalMembership } from "@/db/membership";
+import {
+  getActiveLegalMembership,
+  getMemberSinceDate,
+  requiresMembershipBilling,
+} from "@/db/membership";
+import { getActivePaymentTerm } from "@/db/membership-payments";
+import { getDepartmentHeadForDepartment } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { createMetadata } from "@/lib/metadata";
@@ -17,7 +23,18 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  const activeLegalMembership = await getActiveLegalMembership(user.id);
+  const showBillingInfo = requiresMembershipBilling(user.status);
+
+  const [activeLegalMembership, memberSinceDate, paymentTerm, departmentHead] =
+    await Promise.all([
+      getActiveLegalMembership(user.id),
+      getMemberSinceDate(user.id),
+      showBillingInfo ? getActivePaymentTerm(user.id) : Promise.resolve(null),
+      user.department
+        ? getDepartmentHeadForDepartment(user.department)
+        : Promise.resolve(null),
+    ]);
+
   const membershipState = getStructuredMembershipState(user);
 
   return (
@@ -35,6 +52,14 @@ export default async function Home() {
         state: user.state,
         zip: user.zip,
         country: user.country,
+      }}
+      membershipDetails={{
+        memberSince: memberSinceDate,
+        batchNumber: user.batchNumber,
+        department: user.department ?? null,
+        departmentHead,
+        paymentTerm,
+        showBillingInfo,
       }}
     />
   );
