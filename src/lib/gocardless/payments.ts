@@ -1,3 +1,4 @@
+import { PaymentCurrency } from "gocardless-nodejs/types";
 import { gocardless } from "./client";
 
 export interface GcPaymentRecord {
@@ -22,7 +23,7 @@ export async function createOneTimePayment({
   const payment = await gocardless.payments.create(
     {
       amount: String(amount),
-      currency: "EUR",
+      currency: PaymentCurrency.EUR,
       links: { mandate: mandateId },
     },
     idempotencyKey,
