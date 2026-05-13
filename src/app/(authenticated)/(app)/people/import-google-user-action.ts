@@ -103,6 +103,13 @@ export const importGoogleWorkspaceUserAction = actionClient
         ? new Date(`${parsedInput.paidThroughDate}T23:59:59.999Z`)
         : null;
 
+    // When no batch is selected, use the Google account creation date as the
+    // member-since date so imported long-time members aren't shown as joining today.
+    const memberSinceDate =
+      parsedInput.batchNumber == null && workspaceUser.creationTime
+        ? workspaceUser.creationTime.slice(0, 10)
+        : null;
+
     const createdUser = await db.transaction(async (tx) => {
       const [createdUser] = await tx
         .insert(userTable)
@@ -123,6 +130,7 @@ export const importGoogleWorkspaceUserAction = actionClient
           status: parsedInput.status,
           emailVerified: true,
           legalMembershipState: "not_member",
+          ...(memberSinceDate ? { memberSinceDate } : {}),
         })
         .returning({ id: userTable.id });
 

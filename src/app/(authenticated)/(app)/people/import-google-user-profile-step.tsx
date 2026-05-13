@@ -180,7 +180,7 @@ export function ProfileStep({
                     </InputGroupButton>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Workspace email cannot be changed during import.
+                    START Berlin email cannot be changed during import.
                   </TooltipContent>
                 </Tooltip>
               </InputGroupAddon>
