@@ -1,0 +1,80 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [production]
+
+concurrency:
+  group: production-db-app-inngest
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Create staged Vercel production deployment
+        id: deploy
+        run: |
+          deployment_url=$(npx vercel deploy \
+            --prod \
+            --skip-domain \
+            --yes \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            2>vercel-error.txt)
+
+          code=$?
+          if [ $code -ne 0 ]; then
+            cat vercel-error.txt
+            exit $code
+          fi
+
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test staged production deployment
+        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+
+      - name: Apply production database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Promote production deployment
+        run: |
+          npx vercel promote \
+            "${{ steps.deploy.outputs.url }}" \
+            --yes \
+            --timeout=5m \
+            --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test production domain
+        run: curl --fail "https://cockpit.start-berlin.com/api/health"
+
+      - name: Sync Inngest production
+        run: |
+          curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \
+            -H "Authorization: Bearer $INNGEST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\":\"$INNGEST_APP_URL\"}"
+        env:
+          INNGEST_API_KEY: ${{ secrets.PRODUCTION_INNGEST_API_KEY }}
+          INNGEST_APP_ID: ${{ secrets.PRODUCTION_INNGEST_APP_ID }}
+          INNGEST_APP_URL: https://cockpit.start-berlin.com/api/inngest
