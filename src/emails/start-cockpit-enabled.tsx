@@ -79,31 +79,22 @@ export const StartCockpitEnabledEmail = ({
               Hello {firstName},
             </Text>
             <Text className="text-[14px] text-black leading-[24px]">
-              Your START Berlin Google Account has been enabled for START
-              Cockpit.
-            </Text>
-            {statusLabel && (
-              <Text className="text-[14px] text-black leading-[24px]">
-                You have been added to START Cockpit as {statusLabel}.
-              </Text>
-            )}
-            <Text className="text-[14px] text-black leading-[24px]">
-              Sign in with your START Berlin Google Account. Email and password
-              login is not available.
+              Your START Berlin account is set up in START Cockpit.
+              {statusLabel ? ` You have been added as ${statusLabel}.` : ""}{" "}
+              Sign in with your START Berlin Google Account and follow the steps
+              to get started.
             </Text>
             <Container className="my-[20px] p-[16px] bg-[#F0F9FF] border border-[#0EA5E9] border-solid rounded-[4px]">
               <Text className="text-[14px] text-black leading-[20px] mt-[8px] mb-0">
-                <strong>Sign-in Link:</strong>{" "}
+                <strong>Sign in at:</strong>{" "}
                 <Link href={env.NEXT_PUBLIC_COCKPIT_URL}>
                   {env.NEXT_PUBLIC_COCKPIT_URL}
                 </Link>
               </Text>
             </Container>
             <Text className="text-[14px] text-black leading-[24px]">
-              If you run into any issues, contact the Operations & Digital
-              department:
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
+              If you run into any issues, contact the Operations &amp; Digital
+              department:{" "}
               <Link href="mailto:operations@start-berlin.com">
                 operations@start-berlin.com
               </Link>

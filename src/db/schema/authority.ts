@@ -104,7 +104,7 @@ export const userAccessGrant = pgTable(
     check(
       "user_access_grant_valid_scope_check",
       sql`(
-        ${table.grant} = 'admin' AND ${table.scope} = 'global' AND ${table.department} IS NULL
+        ${table.scope} = 'global' AND ${table.department} IS NULL
       )`,
     ),
   ],

@@ -1,21 +1,17 @@
 "use server";
 
-import {
-  createOrReuseMembershipPayment,
-  getMembershipPaymentByUserId,
-  markMembershipCheckoutStarted,
-  newMembershipSessionId,
-} from "@/db/membership";
+import { eq } from "drizzle-orm";
+import db from "@/db";
+import { newMembershipSessionId } from "@/db/membership";
+import { user } from "@/db/schema/auth";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
-import { reconcileMembershipPaymentForUser } from "@/lib/gocardless/membership-reconciliation";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 
 export const startMembershipPaymentAction = actionClient.action(
   async ({ ctx }) => {
-    let payment = await getMembershipPaymentByUserId(ctx.user.id);
-    const membershipState = getStructuredMembershipState(ctx.user, payment);
+    const membershipState = getStructuredMembershipState(ctx.user);
 
     if (!membershipState.paymentSetupAllowed) {
       throw new Error(
@@ -27,36 +23,10 @@ export const startMembershipPaymentAction = actionClient.action(
       return { hostedUrl: "/membership" };
     }
 
-    if (!payment) {
-      payment = await createOrReuseMembershipPayment(ctx.user.id);
-    }
-
-    let existingBillingRequestId = payment.gocardlessBillingRequestId;
-
-    if (
-      payment.gocardlessBillingRequestId ||
-      payment.gocardlessBillingRequestFlowId ||
-      payment.gocardlessMandateId
-    ) {
-      const reconciliation = await reconcileMembershipPaymentForUser({
-        userId: ctx.user.id,
-      });
-
-      if (
-        reconciliation.status === "activated" ||
-        reconciliation.status === "already_active"
-      ) {
-        return { hostedUrl: reconciliation.hostedRedirect };
-      }
-
-      if (reconciliation.status === "failed") {
-        existingBillingRequestId = null;
-      }
-    }
-
     const localSessionId = newMembershipSessionId();
     const returnUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership/payment-return`;
     const exitUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`;
+
     const flow = await createMembershipFlow({
       userId: ctx.user.id,
       email: ctx.user.email,
@@ -73,16 +43,16 @@ export const startMembershipPaymentAction = actionClient.action(
       returnUrl,
       exitUrl,
       localSessionId,
-      existingCustomerId: payment.gocardlessCustomerId,
-      existingBillingRequestId,
+      existingCustomerId: ctx.user.gocardlessCustomerId,
     });
 
-    await markMembershipCheckoutStarted({
-      userId: ctx.user.id,
-      gocardlessCustomerId: flow.customerId,
-      gocardlessBillingRequestId: flow.billingRequestId,
-      gocardlessBillingRequestFlowId: flow.billingRequestFlowId,
-    });
+    // Immediately persist the GoCardless customer ID so retries reuse the same customer.
+    if (flow.customerId && !ctx.user.gocardlessCustomerId) {
+      await db
+        .update(user)
+        .set({ gocardlessCustomerId: flow.customerId })
+        .where(eq(user.id, ctx.user.id));
+    }
 
     return { hostedUrl: flow.hostedUrl };
   },

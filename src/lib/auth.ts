@@ -29,6 +29,7 @@ export const auth = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       disableImplicitSignUp: true,
       prompt: "select_account",
+      overrideUserInfoOnSignIn: true,
     },
   },
   plugins: [nextCookies()],

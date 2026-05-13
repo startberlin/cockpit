@@ -18,7 +18,7 @@ export const organizationPositions = [
 
 export type OrganizationPosition = (typeof organizationPositions)[number];
 
-export const globalAccessGrants = ["admin"] as const;
+export const globalAccessGrants = ["admin", "finance_admin"] as const;
 
 export type GlobalAccessGrant = (typeof globalAccessGrants)[number];
 

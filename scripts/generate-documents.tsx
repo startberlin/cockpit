@@ -630,7 +630,7 @@ const DECLARATIONS = [
   "I confirm that I have full legal capacity.",
   "I support the purpose of START Berlin e.V.",
   "I accept the bylaws (Satzung) of START Berlin e.V.",
-  "I have read and accept the privacy notice.",
+  "I accept the Financial Regulations (Finanzordnung) of START Berlin e.V.",
   "I acknowledge that, in accordance with §2 of the Financial Regulations of START Berlin e.V., a membership fee of €20 per semester applies. Upon joining, €40 are due for the first year; subsequent annual payments of €40 are due every 12 months. I understand that the membership fee is non-refundable if I leave the association early.",
 ];
 

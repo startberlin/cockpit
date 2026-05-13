@@ -66,6 +66,5 @@ describe("StartCockpitEnabledEmail", () => {
     });
 
     assert.match(html, /START Berlin Google Account/);
-    assert.match(html, /Email and password login is not available/);
   });
 });

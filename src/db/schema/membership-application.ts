@@ -24,7 +24,7 @@ export type MembershipApplicationDeclarations = {
   legalCapacity?: true;
   supportsPurpose?: true;
   acceptsBylaws?: true;
-  acceptsPrivacyNotice?: true;
+  acceptsFinancialRegulations?: true;
   acknowledgesFee?: true;
 };
 
@@ -39,7 +39,7 @@ export function isFullDeclarations(
     !!d?.legalCapacity &&
     !!d?.supportsPurpose &&
     !!d?.acceptsBylaws &&
-    !!d?.acceptsPrivacyNotice &&
+    !!d?.acceptsFinancialRegulations &&
     !!d?.acknowledgesFee
   );
 }
@@ -89,7 +89,7 @@ const membershipApplicationDeclarationsDbSchema = z
     legalCapacity: z.literal(true).optional(),
     supportsPurpose: z.literal(true).optional(),
     acceptsBylaws: z.literal(true).optional(),
-    acceptsPrivacyNotice: z.literal(true).optional(),
+    acceptsFinancialRegulations: z.literal(true).optional(),
     acknowledgesFee: z.literal(true).optional(),
   })
   .nullable();

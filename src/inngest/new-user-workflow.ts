@@ -1,10 +1,10 @@
 import { Common, google } from "googleapis";
+import { NonRetriableError } from "inngest";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
 import { createGoogleAuth } from "@/lib/google-auth";
-import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
@@ -31,13 +31,13 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       firstName,
       lastName,
       personalEmail,
+      companyEmail,
       batchNumber,
       department,
       status,
     } = event.data;
 
     const user = await step.run("create-google-user", async () => {
-      const companyEmail = generateCompanyEmail(firstName, lastName);
       const password = generateRandomPassword();
 
       const auth = createGoogleAuth(
@@ -68,23 +68,15 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           error instanceof Common.GaxiosError &&
           error.message === "Entity already exists."
         ) {
-          return {
-            companyEmail,
-            personalEmail: null,
-            password: null,
-            googleUserCreated: false,
-          };
+          throw new NonRetriableError(
+            `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
+          );
         }
 
         throw error;
       }
 
-      return {
-        companyEmail,
-        personalEmail,
-        password,
-        googleUserCreated: true,
-      };
+      return { companyEmail, personalEmail, password };
     });
 
     await step.run("insert-db-user", async () => {
@@ -118,30 +110,26 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         .returning({ id: userTable.id });
     });
 
-    if (user.googleUserCreated && user.password && user.personalEmail) {
-      await step.run("send-welcome-email", async () => {
-        return await resend.emails.send({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: personalEmail,
-          subject: "Welcome to START Berlin!",
-          react: SignInInstructionsEmail({
-            firstName,
-            companyEmail: user.companyEmail,
-            initialPassword: user.password,
-          }),
-        });
+    await step.run("send-signin-instructions", async () => {
+      return await resend.emails.send({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: user.personalEmail,
+        subject: "Welcome to START Berlin — your sign-in details",
+        react: SignInInstructionsEmail({
+          firstName,
+          companyEmail: user.companyEmail,
+          initialPassword: user.password,
+        }),
       });
-    } else {
-      await step.run("send-start-cockpit-enabled-email", async () => {
-        return await resend.emails.send({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: user.companyEmail,
-          subject: "You can now use START Cockpit",
-          react: StartCockpitEnabledEmail({
-            firstName,
-          }),
-        });
+    });
+
+    await step.run("send-cockpit-access-email", async () => {
+      return await resend.emails.send({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: user.companyEmail,
+        subject: "Your START Cockpit access is ready",
+        react: StartCockpitEnabledEmail({ firstName }),
       });
-    }
+    });
   },
 );

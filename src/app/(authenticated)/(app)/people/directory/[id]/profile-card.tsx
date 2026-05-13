@@ -15,28 +15,9 @@ interface ProfileCardProps {
   user: UserDetail;
 }
 
-function formatDate(date: Date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function hasFutureCoverage(date: Date | null, now = new Date()) {
-  return !!date && date >= now;
-}
-
 export function ProfileCard({ user }: ProfileCardProps) {
   const statusInfo = USER_STATUS_INFO[user.status];
-  const isPaymentProcessing = user.membershipState.payment === "processing";
-  const isPaymentPending =
-    user.membershipState.paymentSetupAllowed && !isPaymentProcessing;
-  const hasPaidThroughCoverage = hasFutureCoverage(user.paidThroughAt);
-  const paidThroughLabel = user.paidThroughAt
-    ? formatDate(user.paidThroughAt)
-    : null;
+  const isPaymentPending = user.membershipState.paymentSetupAllowed;
 
   return (
     <Card>
@@ -54,25 +35,12 @@ export function ProfileCard({ user }: ProfileCardProps) {
                 Status
               </p>
               <Badge variant="outline" className="capitalize">
-                {isPaymentProcessing
-                  ? "Payment processing"
-                  : isPaymentPending
-                    ? "Payment pending"
-                    : statusInfo.label}
+                {isPaymentPending ? "Payment pending" : statusInfo.label}
               </Badge>
-              {isPaymentProcessing && (
-                <p className="text-sm text-muted-foreground">
-                  Payment setup was started. GoCardless confirmation is still
-                  pending.
-                </p>
-              )}
               {isPaymentPending && (
                 <p className="text-sm text-muted-foreground">
-                  {hasPaidThroughCoverage
-                    ? `Membership billing setup is pending. This member is covered through ${paidThroughLabel}.`
-                    : user.paidThroughAt
-                      ? "The previous membership payment no longer covers this member."
-                      : "Profile onboarding is complete. Membership payment is still pending."}
+                  Profile onboarding is complete. Membership payment is still
+                  pending.
                 </p>
               )}
             </div>
@@ -95,20 +63,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
                   Department
                 </p>
                 <Badge variant="outline">{DEPARTMENTS[user.department]}</Badge>
-              </div>
-              <Separator />
-            </>
-          )}
-
-          {user.paidThroughAt && (
-            <>
-              <div className="space-y-1.5">
-                <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                  Membership Covered Through
-                </p>
-                <p className="text-sm font-medium">
-                  {formatDate(user.paidThroughAt)}
-                </p>
               </div>
               <Separator />
             </>
@@ -149,3 +103,11 @@ const LEGAL_MEMBERSHIP_STATE_LABELS: Record<string, string> = {
   active_member: "Active legal member",
   former_member: "Former legal member",
 };
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}

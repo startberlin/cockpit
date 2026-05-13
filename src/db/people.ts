@@ -48,7 +48,6 @@ export interface UserDetail {
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
-  paidThroughAt: Date | null;
   organizationPositions: Array<{
     id: string;
     position: OrganizationPosition;
@@ -67,6 +66,23 @@ export interface UserDetail {
     name: string;
     role: string;
   }>;
+}
+
+export async function getDepartmentHeadForDepartment(
+  dept: Department,
+): Promise<{
+  firstName: string;
+  lastName: string;
+  image: string | null;
+} | null> {
+  const row = await db.query.userOrganizationPosition.findFirst({
+    where: (t, { eq, and }) =>
+      and(eq(t.position, "department_head"), eq(t.department, dept)),
+    with: {
+      user: { columns: { firstName: true, lastName: true, image: true } },
+    },
+  });
+  return row?.user ?? null;
 }
 
 export async function getAllUserPublicData(): Promise<PublicUser[]> {
@@ -93,10 +109,10 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       status: true,
       department: true,
       legalMembershipState: true,
+      gocardlessMandateId: true,
     },
     with: {
       batch: true,
-      membershipPayment: true,
       legalMemberships: {
         columns: { status: true },
       },
@@ -117,7 +133,7 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       batchNumber: user.batch?.number ?? null,
       status: user.status,
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
-      hasMembershipPayment: !!user.membershipPayment,
+      hasMembershipPayment: !!user.gocardlessMandateId,
       hasActiveTenure,
     };
   });
@@ -142,6 +158,8 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
       department: true,
       status: true,
       legalMembershipState: true,
+      gocardlessMandateId: true,
+      gocardlessCustomerId: true,
       createdAt: true,
     },
     with: {
@@ -151,7 +169,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
           group: true,
         },
       },
-      membershipPayment: true,
       organizationPositions: true,
       accessGrants: true,
     },
@@ -177,10 +194,9 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     batchNumber: user.batch?.number ?? null,
     status: user.status,
     legalMembershipState: user.legalMembershipState,
-    membershipState: getStructuredMembershipState(user, user.membershipPayment),
+    membershipState: getStructuredMembershipState(user),
     profileOnboardingComplete: getOnboardingProgress(user) === "completed",
-    hasMembershipPayment: !!user.membershipPayment,
-    paidThroughAt: user.membershipPayment?.paidThroughAt ?? null,
+    hasMembershipPayment: !!user.gocardlessMandateId,
     organizationPositions: user.organizationPositions.map((assignment) => ({
       id: assignment.id,
       position: assignment.position,

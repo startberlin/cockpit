@@ -1,0 +1,1 @@
+ALTER TABLE "legal_membership" DROP COLUMN "imported_paid_through_at";

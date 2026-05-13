@@ -12,6 +12,7 @@ export interface WorkspaceUserCandidate {
   givenName: string;
   familyName: string;
   suspended: boolean;
+  creationTime: string | null;
 }
 
 function getDirectoryClient() {
@@ -40,6 +41,7 @@ function toCandidate(
     givenName,
     familyName,
     suspended: !!user.suspended,
+    creationTime: user.creationTime ?? null,
   };
 }
 

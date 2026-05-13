@@ -11,7 +11,7 @@ describe("applicationDeclarationsSchema", () => {
     legalCapacity: true as const,
     supportsPurpose: true as const,
     acceptsBylaws: true as const,
-    acceptsPrivacyNotice: true as const,
+    acceptsFinancialRegulations: true as const,
     acknowledgesFee: true as const,
   };
 

@@ -1,19 +1,8 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import {
-  activateMembershipPayment,
-  getMembershipPaymentByBillingRequestFlowId,
-  getMembershipPaymentByBillingRequestId,
-  getMembershipPaymentByUserId,
-  recordMembershipProviderState,
-} from "@/db/membership";
+import { getUserByCustomerId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
-import {
-  createMembershipSubscription,
-  getBillingRequest,
-  getBillingRequestFlow,
-} from "./membership-flow";
-import { membershipSubscriptionStartDate } from "./membership-flow-helpers";
+import { getBillingRequest } from "./membership-flow";
 
 export type MembershipReconciliationResult =
   | { status: "activated" | "already_active"; hostedRedirect: "/membership" }
@@ -23,102 +12,47 @@ export type MembershipReconciliationResult =
       hostedRedirect?: never;
     };
 
-export async function reconcileMembershipPaymentForUser({
-  userId,
-  billingRequestFlowId,
-}: {
-  userId: string;
-  billingRequestFlowId?: string | null;
-}): Promise<MembershipReconciliationResult> {
-  const payment = billingRequestFlowId
-    ? await getMembershipPaymentByBillingRequestFlowId(billingRequestFlowId)
-    : await getMembershipPaymentByUserId(userId);
-
-  if (!payment || payment.userId !== userId) {
-    return {
-      status: "failed",
-      message: "We could not find a matching membership payment attempt.",
-    };
-  }
-
-  return reconcileMembershipPayment(payment);
-}
-
 export async function reconcileMembershipPaymentByBillingRequestId(
   billingRequestId: string,
 ): Promise<MembershipReconciliationResult> {
-  const payment =
-    await getMembershipPaymentByBillingRequestId(billingRequestId);
+  const billingRequest = await getBillingRequest(billingRequestId);
 
-  if (!payment) {
+  if (!billingRequest.customerId) {
     return {
       status: "failed",
-      message: "No local membership payment matched this GoCardless request.",
+      message: "GoCardless did not return a customer for this billing request.",
     };
   }
 
-  return reconcileMembershipPayment(payment);
-}
+  const member = await getUserByCustomerId(billingRequest.customerId);
 
-async function reconcileMembershipPayment(
-  payment: NonNullable<
-    Awaited<ReturnType<typeof getMembershipPaymentByUserId>>
-  >,
-): Promise<MembershipReconciliationResult> {
-  if (payment.status === "active" && payment.gocardlessSubscriptionId) {
+  if (!member) {
+    // Customer not yet stored locally — user will re-trigger via the redirect path.
+    return {
+      status: "failed",
+      message: "No local user matched this GoCardless customer.",
+    };
+  }
+
+  if (member.gocardlessMandateId) {
     return { status: "already_active", hostedRedirect: "/membership" };
   }
 
-  const member = await db.query.user.findFirst({
-    where: eq(user.id, payment.userId),
-  });
+  return reconcileMembershipPayment(member, billingRequestId);
+}
 
-  if (!member) {
-    return {
-      status: "failed",
-      message: "We could not find the member connected to this payment.",
-    };
-  }
-
-  let billingRequestId = payment.gocardlessBillingRequestId;
-
-  if (!billingRequestId && payment.gocardlessBillingRequestFlowId) {
-    const flow = await getBillingRequestFlow(
-      payment.gocardlessBillingRequestFlowId,
-    );
-    billingRequestId = flow.billingRequestId;
-    await recordMembershipProviderState({
-      membershipPaymentId: payment.id,
-      gocardlessBillingRequestId: billingRequestId,
-      gocardlessBillingRequestFlowId: flow.id,
-    });
-  }
-
-  if (!billingRequestId) {
-    return {
-      status: "failed",
-      message: "GoCardless did not return a billing request for this payment.",
-    };
-  }
-
+async function reconcileMembershipPayment(
+  member: {
+    id: string;
+    gocardlessMandateId: string | null;
+  },
+  billingRequestId: string,
+): Promise<MembershipReconciliationResult> {
   const billingRequest = await getBillingRequest(billingRequestId);
-  const customerId =
-    billingRequest.customerId ?? payment.gocardlessCustomerId ?? null;
-  const mandateId = billingRequest.mandateId ?? payment.gocardlessMandateId;
-
-  await recordMembershipProviderState({
-    membershipPaymentId: payment.id,
-    gocardlessCustomerId: customerId,
-    gocardlessBillingRequestId: billingRequest.id,
-    gocardlessMandateId: mandateId ?? null,
-  });
+  const customerId = billingRequest.customerId ?? null;
+  const mandateId = billingRequest.mandateId ?? null;
 
   if (billingRequest.status === "cancelled") {
-    await recordMembershipProviderState({
-      membershipPaymentId: payment.id,
-      status: "failed",
-    });
-
     return {
       status: "failed",
       message: "This GoCardless setup was cancelled. Please start again.",
@@ -133,24 +67,13 @@ async function reconcileMembershipPayment(
     };
   }
 
-  const subscription =
-    payment.gocardlessSubscriptionId ??
-    (
-      await createMembershipSubscription({
-        mandateId,
-        userId: payment.userId,
-        email: member.email,
-        localSessionId: payment.id,
-        startDate: membershipSubscriptionStartDate(payment.paidThroughAt),
-      })
-    ).subscriptions.id;
-
-  await activateMembershipPayment({
-    membershipPaymentId: payment.id,
-    gocardlessCustomerId: customerId,
-    gocardlessMandateId: mandateId,
-    gocardlessSubscriptionId: subscription,
-  });
+  await db
+    .update(user)
+    .set({
+      gocardlessMandateId: mandateId,
+      gocardlessCustomerId: customerId,
+    })
+    .where(eq(user.id, member.id));
 
   return { status: "activated", hostedRedirect: "/membership" };
 }

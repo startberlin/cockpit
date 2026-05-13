@@ -57,40 +57,8 @@ describe("buildImportedUserNotificationEmail", () => {
   });
 });
 
-describe("importedMembershipPaymentValues", () => {
-  it("keeps paid-through imports eligible for GoCardless setup", async () => {
-    const { importedMembershipPaymentValues } = await import("@/db/membership");
-    const paidThroughAt = new Date("2026-09-30T23:59:59.999Z");
-
-    const values = importedMembershipPaymentValues({
-      userId: "usr_imported",
-      paidThroughAt,
-    });
-
-    assert.equal(values.userId, "usr_imported");
-    assert.equal(values.provider, "gocardless");
-    assert.equal(values.status, "pending");
-    assert.equal(values.paidThroughAt, paidThroughAt);
-    assert.equal(values.activatedAt, null);
-  });
-
-  it("creates the same pending GoCardless setup state without coverage", async () => {
-    const { importedMembershipPaymentValues } = await import("@/db/membership");
-
-    const values = importedMembershipPaymentValues({
-      userId: "usr_imported",
-      paidThroughAt: null,
-    });
-
-    assert.equal(values.provider, "gocardless");
-    assert.equal(values.status, "pending");
-    assert.equal(values.paidThroughAt, null);
-    assert.equal(values.activatedAt, null);
-  });
-});
-
-describe("createImportedMembershipPayment", () => {
-  it("requires billing for supporting alumni imports", async () => {
+describe("requiresMembershipBilling", () => {
+  it("requires billing for member and supporting alumni imports", async () => {
     const { requiresMembershipBilling } = await import("@/db/membership");
 
     assert.equal(requiresMembershipBilling("member"), true);

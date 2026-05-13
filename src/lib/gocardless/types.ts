@@ -35,11 +35,6 @@ export interface BillingRequestState {
   mandateId?: string | null;
 }
 
-export interface BillingRequestFlowState {
-  id: string;
-  billingRequestId: string;
-}
-
 export class GoCardlessConfigurationError extends Error {
   constructor(message: string) {
     super(message);
