@@ -6,6 +6,7 @@ import {
   GoCardlessWebhookSchema,
   getGoCardlessEventUserHints,
   getGoCardlessPaymentId,
+  isMandateInvalidatedEvent,
   isMembershipActivationEvent,
   isMembershipFailureEvent,
   isMembershipMandateReadyEvent,
@@ -138,6 +139,49 @@ describe("GoCardless webhook helpers", () => {
         links: {},
       }),
       null,
+    );
+  });
+
+  it("identifies mandate invalidating events", () => {
+    for (const action of [
+      "cancelled",
+      "failed",
+      "expired",
+      "replaced",
+      "consumed",
+      "blocked",
+    ] as const) {
+      assert.equal(
+        isMandateInvalidatedEvent({
+          id: "EV200",
+          action,
+          resource_type: "mandates",
+          links: { mandate: "MD123" },
+        }),
+        true,
+        `mandates.${action} should be an invalidating event`,
+      );
+    }
+
+    assert.equal(
+      isMandateInvalidatedEvent({
+        id: "EV201",
+        action: "cancelled",
+        resource_type: "payments",
+        links: {},
+      }),
+      false,
+      "payments.cancelled is not a mandate event",
+    );
+    assert.equal(
+      isMandateInvalidatedEvent({
+        id: "EV202",
+        action: "active",
+        resource_type: "mandates",
+        links: {},
+      }),
+      false,
+      "mandates.active does not invalidate the mandate",
     );
   });
 

@@ -76,6 +76,22 @@ const PAYMENT_EVENT_ACTIONS: PaymentEventAction[] = [
   "charged_back",
 ];
 
+const MANDATE_INVALIDATING_ACTIONS = [
+  "cancelled",
+  "failed",
+  "expired",
+  "replaced",
+  "consumed",
+  "blocked",
+] as const;
+
+export function isMandateInvalidatedEvent(event: GoCardlessEvent) {
+  return (
+    event.resource_type === "mandates" &&
+    (MANDATE_INVALIDATING_ACTIONS as readonly string[]).includes(event.action)
+  );
+}
+
 export function isPaymentLifecycleEvent(
   event: GoCardlessEvent,
 ): event is GoCardlessEvent & { action: PaymentEventAction } {

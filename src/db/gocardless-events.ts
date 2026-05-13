@@ -6,9 +6,11 @@ import type { GoCardlessEvent } from "@/lib/gocardless/webhook";
 import {
   getGoCardlessEventUserHints,
   getGoCardlessPaymentId,
+  isMandateInvalidatedEvent,
   isMembershipMandateReadyEvent,
   isPaymentLifecycleEvent,
 } from "@/lib/gocardless/webhook";
+import { user } from "./schema/auth";
 import { membershipPayments } from "./schema/membership-payments";
 
 export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
@@ -16,6 +18,14 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
 
   if (isMembershipMandateReadyEvent(event) && hints.billingRequestId) {
     return reconcileMembershipPaymentByBillingRequestId(hints.billingRequestId);
+  }
+
+  if (isMandateInvalidatedEvent(event) && event.links.mandate) {
+    await db
+      .update(user)
+      .set({ gocardlessMandateId: null })
+      .where(eq(user.gocardlessMandateId, event.links.mandate));
+    return { status: "mandate_cleared" as const };
   }
 
   if (isPaymentLifecycleEvent(event)) {
