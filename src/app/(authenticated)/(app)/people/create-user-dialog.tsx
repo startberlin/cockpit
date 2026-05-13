@@ -2,10 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
-import { AlertCircleIcon } from "lucide-react";
-import { useAction } from "next-safe-action/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircleIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import * as React from "react";
 import { Controller } from "react-hook-form";
+import { useDebounce } from "use-debounce";
 import { BatchSelect } from "@/components/batch-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,12 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -34,13 +40,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Department } from "@/db/schema";
 import { DEPARTMENTS } from "@/lib/enums";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { handleError } from "@/lib/utils";
 import { checkWorkspaceEmailAction } from "./check-workspace-email-action";
 import { createUserAction } from "./create-user-action";
-import { createUserSchema } from "./create-user-schema";
+import { companyEmailSchema, createUserSchema } from "./create-user-schema";
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -61,6 +73,7 @@ export function CreateUserDialog({
       firstName: "",
       lastName: "",
       personalEmail: "",
+      companyEmail: "",
       batchNumber: undefined,
       department: null as Department | null,
       status: "onboarding" as const,
@@ -84,43 +97,37 @@ export function CreateUserDialog({
       },
     },
   );
-  const firstName = form.watch("firstName");
-  const lastName = form.watch("lastName");
-  const companyEmail = React.useMemo(() => {
-    if (!firstName || !lastName) {
-      return null;
-    }
 
-    return generateCompanyEmail(firstName, lastName);
-  }, [firstName, lastName]);
-  const emailCheck = useAction(checkWorkspaceEmailAction, {
-    onError: handleError,
+  const [emailUnlocked, setEmailUnlocked] = React.useState(false);
+
+  const watchedCompanyEmail = form.watch("companyEmail");
+  const status = form.watch("status");
+  const { setValue, getValues, trigger } = form;
+
+  const [debouncedEmail] = useDebounce(watchedCompanyEmail, 300);
+
+  const isValidDebouncedEmail = companyEmailSchema.safeParse(debouncedEmail).success;
+  const isValidCurrentEmail = companyEmailSchema.safeParse(watchedCompanyEmail).success;
+
+  const emailQuery = useQuery({
+    queryKey: ["email-availability", debouncedEmail],
+    queryFn: async () => {
+      const result = await checkWorkspaceEmailAction({ email: debouncedEmail });
+      return result?.data ?? null;
+    },
+    enabled: isValidDebouncedEmail,
+    // Cache taken emails forever (a taken email won't become free); always re-check available ones.
+    staleTime: (query) => (query.state.data?.available === false ? Infinity : 0),
   });
 
-  React.useEffect(() => {
-    if (!companyEmail) {
-      emailCheck.reset();
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      emailCheck.execute({ email: companyEmail });
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [companyEmail, emailCheck.execute, emailCheck.reset]);
-
-  const emailConflict =
-    !!companyEmail &&
-    emailCheck.result.data?.email === companyEmail &&
-    !emailCheck.result.data.available;
-  const emailCheckUnavailable =
-    !!companyEmail && !!emailCheck.result.serverError;
-  const emailCheckPending = !!companyEmail && emailCheck.status === "executing";
+  const emailCheckPending = isValidCurrentEmail && (watchedCompanyEmail !== debouncedEmail || emailQuery.isFetching);
+  const emailConflict = !emailCheckPending && emailQuery.data?.available === false;
+  const emailAvailable = !emailCheckPending && emailQuery.data?.available === true;
+  const emailCheckUnavailable = !emailCheckPending && emailQuery.isError;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90svh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
@@ -144,7 +151,19 @@ export function CreateUserDialog({
                       placeholder="First name"
                       aria-invalid={!!form.formState.errors.firstName}
                       disabled={action.isPending}
-                      {...form.register("firstName")}
+                      {...form.register("firstName", {
+                        onChange: (e) => {
+                          if (emailUnlocked) return;
+                          const last = getValues("lastName");
+                          const generated =
+                            e.target.value && last
+                              ? generateCompanyEmail(e.target.value, last)
+                              : "";
+                          setValue("companyEmail", generated, {
+                            shouldValidate: !!generated,
+                          });
+                        },
+                      })}
                     />
                   </InputGroup>
                   <FieldError errors={[form.formState.errors.firstName]} />
@@ -157,7 +176,19 @@ export function CreateUserDialog({
                       placeholder="Last name"
                       aria-invalid={!!form.formState.errors.lastName}
                       disabled={action.isPending}
-                      {...form.register("lastName")}
+                      {...form.register("lastName", {
+                        onChange: (e) => {
+                          if (emailUnlocked) return;
+                          const first = getValues("firstName");
+                          const generated =
+                            first && e.target.value
+                              ? generateCompanyEmail(first, e.target.value)
+                              : "";
+                          setValue("companyEmail", generated, {
+                            shouldValidate: !!generated,
+                          });
+                        },
+                      })}
                     />
                   </InputGroup>
                   <FieldError errors={[form.formState.errors.lastName]} />
@@ -176,28 +207,69 @@ export function CreateUserDialog({
                   {...form.register("personalEmail")}
                 />
                 <FieldDescription className="pt-0.5 text-xs">
-                  Use a personal email address they can keep long-term. START
+                  Use a personal email they already have access to. START
                   Cockpit will send their invitation there.
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.personalEmail]} />
               </Field>
-              {companyEmail && (
-                <Field>
-                  <FieldLabel>START email</FieldLabel>
-                  <div className="rounded-md border px-3 py-2 text-sm">
-                    {companyEmail}
-                  </div>
-                  <FieldDescription className="pt-0.5 text-xs">
-                    {emailCheckPending
-                      ? "Checking whether this START email is available..."
-                      : emailConflict
-                        ? "This START email already exists. Import the member from Google Workspace instead."
-                        : emailCheckUnavailable
-                          ? "Could not check this START email right now. Try again before adding the member."
-                          : "This will become their START Berlin email address."}
-                  </FieldDescription>
-                </Field>
-              )}
+              <Controller
+                name="companyEmail"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field>
+                    <FieldLabel htmlFor="companyEmail">START email</FieldLabel>
+                    <InputGroup>
+                      <InputGroupInput
+                        id="companyEmail"
+                        disabled={!emailUnlocked || action.isPending}
+                        aria-invalid={
+                          !!fieldState.error ||
+                          emailConflict ||
+                          emailCheckUnavailable
+                        }
+                        {...field}
+                      />
+                      <InputGroupAddon align="inline-end">
+                        {emailCheckPending ? (
+                          <Spinner className="text-muted-foreground" />
+                        ) : emailConflict ? (
+                          <XIcon className="size-4 text-destructive" />
+                        ) : emailAvailable ? (
+                          <CheckIcon className="size-4 text-green-600" />
+                        ) : null}
+                        {!emailUnlocked && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <InputGroupButton
+                                className="rounded-full"
+                                size="icon-xs"
+                                type="button"
+                                aria-label="Edit START email"
+                                onClick={() => setEmailUnlocked(true)}
+                              >
+                                <PencilIcon />
+                              </InputGroupButton>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Edit START email address
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </InputGroupAddon>
+                    </InputGroup>
+                    {emailUnlocked && <FieldError errors={[fieldState.error]} />}
+                    {(!emailUnlocked || !fieldState.error) && (
+                      <FieldDescription className="pt-0.5 text-xs">
+                        {emailConflict ? (
+                          <span className="text-destructive">Not available</span>
+                        ) : (
+                          "This will become their START Berlin email address."
+                        )}
+                      </FieldDescription>
+                    )}
+                  </Field>
+                )}
+              />
             </FieldGroup>
           </FieldSet>
 
@@ -222,36 +294,6 @@ export function CreateUserDialog({
               />
 
               <Controller
-                name="department"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel>Department</FieldLabel>
-                    <Select
-                      value={field.value ?? ""}
-                      onValueChange={(value) =>
-                        field.onChange(value === "none" ? null : value)
-                      }
-                      disabled={action.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No department yet</SelectItem>
-                        {Object.entries(DEPARTMENTS).map(([id, name]) => (
-                          <SelectItem key={id} value={id}>
-                            {name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldError errors={[fieldState.error]} />
-                  </Field>
-                )}
-              />
-
-              <Controller
                 name="status"
                 control={form.control}
                 render={({ field, fieldState }) => (
@@ -259,34 +301,63 @@ export function CreateUserDialog({
                     <FieldLabel>Status</FieldLabel>
                     <Select
                       value={field.value ?? ""}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (
+                          value === "alumni" ||
+                          value === "supporting_alumni"
+                        ) {
+                          setValue("department", null);
+                        }
+                        trigger("department");
+                      }}
                       disabled={action.isPending}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem key="onboarding" value="onboarding">
-                          Onboarding
-                        </SelectItem>
-                        <SelectItem key="member" value="member">
-                          Member
-                        </SelectItem>
-                        <SelectItem
-                          key="supporting_alumni"
-                          value="supporting_alumni"
-                        >
+                        <SelectItem value="onboarding">Onboarding</SelectItem>
+                        <SelectItem value="member">Member</SelectItem>
+                        <SelectItem value="supporting_alumni">
                           Supporting alumni
                         </SelectItem>
-                        <SelectItem key="alumni" value="alumni">
-                          Alumni
-                        </SelectItem>
+                        <SelectItem value="alumni">Alumni</SelectItem>
                       </SelectContent>
                     </Select>
                     <FieldError errors={[fieldState.error]} />
                   </Field>
                 )}
               />
+
+              {(status === "member" || status === "onboarding") && (
+                <Controller
+                  name="department"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel>Department</FieldLabel>
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={(value) => field.onChange(value)}
+                        disabled={action.isPending}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(DEPARTMENTS).map(([id, name]) => (
+                            <SelectItem key={id} value={id}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={[fieldState.error]} />
+                    </Field>
+                  )}
+                />
+              )}
             </FieldGroup>
           </FieldSet>
 

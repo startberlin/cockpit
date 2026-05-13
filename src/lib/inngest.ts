@@ -10,6 +10,7 @@ export const events = {
       firstName: string;
       lastName: string;
       personalEmail: string;
+      companyEmail: string;
       batchNumber?: number;
       department?: Department | null;
       status: UserStatus;

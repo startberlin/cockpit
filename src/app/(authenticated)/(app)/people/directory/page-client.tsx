@@ -29,11 +29,6 @@ export default function DirectoryPageClient({
 
   const handleSuccess = React.useCallback(() => {
     router.refresh();
-
-    toast.success("Adding member...", {
-      description:
-        "It may take a few minutes for the member to appear in the list.",
-    });
   }, [router]);
 
   return (

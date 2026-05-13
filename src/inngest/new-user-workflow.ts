@@ -5,7 +5,6 @@ import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
 import { createGoogleAuth } from "@/lib/google-auth";
-import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
@@ -32,13 +31,13 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       firstName,
       lastName,
       personalEmail,
+      companyEmail,
       batchNumber,
       department,
       status,
     } = event.data;
 
     const user = await step.run("create-google-user", async () => {
-      const companyEmail = generateCompanyEmail(firstName, lastName);
       const password = generateRandomPassword();
 
       const auth = createGoogleAuth(
