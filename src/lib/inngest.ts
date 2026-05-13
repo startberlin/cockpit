@@ -10,6 +10,7 @@ export const events = {
       firstName: string;
       lastName: string;
       personalEmail: string;
+      companyEmail: string;
       batchNumber?: number;
       department?: Department | null;
       status: UserStatus;
@@ -62,4 +63,7 @@ export const events = {
 
 export const inngest = new Inngest({
   id: "start-cockpit",
+  checkpointing: {
+    maxRuntime: 240, // 4 minutes
+  },
 });

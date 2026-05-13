@@ -2,62 +2,74 @@
 
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { finalizeMembershipPaymentAction } from "./finalize-payment-action";
+import { useEffect, useRef, useState } from "react";
+import { checkMandateReadyAction } from "./check-mandate-action";
 
-export function PaymentReturnRedirect({
-  billingRequestFlowId,
-}: {
-  billingRequestFlowId?: string | null;
-}) {
+const POLL_INTERVAL_MS = 2500;
+const TIMEOUT_MS = 60_000;
+
+export function PaymentReturnRedirect() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const activeRef = useRef(true);
 
   useEffect(() => {
-    let active = true;
+    const startedAt = Date.now();
 
-    async function finalizePayment() {
-      const result = await finalizeMembershipPaymentAction({
-        billingRequestFlowId,
-      });
+    async function poll() {
+      if (!activeRef.current) return;
 
-      if (!active) return;
-
-      if (result.status === "activated" || result.status === "already_active") {
-        router.replace(result.hostedRedirect);
+      if (Date.now() - startedAt >= TIMEOUT_MS) {
+        setTimedOut(true);
         return;
       }
 
-      setError(
-        "message" in result
-          ? result.message
-          : "Could not finish your membership payment setup. Please try again from the membership page. If this keeps happening, email operations@start-berlin.com.",
-      );
+      try {
+        const ready = await checkMandateReadyAction();
+        if (!activeRef.current) return;
+        if (ready) {
+          router.replace("/membership");
+          return;
+        }
+      } catch {
+        // transient error — keep polling
+      }
+
+      if (activeRef.current) {
+        setTimeout(poll, POLL_INTERVAL_MS);
+      }
     }
 
-    finalizePayment();
+    poll();
 
     return () => {
-      active = false;
+      activeRef.current = false;
     };
-  }, [billingRequestFlowId, router]);
+  }, [router]);
 
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      {error ? (
+  if (timedOut) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
         <div className="max-w-sm px-6 text-center">
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm text-muted-foreground">
+            Your payment setup is still being confirmed. Check back on your
+            membership page in a moment.
+          </p>
           <button
             type="button"
             className="mt-4 text-sm font-medium underline underline-offset-4"
             onClick={() => router.replace("/membership")}
           >
-            Back to membership
+            Go to membership
           </button>
         </div>
-      ) : (
-        <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
-      )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center">
+      <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
     </main>
   );
 }

@@ -27,6 +27,7 @@ const globalActions = [
   "groups.create",
   "groups.manage_members",
   "batches.manage",
+  "payments.manage",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -39,6 +40,21 @@ function hasAdminGrant(authority: UserAuthority) {
   return authority.grants.some(
     (assignment) =>
       assignment.scope === "global" && assignment.grant === "admin",
+  );
+}
+
+function hasFinanceAdminGrant(authority: UserAuthority) {
+  return authority.grants.some(
+    (assignment) =>
+      assignment.scope === "global" && assignment.grant === "finance_admin",
+  );
+}
+
+function isHeadOfFinance(authority: UserAuthority) {
+  return authority.positions.some(
+    (assignment) =>
+      assignment.scope === "global" &&
+      assignment.position === "head_of_finance",
   );
 }
 
@@ -91,6 +107,8 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
     case "groups.manage_members":
     case "batches.manage":
       return hasAdminGrant(authority);
+    case "payments.manage":
+      return isHeadOfFinance(authority) || hasFinanceAdminGrant(authority);
     case "membership.vote_resolution":
       return isLegalOfficer(authority);
     case "membership.view_resolution":

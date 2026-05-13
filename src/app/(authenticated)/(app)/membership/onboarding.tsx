@@ -1,4 +1,3 @@
-import { Loader2Icon } from "lucide-react";
 import Image from "next/image";
 import NotionIcon from "@/assets/notion-logo.svg";
 import SlackIcon from "@/assets/slack-icon.svg";
@@ -9,91 +8,108 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { UserStatus } from "@/db/schema/auth";
+import type { Department, UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
+import type { MembershipPaymentCycleStatus } from "@/db/schema/membership-payments";
 import type { StructuredMembershipState } from "@/lib/membership-status";
-import {
-  getMembershipBillingCopy,
-  getMembershipToolsCopy,
-} from "./billing-copy";
+import { ContactDetailsCard } from "./contact-details-card";
+import { MembershipDetailsCard } from "./membership-details-card";
+import { MembershipHeroCard } from "./membership-hero-card";
+import { MembershipNoticeBlock } from "./membership-notice-block";
+import { deriveMembershipNotice } from "./membership-notice-state";
 import { NotionDialog } from "./notion-dialog";
-import { PaymentButton } from "./payment-button";
-import { PaymentProcessingRefresh } from "./payment-processing-refresh";
 import { SlackDialog } from "./slack-dialog";
-import { MembershipTaskCard } from "./task-card";
+
+interface ContactDetails {
+  email: string;
+  personalEmail: string | null;
+  phone: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+}
+
+interface MembershipDetails {
+  memberSince: Date | null;
+  batchNumber: number | null;
+  department: Department | null;
+  departmentHead: {
+    firstName: string;
+    lastName: string;
+    image: string | null;
+  } | null;
+  paymentTerm: {
+    activationDate: string;
+    status: MembershipPaymentCycleStatus;
+  } | null;
+  showBillingInfo: boolean;
+}
 
 interface MembershipPageContentProps {
   membershipState: StructuredMembershipState;
   userStatus: UserStatus;
-  paidThroughAt?: Date | null;
+  firstName: string;
   activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
+  contactDetails: ContactDetails;
+  membershipDetails: MembershipDetails;
 }
 
 export function MembershipPageContent({
   membershipState,
   userStatus,
-  paidThroughAt,
+  firstName,
   activeLegalMembership,
+  contactDetails,
+  membershipDetails,
 }: MembershipPageContentProps) {
-  const tools = getMembershipToolsCopy(userStatus);
+  const legalMembershipStatus = activeLegalMembership?.status ?? null;
+  const noticeType = deriveMembershipNotice(
+    membershipState,
+    legalMembershipStatus,
+    userStatus,
+  );
+  const showTools = userStatus !== "alumni";
+  const toolsActionLabel = userStatus === "onboarding" ? "Join" : "Open";
+  const showMembershipDetails = userStatus !== "onboarding";
 
   return (
     <div className="flex flex-col gap-10">
-      <MembershipTaskCard
-        legalMembershipStatus={activeLegalMembership?.status ?? null}
-        legalMembershipState={membershipState.legal}
-        hasPayment={membershipState.payment !== "not_started"}
-        paidThroughAt={paidThroughAt ?? null}
-        membershipState={membershipState}
-        userStatus={userStatus}
-      />
-      {tools.visible && (
+      <div className="flex flex-col gap-4">
+        <MembershipHeroCard
+          membershipState={membershipState}
+          legalMembershipStatus={legalMembershipStatus}
+          userStatus={userStatus}
+          firstName={firstName}
+          noticeType={noticeType}
+        />
+        <MembershipNoticeBlock
+          membershipState={membershipState}
+          legalMembershipStatus={legalMembershipStatus}
+          userStatus={userStatus}
+        />
+      </div>
+      {showMembershipDetails && (
+        <MembershipDetailsCard {...membershipDetails} />
+      )}
+      <ContactDetailsCard {...contactDetails} />
+      {showTools && (
         <ToolsSection
-          title={tools.title}
-          description={tools.description}
-          actionLabel={tools.actionLabel}
+          title={
+            userStatus === "onboarding"
+              ? "Get connected"
+              : "My START Berlin tools"
+          }
+          description={
+            userStatus === "onboarding"
+              ? "Join the START Berlin workspaces where members coordinate, share resources, and work on projects."
+              : "Open the workspaces you use for communication, projects, and resources."
+          }
+          actionLabel={toolsActionLabel}
         />
       )}
     </div>
-  );
-}
-
-export function MembershipSection({
-  membershipState,
-  userStatus,
-  paidThroughAt,
-}: MembershipPageContentProps) {
-  const isPaymentProcessing = membershipState.payment === "processing";
-  const showPaymentButton =
-    membershipState.paymentSetupAllowed && !isPaymentProcessing;
-  const copy = getMembershipBillingCopy({
-    mode: membershipState.payment,
-    userStatus,
-    paidThroughAt,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
-      </CardHeader>
-      {isPaymentProcessing && (
-        <CardFooter className="items-center gap-2 text-sm text-muted-foreground">
-          <Loader2Icon className="h-4 w-4 animate-spin" />
-          Updating your membership status...
-          <PaymentProcessingRefresh />
-        </CardFooter>
-      )}
-      {showPaymentButton && (
-        <CardFooter className="flex-col items-start gap-3">
-          <PaymentButton />
-          {copy.paymentNote && (
-            <p className="text-sm text-muted-foreground">{copy.paymentNote}</p>
-          )}
-        </CardFooter>
-      )}
-    </Card>
   );
 }
 
@@ -112,7 +128,7 @@ function ToolsSection({
   return (
     <div className="flex flex-col gap-6">
       <span className="flex flex-col gap-1">
-        <h2 className="text-md font-semibold">{title}</h2>
+        <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </span>
       <div className="grid md:grid-cols-3 grid-cols-1 sm:grid-cols-2 gap-2">

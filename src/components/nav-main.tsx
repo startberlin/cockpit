@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, IdCard, Layers, Users } from "lucide-react";
+import { ChevronRight, CreditCard, IdCard, Layers, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Can } from "@/components/can";
@@ -17,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import type { GlobalAction } from "@/lib/permissions";
 
@@ -32,6 +33,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   isActive: (pathname: string) => boolean;
+  permission?: GlobalAction;
   items?: SubItem[];
 };
 
@@ -68,29 +70,49 @@ const NAV_ITEMS: NavItem[] = [
     icon: Layers,
     isActive: (p) => p === "/groups" || p.startsWith("/groups/"),
   },
+  {
+    href: "/payments",
+    label: "Payments",
+    icon: CreditCard,
+    permission: "payments.manage",
+    isActive: (p) => p === "/payments" || p.startsWith("/payments/"),
+  },
 ];
 
 export function NavMain() {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const closeMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <SidebarGroup>
       <SidebarMenu>
         {NAV_ITEMS.map((item) => {
           if (!item.items?.length) {
-            return (
+            const menuItem = (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
                   isActive={item.isActive(pathname)}
                   tooltip={item.label}
                 >
-                  <Link href={item.href}>
+                  <Link href={item.href} onClick={closeMobile}>
                     <item.icon />
                     <span>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            );
+
+            return item.permission ? (
+              <Can key={item.href} permission={item.permission}>
+                {menuItem}
+              </Can>
+            ) : (
+              menuItem
             );
           }
 
@@ -99,6 +121,7 @@ export function NavMain() {
               key={item.href}
               item={item as NavItem & { items: SubItem[] }}
               pathname={pathname}
+              onNavigate={closeMobile}
             />
           );
         })}
@@ -110,9 +133,11 @@ export function NavMain() {
 function NavMainCollapsibleItem({
   item,
   pathname,
+  onNavigate,
 }: {
   item: NavItem & { items: SubItem[] };
   pathname: string;
+  onNavigate: () => void;
 }) {
   const isParentActive = item.isActive(pathname);
 
@@ -139,7 +164,7 @@ function NavMainCollapsibleItem({
                     asChild
                     isActive={sub.isActive(pathname)}
                   >
-                    <Link href={sub.href}>
+                    <Link href={sub.href} onClick={onNavigate}>
                       <span>{sub.label}</span>
                     </Link>
                   </SidebarMenuSubButton>

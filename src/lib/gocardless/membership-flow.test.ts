@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  extractIdempotencyConflictId,
+  billingDetailFromMembershipInput,
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
   membershipSubscriptionStartDate,
   prefilledCustomerFromMembershipInput,
+  subscriptionIdempotencyKey,
 } from "./membership-flow-helpers";
 import type { MembershipFlowInput } from "./types";
 
@@ -53,6 +54,41 @@ describe("membership GoCardless flow helpers", () => {
     });
   });
 
+  it("builds billing detail for collectCustomerDetails including region", () => {
+    const inputWithState = {
+      ...input,
+      address: { ...input.address, state: "BE" },
+    };
+    assert.deepEqual(billingDetailFromMembershipInput(inputWithState), {
+      address_line1: "1 Infinite Loop",
+      city: "Berlin",
+      region: "BE",
+      postal_code: "10115",
+      country_code: "DE",
+    });
+  });
+
+  it("omits empty values from billing detail", () => {
+    const sparse = { ...input, address: { country: "DE" } };
+    assert.deepEqual(billingDetailFromMembershipInput(sparse), {
+      country_code: "DE",
+    });
+  });
+
+  it("builds subscription idempotency key with start date", () => {
+    assert.equal(
+      subscriptionIdempotencyKey("mp_123", "2026-01-01"),
+      "membership-subscription:mp_123:2026-01-01",
+    );
+  });
+
+  it("builds subscription idempotency key without start date", () => {
+    assert.equal(
+      subscriptionIdempotencyKey("mp_123", null),
+      "membership-subscription:mp_123:no-date",
+    );
+  });
+
   it("derives the first subscription charge date after paid-through coverage", () => {
     assert.equal(
       membershipSubscriptionStartDate(
@@ -81,44 +117,5 @@ describe("membership GoCardless flow helpers", () => {
       ),
       null,
     );
-  });
-});
-
-describe("extractIdempotencyConflictId", () => {
-  it("extracts the conflicting resource ID from a GoCardless 409 body", () => {
-    const body = JSON.stringify({
-      error: {
-        errors: [
-          {
-            reason: "idempotent_creation_conflict",
-            links: { conflicting_resource_id: "SB01EXISTINGSUBSCRIPTION" },
-          },
-        ],
-      },
-    });
-    assert.equal(
-      extractIdempotencyConflictId(body),
-      "SB01EXISTINGSUBSCRIPTION",
-    );
-  });
-
-  it("returns null for a 409 body with a different error reason", () => {
-    const body = JSON.stringify({
-      error: { errors: [{ reason: "invalid_state" }] },
-    });
-    assert.equal(extractIdempotencyConflictId(body), null);
-  });
-
-  it("returns null for malformed JSON", () => {
-    assert.equal(extractIdempotencyConflictId("not-json"), null);
-  });
-
-  it("returns null when conflicting_resource_id is missing from links", () => {
-    const body = JSON.stringify({
-      error: {
-        errors: [{ reason: "idempotent_creation_conflict", links: {} }],
-      },
-    });
-    assert.equal(extractIdempotencyConflictId(body), null);
   });
 });

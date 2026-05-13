@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { WebClient } from "@slack/web-api";
+import { env } from "@/env";
 
 const CHANNEL_ID = "C0A9WBKB3FS";
 
@@ -12,7 +13,7 @@ async function main() {
     process.exit(1);
   }
 
-  const token = process.env.SLACK_BOT_TOKEN;
+  const token = env.SLACK_BOT_TOKEN;
   if (!token) {
     console.error("Error: SLACK_BOT_TOKEN environment variable is not set");
     process.exit(1);

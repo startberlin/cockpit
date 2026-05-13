@@ -1,6 +1,6 @@
-# AGENTS.md
+# CLAUDE.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Development Commands
 
@@ -55,23 +55,34 @@ Routes use Next.js 15+ App Router with route groups:
 ### Authentication Flow
 
 Uses Better Auth (`src/lib/auth.ts`) with Google OAuth only:
+
 - Social provider: Google Workspace (signup disabled, must pre-exist in system)
-- User schema extended with custom fields (firstName, lastName, roles, address, phone, status)
+- User schema extended with custom fields (firstName, lastName, address, phone, status)
 - Drizzle adapter connects auth to PostgreSQL
 - Session managed via cookies with `nextCookies()` plugin
 
 ### Database Patterns
 
 Drizzle ORM (`src/db/`) with schema-first approach:
+
 - Schema defined in `src/db/schema/*` (auth, groups, users, etc.)
 - Migrations generated via `npm run db:generate`
 - Applied via `npm run db:migrate`
 - Custom ID prefixes using `newId()` from `src/lib/id.ts` (e.g., `usr_`, `grp_`)
 - Relations defined in schema for type-safe queries
 
+**CRITICAL: Migration rules — never violate these:**
+
+1. **Never manually edit migration files** in `src/db/migrations/`. They are auto-generated and must not be touched by hand.
+2. **Always modify schema files** in `src/db/schema/*` to make database changes.
+3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
+4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
+5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
+
 ### Server Actions
 
 Server-side mutations use `next-safe-action`:
+
 - Server actions typically colocated with components or in dedicated files
 - React Hook Form integration via `@next-safe-action/adapter-react-hook-form`
 - Form validation with Zod schemas (converted from Drizzle schema via `drizzle-zod`)
@@ -79,6 +90,7 @@ Server-side mutations use `next-safe-action`:
 ### Background Jobs (Inngest)
 
 Inngest workflows in `src/inngest/`:
+
 - `new-user-workflow.ts` - Creates Google Workspace account, database user, sends welcome email
 - `create-group.ts` - Creates Google Group via Admin SDK
 - `slack-user-joined.ts` - Handles Slack workspace join events
@@ -90,6 +102,7 @@ Each workflow uses `step.run()` for automatic retries and observability.
 ### Email System
 
 React Email components in `src/emails/`:
+
 - Preview templates via `npm run email:dev`
 - Sent via Resend API (`src/lib/resend.ts`)
 - Typically triggered from Inngest workflows
@@ -101,6 +114,10 @@ React Email components in `src/emails/`:
 - **Resend**: Transactional email delivery
 
 Service credentials configured in `.env` file.
+
+### Documented Solutions
+
+`docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns, architecture decisions), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
 
 ## Key Patterns
 
@@ -121,6 +138,7 @@ Service credentials configured in `.env` file.
 ### Database Queries
 
 Always import db and schema:
+
 ```typescript
 import db from "@/db";
 import { user, group } from "@/db/schema";
@@ -131,9 +149,26 @@ Use Drizzle's query API for type-safe operations with relations.
 ### ID Generation
 
 Use custom ID generator for prefixed IDs:
+
 ```typescript
 import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `grp_`, `bat_`, `ses_`, `acc_`, `ver_`
+Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`
+
+### Query State / URL Params
+
+Always use **Nuqs** for reading and writing URL query parameters. Never use `useSearchParams` directly, `router.push` with manual query string construction, or `URLSearchParams` for state that belongs in the URL.
+
+```typescript
+import { useQueryState, parseAsString } from "nuqs";
+
+const [tab, setTab] = useQueryState("tab", parseAsString.withDefault("overview"));
+```
+
+For server components, use `createSearchParamsCache` to read params server-side.
+
+### Forms
+
+Whenever you have a form, use React Hook Form with Zod validation. When using server actions, integrate with `@next-safe-action/adapter-react-hook-form` for seamless server-side handling. See here for an example: https://next-safe-action.dev/docs/integrations/react-hook-form

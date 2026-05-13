@@ -1,0 +1,65 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: staging-db-app-inngest
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Create Vercel Preview deployment
+        id: deploy
+        run: |
+          deployment_url=$(npx vercel deploy \
+            --target=preview \
+            --yes \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            2>vercel-error.txt)
+
+          code=$?
+          if [ $code -ne 0 ]; then
+            cat vercel-error.txt
+            exit $code
+          fi
+
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test Preview deployment
+        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+
+      - name: Apply staging database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+
+      - name: Sync Inngest staging
+        run: |
+          curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \
+            -H "Authorization: Bearer $INNGEST_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\":\"$INNGEST_APP_URL\"}"
+        env:
+          INNGEST_API_KEY: ${{ secrets.INNGEST_API_KEY_STAGING }}
+          INNGEST_APP_ID: ${{ secrets.INNGEST_APP_ID_STAGING }}
+          INNGEST_APP_URL: https://staging.cockpit.start-berlin.com/api/inngest

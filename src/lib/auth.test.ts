@@ -16,8 +16,13 @@ describe("Better Auth user fields", () => {
       "phone",
       "personalEmail",
       "birthDate",
+      "memberSinceDate",
+      "batchNumber",
+      "department",
       "status",
       "legalMembershipState",
+      "gocardlessMandateId",
+      "gocardlessCustomerId",
     ]);
   });
 

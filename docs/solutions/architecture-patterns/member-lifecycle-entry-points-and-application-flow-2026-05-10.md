@@ -172,7 +172,7 @@ Inngest resumes
   └─ activate-legal-membership step (transaction):
        ├─ legalMembership.status → "active", activatedAt = now
        ├─ user.legalMembershipState → "active_member"
-       └─ membershipPayment row inserted (status: "pending")  ← onConflictDoNothing
+       └─ user.status → "member"  (if previously "onboarding")
          │
          ▼
 archives admission confirmation PDF
@@ -183,10 +183,10 @@ User sees /membership → payment setup prompt
          │
          ▼
 User sets up GoCardless direct debit
-  ├─ membershipPayment.status: pending → checkout_started → active
-  └─ activateMembershipPayment:
-       if legalMembershipState === "active_member" && user.status === "onboarding":
-         user.status → "member"
+  └─ reconcileMembershipPayment:
+       user.gocardlessMandateId = mandateId
+       user.gocardlessCustomerId = customerId
+       (no status change — membership and payment are independent)
 ```
 
 ### Board vote outcomes other than approved
@@ -245,7 +245,7 @@ The `paymentSetupAllowed` flag in `getStructuredMembershipState` enforces all th
 
 **`user.legalMembershipState`** (enum: `not_member` | `active_member` | `former_member`) is the **authoritative signal** for legal privileges — voting rights, election eligibility, counts toward quorum. This field is never `null`.
 
-**`user.status`** (enum: `onboarding` | `member` | `supporting_alumni` | `alumni`) is an **operational/display field**. It advances from `"onboarding"` to `"member"` only after GoCardless payment activates, and only when `legalMembershipState === "active_member"` is already confirmed.
+**`user.status`** (enum: `onboarding` | `member` | `supporting_alumni` | `alumni`) is an **operational/display field**. It advances from `"onboarding"` to `"member"` when legal membership activates — atomically with `legalMembershipState → "active_member"` in the Inngest `activate-legal-membership` step. Payment setup is a separate step that does not affect this field.
 
 **Invariant: never use `user.status` to check legal privileges.** Use `isLegalMember(user)` or `filterLegalMembers(users)`, which check `legalMembershipState === "active_member"`.
 
@@ -262,7 +262,7 @@ There are exactly **two** code paths that set `legalMembershipState = "active_me
 
 At this moment the person is a **legal member of the association (Vereinsmitglied)**. The `legalMembership.activatedAt` timestamp is printed in the admission confirmation PDF and is the legally relevant date.
 
-Note: `user.status` does **not** advance to `"member"` at this point. It advances only later, when GoCardless payment is confirmed by `activateMembershipPayment`. A person can be `legalMembershipState = "active_member"` while still showing `user.status = "onboarding"` — this is normal in the window between admission and payment setup.
+Note: `user.status` advances to `"member"` at this point — atomically in the same transaction that sets `legalMembershipState = "active_member"`. Payment setup (GoCardless) is a separate step and does not change `user.status`.
 
 ---
 
@@ -307,7 +307,7 @@ not_member ──► active_member ──► former_member (future: resignation)
 ### `user.status`
 
 ```
-onboarding ──► member          (activateMembershipPayment, gated on legalMembershipState=active_member)
+onboarding ──► member          (activate-legal-membership Inngest step, atomically with legalMembershipState=active_member)
   member ──► supporting_alumni (operational demotion — not automated today)
 supporting_alumni ──► alumni   (graduation — not automated today)
 
@@ -373,7 +373,7 @@ When GoCardless activates a payment, the guard checks `user.legalMembershipState
 
 3. **`membershipPayment` row must be inserted atomically in the Inngest activation step.** It must not be created as a side effect elsewhere. The `onConflictDoNothing` guard makes the insert idempotent.
 
-4. **A user can be `active_member` while `status = "onboarding"`.** This is normal. `user.status` advances to `"member"` only after GoCardless. Do not assume `active_member` implies `status = "member"`.
+4. **`active_member` and `status = "member"` are set atomically.** The Inngest `activate-legal-membership` step promotes `user.status → "member"` (if previously `"onboarding"`) in the same transaction that sets `legalMembershipState = "active_member"`. Do not add a `user.status` change to payment reconciliation — membership and payment are independent journeys.
 
 5. **Imported members with `documentsVerified = true` skip the entire admission workflow.** Do not propose membership for them — `LIVE_TENURE_STATUSES` blocks duplicate proposals, but the intent is that these users already have a live `active` tenure.
 

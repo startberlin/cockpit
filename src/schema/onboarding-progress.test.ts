@@ -22,12 +22,15 @@ function user(overrides: Partial<User> = {}): User {
     zip: null,
     country: null,
     birthDate: "1990-01-15",
+    memberSinceDate: null,
     personalEmail: "ada.personal@example.com",
     batchNumber: 1,
     phone: "+491234567890",
     status: "onboarding",
     department: null,
     legalMembershipState: "not_member",
+    gocardlessMandateId: null,
+    gocardlessCustomerId: null,
     ...overrides,
   };
 }

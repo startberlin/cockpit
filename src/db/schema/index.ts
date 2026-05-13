@@ -38,15 +38,15 @@ import {
 import { legalDocument, legalDocumentRelations } from "./legal-document";
 import { legalMembership, legalMembershipStatus } from "./legal-membership";
 import {
-  membershipPayment,
-  membershipPaymentRelations,
-  membershipPaymentStatus,
-} from "./membership";
-import {
   membershipApplication,
   membershipApplicationRelations,
   membershipApplicationStatus,
 } from "./membership-application";
+import {
+  membershipPaymentCycleStatus,
+  membershipPayments,
+  membershipPaymentsRelations,
+} from "./membership-payments";
 import { task, taskRelations, taskStatus } from "./task";
 
 // Define relations here to avoid circular dependencies between schema files
@@ -78,10 +78,7 @@ export const usersRelations = relations(user, ({ one, many }) => ({
   usersToGroups: many(usersToGroups),
   organizationPositions: many(userOrganizationPosition),
   accessGrants: many(userAccessGrant),
-  membershipPayment: one(membershipPayment, {
-    fields: [user.id],
-    references: [membershipPayment.userId],
-  }),
+  membershipPayments: many(membershipPayments),
   legalMemberships: many(legalMembership),
   admissionParticipations: many(admissionParticipant),
   boardVotes: many(boardVote),
@@ -112,9 +109,9 @@ export const schema = {
   groupRelations,
   groupCriteriaRelations,
   usersToGroupsRelations,
-  membershipPayment,
-  membershipPaymentRelations,
-  membershipPaymentStatus,
+  membershipPayments,
+  membershipPaymentsRelations,
+  membershipPaymentCycleStatus,
   legalMembershipState,
   legalMembership,
   legalMembershipStatus,
@@ -147,6 +144,6 @@ export * from "./board-admission";
 export * from "./group";
 export * from "./legal-document";
 export * from "./legal-membership";
-export * from "./membership";
 export * from "./membership-application";
+export * from "./membership-payments";
 export * from "./task";

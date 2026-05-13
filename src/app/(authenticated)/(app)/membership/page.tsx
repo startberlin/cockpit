@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 import {
   getActiveLegalMembership,
-  getMembershipPaymentByUserId,
+  getMemberSinceDate,
+  requiresMembershipBilling,
 } from "@/db/membership";
+import { getActivePaymentTerm } from "@/db/membership-payments";
+import { getDepartmentHeadForDepartment } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { createMetadata } from "@/lib/metadata";
@@ -20,19 +23,44 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  const [payment, activeLegalMembership] = await Promise.all([
-    getMembershipPaymentByUserId(user.id),
-    getActiveLegalMembership(user.id),
-  ]);
+  const showBillingInfo = requiresMembershipBilling(user.status);
 
-  const membershipState = getStructuredMembershipState(user, payment);
+  const [activeLegalMembership, memberSinceDate, paymentTerm, departmentHead] =
+    await Promise.all([
+      getActiveLegalMembership(user.id),
+      getMemberSinceDate(user.id),
+      showBillingInfo ? getActivePaymentTerm(user.id) : Promise.resolve(null),
+      user.department
+        ? getDepartmentHeadForDepartment(user.department)
+        : Promise.resolve(null),
+    ]);
+
+  const membershipState = getStructuredMembershipState(user);
 
   return (
     <MembershipPageContent
       membershipState={membershipState}
       userStatus={user.status}
-      paidThroughAt={payment?.paidThroughAt}
+      firstName={user.firstName}
       activeLegalMembership={activeLegalMembership}
+      contactDetails={{
+        email: user.email,
+        personalEmail: user.personalEmail,
+        phone: user.phone,
+        street: user.street,
+        city: user.city,
+        state: user.state,
+        zip: user.zip,
+        country: user.country,
+      }}
+      membershipDetails={{
+        memberSince: memberSinceDate,
+        batchNumber: user.batchNumber,
+        department: user.department ?? null,
+        departmentHead,
+        paymentTerm,
+        showBillingInfo,
+      }}
     />
   );
 }

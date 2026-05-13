@@ -1,65 +1,23 @@
-import { goCardlessRequest } from "./client";
+import { SubscriptionIntervalUnit } from "gocardless-nodejs/types";
+import { gocardless } from "./client";
 import {
+  billingDetailFromMembershipInput,
   customerMetadata,
-  extractIdempotencyConflictId,
   membershipFlowIdempotencyKey,
   membershipFlowMetadata,
   prefilledCustomerFromMembershipInput,
+  subscriptionIdempotencyKey,
 } from "./membership-flow-helpers";
-import {
-  type BillingRequestFlowState,
-  type BillingRequestState,
-  GoCardlessRequestError,
-  type MembershipFlowInput,
-  type MembershipFlowResult,
+import type {
+  BillingRequestState,
+  MembershipFlowInput,
+  MembershipFlowResult,
 } from "./types";
 
 const MEMBERSHIP_SUBSCRIPTION_AMOUNT = 4000;
 const MEMBERSHIP_SUBSCRIPTION_CURRENCY = "EUR";
 const MEMBERSHIP_SUBSCRIPTION_NAME = "START Berlin Membership";
 const MEMBERSHIP_MANDATE_SCHEME = "sepa_core";
-
-interface BillingRequestResponse {
-  billing_requests: {
-    id: string;
-    status?: string;
-    mandate_request?: {
-      links?: {
-        mandate?: string;
-      };
-    };
-    links?: {
-      customer?: string;
-      mandate?: string;
-      mandate_request_mandate?: string;
-    };
-  };
-}
-
-interface CustomerDetailsActionResponse {
-  billing_requests: {
-    id: string;
-  };
-}
-
-interface BillingRequestFlowResponse {
-  billing_request_flows: {
-    id: string;
-    authorisation_url: string;
-    links: {
-      billing_request: string;
-    };
-  };
-}
-
-interface SubscriptionResponse {
-  subscriptions: {
-    id: string;
-    links: {
-      mandate: string;
-    };
-  };
-}
 
 export async function createMembershipFlow(
   input: MembershipFlowInput,
@@ -69,16 +27,20 @@ export async function createMembershipFlow(
     input.localSessionId,
   );
 
-  const billingRequestId =
-    input.existingBillingRequestId ??
-    (await createMembershipBillingRequest(input, idempotencyKey));
+  let billingRequestId: string;
+  let customerId: string | null;
+
+  if (input.existingBillingRequestId) {
+    billingRequestId = input.existingBillingRequestId;
+    customerId = input.existingCustomerId ?? null;
+  } else {
+    const br = await createMembershipBillingRequest(input, idempotencyKey);
+    billingRequestId = br.billingRequestId;
+    customerId = br.customerId;
+  }
 
   if (!input.existingCustomerId) {
-    await collectMembershipCustomerDetails({
-      billingRequestId,
-      input,
-      idempotencyKey: `${idempotencyKey}:customer-details`,
-    });
+    await collectMembershipCustomerDetails({ billingRequestId, input });
   }
 
   const billingRequestFlow = await createMembershipBillingRequestFlow({
@@ -91,6 +53,7 @@ export async function createMembershipFlow(
     hostedUrl: billingRequestFlow.hostedUrl,
     billingRequestId,
     billingRequestFlowId: billingRequestFlow.id,
+    customerId,
     idempotencyKey,
   };
 }
@@ -98,58 +61,47 @@ export async function createMembershipFlow(
 async function createMembershipBillingRequest(
   input: MembershipFlowInput,
   idempotencyKey: string,
-) {
+): Promise<{ billingRequestId: string; customerId: string | null }> {
   const metadata = membershipFlowMetadata(input);
 
-  const billingRequest = await goCardlessRequest<BillingRequestResponse>(
-    "/billing_requests",
+  const billingRequest = await gocardless.billingRequests.create(
     {
-      method: "POST",
-      idempotencyKey,
-      body: {
-        billing_requests: {
-          mandate_request: {
-            currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
-            scheme: MEMBERSHIP_MANDATE_SCHEME,
-          },
-          metadata,
-          links: input.existingCustomerId
-            ? {
-                customer: input.existingCustomerId,
-              }
-            : undefined,
-        },
+      mandate_request: {
+        currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
+        scheme: MEMBERSHIP_MANDATE_SCHEME,
       },
+      metadata,
+      links: input.existingCustomerId
+        ? { customer: input.existingCustomerId }
+        : undefined,
     },
+    idempotencyKey,
   );
 
-  return billingRequest.billing_requests.id;
+  return {
+    billingRequestId: billingRequest.id,
+    customerId: billingRequest.links?.customer ?? null,
+  };
 }
 
 async function collectMembershipCustomerDetails({
   billingRequestId,
   input,
-  idempotencyKey,
 }: {
   billingRequestId: string;
   input: MembershipFlowInput;
-  idempotencyKey: string;
 }) {
-  return goCardlessRequest<CustomerDetailsActionResponse>(
-    `/billing_requests/${billingRequestId}/actions/collect_customer_details`,
-    {
-      method: "POST",
-      idempotencyKey,
-      body: {
-        data: {
-          customer: {
-            ...prefilledCustomerFromMembershipInput(input),
-            metadata: customerMetadata(input),
-          },
-        },
-      },
+  const prefilled = prefilledCustomerFromMembershipInput(input);
+
+  return gocardless.billingRequests.collectCustomerDetails(billingRequestId, {
+    customer: {
+      given_name: prefilled.given_name as string | undefined,
+      family_name: prefilled.family_name as string | undefined,
+      email: prefilled.email as string | undefined,
+      metadata: customerMetadata(input),
     },
-  );
+    customer_billing_detail: billingDetailFromMembershipInput(input),
+  });
 }
 
 export async function createMembershipBillingRequestFlow({
@@ -161,62 +113,34 @@ export async function createMembershipBillingRequestFlow({
   input: MembershipFlowInput;
   idempotencyKey: string;
 }) {
-  const billingRequestFlow =
-    await goCardlessRequest<BillingRequestFlowResponse>(
-      "/billing_request_flows",
-      {
-        method: "POST",
-        idempotencyKey,
-        body: {
-          billing_request_flows: {
-            redirect_uri: input.returnUrl,
-            exit_uri: input.exitUrl,
-            prefilled_customer: prefilledCustomerFromMembershipInput(input),
-            links: {
-              billing_request: billingRequestId,
-            },
-          },
-        },
-      },
-    );
+  const flow = await gocardless.billingRequestFlows.create(
+    {
+      redirect_uri: input.returnUrl,
+      exit_uri: input.exitUrl,
+      skip_success_screen: true,
+      prefilled_customer: prefilledCustomerFromMembershipInput(input),
+      links: { billing_request: billingRequestId },
+    },
+    idempotencyKey,
+  );
 
   return {
-    id: billingRequestFlow.billing_request_flows.id,
-    hostedUrl: billingRequestFlow.billing_request_flows.authorisation_url,
+    id: flow.id,
+    hostedUrl: flow.authorisation_url ?? "",
   };
 }
 
 export async function getBillingRequest(
   billingRequestId: string,
 ): Promise<BillingRequestState> {
-  const response = await goCardlessRequest<BillingRequestResponse>(
-    `/billing_requests/${billingRequestId}`,
-  );
-
-  const billingRequest = response.billing_requests;
+  const billingRequest =
+    await gocardless.billingRequests.find(billingRequestId);
 
   return {
     id: billingRequest.id,
     status: billingRequest.status ?? "unknown",
     customerId: billingRequest.links?.customer ?? null,
-    mandateId:
-      billingRequest.links?.mandate ??
-      billingRequest.links?.mandate_request_mandate ??
-      billingRequest.mandate_request?.links?.mandate ??
-      null,
-  };
-}
-
-export async function getBillingRequestFlow(
-  billingRequestFlowId: string,
-): Promise<BillingRequestFlowState> {
-  const response = await goCardlessRequest<BillingRequestFlowResponse>(
-    `/billing_request_flows/${billingRequestFlowId}`,
-  );
-
-  return {
-    id: response.billing_request_flows.id,
-    billingRequestId: response.billing_request_flows.links.billing_request,
+    mandateId: billingRequest.links?.mandate_request_mandate ?? null,
   };
 }
 
@@ -224,54 +148,36 @@ export async function createMembershipSubscription({
   mandateId,
   userId,
   email,
-  localSessionId,
+  membershipPaymentId,
   startDate,
 }: {
   mandateId: string;
   userId: string;
   email: string;
-  localSessionId: string;
+  membershipPaymentId: string;
   startDate?: string | null;
-}) {
+}): Promise<string> {
   const metadata = {
     start_cockpit_user_id: userId,
     start_cockpit_user_email: email,
-    start_cockpit_session: localSessionId,
+    start_cockpit_session: membershipPaymentId,
   };
 
-  try {
-    return await goCardlessRequest<SubscriptionResponse>("/subscriptions", {
-      method: "POST",
-      idempotencyKey: `membership-subscription:${userId}:${mandateId}`,
-      body: {
-        subscriptions: {
-          amount: MEMBERSHIP_SUBSCRIPTION_AMOUNT,
-          currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
-          interval: 1,
-          interval_unit: "yearly",
-          name: MEMBERSHIP_SUBSCRIPTION_NAME,
-          start_date: startDate ?? undefined,
-          metadata,
-          links: {
-            mandate: mandateId,
-          },
-        },
-      },
-    });
-  } catch (error) {
-    if (error instanceof GoCardlessRequestError && error.status === 409) {
-      const conflictingId = extractIdempotencyConflictId(error.responseBody);
+  const subscription = await gocardless.subscriptions.create(
+    {
+      amount: String(MEMBERSHIP_SUBSCRIPTION_AMOUNT),
+      currency: MEMBERSHIP_SUBSCRIPTION_CURRENCY,
+      interval: "1",
+      interval_unit: SubscriptionIntervalUnit.Yearly,
+      name: MEMBERSHIP_SUBSCRIPTION_NAME,
+      start_date: startDate ?? undefined,
+      metadata,
+      links: { mandate: mandateId },
+    },
+    subscriptionIdempotencyKey(membershipPaymentId, startDate),
+  );
 
-      if (conflictingId) {
-        return {
-          subscriptions: {
-            id: conflictingId,
-            links: { mandate: mandateId },
-          },
-        } satisfies SubscriptionResponse;
-      }
-    }
-
-    throw error;
-  }
+  if (!subscription.id)
+    throw new Error("GoCardless did not return a subscription id");
+  return subscription.id;
 }

@@ -58,3 +58,49 @@ export function getGoCardlessEventUserHints(event: GoCardlessEvent) {
 function getGoCardlessMandateId(event: GoCardlessEvent) {
   return event.links.mandate ?? event.links.mandate_request_mandate;
 }
+
+export type PaymentEventAction =
+  | "submitted"
+  | "confirmed"
+  | "paid_out"
+  | "failed"
+  | "cancelled"
+  | "charged_back";
+
+const PAYMENT_EVENT_ACTIONS: PaymentEventAction[] = [
+  "submitted",
+  "confirmed",
+  "paid_out",
+  "failed",
+  "cancelled",
+  "charged_back",
+];
+
+const MANDATE_INVALIDATING_ACTIONS = [
+  "cancelled",
+  "failed",
+  "expired",
+  "replaced",
+  "consumed",
+  "blocked",
+] as const;
+
+export function isMandateInvalidatedEvent(event: GoCardlessEvent) {
+  return (
+    event.resource_type === "mandates" &&
+    (MANDATE_INVALIDATING_ACTIONS as readonly string[]).includes(event.action)
+  );
+}
+
+export function isPaymentLifecycleEvent(
+  event: GoCardlessEvent,
+): event is GoCardlessEvent & { action: PaymentEventAction } {
+  return (
+    event.resource_type === "payments" &&
+    (PAYMENT_EVENT_ACTIONS as string[]).includes(event.action)
+  );
+}
+
+export function getGoCardlessPaymentId(event: GoCardlessEvent): string | null {
+  return event.links.payment ?? null;
+}

@@ -40,7 +40,7 @@ export const applicationDeclarationsSchema = z.object({
   legalCapacity: z.literal(true),
   supportsPurpose: z.literal(true),
   acceptsBylaws: z.literal(true),
-  acceptsPrivacyNotice: z.literal(true),
+  acceptsFinancialRegulations: z.literal(true),
   acknowledgesFee: z.literal(true),
 });
 

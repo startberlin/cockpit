@@ -106,7 +106,7 @@ export default async function ApplicationStepPage({
       redirect("/membership/application/identity");
     } else if (!decl?.supportsPurpose || !decl?.acceptsBylaws) {
       redirect("/membership/application/bylaws");
-    } else if (!decl?.acceptsPrivacyNotice || !decl?.acknowledgesFee) {
+    } else if (!decl?.acceptsFinancialRegulations || !decl?.acknowledgesFee) {
       redirect("/membership/application/fees");
     }
 

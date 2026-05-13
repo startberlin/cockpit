@@ -50,7 +50,9 @@ export function NotionDialog({
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="default">{title}</Button>
+          <Button variant="default" size="sm">
+            {title}
+          </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>

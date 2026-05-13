@@ -2,24 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
-import { useQuery } from "@tanstack/react-query";
-import {
-  type ColumnDef,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import {
-  AlertCircleIcon,
-  CircleCheck,
-  LockIcon,
-  PencilIcon,
-} from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import * as React from "react";
-import { Controller } from "react-hook-form";
-import { useDebounce } from "use-debounce";
-import { BatchSelect } from "@/components/batch-select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { FormProvider, useWatch } from "react-hook-form";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,7 +12,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -35,54 +19,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { DEPARTMENTS } from "@/lib/enums";
-import { USER_STATUS_INFO } from "@/lib/user-status";
 import { cn, handleError } from "@/lib/utils";
+import { importGoogleWorkspaceUserAction } from "./import-google-user-action";
+import { BrowseStep } from "./import-google-user-browse-step";
+import { MembershipStep } from "./import-google-user-membership-step";
+import { ProfileStep } from "./import-google-user-profile-step";
 import {
-  fetchWorkspaceUsersPageAction,
-  importGoogleWorkspaceUserAction,
-} from "./import-google-user-action";
-import {
-  importableUserStatus,
+  type ImportGoogleWorkspaceUserData,
   importGoogleWorkspaceUserSchema,
 } from "./import-google-user-schema";
+import type {
+  WizardStep,
+  WorkspaceCandidate,
+} from "./import-google-user-types";
 
 interface ImportGoogleUserDialogProps {
   open: boolean;
@@ -91,41 +40,6 @@ interface ImportGoogleUserDialogProps {
   onSuccess?: () => void;
 }
 
-type WizardStep = "browse" | "profile" | "membership";
-
-type WorkspaceCandidate = NonNullable<
-  Awaited<ReturnType<typeof fetchWorkspaceUsersPageAction>>["data"]
->["users"][number];
-
-const EMPTY_CANDIDATES: WorkspaceCandidate[] = [];
-
-const COLUMNS: ColumnDef<WorkspaceCandidate>[] = [
-  {
-    id: "name",
-    accessorFn: (row) => row.name,
-    header: "Name",
-    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-  },
-  {
-    id: "email",
-    accessorKey: "primaryEmail",
-    header: "Email",
-  },
-  {
-    id: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const { suspended, linkedUser } = row.original;
-      const disabled = !!linkedUser || suspended;
-      return (
-        <Badge variant={disabled ? "secondary" : "outline"}>
-          {suspended ? "Suspended" : linkedUser ? "Linked" : "Importable"}
-        </Badge>
-      );
-    },
-  },
-];
-
 export function ImportGoogleUserDialog({
   open,
   onOpenChange,
@@ -133,86 +47,28 @@ export function ImportGoogleUserDialog({
   onSuccess,
 }: ImportGoogleUserDialogProps) {
   const [step, setStep] = React.useState<WizardStep>("browse");
-  const [firstNameFilter, setFirstNameFilter] = React.useState("");
-  const [lastNameFilter, setLastNameFilter] = React.useState("");
-  const [debouncedFirstName] = useDebounce(firstNameFilter, 300);
-  const [debouncedLastName] = useDebounce(lastNameFilter, 300);
-  // Stack of pageTokens: index 0 is page 1 (token = undefined), subsequent entries are GWS nextPageTokens.
-  const [pageTokens, setPageTokens] = React.useState<(string | undefined)[]>([
-    undefined,
-  ]);
-  const [pageIndex, setPageIndex] = React.useState(0);
   const [selected, setSelected] = React.useState<WorkspaceCandidate | null>(
     null,
   );
   const [firstNameUnlocked, setFirstNameUnlocked] = React.useState(false);
   const [lastNameUnlocked, setLastNameUnlocked] = React.useState(false);
 
-  const gwsQuery =
-    [
-      debouncedFirstName && `givenName:${debouncedFirstName}`,
-      debouncedLastName && `familyName:${debouncedLastName}`,
-    ]
-      .filter(Boolean)
-      .join(" ") || undefined;
-
-  const currentPageToken = pageTokens[pageIndex];
-
-  const {
-    data: pageData,
-    isFetching,
-    isError,
-    refetch,
-  } = useQuery({
-    queryKey: ["workspace-users", currentPageToken, gwsQuery],
-    queryFn: async () => {
-      const result = await fetchWorkspaceUsersPageAction({
-        pageToken: currentPageToken,
-        query: gwsQuery,
-      });
-      if (!result?.data) throw new Error("Failed to load Workspace users.");
-      return result.data;
-    },
-    enabled: open,
-    staleTime: 30_000,
-  });
-
-  const candidates = pageData?.users ?? EMPTY_CANDIDATES;
-  const nextPageToken = pageData?.nextPageToken ?? null;
-  const isLoading = isFetching;
-  const loadError = isError;
-
-  React.useEffect(() => {
-    if (nextPageToken && pageTokens.length <= pageIndex + 1) {
-      setPageTokens((prev) => [...prev, nextPageToken]);
-    }
-  }, [nextPageToken, pageIndex, pageTokens.length]);
-
-  const table = useReactTable({
-    data: candidates,
-    columns: COLUMNS,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const defaultValues = React.useMemo(
+  const defaultValues = React.useMemo<ImportGoogleWorkspaceUserData>(
     () => ({
       googleWorkspaceUserId: "",
       firstName: "",
       lastName: "",
       batchNumber: undefined,
+      department: null,
       status: "member" as const,
-      paidThroughAt: "",
-      joinedAt: "",
+      paidThroughDate: "",
     }),
     [],
   );
-  const resolver = React.useMemo(
-    () => zodResolver(importGoogleWorkspaceUserSchema),
-    [],
-  );
-  const { form, handleSubmitWithAction, action } = useHookFormAction(
+
+  const { form, action } = useHookFormAction(
     importGoogleWorkspaceUserAction,
-    resolver,
+    React.useMemo(() => zodResolver(importGoogleWorkspaceUserSchema), []),
     {
       actionProps: {
         onSuccess: () => {
@@ -228,8 +84,10 @@ export function ImportGoogleUserDialog({
     },
   );
 
-  const selectedStatus = form.watch("status");
-  const shouldShowDepartment = selectedStatus === "member";
+  const selectedStatus = useWatch({
+    control: form.control,
+    name: "status",
+  });
   const requiresMembershipStep =
     selectedStatus === "member" || selectedStatus === "supporting_alumni";
 
@@ -246,34 +104,24 @@ export function ImportGoogleUserDialog({
     setStep("profile");
   };
 
-  React.useEffect(() => {
-    if (!shouldShowDepartment && form.getValues("department") !== null) {
-      form.setValue("department", null);
-    }
-    if (!requiresMembershipStep) {
-      if (form.getValues("paidThroughAt") !== "") {
-        form.setValue("paidThroughAt", "");
-      }
-      if (form.getValues("joinedAt") !== "") {
-        form.setValue("joinedAt", "");
-      }
-    }
-  }, [form, shouldShowDepartment, requiresMembershipStep]);
-
+  // If status changes away from member/supporting_alumni while on membership step, go back
   React.useEffect(() => {
     if (step === "membership" && !requiresMembershipStep) {
       setStep("profile");
     }
   }, [requiresMembershipStep, step]);
 
+  // Clear paidThroughDate when leaving the membership path
+  React.useEffect(() => {
+    if (!requiresMembershipStep && form.getValues("paidThroughDate") !== "") {
+      form.setValue("paidThroughDate", "");
+    }
+  }, [form, requiresMembershipStep]);
+
+  // Reset when dialog closes
   React.useEffect(() => {
     if (open) return;
-
     setStep("browse");
-    setFirstNameFilter("");
-    setLastNameFilter("");
-    setPageTokens([undefined]);
-    setPageIndex(0);
     setSelected(null);
     setFirstNameUnlocked(false);
     setLastNameUnlocked(false);
@@ -283,14 +131,31 @@ export function ImportGoogleUserDialog({
   const stepKeys: WizardStep[] = requiresMembershipStep
     ? ["browse", "profile", "membership"]
     : ["browse", "profile"];
+
   const stepLabels = requiresMembershipStep
     ? ["Browse", "Profile", "Membership"]
     : ["Browse", "Profile"];
+
   const activeStepIndex = Math.min(stepKeys.indexOf(step), stepKeys.length - 1);
 
-  const rows = table.getRowModel().rows;
-  const hasPreviousPage = pageIndex > 0;
-  const hasNextPage = !!nextPageToken;
+  const handleProfileComplete = () => {
+    if (requiresMembershipStep) {
+      setStep("membership");
+    } else {
+      form.handleSubmit((data) => action.execute(data))();
+    }
+  };
+
+  const handleMembershipComplete = () => {
+    form.handleSubmit((data) => action.execute(data))();
+  };
+
+  const handleBack = () => {
+    setStep(step === "membership" ? "profile" : "browse");
+  };
+
+  const rootError = form.formState.errors.root?.message;
+  const isSubmitDisabled = !form.formState.isValid;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -302,12 +167,13 @@ export function ImportGoogleUserDialog({
                 {stepLabels.map((label, index) => {
                   const isActive = index === activeStepIndex;
                   const isCompleted = index < activeStepIndex;
+
                   return (
                     <React.Fragment key={label}>
                       {index > 0 && <BreadcrumbSeparator />}
                       <BreadcrumbItem
                         className={cn(
-                          "rounded-md px-[6px] py-[2px]",
+                          "rounded-md px-1.5 py-0.5",
                           isActive && "bg-muted",
                         )}
                       >
@@ -340,473 +206,53 @@ export function ImportGoogleUserDialog({
           </div>
         </DialogHeader>
 
-        {step === "browse" ? (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <Field className="flex-1">
-                <FieldLabel htmlFor="filterFirstName">First name</FieldLabel>
-                <Input
-                  id="filterFirstName"
-                  value={firstNameFilter}
-                  placeholder="Filter by first name"
-                  onChange={(e) => {
-                    setFirstNameFilter(e.target.value);
-                    setPageTokens([undefined]);
-                    setPageIndex(0);
-                  }}
-                />
-              </Field>
-              <Field className="flex-1">
-                <FieldLabel htmlFor="filterLastName">Last name</FieldLabel>
-                <Input
-                  id="filterLastName"
-                  value={lastNameFilter}
-                  placeholder="Filter by last name"
-                  onChange={(e) => {
-                    setLastNameFilter(e.target.value);
-                    setPageTokens([undefined]);
-                    setPageIndex(0);
-                  }}
-                />
-              </Field>
-            </div>
-
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-32" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-48" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-5 w-20" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : loadError ? null : rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="py-8 text-center text-muted-foreground text-sm"
-                      >
-                        {candidates.length === 0
-                          ? "No Workspace users found."
-                          : "No users match these filters."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rows.map((row) => {
-                      const candidate = row.original;
-                      const disabled =
-                        !!candidate.linkedUser || candidate.suspended;
-                      const isSelected = selected?.id === candidate.id;
-                      return (
-                        <TableRow
-                          key={candidate.id}
-                          className={cn(
-                            disabled ? "opacity-60" : "cursor-pointer",
-                            isSelected && "bg-muted/50",
-                          )}
-                          onClick={() => selectWorkspaceUser(candidate)}
-                        >
-                          <TableCell>
-                            <span className="font-medium">
-                              {candidate.name}
-                            </span>
-                          </TableCell>
-                          <TableCell>{candidate.primaryEmail}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                disabled
-                                  ? "secondary"
-                                  : isSelected
-                                    ? "default"
-                                    : "outline"
-                              }
-                            >
-                              {candidate.suspended
-                                ? "Suspended"
-                                : candidate.linkedUser
-                                  ? "Linked"
-                                  : isSelected
-                                    ? "Selected"
-                                    : "Importable"}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {loadError && (
-              <Alert variant="destructive">
-                <AlertCircleIcon className="h-4 w-4" />
-                <AlertTitle>Failed to load Workspace users</AlertTitle>
-                <AlertDescription className="flex items-center gap-2">
-                  <span>Could not connect to Google Workspace.</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isLoading}
-                    onClick={() => refetch()}
-                  >
-                    {isLoading ? "Retrying…" : "Retry"}
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!loadError && (hasPreviousPage || hasNextPage) && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Page {pageIndex + 1}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!hasPreviousPage || isLoading}
-                    onClick={() => setPageIndex((i) => i - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!hasNextPage || isLoading}
-                    onClick={() => setPageIndex((i) => i + 1)}
-                  >
-                    Next
-                  </Button>
+        <FormProvider {...form}>
+          {step === "browse" ? (
+            <BrowseStep
+              open={open}
+              selected={selected}
+              onSelectUser={selectWorkspaceUser}
+            />
+          ) : (
+            <div className="flex flex-col gap-y-4">
+              {selected && (
+                <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                  <span className="font-medium">{selected.name}</span>{" "}
+                  <span className="text-muted-foreground">
+                    {selected.primaryEmail}
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <form
-            className="flex flex-col gap-y-6"
-            onSubmit={(e) => {
-              const isLastStep =
-                !requiresMembershipStep || step === "membership";
-              if (!isLastStep) {
-                e.preventDefault();
-                return;
-              }
-              return handleSubmitWithAction(e);
-            }}
-          >
-            {selected && (
-              <div className="rounded-md bg-muted px-3 py-2 text-sm">
-                <span className="font-medium">{selected.name}</span>{" "}
-                <span className="text-muted-foreground">
-                  {selected.primaryEmail}
-                </span>
-              </div>
-            )}
+              )}
 
-            {step === "profile" && (
-              <>
-                <FieldSet>
-                  <FieldLegend>START Cockpit profile</FieldLegend>
-                  <FieldGroup>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field className="min-w-0">
-                        <FieldLabel htmlFor="importFirstName">
-                          First name
-                        </FieldLabel>
-                        <InputGroup>
-                          <InputGroupInput
-                            id="importFirstName"
-                            disabled={!firstNameUnlocked}
-                            aria-invalid={!!form.formState.errors.firstName}
-                            {...form.register("firstName")}
-                          />
-                          {!firstNameUnlocked && (
-                            <InputGroupAddon align="inline-end">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <InputGroupButton
-                                    className="rounded-full"
-                                    size="icon-xs"
-                                    aria-label="Edit first name"
-                                    onClick={() => setFirstNameUnlocked(true)}
-                                  >
-                                    <PencilIcon />
-                                  </InputGroupButton>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Edit first name.
-                                </TooltipContent>
-                              </Tooltip>
-                            </InputGroupAddon>
-                          )}
-                        </InputGroup>
-                        <FieldError
-                          errors={[form.formState.errors.firstName]}
-                        />
-                      </Field>
-                      <Field className="min-w-0">
-                        <FieldLabel htmlFor="importLastName">
-                          Last name
-                        </FieldLabel>
-                        <InputGroup>
-                          <InputGroupInput
-                            id="importLastName"
-                            disabled={!lastNameUnlocked}
-                            aria-invalid={!!form.formState.errors.lastName}
-                            {...form.register("lastName")}
-                          />
-                          {!lastNameUnlocked && (
-                            <InputGroupAddon align="inline-end">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <InputGroupButton
-                                    className="rounded-full"
-                                    size="icon-xs"
-                                    aria-label="Edit last name"
-                                    onClick={() => setLastNameUnlocked(true)}
-                                  >
-                                    <PencilIcon />
-                                  </InputGroupButton>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit last name.</TooltipContent>
-                              </Tooltip>
-                            </InputGroupAddon>
-                          )}
-                        </InputGroup>
-                        <FieldError errors={[form.formState.errors.lastName]} />
-                      </Field>
-                    </div>
-                    <Field>
-                      <FieldLabel htmlFor="importEmail">Email</FieldLabel>
-                      <InputGroup>
-                        <InputGroupInput
-                          id="importEmail"
-                          value={selected?.primaryEmail ?? ""}
-                          disabled
-                          className="w-full"
-                        />
-                        <InputGroupAddon align="inline-end">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <InputGroupButton
-                                className="rounded-full"
-                                size="icon-xs"
-                                aria-label="Email locked"
-                              >
-                                <LockIcon />
-                              </InputGroupButton>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Workspace email cannot be changed during import.
-                            </TooltipContent>
-                          </Tooltip>
-                        </InputGroupAddon>
-                      </InputGroup>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
+              {step === "profile" && (
+                <ProfileStep
+                  selected={selected}
+                  firstNameUnlocked={firstNameUnlocked}
+                  lastNameUnlocked={lastNameUnlocked}
+                  onUnlockFirstName={() => setFirstNameUnlocked(true)}
+                  onUnlockLastName={() => setLastNameUnlocked(true)}
+                  batches={batches}
+                  onComplete={handleProfileComplete}
+                  onBack={handleBack}
+                  submitLabel={requiresMembershipStep ? "Continue" : "Import"}
+                  isSubmitDisabled={isSubmitDisabled}
+                  isPending={action.isPending}
+                  rootError={rootError}
+                />
+              )}
 
-                <FieldSet>
-                  <FieldLegend>Organization</FieldLegend>
-                  <FieldGroup>
-                    <Controller
-                      name="batchNumber"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel>Batch</FieldLabel>
-                          <BatchSelect
-                            batches={batches}
-                            value={field.value}
-                            onChange={field.onChange}
-                          />
-                          <FieldError errors={[fieldState.error]} />
-                        </Field>
-                      )}
-                    />
-
-                    <Controller
-                      name="status"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel>Status</FieldLabel>
-                          <Select
-                            value={field.value ?? ""}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {importableUserStatus.options.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {USER_STATUS_INFO[status].label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FieldError errors={[fieldState.error]} />
-                        </Field>
-                      )}
-                    />
-
-                    {shouldShowDepartment && (
-                      <Controller
-                        name="department"
-                        control={form.control}
-                        render={({ field, fieldState }) => (
-                          <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel>Department</FieldLabel>
-                            <Select
-                              value={field.value ?? ""}
-                              onValueChange={field.onChange}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a department" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(DEPARTMENTS).map(
-                                  ([id, name]) => (
-                                    <SelectItem key={id} value={id}>
-                                      {name}
-                                    </SelectItem>
-                                  ),
-                                )}
-                              </SelectContent>
-                            </Select>
-                            <FieldError errors={[fieldState.error]} />
-                          </Field>
-                        )}
-                      />
-                    )}
-                  </FieldGroup>
-                </FieldSet>
-              </>
-            )}
-
-            {step === "membership" && (
-              <>
-                <FieldSet>
-                  <FieldLegend>Membership</FieldLegend>
-                  <FieldDescription>
-                    If this person has already paid for their active membership
-                    period, enter the date their membership is covered through.
-                    START Cockpit will schedule the first yearly membership
-                    payment after this date.
-                  </FieldDescription>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="paidThroughAt">
-                        Paid through
-                      </FieldLabel>
-                      <Input
-                        id="paidThroughAt"
-                        type="date"
-                        aria-invalid={!!form.formState.errors.paidThroughAt}
-                        {...form.register("paidThroughAt")}
-                      />
-                      <FieldDescription>
-                        Leave empty if the member should set up payment right
-                        after import.
-                      </FieldDescription>
-                      <FieldError
-                        errors={[form.formState.errors.paidThroughAt]}
-                      />
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-
-                <FieldSet>
-                  <FieldLegend>Membership history</FieldLegend>
-                  <FieldDescription>
-                    If you have the person's original membership documents and
-                    can confirm when they joined, enter that date. The member
-                    will complete an account setup on first login and receive
-                    official documents with the correct join date. Leave empty
-                    if documents are missing — the board will vote on formal
-                    admission.
-                  </FieldDescription>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="joinedAt">
-                        Original join date
-                      </FieldLabel>
-                      <Input
-                        id="joinedAt"
-                        type="date"
-                        aria-invalid={!!form.formState.errors.joinedAt}
-                        {...form.register("joinedAt")}
-                      />
-                      <FieldDescription>
-                        Leave empty to start a board admission vote instead.
-                      </FieldDescription>
-                      <FieldError errors={[form.formState.errors.joinedAt]} />
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-              </>
-            )}
-
-            {form.formState.errors.root && (
-              <Alert className="text-destructive text-sm" variant="destructive">
-                <AlertCircleIcon className="h-4 w-4" />
-                <AlertTitle>Could not import member</AlertTitle>
-                <AlertDescription>
-                  <p>{form.formState.errors.root.message}</p>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setStep(step === "membership" ? "profile" : "browse")
-                }
-              >
-                Back
-              </Button>
-              {step === "profile" && requiresMembershipStep ? (
-                <Button
-                  type="button"
-                  disabled={!form.formState.isValid}
-                  onClick={() => setStep("membership")}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={!form.formState.isValid || action.isPending}
-                >
-                  {action.isPending ? "Importing..." : "Import"}
-                </Button>
+              {step === "membership" && (
+                <MembershipStep
+                  onComplete={handleMembershipComplete}
+                  onBack={handleBack}
+                  isSubmitDisabled={isSubmitDisabled}
+                  isPending={action.isPending}
+                  rootError={rootError}
+                />
               )}
             </div>
-          </form>
-        )}
+          )}
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );

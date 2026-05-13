@@ -60,6 +60,7 @@ export const user = pgTable("user", {
   zip: text("zip"),
   country: text("country"),
   birthDate: date("birth_date"),
+  memberSinceDate: date("member_since_date"),
   personalEmail: text("personal_email").notNull(),
   batchNumber: integer("batch_number").references(() => batch.number, {
     onDelete: "set null",
@@ -70,6 +71,8 @@ export const user = pgTable("user", {
   legalMembershipState: legalMembershipState("legal_membership_state")
     .notNull()
     .default("not_member"),
+  gocardlessMandateId: text("gocardless_mandate_id"),
+  gocardlessCustomerId: text("gocardless_customer_id"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

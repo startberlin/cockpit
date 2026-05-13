@@ -22,7 +22,7 @@ export const saveFeesDeclarationsAction = actionClient
       const updated = await tx
         .update(membershipApplication)
         .set({
-          declarations: sql`COALESCE(${membershipApplication.declarations}, '{}') || ${JSON.stringify({ acceptsPrivacyNotice: true, acknowledgesFee: true } satisfies Partial<MembershipApplicationDeclarations>)}::jsonb`,
+          declarations: sql`COALESCE(${membershipApplication.declarations}, '{}') || ${JSON.stringify({ acceptsFinancialRegulations: true, acknowledgesFee: true } satisfies Partial<MembershipApplicationDeclarations>)}::jsonb`,
         })
         .where(
           and(

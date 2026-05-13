@@ -9,6 +9,11 @@ export const betterAuthUserAdditionalFields = {
   phone: { type: "string", input: false },
   personalEmail: { type: "string", input: false },
   birthDate: { type: "string", input: false },
+  memberSinceDate: { type: "string", input: false },
+  batchNumber: { type: "number", input: false },
+  department: { type: "string", input: false },
   status: { type: "string", input: false },
   legalMembershipState: { type: "string", input: false },
+  gocardlessMandateId: { type: "string", input: false },
+  gocardlessCustomerId: { type: "string", input: false },
 } as const;

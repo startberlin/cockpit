@@ -1,6 +1,5 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import db from "@/db";
-import { newMembershipPaymentId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
 import {
   admissionParticipant,
@@ -8,7 +7,6 @@ import {
   boardVote,
 } from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
-import { membershipPayment } from "@/db/schema/membership";
 import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution-task-assigned";
 import MembershipAdmissionCompletedBoardEmail from "@/emails/membership-admission-completed-board";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
@@ -488,10 +486,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
     // Step 10: Activate the legal membership and set legalMembershipState.
     // Only reached after all documents are archived.
-    // All three updates are wrapped in a transaction to prevent split-brain where
-    // legal_membership.status = 'active' but user.legalMembershipState is stale,
-    // and to ensure the membership_payment row exists before the user can reach
-    // the payment setup page.
+    // Both updates are wrapped in a transaction to prevent split-brain where
+    // legal_membership.status = 'active' but user.legalMembershipState is stale.
+    // The status promotion (onboarding → member) happens here, not at payment
+    // setup, since legal membership and payment are independent.
     const activatedAt = await step.run(
       "activate-legal-membership",
       async () => {
@@ -506,13 +504,11 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             .set({ legalMembershipState: "active_member" })
             .where(eq(user.id, subjectUserId));
           await tx
-            .insert(membershipPayment)
-            .values({
-              id: newMembershipPaymentId(),
-              userId: subjectUserId,
-              status: "pending",
-            })
-            .onConflictDoNothing();
+            .update(user)
+            .set({ status: "member" })
+            .where(
+              and(eq(user.id, subjectUserId), eq(user.status, "onboarding")),
+            );
         });
         return now.toISOString();
       },
@@ -583,14 +579,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
 
       // Fetch user status fresh — it may have changed since step 1 (e.g. GoCardless
       // payment activated operational status from 'onboarding' to 'member').
-      const [freshUser, payment, confirmationDoc] = await Promise.all([
+      const [freshUser, confirmationDoc] = await Promise.all([
         db.query.user.findFirst({
           where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-          columns: { status: true },
-        }),
-        db.query.membershipPayment.findFirst({
-          where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectUserId),
-          columns: { id: true },
+          columns: { status: true, gocardlessMandateId: true },
         }),
         db.query.legalDocument.findFirst({
           where: (d, { and: andFn, eq: eqFn }) =>
@@ -602,7 +594,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         }),
       ]);
 
-      const includesPaymentCta = freshUser?.status === "member" && !payment;
+      const includesPaymentCta =
+        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
 
       const attachments = confirmationDoc?.driveFileId
         ? [

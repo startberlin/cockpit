@@ -1,9 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import db from "@/db";
-import { newMembershipPaymentId } from "@/db/membership";
+import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import { membershipPayment } from "@/db/schema/membership";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
 import { env } from "@/env";
 import { events, inngest } from "@/lib/inngest";
@@ -191,6 +190,8 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
 
     // Step 3: Activate the legal membership and insert the payment row.
     // Preserves the historical activatedAt set at import time.
+    // Also promotes onboarding → member, mirroring the admission workflow:
+    // legal membership and payment are independent.
     await step.run("activate-legal-membership", async () => {
       await db.transaction(async (tx) => {
         await tx
@@ -204,21 +205,36 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
           .where(eq(user.id, subjectData.userId));
 
         await tx
-          .insert(membershipPayment)
-          .values({
-            id: newMembershipPaymentId(),
-            userId: subjectData.userId,
-            status: "pending",
-            paidThroughAt: subjectData.importedPaidThroughAt
-              ? new Date(subjectData.importedPaidThroughAt)
-              : null,
-          })
-          .onConflictDoNothing();
+          .update(user)
+          .set({ status: "member" })
+          .where(
+            and(eq(user.id, subjectData.userId), eq(user.status, "onboarding")),
+          );
       });
     });
 
-    // Step 4: Archive the admission confirmation PDF.
-    // Board list is empty; activatedAt is the historical join date from import.
+    // Step 4: Create the first proposed membership payment.
+    // If the member had an importedPaidThroughAt date whose coverage hasn't expired
+    // yet (+ 1 year > today), anchor the first cycle to that renewal date.
+    // Otherwise fall back to today so the cron can pick it up on the next run.
+    await step.run("create-proposed-payment", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      let activationDate = today;
+
+      if (subjectData.importedPaidThroughAt) {
+        const d = new Date(subjectData.importedPaidThroughAt);
+        d.setUTCFullYear(d.getUTCFullYear() + 1);
+        const renewalDate = d.toISOString().slice(0, 10);
+        if (renewalDate > today) {
+          activationDate = renewalDate;
+        }
+      }
+
+      await createProposedPayment(subjectData.userId, activationDate);
+    });
+
+    // Step 5: Archive the admission confirmation PDF.
+    // Board list is empty for reconfirmations.
     await step.run("archive-admission-confirmation", async () => {
       const subjectAddress = [
         subjectData.street,
@@ -250,13 +266,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 5: Send confirmation email with both PDFs attached.
+    // Step 6: Send confirmation email with both PDFs attached.
     await step.run("send-confirmation-email", async () => {
       if (!subjectData.email) {
         throw new Error(`Missing email for user ${subjectData.userId}`);
       }
 
-      const [applicationDoc, confirmationDoc, payment] = await Promise.all([
+      const [applicationDoc, confirmationDoc, freshUser] = await Promise.all([
         db.query.legalDocument.findFirst({
           where: (d, { and: andFn, eq: eqFn }) =>
             andFn(
@@ -273,9 +289,9 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
             ),
           columns: { driveFileId: true },
         }),
-        db.query.membershipPayment.findFirst({
-          where: (mp, { eq: eqFn }) => eqFn(mp.userId, subjectData.userId),
-          columns: { id: true },
+        db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
+          columns: { status: true, gocardlessMandateId: true },
         }),
       ]);
 
@@ -298,7 +314,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       }
 
       const includesPaymentCta =
-        subjectData.userStatus === "member" && !payment;
+        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
 
       await resend.emails.send({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
