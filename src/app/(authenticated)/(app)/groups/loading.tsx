@@ -9,7 +9,6 @@ export default function GroupsLoading() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton cards
           <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
       </div>

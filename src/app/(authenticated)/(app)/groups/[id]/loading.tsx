@@ -8,7 +8,6 @@ export default function GroupDetailLoading() {
       <div className="flex flex-col gap-2">
         <Skeleton className="h-10 w-full" />
         {Array.from({ length: 6 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton rows
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>

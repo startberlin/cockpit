@@ -12,7 +12,6 @@ export default function PaymentsLoading() {
       <Skeleton className="h-10 w-full" />
       <div className="flex flex-col gap-2">
         {Array.from({ length: 8 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton rows
           <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
