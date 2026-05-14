@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import type { User } from "@/db/schema/auth";
 
 interface ContactDetailsCardProps {
-  email: string;
-  personalEmail: string | null;
-  phone: string | null;
-  street: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  country: string | null;
+  user: User;
 }
 
 function ContactField({
@@ -30,21 +24,12 @@ function ContactField({
   );
 }
 
-export function ContactDetailsCard({
-  email,
-  personalEmail,
-  phone,
-  street,
-  city,
-  state,
-  zip,
-  country,
-}: ContactDetailsCardProps) {
+export function ContactDetailsCard({ user }: ContactDetailsCardProps) {
   const addressLine = [
-    street,
-    [zip, city].filter(Boolean).join(" "),
-    state,
-    country,
+    user.street,
+    [user.zip, user.city].filter(Boolean).join(" "),
+    user.state,
+    user.country,
   ]
     .filter(Boolean)
     .join(", ");
@@ -61,9 +46,9 @@ export function ContactDetailsCard({
       <Card className="gap-0">
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <ContactField label="Personal email" value={personalEmail} />
-            <ContactField label="Phone" value={phone} />
-            <ContactField label="START Berlin email" value={email} />
+            <ContactField label="Personal email" value={user.personalEmail} />
+            <ContactField label="Phone" value={user.phone} />
+            <ContactField label="START Berlin email" value={user.email} />
             <ContactField label="Address" value={addressLine || null} />
           </div>
           <div className="mt-6">

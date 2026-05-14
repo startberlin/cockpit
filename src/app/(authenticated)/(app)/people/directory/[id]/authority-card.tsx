@@ -7,11 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { UserDetail } from "@/db/people";
+import { getUserAuthorityData } from "@/db/people";
 import { DEPARTMENTS } from "@/lib/enums";
 
 interface AuthorityCardProps {
-  user: UserDetail;
+  userId: string;
   canManageAuthority: boolean;
 }
 
@@ -42,10 +42,16 @@ function formatRoleLabel(position: string, department: string | null) {
   return ROLE_LABELS[position] ?? position;
 }
 
-export function AuthorityCard({
-  user,
+export async function AuthorityCard({
+  userId,
   canManageAuthority,
 }: AuthorityCardProps) {
+  const data = await getUserAuthorityData(userId);
+
+  if (!data) {
+    return null;
+  }
+
   return (
     <Card className="md:col-span-2">
       <CardHeader>
@@ -62,8 +68,8 @@ export function AuthorityCard({
               Positions
             </p>
             <div className="flex flex-wrap gap-2">
-              {user.organizationPositions.length > 0 ? (
-                user.organizationPositions.map((assignment) => (
+              {data.organizationPositions.length > 0 ? (
+                data.organizationPositions.map((assignment) => (
                   <Badge key={assignment.id} variant="secondary">
                     {formatRoleLabel(
                       assignment.position,
@@ -84,8 +90,8 @@ export function AuthorityCard({
               App permissions
             </p>
             <div className="flex flex-wrap gap-2">
-              {user.accessGrants.length > 0 ? (
-                user.accessGrants.map((assignment) => (
+              {data.accessGrants.length > 0 ? (
+                data.accessGrants.map((assignment) => (
                   <Badge key={assignment.id} variant="secondary">
                     {PERMISSION_LABELS[assignment.grant] ?? assignment.grant}
                   </Badge>
@@ -101,9 +107,9 @@ export function AuthorityCard({
 
         {canManageAuthority && (
           <AuthorityEditor
-            userId={user.id}
-            positions={user.organizationPositions}
-            grants={user.accessGrants}
+            userId={data.id}
+            positions={data.organizationPositions}
+            grants={data.accessGrants}
           />
         )}
       </CardContent>

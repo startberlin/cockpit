@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-table";
 import { AlertCircleIcon, Loader2, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import * as React from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -53,7 +54,10 @@ interface BatchesPageClientProps {
 export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
   const router = useRouter();
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = useQueryState(
+    "create",
+    parseAsBoolean.withDefault(false),
+  );
   const [editTarget, setEditTarget] = React.useState<Batch | null>(null);
 
   const columns: ColumnDef<Batch>[] = [

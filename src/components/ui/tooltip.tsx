@@ -1,9 +1,19 @@
 "use client";
 
 import { Tooltip as TooltipPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
+import { createContext } from "react";
+import { cn, useHasHover } from "@/lib/utils";
 
-import { cn } from "@/lib/utils";
+type TooltipTriggerContextType = {
+  open: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export const TooltipTriggerContext = createContext<TooltipTriggerContextType>({
+  open: false,
+  setOpen: () => {},
+});
 
 function TooltipProvider({
   delayDuration = 0,
@@ -21,14 +31,43 @@ function TooltipProvider({
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+  const [open, setOpen] = React.useState<boolean>(props.defaultOpen ?? false);
+  const canHover = useHasHover();
+
+  return (
+    <TooltipPrimitive.Root
+      delayDuration={!canHover ? props.delayDuration : 0}
+      onOpenChange={(e) => setOpen(e)}
+      open={open}
+      data-slot="tooltip"
+      {...props}
+    >
+      <TooltipTriggerContext.Provider value={{ open, setOpen }}>
+        {props.children}
+      </TooltipTriggerContext.Provider>
+    </TooltipPrimitive.Root>
+  );
 }
 
-function TooltipTrigger({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
-}
+const TooltipTrigger = React.forwardRef<
+  React.ComponentRef<typeof TooltipPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>
+>((props, ref) => {
+  const canHover = useHasHover();
+  const { setOpen } = React.useContext(TooltipTriggerContext);
+
+  return (
+    <TooltipPrimitive.Trigger
+      ref={ref}
+      data-slot="tooltip-trigger"
+      {...props}
+      onClick={(e) => {
+        canHover && e.preventDefault();
+        setOpen(true);
+      }}
+    />
+  );
+});
 
 function TooltipContent({
   className,

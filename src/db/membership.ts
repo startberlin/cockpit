@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { cache } from "react";
 import type { UserStatus } from "@/db/schema/auth";
 import {
   ACTIVE_TENURE_STATUSES,
@@ -9,20 +10,23 @@ import { nanoid } from "@/lib/id";
 import db from ".";
 import { user } from "./schema/auth";
 
-export async function getActiveLegalMembership(
-  userId: string,
-): Promise<{ id: string; status: LegalMembershipStatus } | null> {
-  const row = await db.query.legalMembership.findFirst({
-    where: and(
-      eq(legalMembership.userId, userId),
-      inArray(legalMembership.status, [...ACTIVE_TENURE_STATUSES]),
-    ),
-    orderBy: desc(legalMembership.startedAt),
-    columns: { id: true, status: true },
-  });
+// Per-request deduplication only — not a persistent cache
+export const getActiveLegalMembership = cache(
+  async (
+    userId: string,
+  ): Promise<{ id: string; status: LegalMembershipStatus } | null> => {
+    const row = await db.query.legalMembership.findFirst({
+      where: and(
+        eq(legalMembership.userId, userId),
+        inArray(legalMembership.status, [...ACTIVE_TENURE_STATUSES]),
+      ),
+      orderBy: desc(legalMembership.startedAt),
+      columns: { id: true, status: true },
+    });
 
-  return row ?? null;
-}
+    return row ?? null;
+  },
+);
 
 export function newMembershipSessionId() {
   return `mps_${nanoid(16)}`;

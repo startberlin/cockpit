@@ -11,7 +11,8 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { notFound } from "next/navigation";
+import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Can, useCan } from "@/components/can";
 import GroupCriteriaManager from "@/components/group-criteria-manager";
@@ -51,14 +52,20 @@ import {
 } from "./actions";
 
 interface GroupDetailClientProps {
-  group: GroupDetail;
+  groupDetailPromise: Promise<GroupDetail | null>;
 }
 
 export default function GroupDetailClient({
-  group: initialGroup,
+  groupDetailPromise,
 }: GroupDetailClientProps) {
   const can = useCan();
-  const [group, setGroup] = useState(initialGroup);
+  const groupDetail = use(groupDetailPromise);
+
+  if (!groupDetail) {
+    notFound();
+  }
+
+  const [group, setGroup] = useState(groupDetail);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PublicUser[]>([]);

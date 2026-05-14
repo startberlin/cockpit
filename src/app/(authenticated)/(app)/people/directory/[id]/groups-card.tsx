@@ -7,13 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { UserDetail } from "@/db/people";
+import { getUserGroupMemberships } from "@/db/people";
 
 interface GroupsCardProps {
-  groups: UserDetail["groups"];
+  userId: string;
 }
 
-export function GroupsCard({ groups }: GroupsCardProps) {
+export async function GroupsCard({ userId }: GroupsCardProps) {
+  const groups = await getUserGroupMemberships(userId);
+
   if (groups.length === 0) {
     return null;
   }

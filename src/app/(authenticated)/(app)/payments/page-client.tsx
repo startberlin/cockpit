@@ -9,10 +9,8 @@ import {
 import {
   AlertTriangleIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   ExternalLinkIcon,
   FilterIcon,
-  InfoIcon,
   Loader2,
   SearchIcon,
   XIcon,
@@ -30,13 +28,6 @@ import * as React from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -70,15 +61,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import type {
-  MembershipPaymentCycleWithUser,
-  PaymentStats,
-} from "@/db/membership-payments";
+import type { MembershipPaymentCycleWithUser } from "@/db/membership-payments";
 import type { GcPaymentRecord } from "@/lib/gocardless/payments";
 import { chargeAction } from "./charge-action";
 import { declineAction } from "./decline-action";
@@ -162,24 +145,20 @@ function isDefaultStatuses(statuses: string[]): boolean {
 }
 
 interface Props {
-  proposed: MembershipPaymentCycleWithUser[];
   history: { rows: MembershipPaymentCycleWithUser[]; total: number };
-  stats: PaymentStats;
   selectedRow: MembershipPaymentCycleWithUser | null;
   gcHistoryPromise: Promise<GcPaymentRecord[]>;
   pageSize: number;
 }
 
 export default function PaymentsPageClient({
-  proposed,
   history,
-  stats,
   selectedRow,
   gcHistoryPromise,
   pageSize,
 }: Props) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useQueryState("selected", {
+  const [_selectedId, setSelectedId] = useQueryState("selected", {
     shallow: false,
   });
   const [page, setPage] = useQueryState(
@@ -321,174 +300,6 @@ export default function PaymentsPageClient({
 
   return (
     <>
-      <div className="pb-6">
-        <h1 className="text-xl font-semibold">Payments</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          When a member's annual fee comes due, START Cockpit proposes a charge
-          here. Review their mandate and payment history, then approve to
-          collect the payment.
-        </p>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pb-6 *:data-[slot=card]:shadow-xs">
-        <Card>
-          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
-            <CardDescription>Proposed</CardDescription>
-            <CardTitle className="text-3xl font-bold tabular-nums">
-              {stats.proposedCount}
-            </CardTitle>
-            <CardAction className="max-sm:[grid-area:auto] max-sm:justify-self-start">
-              <Badge variant="outline">
-                {formatAmount(stats.proposedAmount)}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
-            <CardDescription>Processing</CardDescription>
-            <CardTitle className="text-3xl font-bold tabular-nums">
-              {stats.inFlightCount}
-            </CardTitle>
-            <CardAction className="max-sm:[grid-area:auto] max-sm:justify-self-start">
-              <Badge variant="outline">
-                {formatAmount(stats.inFlightAmount)}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
-            <CardDescription>Confirmed</CardDescription>
-            <CardTitle className="text-3xl font-bold tabular-nums">
-              {formatAmount(stats.confirmedAmount)}
-            </CardTitle>
-            <CardDescription className="text-xs sm:hidden">
-              Payout confirmed
-            </CardDescription>
-            <CardAction className="max-sm:hidden">
-              <Tooltip>
-                <TooltipTrigger>
-                  <InfoIcon className="size-3 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Payments confirmed by the member's bank that will be
-                    received soon.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </CardAction>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="max-sm:has-data-[slot=card-action]:grid-cols-1">
-            <CardDescription>Collected</CardDescription>
-            <CardTitle className="text-3xl font-bold tabular-nums">
-              {formatAmount(stats.collectedAmount)}
-            </CardTitle>
-            <CardDescription className="text-xs sm:hidden">
-              Payments collected within the last 365 days.
-            </CardDescription>
-            <CardAction className="max-sm:hidden">
-              <Tooltip>
-                <TooltipTrigger>
-                  <InfoIcon className="size-3 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Payments collected within the last 365 days.</p>
-                </TooltipContent>
-              </Tooltip>
-            </CardAction>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {/* ── Proposed ─────────────────────────────────────────── */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between gap-4 pb-3">
-          <h2 className="text-sm font-semibold">Proposed payments</h2>
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {proposed.length} proposal{proposed.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Coverage period</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Mandate</TableHead>
-                <TableHead className="w-8" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proposed.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="py-10 text-center text-muted-foreground text-sm"
-                  >
-                    No payments are waiting for review.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                proposed.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={selectedId === row.id ? "selected" : undefined}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedId(row.id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="h-8 w-8 text-xs">
-                          <AvatarFallback>
-                            {getInitials(row.userName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {row.userName}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            {row.userEmail}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {coveragePeriod(row.activationDate)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-sm">
-                      {formatAmount(row.amount)}
-                    </TableCell>
-                    <TableCell>
-                      {row.gocardlessMandateId ? (
-                        <Badge
-                          variant="outline"
-                          className="text-green-700 border-green-200 bg-green-50"
-                        >
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive">No mandate</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
       {/* ── Payment history ───────────────────────────────────── */}
       <div className="mb-6">
         <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

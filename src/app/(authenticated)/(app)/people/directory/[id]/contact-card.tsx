@@ -1,6 +1,3 @@
-"use client";
-
-import { Mail, MapPin, Phone } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,14 +6,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { UserDetail } from "@/db/people";
-import { DetailField } from "./detail-field";
+import { getUserDetails } from "@/db/people";
+import { CopyableField } from "./copyable-field";
 
 interface ContactCardProps {
-  user: UserDetail;
+  userId: string;
 }
 
-export function ContactCard({ user }: ContactCardProps) {
+export async function ContactCard({ userId }: ContactCardProps) {
+  const user = await getUserDetails(userId);
+
+  if (!user) {
+    return null;
+  }
+
   const hasAddress = user.street || user.city || user.zip || user.country;
 
   const formatAddress = () => {
@@ -38,8 +41,8 @@ export function ContactCard({ user }: ContactCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <DetailField
-            icon={Mail}
+          <CopyableField
+            icon="mail"
             label="START Email"
             value={user.email}
             copyValue={user.email}
@@ -48,8 +51,8 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
-            icon={Mail}
+          <CopyableField
+            icon="mail"
             label="Personal Email"
             value={user.personalEmail}
             copyValue={user.personalEmail}
@@ -58,8 +61,8 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
-            icon={Phone}
+          <CopyableField
+            icon="phone"
             label="Phone"
             value={
               user.phone || (
@@ -74,8 +77,8 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
-            icon={MapPin}
+          <CopyableField
+            icon="map-pin"
             label="Address"
             value={
               hasAddress ? (

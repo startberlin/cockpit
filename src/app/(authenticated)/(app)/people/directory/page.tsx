@@ -1,5 +1,6 @@
 import { all } from "better-all";
 import db from "@/db";
+import type { PublicUser } from "@/db/people";
 import { getAllUserPublicData } from "@/db/people";
 import { getPendingBoardActionsForUser } from "@/db/people-actions";
 import { batch } from "@/db/schema/batch";
@@ -15,8 +16,9 @@ export const metadata = createMetadata({
 export default async function DirectoryPage() {
   const currentUser = await getCurrentUser();
 
-  const { users, batches, pendingActions } = await all({
-    users: getAllUserPublicData,
+  const usersPromise: Promise<PublicUser[]> = getAllUserPublicData();
+
+  const { batches, pendingActions } = await all({
     batches: async () => db.select().from(batch).orderBy(batch.number),
     pendingActions: async () =>
       currentUser
@@ -26,7 +28,7 @@ export default async function DirectoryPage() {
 
   return (
     <DirectoryPageClient
-      users={users}
+      usersPromise={usersPromise}
       batches={batches}
       pendingActions={pendingActions}
     />
