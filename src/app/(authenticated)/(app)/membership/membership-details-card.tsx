@@ -1,24 +1,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { Department } from "@/db/schema/auth";
-import type { MembershipPaymentCycleStatus } from "@/db/schema/membership-payments";
+import { getMemberSinceDate, requiresMembershipBilling } from "@/db/membership";
+import { getActivePaymentTerm } from "@/db/membership-payments";
+import { getDepartmentHeadForDepartment } from "@/db/people";
+import type { User } from "@/db/schema/auth";
 import { DEPARTMENTS } from "@/lib/enums";
 
 interface MembershipDetailsCardProps {
-  memberSince: Date | null;
-  batchNumber: number | null;
-  department: Department | null;
-  departmentHead: {
-    firstName: string;
-    lastName: string;
-    image: string | null;
-  } | null;
-  paymentTerm: {
-    activationDate: string;
-    status: MembershipPaymentCycleStatus;
-  } | null;
-  showBillingInfo: boolean;
+  user: User;
 }
 
 function MembershipField({
@@ -112,14 +102,19 @@ function formatPaymentPeriod(activationDate: string): {
   };
 }
 
-export function MembershipDetailsCard({
-  memberSince,
-  batchNumber,
-  department,
-  departmentHead,
-  paymentTerm,
-  showBillingInfo,
+export async function MembershipDetailsCard({
+  user,
 }: MembershipDetailsCardProps) {
+  const showBillingInfo = requiresMembershipBilling(user.status);
+
+  const [memberSince, departmentHead, paymentTerm] = await Promise.all([
+    getMemberSinceDate(user.id),
+    user.department
+      ? getDepartmentHeadForDepartment(user.department)
+      : Promise.resolve(null),
+    showBillingInfo ? getActivePaymentTerm(user.id) : Promise.resolve(null),
+  ]);
+
   const payment = paymentTerm
     ? formatPaymentPeriod(paymentTerm.activationDate)
     : null;
@@ -138,8 +133,8 @@ export function MembershipDetailsCard({
               label="Member since"
               value={
                 memberSince
-                  ? batchNumber != null
-                    ? `${formatDate(memberSince)} · Batch #${batchNumber}`
+                  ? user.batchNumber != null
+                    ? `${formatDate(memberSince)} · Batch #${user.batchNumber}`
                     : formatDate(memberSince)
                   : null
               }
@@ -148,13 +143,13 @@ export function MembershipDetailsCard({
           </div>
 
           {/* Org info */}
-          {department && (
+          {user.department && (
             <>
               <Separator />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <MembershipField
                   label="Department"
-                  value={DEPARTMENTS[department]}
+                  value={DEPARTMENTS[user.department]}
                 />
                 <div className="flex flex-col gap-2">
                   <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">
