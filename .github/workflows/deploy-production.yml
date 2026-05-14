@@ -29,11 +29,12 @@ jobs:
 
       - run: npm test
 
-      - name: Create staged Vercel preview deployment
+      - name: Create Vercel production deployment (skip-domain)
         id: deploy
         run: |
           output=$(npx --no-install vercel deploy \
-            --target=preview \
+            --prod \
+            --skip-domain \
             --yes \
             --scope=start-berlin 2>&1)
 
@@ -68,27 +69,10 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
-      - name: Deploy to production infrastructure
-        id: prod-deploy
-        run: |
-          output=$(npx --no-install vercel deploy \
-            --prod \
-            --skip-domain \
-            --yes \
-            --scope=start-berlin 2>&1)
-
-          echo "$output"
-          deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
-          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
       - name: Promote production deployment
         run: |
           npx --no-install vercel promote \
-            "${{ steps.prod-deploy.outputs.url }}" \
+            "${{ needs.build-and-stage.outputs.url }}" \
             --yes \
             --timeout=5m \
             --scope start-berlin
