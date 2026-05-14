@@ -49,7 +49,6 @@ interface PeopleTableProps {
   pendingActions?: PendingBoardAction[];
 }
 
-
 export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
   const router = useRouter();
   const can = useCan();
