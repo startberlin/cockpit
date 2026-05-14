@@ -11,9 +11,21 @@ import {
   isPaymentLifecycleEvent,
 } from "@/lib/gocardless/webhook";
 import { user } from "./schema/auth";
+import { gocardlessProcessedEvents } from "./schema/gocardless-processed-events";
 import { membershipPayments } from "./schema/membership-payments";
 
 export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
+  // Deduplicate replayed events — insert fails silently if already processed.
+  const [inserted] = await db
+    .insert(gocardlessProcessedEvents)
+    .values({ eventId: event.id })
+    .onConflictDoNothing()
+    .returning({ eventId: gocardlessProcessedEvents.eventId });
+
+  if (!inserted) {
+    return { status: "duplicate" as const };
+  }
+
   const hints = getGoCardlessEventUserHints(event);
 
   if (isMembershipMandateReadyEvent(event) && hints.billingRequestId) {
