@@ -90,7 +90,24 @@ export const importGoogleWorkspaceUserAction = actionClient
     });
 
     if (existingUser) {
-      throw new Error("This Google Workspace user is already imported.");
+      // Idempotent recovery: user already imported (e.g. previous inngest.send
+      // failed after the transaction committed). Resend events and return success.
+      await inngest.send({
+        name: events.cockpitUserUpdated.name,
+        data: { id: existingUser.id },
+      });
+      try {
+        await resend.emails.send(
+          buildImportedUserNotificationEmail({
+            email: workspaceUser.primaryEmail,
+            firstName: parsedInput.firstName,
+            status: parsedInput.status,
+          }),
+        );
+      } catch (emailError) {
+        console.error("Failed to send import notification email:", emailError);
+      }
+      return { id: existingUser.id };
     }
 
     // Convert the optional last-payment date string to a Date for DB storage.
