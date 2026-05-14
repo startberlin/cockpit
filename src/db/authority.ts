@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { cache } from "react";
 import {
   type AuthorityUpdateInput,
   authorityUpdateInputSchema,
@@ -122,17 +123,18 @@ function mapAuthorityUser(authorityUser: AuthorityUserRow): UserAuthority {
   };
 }
 
-export async function getUserAuthority(
-  userId: string,
-): Promise<UserAuthority | null> {
-  const authorityUser = await findAuthorityUserById(userId);
+// Per-request deduplication only — not a persistent cache
+export const getUserAuthority = cache(
+  async (userId: string): Promise<UserAuthority | null> => {
+    const authorityUser = await findAuthorityUserById(userId);
 
-  if (!authorityUser) {
-    return null;
-  }
+    if (!authorityUser) {
+      return null;
+    }
 
-  return mapAuthorityUser(authorityUser);
-}
+    return mapAuthorityUser(authorityUser);
+  },
+);
 
 export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
   const authorityUsers = await db.query.user.findMany({
