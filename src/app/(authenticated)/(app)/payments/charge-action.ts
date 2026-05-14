@@ -6,6 +6,7 @@ import { z } from "zod";
 import db from "@/db";
 import { advancePaymentStatus, getPaymentById } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
+import { membershipPayments } from "@/db/schema/membership-payments";
 import { actionClient } from "@/lib/action-client";
 import { createOneTimePayment } from "@/lib/gocardless/payments";
 import { can } from "@/lib/permissions/server";
@@ -22,7 +23,10 @@ export const chargeAction = actionClient
       throw new Error("Payment not found.");
     }
 
-    if (row.status !== "proposed") {
+    // Atomically claim the row before touching GoCardless.
+    // Returns false if another concurrent request already claimed it.
+    const claimed = await advancePaymentStatus(row.id, "proposed", "pending");
+    if (!claimed) {
       return { alreadyProcessed: true };
     }
 
@@ -32,18 +36,26 @@ export const chargeAction = actionClient
     });
 
     if (!member?.gocardlessMandateId) {
+      await advancePaymentStatus(row.id, "pending", "failed");
       throw new Error("Member has no stored GoCardless mandate ID.");
     }
 
-    const { id: gcPaymentId } = await createOneTimePayment({
-      mandateId: member.gocardlessMandateId,
-      amount: row.amount,
-      idempotencyKey: row.id,
-    });
+    try {
+      const { id: gcPaymentId } = await createOneTimePayment({
+        mandateId: member.gocardlessMandateId,
+        amount: row.amount,
+        idempotencyKey: row.id,
+      });
 
-    await advancePaymentStatus(row.id, "proposed", "pending", {
-      gocardlessPaymentId: gcPaymentId,
-    });
+      // Row is already pending — store the GoCardless reference without re-advancing.
+      await db
+        .update(membershipPayments)
+        .set({ gocardlessPaymentId: gcPaymentId })
+        .where(eq(membershipPayments.id, row.id));
+    } catch (err) {
+      await advancePaymentStatus(row.id, "pending", "failed");
+      throw err;
+    }
 
     revalidatePath("/payments");
 

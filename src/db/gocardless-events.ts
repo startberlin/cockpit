@@ -69,6 +69,18 @@ async function handlePaymentEvent(event: GoCardlessEvent & { action: string }) {
     return { status: "ignored" as const };
   }
 
-  await advancePaymentStatus(row.id, transition.from, transition.to);
+  const advanced = await advancePaymentStatus(
+    row.id,
+    transition.from,
+    transition.to,
+  );
+  if (!advanced) {
+    if (row.status === transition.to) {
+      return { status: "already_applied" as const };
+    }
+    throw new Error(
+      `Unexpected payment state: payment ${row.id} is '${row.status}', cannot apply event '${event.action}'`,
+    );
+  }
   return { status: event.action };
 }

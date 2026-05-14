@@ -23,13 +23,20 @@ export const declineAction = actionClient
       throw new Error("Payment not found.");
     }
 
-    if (row.status !== "proposed") {
+    // advancePaymentStatus is the atomic gate — returns false if another
+    // request already processed this row.
+    const declined = await advancePaymentStatus(
+      row.id,
+      "proposed",
+      "declined",
+      {
+        declineReason: parsedInput.reason,
+      },
+    );
+
+    if (!declined) {
       return { alreadyProcessed: true };
     }
-
-    await advancePaymentStatus(row.id, "proposed", "declined", {
-      declineReason: parsedInput.reason,
-    });
 
     revalidatePath("/payments");
 
