@@ -7,19 +7,66 @@ import { toast } from "sonner";
 import { Can } from "@/components/can";
 import { PeopleTable } from "@/components/people-table";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
 import { CreateUserDialog } from "../create-user-dialog";
 import { ImportGoogleUserDialog } from "../import-google-user-dialog";
 
 interface DirectoryPageClientProps {
-  users: PublicUser[];
+  usersPromise: Promise<PublicUser[]>;
   batches: { number: number }[];
   pendingActions: PendingBoardAction[];
 }
 
+function DirectoryTableSkeleton() {
+  return (
+    <div className="rounded-md border">
+      <div className="flex border-b px-4 py-3 gap-4">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+      {Array.from({ length: 9 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex border-b last:border-b-0 px-4 py-3 gap-4 items-center"
+        >
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UserTableSection({
+  usersPromise,
+  pendingActions,
+}: {
+  usersPromise: Promise<PublicUser[]>;
+  pendingActions: PendingBoardAction[];
+}) {
+  const users = React.use(usersPromise);
+
+  if (users.length === 0) {
+    return (
+      <p className="text-muted-foreground py-8 text-center">
+        No members found.
+      </p>
+    );
+  }
+
+  return <PeopleTable data={users} pendingActions={pendingActions} />;
+}
+
 export default function DirectoryPageClient({
-  users,
+  usersPromise,
   batches,
   pendingActions,
 }: DirectoryPageClientProps) {
@@ -55,13 +102,12 @@ export default function DirectoryPageClient({
         </div>
       </div>
 
-      {users.length === 0 ? (
-        <p className="text-muted-foreground py-8 text-center">
-          No members found.
-        </p>
-      ) : (
-        <PeopleTable data={users} pendingActions={pendingActions} />
-      )}
+      <React.Suspense fallback={<DirectoryTableSkeleton />}>
+        <UserTableSection
+          usersPromise={usersPromise}
+          pendingActions={pendingActions}
+        />
+      </React.Suspense>
 
       <CreateUserDialog
         open={createOpen}
