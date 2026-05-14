@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
+import * as React from "react";
 import {
   ALL_HISTORY_STATUSES,
   DEFAULT_HISTORY_STATUSES,
   getPaymentHistoryPage,
-  getPaymentStats,
   getProposedPayments,
 } from "@/db/membership-payments";
 import type { MembershipPaymentCycleStatus } from "@/db/schema/membership-payments";
@@ -14,6 +14,12 @@ import {
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import PaymentsPageClient from "./page-client";
+import PaymentStatsSection from "./payment-stats-section";
+import {
+  PaymentStatsSkeleton,
+  ProposedPaymentsSkeleton,
+} from "./payments-skeletons";
+import ProposedPaymentsSection from "./proposed-payments-section";
 
 export const metadata = createMetadata({
   title: "Payments",
@@ -56,11 +62,12 @@ export default async function PaymentsPage({
         ) as MembershipPaymentCycleStatus[])
       : DEFAULT_HISTORY_STATUSES;
 
-  const [proposed, historyRaw, stats] = await Promise.all([
-    getProposedPayments(),
-    getPaymentHistoryPage(rawPage, PAGE_SIZE, search, statuses),
-    getPaymentStats(),
-  ]);
+  const historyRaw = await getPaymentHistoryPage(
+    rawPage,
+    PAGE_SIZE,
+    search,
+    statuses,
+  );
 
   const historyTotalPages = Math.max(
     1,
@@ -72,9 +79,12 @@ export default async function PaymentsPage({
       ? await getPaymentHistoryPage(page, PAGE_SIZE, search, statuses)
       : historyRaw;
 
-  const selectedRow = selected
-    ? (proposed.find((r) => r.id === selected) ?? null)
-    : null;
+  const proposed = selected ? await getProposedPayments() : null;
+
+  const selectedRow =
+    selected && proposed
+      ? (proposed.find((r) => r.id === selected) ?? null)
+      : null;
 
   const gcHistoryPromise: Promise<GcPaymentRecord[]> =
     selectedRow?.gocardlessCustomerId
@@ -84,13 +94,30 @@ export default async function PaymentsPage({
       : Promise.resolve([]);
 
   return (
-    <PaymentsPageClient
-      proposed={proposed}
-      history={history}
-      stats={stats}
-      selectedRow={selectedRow}
-      gcHistoryPromise={gcHistoryPromise}
-      pageSize={PAGE_SIZE}
-    />
+    <>
+      <div className="pb-6">
+        <h1 className="text-xl font-semibold">Payments</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          When a member's annual fee comes due, START Cockpit proposes a charge
+          here. Review their mandate and payment history, then approve to
+          collect the payment.
+        </p>
+      </div>
+
+      <React.Suspense fallback={<PaymentStatsSkeleton />}>
+        <PaymentStatsSection />
+      </React.Suspense>
+
+      <React.Suspense fallback={<ProposedPaymentsSkeleton />}>
+        <ProposedPaymentsSection />
+      </React.Suspense>
+
+      <PaymentsPageClient
+        history={history}
+        selectedRow={selectedRow}
+        gcHistoryPromise={gcHistoryPromise}
+        pageSize={PAGE_SIZE}
+      />
+    </>
   );
 }
