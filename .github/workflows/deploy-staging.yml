@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
 
-concurrency:
-  group: staging-db-app-inngest
-  cancel-in-progress: false
-
 jobs:
-  deploy-staging:
+  build-and-stage:
     runs-on: ubuntu-latest
-    environment: preview
+    concurrency:
+      group: staging-build
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +43,24 @@ jobs:
 
       - name: Smoke test Preview deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+
+  migrate-and-sync:
+    needs: build-and-stage
+    runs-on: ubuntu-latest
+    environment: preview
+    concurrency:
+      group: staging-db-app-inngest
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
 
       - name: Apply staging database migrations
         run: npm run db:migrate
