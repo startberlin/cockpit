@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import * as React from "react";
 import { toast } from "sonner";
 import { GroupsTable } from "@/components/groups-table";
@@ -13,7 +14,10 @@ interface GroupsPageClientProps {
 
 export default function GroupsPageClient({ groups }: GroupsPageClientProps) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
+  const [, setCreate] = useQueryState(
+    "create",
+    parseAsBoolean.withDefault(false),
+  );
 
   const handleSuccess = React.useCallback(() => {
     router.refresh();
@@ -25,12 +29,8 @@ export default function GroupsPageClient({ groups }: GroupsPageClientProps) {
 
   return (
     <>
-      <GroupsTable data={groups} onCreateGroupClick={() => setOpen(true)} />
-      <CreateGroupDialog
-        open={open}
-        onOpenChange={setOpen}
-        onSuccess={handleSuccess}
-      />
+      <GroupsTable data={groups} onCreateGroupClick={() => setCreate(true)} />
+      <CreateGroupDialog onSuccess={handleSuccess} />
     </>
   );
 }

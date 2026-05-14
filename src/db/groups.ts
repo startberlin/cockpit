@@ -100,43 +100,43 @@ export async function checkSlugAvailability(slug: string): Promise<boolean> {
 }
 
 export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
-  const groupData = await db
-    .select({
-      id: group.id,
-      name: group.name,
-      slug: group.slug,
-    })
-    .from(group)
-    .where(eq(group.id, id))
-    .limit(1);
+  const [groupData, members, criteria] = await Promise.all([
+    db
+      .select({
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+      })
+      .from(group)
+      .where(eq(group.id, id))
+      .limit(1),
+    db
+      .select({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        department: user.department,
+        status: user.status,
+        batchNumber: sql<number | null>`${user.batchNumber}`,
+        role: usersToGroups.role,
+      })
+      .from(usersToGroups)
+      .innerJoin(user, eq(usersToGroups.userId, user.id))
+      .where(eq(usersToGroups.groupId, id))
+      .orderBy(usersToGroups.role, user.firstName, user.lastName),
+    db.query.groupCriteria.findMany({
+      where: eq(groupCriteria.groupId, id),
+      orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
+    }),
+  ]);
 
   if (!groupData.length) return null;
 
-  const members = await db
-    .select({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      department: user.department,
-      status: user.status,
-      batchNumber: sql<number | null>`${user.batchNumber}`,
-      role: usersToGroups.role,
-    })
-    .from(usersToGroups)
-    .innerJoin(user, eq(usersToGroups.userId, user.id))
-    .where(eq(usersToGroups.groupId, id))
-    .orderBy(usersToGroups.role, user.firstName, user.lastName);
-
-  const criteria = await db.query.groupCriteria.findMany({
-    where: eq(groupCriteria.groupId, id),
-    orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
-  });
-
   return {
     ...groupData[0],
-    members: members,
-    criteria: criteria,
+    members,
+    criteria,
   };
 }
 

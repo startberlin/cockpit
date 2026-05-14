@@ -1,5 +1,3 @@
-"use client";
-
 import { Mail, MapPin, Phone } from "lucide-react";
 import {
   Card,
@@ -9,14 +7,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { UserDetail } from "@/db/people";
-import { DetailField } from "./detail-field";
+import { getUserDetails } from "@/db/people";
+import { CopyableField } from "./copyable-field";
 
 interface ContactCardProps {
-  user: UserDetail;
+  userId: string;
 }
 
-export function ContactCard({ user }: ContactCardProps) {
+export async function ContactCard({ userId }: ContactCardProps) {
+  const user = await getUserDetails(userId);
+
+  if (!user) {
+    return null;
+  }
+
   const hasAddress = user.street || user.city || user.zip || user.country;
 
   const formatAddress = () => {
@@ -38,7 +42,7 @@ export function ContactCard({ user }: ContactCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <DetailField
+          <CopyableField
             icon={Mail}
             label="START Email"
             value={user.email}
@@ -48,7 +52,7 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
+          <CopyableField
             icon={Mail}
             label="Personal Email"
             value={user.personalEmail}
@@ -58,7 +62,7 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
+          <CopyableField
             icon={Phone}
             label="Phone"
             value={
@@ -74,7 +78,7 @@ export function ContactCard({ user }: ContactCardProps) {
 
           <Separator />
 
-          <DetailField
+          <CopyableField
             icon={MapPin}
             label="Address"
             value={
