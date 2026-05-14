@@ -3,10 +3,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
-const rawUrl = process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL;
+const rawUrl = process.env.DATABASE_URL;
 
 if (!rawUrl) {
-  console.error("MIGRATE_DATABASE_URL or DATABASE_URL must be set");
+  console.error("DATABASE_URL must be set");
   process.exit(1);
 }
 
