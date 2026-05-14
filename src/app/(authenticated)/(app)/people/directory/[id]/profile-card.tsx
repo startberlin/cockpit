@@ -7,15 +7,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { UserDetail } from "@/db/people";
+import { getUserDetails } from "@/db/people";
 import { DEPARTMENTS } from "@/lib/enums";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface ProfileCardProps {
-  user: UserDetail;
+  userId: string;
 }
 
-export function ProfileCard({ user }: ProfileCardProps) {
+export async function ProfileCard({ userId }: ProfileCardProps) {
+  const user = await getUserDetails(userId);
+
+  if (!user) {
+    return null;
+  }
+
   const statusInfo = USER_STATUS_INFO[user.status];
   const isPaymentPending = user.membershipState.paymentSetupAllowed;
 
