@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const csp = [
   "default-src 'self'",
-  // Next.js requires unsafe-inline for its own hydration scripts; unsafe-eval is not needed in production
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+  // unsafe-eval is required by React in development for callstack reconstruction; never used in production
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
   "style-src 'self' 'unsafe-inline'",
   // Google OAuth profile pictures served from lh3.googleusercontent.com
   "img-src 'self' data: blob: https://lh3.googleusercontent.com",

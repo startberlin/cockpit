@@ -32,7 +32,7 @@ jobs:
       - name: Create Vercel production deployment (skip-domain)
         id: deploy
         run: |
-          output=$(npx --no-install vercel deploy \
+          output=$(npx vercel@54.0.0 deploy \
             --prod \
             --skip-domain \
             --yes \
@@ -71,7 +71,7 @@ jobs:
 
       - name: Promote production deployment
         run: |
-          npx --no-install vercel promote \
+          npx vercel@54.0.0 promote \
             "${{ needs.build-and-stage.outputs.url }}" \
             --yes \
             --timeout=5m \

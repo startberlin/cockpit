@@ -31,7 +31,7 @@ jobs:
       - name: Create Vercel Preview deployment
         id: deploy
         run: |
-          output=$(npx --no-install vercel deploy \
+          output=$(npx vercel@54.0.0 deploy \
             --target=preview \
             --yes \
             --scope=start-berlin 2>&1)
