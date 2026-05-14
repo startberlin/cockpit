@@ -50,6 +50,11 @@ next-env.d.ts
 .cursor/skills/
 .claude/skills/
 
+# security audit artifacts — never publish to public repo
+.deepsec/
+docs/plans/*security*
+docs/plans/*remediation*
+
 # database dumps
 /supabase.sql
 .claude/settings.local.json
