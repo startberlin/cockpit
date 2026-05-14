@@ -2,9 +2,9 @@
 
 import { getClientSubscriptionToken } from "inngest/react";
 import { getActiveLegalMembership } from "@/db/membership";
+import { getCurrentUser } from "@/db/user";
 import { membershipActivatedChannel } from "@/inngest/channels";
 import { inngest } from "@/lib/inngest";
-import { getCurrentUser } from "@/db/user";
 
 export async function getDocumentsSubscriptionToken() {
   const user = await getCurrentUser();

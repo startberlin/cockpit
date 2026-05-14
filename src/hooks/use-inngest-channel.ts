@@ -1,7 +1,7 @@
 "use client";
 
-import { subscribe } from "inngest/realtime";
 import type { Realtime } from "inngest/realtime";
+import { subscribe } from "inngest/realtime";
 import { useEffect, useRef } from "react";
 
 interface UseInngestChannelOptions {

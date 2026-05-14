@@ -18,7 +18,6 @@ import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
-import { membershipActivatedChannel } from "./channels";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
@@ -35,6 +34,7 @@ import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/b
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
 import { resend } from "@/lib/resend";
+import { membershipActivatedChannel } from "./channels";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {

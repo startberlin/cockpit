@@ -1,9 +1,9 @@
 "use server";
 
 import { getClientSubscriptionToken } from "inngest/react";
+import { getCurrentUser } from "@/db/user";
 import { mandateActivatedChannel } from "@/inngest/channels";
 import { inngest } from "@/lib/inngest";
-import { getCurrentUser } from "@/db/user";
 
 export async function getMandateSubscriptionToken() {
   const user = await getCurrentUser();

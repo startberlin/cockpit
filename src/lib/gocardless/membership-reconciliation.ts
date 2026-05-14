@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserByCustomerId } from "@/db/membership";
-import { mandateActivatedChannel } from "@/inngest/channels";
 import { user } from "@/db/schema/auth";
+import { mandateActivatedChannel } from "@/inngest/channels";
 import { inngest } from "@/lib/inngest";
 import { getBillingRequest } from "./membership-flow";
 
