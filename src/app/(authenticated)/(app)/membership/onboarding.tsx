@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import NotionIcon from "@/assets/notion-logo.svg";
 import SlackIcon from "@/assets/slack-icon.svg";
 import {
@@ -8,71 +9,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Department, UserStatus } from "@/db/schema/auth";
-import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
-import type { MembershipPaymentCycleStatus } from "@/db/schema/membership-payments";
-import type { StructuredMembershipState } from "@/lib/membership-status";
+import { getActiveLegalMembership } from "@/db/membership";
+import type { User } from "@/db/schema/auth";
+import { getStructuredMembershipState } from "@/lib/membership-status";
 import { ContactDetailsCard } from "./contact-details-card";
 import { MembershipDetailsCard } from "./membership-details-card";
+import { MembershipDetailsSkeleton } from "./membership-details-skeleton";
 import { MembershipHeroCard } from "./membership-hero-card";
 import { MembershipNoticeBlock } from "./membership-notice-block";
 import { deriveMembershipNotice } from "./membership-notice-state";
 import { NotionDialog } from "./notion-dialog";
 import { SlackDialog } from "./slack-dialog";
 
-interface ContactDetails {
-  email: string;
-  personalEmail: string | null;
-  phone: string | null;
-  street: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  country: string | null;
-}
-
-interface MembershipDetails {
-  memberSince: Date | null;
-  batchNumber: number | null;
-  department: Department | null;
-  departmentHead: {
-    firstName: string;
-    lastName: string;
-    image: string | null;
-  } | null;
-  paymentTerm: {
-    activationDate: string;
-    status: MembershipPaymentCycleStatus;
-  } | null;
-  showBillingInfo: boolean;
-}
-
 interface MembershipPageContentProps {
-  membershipState: StructuredMembershipState;
-  userStatus: UserStatus;
-  firstName: string;
-  activeLegalMembership?: { id: string; status: LegalMembershipStatus } | null;
-  contactDetails: ContactDetails;
-  membershipDetails: MembershipDetails;
+  user: User;
 }
 
-export function MembershipPageContent({
-  membershipState,
-  userStatus,
-  firstName,
-  activeLegalMembership,
-  contactDetails,
-  membershipDetails,
+export async function MembershipPageContent({
+  user,
 }: MembershipPageContentProps) {
+  // Per-request deduplication only — not a persistent cache
+  const activeLegalMembership = await getActiveLegalMembership(user.id);
+
+  const membershipState = getStructuredMembershipState(user);
   const legalMembershipStatus = activeLegalMembership?.status ?? null;
   const noticeType = deriveMembershipNotice(
     membershipState,
     legalMembershipStatus,
-    userStatus,
+    user.status,
   );
-  const showTools = userStatus !== "alumni";
-  const toolsActionLabel = userStatus === "onboarding" ? "Join" : "Open";
-  const showMembershipDetails = userStatus !== "onboarding";
+  const showTools = user.status !== "alumni";
+  const toolsActionLabel = user.status === "onboarding" ? "Join" : "Open";
+  const showMembershipDetails = user.status !== "onboarding";
 
   return (
     <div className="flex flex-col gap-10">
@@ -80,29 +48,31 @@ export function MembershipPageContent({
         <MembershipHeroCard
           membershipState={membershipState}
           legalMembershipStatus={legalMembershipStatus}
-          userStatus={userStatus}
-          firstName={firstName}
+          userStatus={user.status}
+          firstName={user.firstName}
           noticeType={noticeType}
         />
         <MembershipNoticeBlock
           membershipState={membershipState}
           legalMembershipStatus={legalMembershipStatus}
-          userStatus={userStatus}
+          userStatus={user.status}
         />
       </div>
       {showMembershipDetails && (
-        <MembershipDetailsCard {...membershipDetails} />
+        <Suspense fallback={<MembershipDetailsSkeleton />}>
+          <MembershipDetailsCard user={user} />
+        </Suspense>
       )}
-      <ContactDetailsCard {...contactDetails} />
+      <ContactDetailsCard user={user} />
       {showTools && (
         <ToolsSection
           title={
-            userStatus === "onboarding"
+            user.status === "onboarding"
               ? "Get connected"
               : "My START Berlin tools"
           }
           description={
-            userStatus === "onboarding"
+            user.status === "onboarding"
               ? "Join the START Berlin workspaces where members coordinate, share resources, and work on projects."
               : "Open the workspaces you use for communication, projects, and resources."
           }
