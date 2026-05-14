@@ -1,11 +1,11 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/copy-button";
 
 interface CopyableFieldProps {
-  icon: LucideIcon;
+  icon: IconName;
   label: string;
   value?: ReactNode;
   copyValue?: string;
@@ -13,7 +13,7 @@ interface CopyableFieldProps {
 }
 
 export function CopyableField({
-  icon: Icon,
+  icon,
   label,
   value,
   copyValue,
@@ -21,7 +21,10 @@ export function CopyableField({
 }: CopyableFieldProps) {
   return (
     <div className="flex gap-3">
-      <Icon className="text-muted-foreground mt-1 h-4 w-4 shrink-0" />
+      <DynamicIcon
+        name={icon}
+        className="text-muted-foreground mt-1 h-4 w-4 shrink-0"
+      />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
