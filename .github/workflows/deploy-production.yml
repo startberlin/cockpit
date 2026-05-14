@@ -4,12 +4,13 @@ on:
   push:
     branches: [production]
 
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   build-and-stage:
     runs-on: ubuntu-latest
-    concurrency:
-      group: production-build
-      cancel-in-progress: true
     outputs:
       url: ${{ steps.deploy.outputs.url }}
 
@@ -49,9 +50,6 @@ jobs:
     needs: build-and-stage
     runs-on: ubuntu-latest
     environment: production
-    concurrency:
-      group: production-db-app-inngest
-      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
