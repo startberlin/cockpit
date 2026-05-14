@@ -48,6 +48,7 @@ export async function MembershipPageContent({
         <MembershipHeroCard
           membershipState={membershipState}
           legalMembershipStatus={legalMembershipStatus}
+          legalMembershipId={activeLegalMembership?.id ?? null}
           userStatus={user.status}
           firstName={user.firstName}
           noticeType={noticeType}

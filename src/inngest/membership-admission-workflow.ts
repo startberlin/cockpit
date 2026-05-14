@@ -18,6 +18,7 @@ import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
+import { membershipActivatedChannel } from "./channels";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
@@ -516,6 +517,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               and(eq(user.id, subjectUserId), eq(user.status, "onboarding")),
             );
         });
+
+        await inngest.realtime.publish(
+          membershipActivatedChannel(legalMembershipId).activated,
+          { legalMembershipId },
+        );
+
         return now.toISOString();
       },
     );
