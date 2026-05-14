@@ -1,7 +1,46 @@
 import type { NextConfig } from "next";
 
+const csp = [
+  "default-src 'self'",
+  // Next.js requires unsafe-inline for its own hydration scripts; unsafe-eval is not needed in production
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline'",
+  // Google OAuth profile pictures served from lh3.googleusercontent.com
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com",
+  "font-src 'self'",
+  // photon.komoot.io: address autocomplete; vitals.vercel-insights.com: Speed Insights reporting
+  "connect-src 'self' https://photon.komoot.io https://vitals.vercel-insights.com",
+  "frame-src https://accounts.google.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+]
+  .join("; ")
+  .concat(";");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   serverExternalPackages: ["@react-pdf/renderer"],
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
+      },
+    ];
+  },
   async redirects() {
     return [
       {

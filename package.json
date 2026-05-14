@@ -117,6 +117,8 @@
   },
   "overrides": {
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "tar": "7.5.11",
+    "smol-toml": "1.6.1"
   }
 }
