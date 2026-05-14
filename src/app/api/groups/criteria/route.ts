@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import db from "@/db";
 import { addGroupCriteria, addUsersMatchingCriteria } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
 import { addGroupCriteriaSchema } from "@/lib/groups/criteria";
@@ -31,19 +32,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const criteria = await addGroupCriteria({
-      ...parsed.data,
-      createdBy: currentUser.id,
-    });
+    const { criteria, addedUsersCount } = await db.transaction(async (tx) => {
+      const criteria = await addGroupCriteria(
+        {
+          ...parsed.data,
+          createdBy: currentUser.id,
+        },
+        tx,
+      );
 
-    const addedUsersCount = await addUsersMatchingCriteria(
-      parsed.data.groupId,
-      {
-        department: parsed.data.department,
-        status: parsed.data.status,
-        batchNumber: parsed.data.batchNumber,
-      },
-    );
+      const addedUsersCount = await addUsersMatchingCriteria(
+        parsed.data.groupId,
+        {
+          department: parsed.data.department,
+          status: parsed.data.status,
+          batchNumber: parsed.data.batchNumber,
+        },
+      );
+
+      return { criteria, addedUsersCount };
+    });
 
     return NextResponse.json({
       criteria,

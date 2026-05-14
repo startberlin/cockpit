@@ -101,8 +101,8 @@ export const submitApplicationAction = actionClient
       );
     }
 
-    await db.transaction(async (tx) => {
-      await tx
+    const submitted = await db.transaction(async (tx) => {
+      const updated = await tx
         .update(membershipApplication)
         .set({
           status: "submitted",
@@ -115,7 +115,12 @@ export const submitApplicationAction = actionClient
             eq(membershipApplication.id, draft.id),
             eq(membershipApplication.status, "draft"),
           ),
-        );
+        )
+        .returning({ id: membershipApplication.id });
+
+      if (updated.length === 0) {
+        return false;
+      }
 
       await tx
         .update(legalMembership)
@@ -133,7 +138,13 @@ export const submitApplicationAction = actionClient
           birthDate: draft.birthDate,
         })
         .where(eq(userTable.id, user.id));
+
+      return true;
     });
+
+    if (!submitted) {
+      return { success: true };
+    }
 
     const eventToSend =
       preSubmissionStatus === "membership_reconfirmation_pending"

@@ -14,19 +14,9 @@ export const createGroupWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { id, name, slug, integrations } = event.data;
 
-    // Step 1: Insert group into database
-    await step.run("insert-db-group", async () => {
-      await db
-        .insert(group)
-        .values({
-          id,
-          name,
-          slug,
-        })
-        .onConflictDoNothing();
-    });
+    // Steps 1–2: Provision external integrations before writing to the DB.
+    // This prevents orphaned DB records when Slack or Google provisioning fails.
 
-    // Step 2: Create Slack channel if requested
     if (integrations.slack) {
       await step.run("create-slack-channel", async () => {
         const result = await slack.conversations.create({
@@ -42,7 +32,6 @@ export const createGroupWorkflow = inngest.createFunction(
       });
     }
 
-    // Step 3: Create Google Group if requested
     if (integrations.email) {
       await step.run("create-google-group", async () => {
         const auth = createGoogleAuth(
@@ -73,5 +62,17 @@ export const createGroupWorkflow = inngest.createFunction(
         return { groupEmail };
       });
     }
+
+    // Step 3: Insert into DB only after external provisioning succeeded.
+    await step.run("insert-db-group", async () => {
+      await db
+        .insert(group)
+        .values({
+          id,
+          name,
+          slug,
+        })
+        .onConflictDoNothing();
+    });
   },
 );

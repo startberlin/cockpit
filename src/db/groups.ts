@@ -247,10 +247,12 @@ export { addGroupCriteriaSchema, normalizedGroupCriteriaSchema };
 
 export async function addGroupCriteria(
   input: AddGroupCriteriaInput & { createdBy: string },
+  tx?: Parameters<Parameters<typeof db.transaction>[0]>[0],
 ): Promise<GroupCriteria> {
+  const ops = tx ?? db;
   const criteriaId = nanoid();
 
-  const [newCriteria] = await db
+  const [newCriteria] = await ops
     .insert(groupCriteria)
     .values({
       id: criteriaId,
@@ -349,13 +351,16 @@ export async function addUsersToGroup({
     return 0;
   }
 
-  await db.insert(usersToGroups).values(
-    userIds.map((userId) => ({
-      userId,
-      groupId,
-      role,
-    })),
-  );
+  await db
+    .insert(usersToGroups)
+    .values(
+      userIds.map((userId) => ({
+        userId,
+        groupId,
+        role,
+      })),
+    )
+    .onConflictDoNothing();
 
   return userIds.length;
 }
