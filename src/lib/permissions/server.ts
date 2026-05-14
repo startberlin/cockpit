@@ -36,3 +36,13 @@ export async function can(
 
   return evaluateAuth(authority, action, scope);
 }
+
+export async function canAny(action: DepartmentScopedAction): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return false;
+
+  const authority = await getUserAuthority(user.id);
+  if (!authority) return false;
+
+  return evaluateAuth(authority, action, {});
+}

@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { Common, google } from "googleapis";
 import { NonRetriableError } from "inngest";
 import db from "@/db";
@@ -18,21 +19,21 @@ function generateRandomPassword(length = 15) {
 
   // Guarantee at least one character from each class.
   const required = [
-    upper[crypto.randomInt(upper.length)],
-    lower[crypto.randomInt(lower.length)],
-    digits[crypto.randomInt(digits.length)],
-    special[crypto.randomInt(special.length)],
+    upper[randomInt(upper.length)],
+    lower[randomInt(lower.length)],
+    digits[randomInt(digits.length)],
+    special[randomInt(special.length)],
   ];
 
   const rest = Array.from(
     { length: length - required.length },
-    () => all[crypto.randomInt(all.length)],
+    () => all[randomInt(all.length)],
   );
 
   // Fisher-Yates shuffle so the required chars aren't always first.
   const chars = [...required, ...rest];
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(i + 1);
+    const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
 

@@ -6,7 +6,7 @@ import { getPendingBoardActionsForUser } from "@/db/people-actions";
 import { batch } from "@/db/schema/batch";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import { can } from "@/lib/permissions/server";
+import { canAny } from "@/lib/permissions/server";
 import DirectoryPageClient from "./page-client";
 
 export const metadata = createMetadata({
@@ -16,7 +16,7 @@ export const metadata = createMetadata({
 
 export default async function DirectoryPage() {
   const currentUser = await getCurrentUser();
-  const canProposeMembership = await can("membership.propose");
+  const canProposeMembership = await canAny("membership.propose");
 
   const usersPromise: Promise<PublicUser[]> =
     getAllUserPublicData(canProposeMembership);
