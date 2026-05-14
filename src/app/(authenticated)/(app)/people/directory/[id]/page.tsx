@@ -1,6 +1,7 @@
 import { ArrowLeft, ShieldX } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { getUserById } from "@/db/people";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getUserDetails } from "@/db/people";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import { AuthorityCard } from "./authority-card";
@@ -24,7 +26,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
-  const user = await getUserById(id);
+  const user = await getUserDetails(id);
 
   if (!user) {
     return createMetadata({
@@ -41,7 +43,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function UserDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const user = await getUserById(id);
+  const user = await getUserDetails(id);
 
   if (!user) {
     notFound();
@@ -98,10 +100,18 @@ export default async function UserDetailPage({ params }: PageProps) {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <ProfileCard user={user} />
-        <ContactCard user={user} />
-        <GroupsCard groups={user.groups} />
-        <AuthorityCard user={user} canManageAuthority={canManageAuthority} />
+        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
+          <ProfileCard userId={id} />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
+          <ContactCard userId={id} />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
+          <GroupsCard userId={id} />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
+          <AuthorityCard userId={id} canManageAuthority={canManageAuthority} />
+        </Suspense>
       </div>
     </div>
   );
