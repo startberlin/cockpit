@@ -65,8 +65,7 @@ function getHeroContent(
       };
     case "application_pending":
       return {
-        headline:
-          "Fill out your membership application and join START Berlin e.V.",
+        headline: "Join START Berlin e.V.",
         body: "The START Berlin board has invited you to submit your membership application and become an official member.",
       };
     case "membership_reconfirmation_pending":
@@ -164,9 +163,9 @@ export function MembershipHeroCard({
             {badgeLabel}
           </span>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-2">
           {variant === "processing" && (
-            <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Loader2Icon className="h-7 w-7 shrink-0 animate-spin text-muted-foreground sm:h-5 sm:w-5" />
           )}
           <h2 className="text-3xl font-black uppercase tracking-tight leading-none">
             {headline}
