@@ -19,7 +19,7 @@ const input: MembershipFlowInput = {
     street: "1 Infinite Loop",
     city: "Berlin",
     zip: "10115",
-    country: "DE",
+    country: "Germany",
   },
   returnUrl: "https://cockpit.example.com/membership/payment-return",
   exitUrl: "https://cockpit.example.com/membership",
@@ -69,7 +69,7 @@ describe("membership GoCardless flow helpers", () => {
   });
 
   it("omits empty values from billing detail", () => {
-    const sparse = { ...input, address: { country: "DE" } };
+    const sparse = { ...input, address: { country: "Germany" } };
     assert.deepEqual(billingDetailFromMembershipInput(sparse), {
       country_code: "DE",
     });
