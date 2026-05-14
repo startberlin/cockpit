@@ -11,8 +11,7 @@ const csp = [
   "img-src 'self' data: blob: https://lh3.googleusercontent.com",
   "font-src 'self'",
   // photon.komoot.io: address autocomplete; vitals.vercel-insights.com: Speed Insights reporting
-  // wss://rt.inngest.com: Inngest Realtime WebSocket (prod); ws://127.0.0.1:8288: Inngest dev server
-  `connect-src 'self' https://photon.komoot.io https://vitals.vercel-insights.com wss://rt.inngest.com${isDev ? " ws://127.0.0.1:8288" : ""}`,
+  "connect-src 'self' https://photon.komoot.io https://vitals.vercel-insights.com",
   "frame-src 'self' https://accounts.google.com",
   "object-src 'none'",
   "base-uri 'self'",

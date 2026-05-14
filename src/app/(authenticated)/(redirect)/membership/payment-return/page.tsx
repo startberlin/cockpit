@@ -13,5 +13,5 @@ export default async function PaymentReturnPage() {
     return redirect("/membership");
   }
 
-  return <PaymentReturnRedirect userId={user.id} />;
+  return <PaymentReturnRedirect />;
 }

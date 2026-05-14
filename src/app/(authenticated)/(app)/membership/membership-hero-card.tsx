@@ -3,13 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import * as React from "react";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
-import { useInngestChannel } from "@/hooks/use-inngest-channel";
-import { membershipActivatedChannel } from "@/inngest/channels";
 import type { StructuredMembershipState } from "@/lib/membership-status";
-import { getDocumentsSubscriptionToken } from "./get-documents-subscription-token-action";
 import { getLegalMembershipStatus } from "./get-legal-membership-status-action";
 import {
   deriveMembershipHeroVariant,
@@ -20,7 +18,6 @@ import type { MembershipNoticeType } from "./membership-notice-state";
 interface MembershipHeroCardProps {
   membershipState: StructuredMembershipState;
   legalMembershipStatus: LegalMembershipStatus | null;
-  legalMembershipId: string | null;
   userStatus: UserStatus;
   firstName: string;
   noticeType: MembershipNoticeType;
@@ -104,32 +101,23 @@ function getBadgeLabel(noticeType: MembershipNoticeType): string | null {
 export function MembershipHeroCard({
   membershipState,
   legalMembershipStatus,
-  legalMembershipId,
   userStatus,
   firstName,
   noticeType,
 }: MembershipHeroCardProps) {
   const router = useRouter();
-
-  const isProcessing =
-    legalMembershipStatus === "processing" && !!legalMembershipId;
-
-  useInngestChannel({
-    channel: membershipActivatedChannel(legalMembershipId ?? "_"),
-    topics: ["activated"],
-    getToken: getDocumentsSubscriptionToken,
-    onMessage: () => router.refresh(),
-    enabled: isProcessing,
-  });
+  const pollingStartedAt = React.useRef(Date.now());
 
   const { data: polledStatus } = useQuery({
     queryKey: ["legal-membership-status"],
     queryFn: getLegalMembershipStatus,
     refetchInterval: (query) => {
       const current = query.state.data;
-      return !current || current === "processing" ? 30_000 : false;
+      if (current && current !== "processing") return false;
+      if (Date.now() - pollingStartedAt.current >= 60_000) return false;
+      return 3_000;
     },
-    enabled: isProcessing,
+    enabled: legalMembershipStatus === "processing",
   });
 
   useQuery({

@@ -2,8 +2,6 @@ import { eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserByCustomerId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
-import { mandateActivatedChannel } from "@/inngest/channels";
-import { inngest } from "@/lib/inngest";
 import { getBillingRequest } from "./membership-flow";
 
 export type MembershipReconciliationResult =
@@ -77,10 +75,6 @@ async function reconcileMembershipPayment(
       gocardlessSetupSessionId: null,
     })
     .where(eq(user.id, member.id));
-
-  await inngest.realtime.publish(mandateActivatedChannel(member.id).activated, {
-    userId: member.id,
-  });
 
   return { status: "activated", hostedRedirect: "/membership" };
 }
