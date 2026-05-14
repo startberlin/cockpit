@@ -8,6 +8,9 @@ concurrency:
   group: production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   build-and-stage:
     runs-on: ubuntu-latest
@@ -15,9 +18,9 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -26,10 +29,49 @@ jobs:
 
       - run: npm test
 
-      - name: Create staged Vercel production deployment
+      - name: Create staged Vercel preview deployment
         id: deploy
         run: |
-          output=$(npx vercel deploy \
+          output=$(npx --no-install vercel deploy \
+            --target=preview \
+            --yes \
+            --scope=start-berlin 2>&1)
+
+          echo "$output"
+          deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Smoke test staged deployment
+        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+
+  promote-and-migrate:
+    needs: build-and-stage
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply production database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+
+      - name: Deploy to production infrastructure
+        id: prod-deploy
+        run: |
+          output=$(npx --no-install vercel deploy \
             --prod \
             --skip-domain \
             --yes \
@@ -43,33 +85,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test staged production deployment
-        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
-
-  promote-and-migrate:
-    needs: build-and-stage
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Apply production database migrations
-        run: npm run db:migrate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-
       - name: Promote production deployment
         run: |
-          npx vercel promote \
-            "${{ needs.build-and-stage.outputs.url }}" \
+          npx --no-install vercel promote \
+            "${{ steps.prod-deploy.outputs.url }}" \
             --yes \
             --timeout=5m \
             --scope start-berlin
