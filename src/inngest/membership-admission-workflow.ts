@@ -34,6 +34,7 @@ import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/b
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
 import { resend } from "@/lib/resend";
+import { membershipActivatedChannel } from "./channels";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
@@ -516,6 +517,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               and(eq(user.id, subjectUserId), eq(user.status, "onboarding")),
             );
         });
+
+        await inngest.realtime.publish(
+          membershipActivatedChannel(legalMembershipId).activated,
+          { legalMembershipId },
+        );
+
         return now.toISOString();
       },
     );

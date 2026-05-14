@@ -35,7 +35,7 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
   if (isMandateInvalidatedEvent(event) && event.links.mandate) {
     await db
       .update(user)
-      .set({ gocardlessMandateId: null })
+      .set({ gocardlessMandateId: null, gocardlessSetupSessionId: null })
       .where(eq(user.gocardlessMandateId, event.links.mandate));
     return { status: "mandate_cleared" as const };
   }

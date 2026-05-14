@@ -3,15 +3,25 @@
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useInngestChannel } from "@/hooks/use-inngest-channel";
+import { mandateActivatedChannel } from "@/inngest/channels";
 import { checkMandateReadyAction } from "./check-mandate-action";
+import { getMandateSubscriptionToken } from "./get-mandate-subscription-token-action";
 
-const POLL_INTERVAL_MS = 2500;
+const POLL_INTERVAL_MS = 15_000;
 const TIMEOUT_MS = 60_000;
 
-export function PaymentReturnRedirect() {
+export function PaymentReturnRedirect({ userId }: { userId: string }) {
   const router = useRouter();
   const [timedOut, setTimedOut] = useState(false);
   const activeRef = useRef(true);
+
+  useInngestChannel({
+    channel: mandateActivatedChannel(userId),
+    topics: ["activated"],
+    getToken: getMandateSubscriptionToken,
+    onMessage: () => router.replace("/membership"),
+  });
 
   useEffect(() => {
     const startedAt = Date.now();
