@@ -16,6 +16,23 @@ export const saveFeesDeclarationsAction = actionClient
     const { user } = ctx;
 
     await db.transaction(async (tx) => {
+      const ownedMembership = await tx.query.legalMembership.findFirst({
+        where: (lm, { and: andFn, eq: eqFn }) =>
+          andFn(
+            eqFn(lm.id, parsedInput.legalMembershipId),
+            eqFn(lm.userId, user.id),
+          ),
+        columns: { id: true },
+      });
+
+      if (!ownedMembership) {
+        return returnValidationErrors(declarationStepSchema, {
+          legalMembershipId: {
+            _errors: ["Membership not found or does not belong to you."],
+          },
+        });
+      }
+
       await tx.execute(
         sql`SELECT id FROM membership_application WHERE legal_membership_id = ${parsedInput.legalMembershipId} AND subject_user_id = ${user.id} AND status = 'draft' FOR UPDATE`,
       );

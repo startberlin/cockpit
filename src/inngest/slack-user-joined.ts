@@ -60,7 +60,7 @@ export const handleSlackEvent = inngest.createFunction(
             type: "section",
             text: {
               type: "mrkdwn",
-              text: "👋 Welcome to Slack, Sönke!",
+              text: `👋 Welcome to Slack, ${user.firstName}!`,
             },
           },
           {

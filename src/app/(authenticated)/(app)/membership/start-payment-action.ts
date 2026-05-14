@@ -1,8 +1,8 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { newMembershipSessionId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
@@ -23,7 +23,9 @@ export const startMembershipPaymentAction = actionClient.action(
       return { hostedUrl: "/membership" };
     }
 
-    const localSessionId = newMembershipSessionId();
+    // Stable per-user session ID so concurrent or repeated calls reuse the
+    // same GoCardless billing request flow instead of creating new ones.
+    const localSessionId = `mps_${createHash("sha256").update(`payment-setup:${ctx.user.id}`).digest("hex").slice(0, 16)}`;
     const returnUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership/payment-return`;
     const exitUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`;
 

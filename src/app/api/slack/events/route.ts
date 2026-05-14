@@ -43,8 +43,6 @@ export async function POST(request: Request) {
 
   const body = JSON.parse(rawBody);
 
-  console.log(body);
-
   const parsed = EventSchema.safeParse(body);
 
   if (!parsed.success) {

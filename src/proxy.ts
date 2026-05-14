@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { env } from "@/env";
 import { auth } from "@/lib/auth";
 
 const publicRoutes = ["/auth"];
@@ -18,7 +19,7 @@ export async function proxy(request: NextRequest) {
   });
 
   if (!session) {
-    const redirectUrl = new URL("/auth", request.url);
+    const redirectUrl = new URL("/auth", env.NEXT_PUBLIC_COCKPIT_URL);
 
     // Only store full URL if origin is in whitelist
     const requestOrigin = request.nextUrl.hostname;

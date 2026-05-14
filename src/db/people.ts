@@ -30,9 +30,7 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
-  profileOnboardingComplete?: boolean;
-  hasMembershipPayment?: boolean;
-  hasActiveTenure?: boolean;
+  isEligibleForMembershipProposal?: boolean;
 }
 
 export interface UserDetail {
@@ -91,7 +89,9 @@ export async function getDepartmentHeadForDepartment(
   return row?.user ?? null;
 }
 
-export async function getAllUserPublicData(): Promise<PublicUser[]> {
+export async function getAllUserPublicData(
+  includeEligibility = false,
+): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
     columns: {
       id: true,
@@ -104,31 +104,36 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
       batchNumber: true,
       status: true,
       department: true,
-      gocardlessMandateId: true,
     },
-    extras: {
-      hasActiveTenure: sql<boolean>`EXISTS (
+    extras: includeEligibility
+      ? {
+          hasActiveTenure: sql<boolean>`EXISTS (
         SELECT 1 FROM ${legalMembership}
         WHERE ${legalMembership.userId} = ${userTable.id}
         AND ${legalMembership.status} = ANY(${sql.raw(`ARRAY[${LIVE_TENURE_STATUSES.map((s) => `'${s}'`).join(", ")}]::legal_membership_status[]`)})
       )`.as("has_active_tenure"),
-    },
+        }
+      : {},
   });
 
-  return allUsers.map(
-    (u): PublicUser => ({
+  return allUsers.map((u): PublicUser => {
+    const base: PublicUser = {
       id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      email: u.email ?? "",
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
-      profileOnboardingComplete: getOnboardingProgress(u) === "completed",
-      hasMembershipPayment: !!u.gocardlessMandateId,
-      hasActiveTenure: u.hasActiveTenure,
-    }),
-  );
+    };
+
+    if (includeEligibility && "hasActiveTenure" in u) {
+      base.isEligibleForMembershipProposal =
+        getOnboardingProgress(u) === "completed" && !u.hasActiveTenure;
+    }
+
+    return base;
+  });
 }
 
 export interface UserDetails {

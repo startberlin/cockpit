@@ -10,14 +10,33 @@ import { events, inngest } from "@/lib/inngest";
 import { resend } from "@/lib/resend";
 
 function generateRandomPassword(length = 15) {
-  // Simple secure password generator with all required charsets.
-  const chars =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@$!%*#?&";
-  let res = "";
-  for (let i = 0; i < length; i++) {
-    res += chars.charAt(Math.floor(Math.random() * chars.length));
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "@$!%*#?&";
+  const all = upper + lower + digits + special;
+
+  // Guarantee at least one character from each class.
+  const required = [
+    upper[crypto.randomInt(upper.length)],
+    lower[crypto.randomInt(lower.length)],
+    digits[crypto.randomInt(digits.length)],
+    special[crypto.randomInt(special.length)],
+  ];
+
+  const rest = Array.from(
+    { length: length - required.length },
+    () => all[crypto.randomInt(all.length)],
+  );
+
+  // Fisher-Yates shuffle so the required chars aren't always first.
+  const chars = [...required, ...rest];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
   }
-  return res;
+
+  return chars.join("");
 }
 
 export const onboardNewUserWorkflow = inngest.createFunction(
@@ -76,7 +95,19 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         throw error;
       }
 
-      return { companyEmail, personalEmail, password };
+      await resend.emails.send({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: personalEmail,
+        subject: "Welcome to START Berlin — your sign-in details",
+        react: SignInInstructionsEmail({
+          firstName,
+          companyEmail,
+          initialPassword: password,
+        }),
+      });
+
+      // password intentionally excluded — must not persist in Inngest run history
+      return { companyEmail, personalEmail };
     });
 
     await step.run("insert-db-user", async () => {
@@ -108,19 +139,6 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           },
         })
         .returning({ id: userTable.id });
-    });
-
-    await step.run("send-signin-instructions", async () => {
-      return await resend.emails.send({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: user.personalEmail,
-        subject: "Welcome to START Berlin — your sign-in details",
-        react: SignInInstructionsEmail({
-          firstName,
-          companyEmail: user.companyEmail,
-          initialPassword: user.password,
-        }),
-      });
     });
 
     await step.run("send-cockpit-access-email", async () => {

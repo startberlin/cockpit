@@ -45,16 +45,33 @@ export const proposeMembershipAction = actionClient
       throw new Error("The user has not completed their profile onboarding.");
     }
 
-    // Guard against double tenure — check before creating any rows
+    // Guard against double tenure — check before creating any rows.
+    // Recovery path: if a tenure exists in admission_pending but inngestRunId is
+    // null, the previous inngest.send failed after the transaction committed.
+    // Resend the event rather than blocking forever.
     const existingTenure = await db.query.legalMembership.findFirst({
       where: (lm, { and, inArray }) =>
         and(
           eq(lm.userId, targetUser.id),
           inArray(lm.status, [...LIVE_TENURE_STATUSES]),
         ),
+      columns: { id: true, status: true, inngestRunId: true },
     });
 
     if (existingTenure) {
+      if (
+        existingTenure.status === "admission_pending" &&
+        !existingTenure.inngestRunId
+      ) {
+        await inngest.send({
+          name: events.admissionWorkflowStarted.name,
+          data: {
+            legalMembershipId: existingTenure.id,
+            subjectUserId: targetUser.id,
+          },
+        });
+        return { legalMembershipId: existingTenure.id };
+      }
       throw new Error(
         "This user already has an active or pending membership tenure.",
       );

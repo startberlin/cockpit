@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type React from "react";
 import Logo from "@/app/logo-black.png";
 import {
@@ -44,6 +44,8 @@ export default async function OnboardingStepLayout({
   }
 
   const stepDef = STEP_DEFINITIONS[step as OnboardingStep];
+
+  if (!stepDef) notFound();
 
   return (
     <div className="flex min-h-screen flex-1 flex-col md:justify-center px-6 md:px-4 py-6 md:py-10 lg:px-6">

@@ -175,11 +175,17 @@ export function AuthorityEditor({
         });
       }
 
-      await updateAuthorityAction({
+      const result = await updateAuthorityAction({
         userId,
         positions: nextPositions,
         grants: nextGrants,
       });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(
+          "Could not update positions and permissions. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        );
+        return;
+      }
       toast.success("Positions and permissions saved.");
       router.refresh();
     } catch (_error) {

@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { membershipApplication } from "@/db/schema/membership-application";
@@ -14,6 +15,23 @@ export const saveApplicationPersonalInfoAction = actionClient
     const { user } = ctx;
 
     await db.transaction(async (tx) => {
+      const ownedMembership = await tx.query.legalMembership.findFirst({
+        where: (lm, { and, eq: eqFn }) =>
+          and(
+            eqFn(lm.id, parsedInput.legalMembershipId),
+            eqFn(lm.userId, user.id),
+          ),
+        columns: { id: true },
+      });
+
+      if (!ownedMembership) {
+        return returnValidationErrors(applicationPersonalInfoSchema, {
+          legalMembershipId: {
+            _errors: ["Membership not found or does not belong to you."],
+          },
+        });
+      }
+
       await tx
         .update(userTable)
         .set({

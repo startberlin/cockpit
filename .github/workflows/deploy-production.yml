@@ -8,6 +8,9 @@ concurrency:
   group: production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   build-and-stage:
     runs-on: ubuntu-latest
@@ -15,9 +18,9 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -26,10 +29,10 @@ jobs:
 
       - run: npm test
 
-      - name: Create staged Vercel production deployment
+      - name: Create Vercel production deployment (skip-domain)
         id: deploy
         run: |
-          output=$(npx vercel deploy \
+          output=$(npx vercel@54.0.0 deploy \
             --prod \
             --skip-domain \
             --yes \
@@ -43,7 +46,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test staged production deployment
+      - name: Smoke test staged deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
 
   promote-and-migrate:
@@ -52,9 +55,9 @@ jobs:
     environment: production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -68,7 +71,7 @@ jobs:
 
       - name: Promote production deployment
         run: |
-          npx vercel promote \
+          npx vercel@54.0.0 promote \
             "${{ needs.build-and-stage.outputs.url }}" \
             --yes \
             --timeout=5m \

@@ -355,6 +355,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         );
       }
 
+      if (application.subjectUserId !== subjectUserId) {
+        throw new Error(
+          `Ownership mismatch: application subjectUserId ${application.subjectUserId} does not match expected ${subjectUserId} for legal membership ${legalMembershipId}`,
+        );
+      }
+
       if (
         !application.street ||
         !application.city ||

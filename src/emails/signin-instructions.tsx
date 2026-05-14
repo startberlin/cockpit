@@ -111,7 +111,7 @@ export const SignInInstructionsEmail = ({
 SignInInstructionsEmail.PreviewProps = {
   firstName: "Sönke",
   companyEmail: "soenke.mueller@start-berlin.com",
-  initialPassword: "MyInitialPwd!2345",
+  initialPassword: "••••••••••••",
 } as SignInInstructionsEmailProps;
 
 export default SignInInstructionsEmail;

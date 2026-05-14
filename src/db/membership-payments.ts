@@ -299,6 +299,7 @@ export async function getMembersNeedingProposal(): Promise<
         SELECT mp.activation_date
         FROM membership_payments mp
         WHERE mp.user_id = ${user.id}
+        AND mp.status IN ('confirmed', 'paid_out', 'declined')
         ORDER BY mp.activation_date DESC
         LIMIT 1
       )`,
@@ -306,7 +307,7 @@ export async function getMembersNeedingProposal(): Promise<
     .from(user)
     .where(
       and(
-        eq(user.status, "member"),
+        inArray(user.status, ["member", "supporting_alumni"]),
         isNotNull(user.gocardlessMandateId),
         // Exclude members who are already covered for this cycle
         sql`NOT EXISTS (

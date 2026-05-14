@@ -44,10 +44,18 @@ export const submitApplicationAction = actionClient
 
     const lm = await db.query.legalMembership.findFirst({
       where: eq(legalMembership.id, parsedInput.legalMembershipId),
-      columns: { status: true },
+      columns: { status: true, userId: true },
     });
 
-    const preSubmissionStatus = lm?.status;
+    if (!lm || lm.userId !== user.id) {
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: {
+          _errors: ["Membership not found or does not belong to you."],
+        },
+      });
+    }
+
+    const preSubmissionStatus = lm.status;
     if (
       preSubmissionStatus !== "application_pending" &&
       preSubmissionStatus !== "membership_reconfirmation_pending"
@@ -93,8 +101,8 @@ export const submitApplicationAction = actionClient
       );
     }
 
-    await db.transaction(async (tx) => {
-      await tx
+    const submitted = await db.transaction(async (tx) => {
+      const updated = await tx
         .update(membershipApplication)
         .set({
           status: "submitted",
@@ -107,7 +115,12 @@ export const submitApplicationAction = actionClient
             eq(membershipApplication.id, draft.id),
             eq(membershipApplication.status, "draft"),
           ),
-        );
+        )
+        .returning({ id: membershipApplication.id });
+
+      if (updated.length === 0) {
+        return false;
+      }
 
       await tx
         .update(legalMembership)
@@ -125,7 +138,13 @@ export const submitApplicationAction = actionClient
           birthDate: draft.birthDate,
         })
         .where(eq(userTable.id, user.id));
+
+      return true;
     });
+
+    if (!submitted) {
+      return { success: true };
+    }
 
     const eventToSend =
       preSubmissionStatus === "membership_reconfirmation_pending"
