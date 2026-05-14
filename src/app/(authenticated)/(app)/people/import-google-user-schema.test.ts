@@ -24,13 +24,42 @@ describe("importGoogleWorkspaceUserSchema", () => {
     assert.equal(result.success, true);
   });
 
-  it("accepts member imports without a department", () => {
+  it("rejects member imports without a department", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
     });
 
+    assert.equal(result.success, false);
+  });
+
+  it("accepts onboarding imports with a department", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "onboarding",
+      department: "operations",
+    });
+
     assert.equal(result.success, true);
+  });
+
+  it("rejects onboarding imports without a department", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "onboarding",
+    });
+
+    assert.equal(result.success, false);
+  });
+
+  it("rejects supporting alumni imports with a department", () => {
+    const result = importGoogleWorkspaceUserSchema.safeParse({
+      ...baseInput,
+      status: "supporting_alumni",
+      department: "operations",
+    });
+
+    assert.equal(result.success, false);
   });
 
   it("accepts supporting alumni imports without a department", () => {
@@ -46,15 +75,6 @@ describe("importGoogleWorkspaceUserSchema", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "alumni",
-    });
-
-    assert.equal(result.success, true);
-  });
-
-  it("accepts onboarding imports", () => {
-    const result = importGoogleWorkspaceUserSchema.safeParse({
-      ...baseInput,
-      status: "onboarding",
     });
 
     assert.equal(result.success, true);
@@ -105,7 +125,10 @@ describe("normalizeImportedDepartment", () => {
     assert.equal(normalizeImportedDepartment("alumni", "operations"), null);
   });
 
-  it("drops stale department values for onboarding imports", () => {
-    assert.equal(normalizeImportedDepartment("onboarding", "operations"), null);
+  it("keeps the department for onboarding imports", () => {
+    assert.equal(
+      normalizeImportedDepartment("onboarding", "operations"),
+      "operations",
+    );
   });
 });

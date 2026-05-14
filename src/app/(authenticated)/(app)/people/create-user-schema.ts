@@ -2,7 +2,6 @@ import { z } from "zod";
 import { departmentSchema, userStatus } from "@/db/schema/auth";
 
 export const companyEmailSchema = z
-  .string()
   .email("Please enter a valid email address.")
   .refine(
     (e) => e.endsWith("@start-berlin.com"),
@@ -31,7 +30,7 @@ export const createUserSchema = z
 
     if (requiresDepartment && !data.department) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Please select a department.",
         path: ["department"],
       });
@@ -39,7 +38,7 @@ export const createUserSchema = z
 
     if (!requiresDepartment && data.department) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Alumni cannot have a department.",
         path: ["department"],
       });

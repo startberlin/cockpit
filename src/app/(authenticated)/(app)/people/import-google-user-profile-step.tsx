@@ -78,7 +78,8 @@ export function ProfileStep({
   } = useFormContext<ImportGoogleWorkspaceUserData>();
 
   const selectedStatus = useWatch({ control, name: "status" });
-  const shouldShowDepartment = selectedStatus === "member";
+  const shouldShowDepartment =
+    selectedStatus === "member" || selectedStatus === "onboarding";
 
   React.useEffect(() => {
     if (!shouldShowDepartment && getValues("department") !== null) {
@@ -243,15 +244,12 @@ export function ProfileStep({
                   <FieldLabel>Department</FieldLabel>
                   <Select
                     value={field.value ?? ""}
-                    onValueChange={(v) =>
-                      field.onChange(v === "__none__" ? null : v)
-                    }
+                    onValueChange={field.onChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Department (optional)" />
+                      <SelectValue placeholder="Select a department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
                       {Object.entries(DEPARTMENTS).map(([id, name]) => (
                         <SelectItem key={id} value={id}>
                           {name}
