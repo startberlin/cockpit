@@ -15,19 +15,8 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
 import { Fragment, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +41,7 @@ import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
 import { DEPARTMENTS } from "@/lib/enums";
 import { USER_STATUS_INFO } from "@/lib/user-status";
-import { Can, useCan } from "./can";
+import { useCan } from "./can";
 import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
@@ -60,69 +49,6 @@ interface PeopleTableProps {
   pendingActions?: PendingBoardAction[];
 }
 
-function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const { execute, isPending } = useAction(proposeMembershipAction, {
-    onSuccess: () => {
-      setOpen(false);
-      router.refresh();
-      toast.success("Membership proposed", {
-        description:
-          "The board admission workflow has been started for this member.",
-      });
-    },
-    onError: () => {
-      toast.error(
-        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    },
-  });
-
-  return (
-    <Fragment key={user.id}>
-      <DropdownMenuItem
-        disabled={isPending}
-        onSelect={(event) => {
-          event.preventDefault();
-          setOpen(true);
-        }}
-      >
-        Propose for membership
-      </DropdownMenuItem>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Propose {user.firstName} {user.lastName} for membership?
-            </DialogTitle>
-            <DialogDescription>
-              This starts the board admission workflow for this member. The
-              board will be asked to vote on their admission.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={isPending}
-              onClick={() => execute({ userId: user.id })}
-            >
-              {isPending ? "Proposing..." : "Propose for membership"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Fragment>
-  );
-}
 
 export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
   const router = useRouter();
@@ -230,15 +156,6 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                   >
                     Copy email
                   </DropdownMenuItem>
-                  {user.status === "onboarding" &&
-                    user.isEligibleForMembershipProposal && (
-                      <Can
-                        permission="membership.propose"
-                        context={{ targetDepartment: user.department }}
-                      >
-                        <ProposeMembershipMenuItem user={user} />
-                      </Can>
-                    )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

@@ -13,7 +13,7 @@ export type DepartmentScopedAction =
 export type Action = GlobalAction | DepartmentScopedAction;
 
 export type DepartmentScope = {
-  targetDepartment?: Department | null;
+  targetDepartment: Department | null;
 };
 
 const globalActions = [
@@ -89,7 +89,12 @@ function isDepartmentHead(
 }
 
 function hasDepartmentScope(scope: unknown): scope is DepartmentScope {
-  return typeof scope === "object" && scope !== null;
+  return (
+    typeof scope === "object" &&
+    scope !== null &&
+    "targetDepartment" in scope &&
+    (scope as DepartmentScope).targetDepartment !== undefined
+  );
 }
 
 function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {

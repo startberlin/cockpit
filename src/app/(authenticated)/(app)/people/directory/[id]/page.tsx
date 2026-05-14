@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserDetails } from "@/db/people";
+import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import { AuthorityCard } from "./authority-card";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { ProfileCard } from "./profile-card";
+import { ProposeMembershipButton } from "./propose-membership-button";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -74,6 +76,16 @@ export default async function UserDetailPage({ params }: PageProps) {
 
   const canManageAuthority = await can("users.manage_authority");
 
+  const isEligibleForMembershipProposal =
+    user.profileOnboardingComplete &&
+    !(LIVE_TENURE_STATUSES as readonly string[]).includes(
+      user.legalMembershipState,
+    );
+
+  const canProposeMembership =
+    isEligibleForMembershipProposal &&
+    (await can("membership.propose", { targetDepartment: user.department }));
+
   return (
     <div className="w-full space-y-6">
       <BreadcrumbCrumb
@@ -91,11 +103,20 @@ export default async function UserDetailPage({ params }: PageProps) {
             Back to directory
           </Link>
         </Button>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {user.firstName} {user.lastName}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {user.firstName} {user.lastName}
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
+          </div>
+          {canProposeMembership && (
+            <ProposeMembershipButton
+              userId={user.id}
+              firstName={user.firstName}
+              lastName={user.lastName}
+            />
+          )}
         </div>
       </div>
 

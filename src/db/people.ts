@@ -153,6 +153,7 @@ export interface UserDetails {
   status: UserStatus;
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
+  profileOnboardingComplete: boolean;
   createdAt: Date;
 }
 
@@ -230,6 +231,7 @@ export const getUserDetails = cache(
       status: user.status,
       legalMembershipState: user.legalMembershipState,
       membershipState: getStructuredMembershipState(user),
+      profileOnboardingComplete: getOnboardingProgress(user) === "completed",
       createdAt: user.createdAt,
     };
   },
