@@ -44,10 +44,18 @@ export const submitApplicationAction = actionClient
 
     const lm = await db.query.legalMembership.findFirst({
       where: eq(legalMembership.id, parsedInput.legalMembershipId),
-      columns: { status: true },
+      columns: { status: true, userId: true },
     });
 
-    const preSubmissionStatus = lm?.status;
+    if (!lm || lm.userId !== user.id) {
+      return returnValidationErrors(submitApplicationSchema, {
+        legalMembershipId: {
+          _errors: ["Membership not found or does not belong to you."],
+        },
+      });
+    }
+
+    const preSubmissionStatus = lm.status;
     if (
       preSubmissionStatus !== "application_pending" &&
       preSubmissionStatus !== "membership_reconfirmation_pending"
