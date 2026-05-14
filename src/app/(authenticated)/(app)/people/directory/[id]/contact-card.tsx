@@ -1,4 +1,3 @@
-import { Mail, MapPin, Phone } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -43,7 +42,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
       <CardContent>
         <div className="space-y-4">
           <CopyableField
-            icon={Mail}
+            icon="mail"
             label="START Email"
             value={user.email}
             copyValue={user.email}
@@ -53,7 +52,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
           <Separator />
 
           <CopyableField
-            icon={Mail}
+            icon="mail"
             label="Personal Email"
             value={user.personalEmail}
             copyValue={user.personalEmail}
@@ -63,7 +62,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
           <Separator />
 
           <CopyableField
-            icon={Phone}
+            icon="phone"
             label="Phone"
             value={
               user.phone || (
@@ -79,7 +78,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
           <Separator />
 
           <CopyableField
-            icon={MapPin}
+            icon="map-pin"
             label="Address"
             value={
               hasAddress ? (
