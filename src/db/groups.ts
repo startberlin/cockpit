@@ -100,6 +100,8 @@ export async function checkSlugAvailability(slug: string): Promise<boolean> {
 }
 
 export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
+  const canManage = await can("groups.manage_members");
+
   const [groupData, members, criteria] = await Promise.all([
     db
       .select({
@@ -125,10 +127,12 @@ export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
       .innerJoin(user, eq(usersToGroups.userId, user.id))
       .where(eq(usersToGroups.groupId, id))
       .orderBy(usersToGroups.role, user.firstName, user.lastName),
-    db.query.groupCriteria.findMany({
-      where: eq(groupCriteria.groupId, id),
-      orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
-    }),
+    canManage
+      ? db.query.groupCriteria.findMany({
+          where: eq(groupCriteria.groupId, id),
+          orderBy: (groupCriteria, { desc }) => [desc(groupCriteria.createdAt)],
+        })
+      : Promise.resolve([]),
   ]);
 
   if (!groupData.length) return null;

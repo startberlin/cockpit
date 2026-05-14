@@ -231,8 +231,7 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                     Copy email
                   </DropdownMenuItem>
                   {user.status === "onboarding" &&
-                    user.profileOnboardingComplete &&
-                    !user.hasActiveTenure && (
+                    user.isEligibleForMembershipProposal && (
                       <Can
                         permission="membership.propose"
                         context={{ targetDepartment: user.department }}
