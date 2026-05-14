@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   getStructuredMembershipState,
   type StructuredMembershipState,
@@ -9,12 +10,16 @@ import type {
   LegalMembershipState,
   UserStatus,
 } from "./schema/auth";
+import { user as userTable } from "./schema/auth";
 import type {
   AccessGrant,
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
-import { LIVE_TENURE_STATUSES } from "./schema/legal-membership";
+import {
+  LIVE_TENURE_STATUSES,
+  legalMembership,
+} from "./schema/legal-membership";
 
 export interface PublicUser {
   id: string;
@@ -89,54 +94,40 @@ export async function getAllUserPublicData(): Promise<PublicUser[]> {
   const allUsers = await db.query.user.findMany({
     columns: {
       id: true,
-      name: true,
       firstName: true,
       lastName: true,
       email: true,
-      emailVerified: true,
-      image: true,
-      createdAt: true,
-      updatedAt: true,
-      street: true,
-      state: true,
-      city: true,
-      zip: true,
-      country: true,
       personalEmail: true,
-      batchNumber: true,
       phone: true,
       birthDate: true,
+      batchNumber: true,
       status: true,
       department: true,
-      legalMembershipState: true,
       gocardlessMandateId: true,
     },
-    with: {
-      batch: true,
-      legalMemberships: {
-        columns: { status: true },
-      },
+    extras: {
+      hasActiveTenure: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${legalMembership}
+        WHERE ${legalMembership.userId} = ${userTable.id}
+        AND ${legalMembership.status} = ANY(${sql.raw(`ARRAY[${LIVE_TENURE_STATUSES.map((s) => `'${s}'`).join(", ")}]::legal_membership_status[]`)})
+      )`.as("has_active_tenure"),
     },
   });
 
-  return allUsers.map((user): PublicUser => {
-    const hasActiveTenure = user.legalMemberships.some((lm) =>
-      (LIVE_TENURE_STATUSES as readonly string[]).includes(lm.status),
-    );
-
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      department: user.department ?? null,
-      batchNumber: user.batch?.number ?? null,
-      status: user.status,
-      profileOnboardingComplete: getOnboardingProgress(user) === "completed",
-      hasMembershipPayment: !!user.gocardlessMandateId,
-      hasActiveTenure,
-    };
-  });
+  return allUsers.map(
+    (u): PublicUser => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      department: u.department ?? null,
+      batchNumber: u.batchNumber ?? null,
+      status: u.status,
+      profileOnboardingComplete: getOnboardingProgress(u) === "completed",
+      hasMembershipPayment: !!u.gocardlessMandateId,
+      hasActiveTenure: u.hasActiveTenure,
+    }),
+  );
 }
 
 export async function getUserById(id: string): Promise<UserDetail | null> {
