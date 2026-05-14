@@ -34,9 +34,9 @@ jobs:
           output=$(npx vercel@54.0.0 deploy \
             --target=preview \
             --yes \
-            --scope=start-berlin 2>&1)
-
+            --scope=start-berlin 2>&1); vercel_exit=$?
           echo "$output"
+          [ $vercel_exit -ne 0 ] && exit $vercel_exit
           deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
