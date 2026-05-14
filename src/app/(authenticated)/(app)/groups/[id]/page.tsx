@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import * as React from "react";
 import { canViewGroup, getGroupDetail } from "@/db/groups";
 import { createMetadata } from "@/lib/metadata";
 import GroupDetailClient from "./page-client";
+import GroupDetailSkeleton from "./skeleton";
 
 interface GroupPageProps {
   params: Promise<{ id: string }>;
@@ -41,11 +43,11 @@ export default async function GroupPage({ params }: GroupPageProps) {
     notFound();
   }
 
-  const group = await getGroupDetail(id);
+  const groupDetailPromise = getGroupDetail(id);
 
-  if (!group) {
-    notFound();
-  }
-
-  return <GroupDetailClient group={group} />;
+  return (
+    <React.Suspense fallback={<GroupDetailSkeleton />}>
+      <GroupDetailClient groupDetailPromise={groupDetailPromise} />
+    </React.Suspense>
+  );
 }

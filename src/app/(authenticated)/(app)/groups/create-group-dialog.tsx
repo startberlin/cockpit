@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircleIcon, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
 import slugify from "slugify";
@@ -33,16 +34,14 @@ import { createGroupAction } from "./create-group-action";
 import { createGroupSchema } from "./create-group-schema";
 
 interface CreateGroupDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
-export function CreateGroupDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-}: CreateGroupDialogProps) {
+export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
+  const [open, setOpen] = useQueryState(
+    "create",
+    parseAsBoolean.withDefault(false),
+  );
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
@@ -51,7 +50,7 @@ export function CreateGroupDialog({
     {
       actionProps: {
         onSuccess: () => {
-          onOpenChange(false);
+          setOpen(false);
           setSlugManuallyEdited(false);
           form.reset();
           onSuccess?.();
@@ -140,7 +139,7 @@ export function CreateGroupDialog({
   const canSubmit = form.formState.isValid && isSlugValid && !action.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create group</DialogTitle>
