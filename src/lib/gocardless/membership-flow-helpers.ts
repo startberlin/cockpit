@@ -1,3 +1,4 @@
+import { findCountryByName } from "../countries";
 import type { MembershipFlowInput } from "./types";
 
 export function membershipFlowIdempotencyKey(
@@ -18,6 +19,8 @@ export function membershipFlowMetadata(input: MembershipFlowInput) {
 export function prefilledCustomerFromMembershipInput(
   input: MembershipFlowInput,
 ) {
+  const countryCode = findCountryByName(input.address?.country ?? "")?.code;
+
   return stripEmptyValues({
     given_name: input.firstName,
     family_name: input.lastName,
@@ -26,17 +29,19 @@ export function prefilledCustomerFromMembershipInput(
     city: input.address?.city,
     region: input.address?.state,
     postal_code: input.address?.zip,
-    country_code: input.address?.country,
+    country_code: countryCode,
   });
 }
 
 export function billingDetailFromMembershipInput(input: MembershipFlowInput) {
+  const countryCode = findCountryByName(input.address?.country ?? "")?.code;
+
   return stripEmptyValues({
     address_line1: input.address?.street,
     city: input.address?.city,
     region: input.address?.state,
     postal_code: input.address?.zip,
-    country_code: input.address?.country,
+    country_code: countryCode,
   });
 }
 
