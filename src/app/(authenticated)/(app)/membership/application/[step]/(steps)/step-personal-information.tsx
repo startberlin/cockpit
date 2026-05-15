@@ -199,6 +199,7 @@ export function StepPersonalInformation({
                   type="date"
                   aria-invalid={fieldState.invalid}
                   disabled={action.isPending}
+                  className="max-w-full"
                 />
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
