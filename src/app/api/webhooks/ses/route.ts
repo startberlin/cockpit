@@ -68,8 +68,8 @@ const SesNotificationSchema = z.discriminatedUnion("notificationType", [
   }),
 ]);
 
-// Only trust certs served from SNS's own domain.
-const SNS_CERT_URL_PATTERN = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//;
+// Only trust URLs served from SNS's own domain.
+const SNS_URL_PATTERN = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//;
 
 // Module-level cache — avoids a cert fetch on every request within the same
 // function instance. Cold starts re-fetch, which is fine.
@@ -119,7 +119,7 @@ function buildCanonicalString(
 async function verifySnsSignature(
   envelope: z.infer<typeof SnsEnvelopeSchema>,
 ): Promise<void> {
-  if (!SNS_CERT_URL_PATTERN.test(envelope.SigningCertURL)) {
+  if (!SNS_URL_PATTERN.test(envelope.SigningCertURL)) {
     throw new NonRetriableError(
       `Untrusted SigningCertURL: ${envelope.SigningCertURL}`,
     );
@@ -156,6 +156,11 @@ export const POST = inngest.endpoint(async (req: Request) => {
   });
 
   if (envelope.Type === "SubscriptionConfirmation") {
+    if (!SNS_URL_PATTERN.test(envelope.SubscribeURL)) {
+      throw new NonRetriableError(
+        `Untrusted SubscribeURL: ${envelope.SubscribeURL}`,
+      );
+    }
     await step.run("confirm-subscription", () => fetch(envelope.SubscribeURL));
     return new Response("OK");
   }
