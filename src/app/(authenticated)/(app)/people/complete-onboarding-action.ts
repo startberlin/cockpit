@@ -4,8 +4,8 @@ import { z } from "zod";
 import db from "@/db";
 import { MembershipPaymentReadyEmail } from "@/emails/membership-payment-ready";
 import { actionClient } from "@/lib/action-client";
+import { sendEmail } from "@/lib/email";
 import { can } from "@/lib/permissions/server";
-import { resend } from "@/lib/resend";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 export const completeUserOnboardingAction = actionClient
@@ -35,7 +35,7 @@ export const completeUserOnboardingAction = actionClient
       throw new Error("This user is already a full member.");
     }
 
-    await resend.emails.send({
+    await sendEmail({
       from: "START Berlin <notifications@cockpit.start-berlin.com>",
       to: targetUser.email,
       subject: "Finalize your START Berlin membership",

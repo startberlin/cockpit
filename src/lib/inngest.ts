@@ -1,6 +1,7 @@
 import "server-only";
 
 import { eventType, Inngest, staticSchema } from "inngest";
+import { endpointAdapter } from "inngest/next";
 import type { Department, UserStatus } from "@/db/schema/auth";
 import type { BoardVoteValue } from "@/db/schema/board-admission";
 
@@ -63,6 +64,7 @@ export const events = {
 
 export const inngest = new Inngest({
   id: "start-cockpit",
+  endpointAdapter,
   checkpointing: {
     maxRuntime: 240, // 4 minutes
   },

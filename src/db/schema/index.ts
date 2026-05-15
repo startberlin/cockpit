@@ -27,6 +27,7 @@ import {
   boardVoteValue,
   officerFunction,
 } from "./board-admission";
+import { emailSuppression, emailSuppressionReason } from "./email-suppression";
 import { gocardlessProcessedEvents } from "./gocardless-processed-events";
 import {
   group,
@@ -136,6 +137,8 @@ export const schema = {
   auditLog,
   auditLogRelations,
   gocardlessProcessedEvents,
+  emailSuppression,
+  emailSuppressionReason,
 };
 
 export * from "./audit-log";
@@ -143,6 +146,7 @@ export * from "./auth";
 export * from "./authority";
 export * from "./batch";
 export * from "./board-admission";
+export * from "./email-suppression";
 export * from "./gocardless-processed-events";
 export * from "./group";
 export * from "./legal-document";
