@@ -4,6 +4,7 @@ import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
+import { sendEmail } from "@/lib/email";
 import {
   fetchWorkspaceUsersPage,
   getWorkspaceUser,
@@ -11,7 +12,6 @@ import {
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { resend } from "@/lib/resend";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
 import {
   fetchWorkspaceUsersPageSchema,
@@ -97,7 +97,7 @@ export const importGoogleWorkspaceUserAction = actionClient
         data: { id: existingUser.id },
       });
       try {
-        await resend.emails.send(
+        await sendEmail(
           buildImportedUserNotificationEmail({
             email: workspaceUser.primaryEmail,
             firstName: parsedInput.firstName,
@@ -182,7 +182,7 @@ export const importGoogleWorkspaceUserAction = actionClient
 
     // Non-fatal: notification email failure must not block import success.
     try {
-      await resend.emails.send(
+      await sendEmail(
         buildImportedUserNotificationEmail({
           email: workspaceUser.primaryEmail,
           firstName: parsedInput.firstName,

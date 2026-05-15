@@ -5,7 +5,11 @@ process.env.DATABASE_URL ??= "postgres://user:password@localhost:5432/test";
 process.env.BETTER_AUTH_SECRET ??= "test-secret";
 process.env.GOOGLE_CLIENT_ID ??= "test-client-id";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-client-secret";
-process.env.RESEND_API_KEY ??= "test-resend-key";
+process.env.AWS_REGION ??= "eu-central-1";
+process.env.AWS_ACCESS_KEY_ID ??= "test-key-id";
+process.env.AWS_SECRET_ACCESS_KEY ??= "test-secret-key";
+process.env.AWS_SES_SNS_TOPIC_ARN ??=
+  "arn:aws:sns:eu-central-1:123456789012:test-topic";
 process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64 ??= "test-credentials";
 process.env.SLACK_SIGNING_SECRET ??= "test-slack-secret";
 process.env.NEXT_PUBLIC_COCKPIT_URL ??= "https://cockpit.example.com";

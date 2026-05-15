@@ -18,6 +18,7 @@ import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
+import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
@@ -33,7 +34,6 @@ import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
-import { resend } from "@/lib/resend";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
@@ -104,7 +104,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-task-email-${participant.userId}`,
         async () => {
-          await resend.emails.send({
+          await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
             subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
@@ -197,7 +197,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       if (!subject.email) {
         throw new Error(`Missing email for subject user ${subjectUserId}`);
       }
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Complete your membership application",
@@ -479,7 +479,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           ]
         : undefined;
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Your membership application has been received",
@@ -616,7 +616,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           ]
         : undefined;
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Welcome to START Berlin",
@@ -680,7 +680,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               ]
             : undefined;
 
-          await resend.emails.send({
+          await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
             subject: `Admission complete: ${boardCompletionData.subjectName}`,

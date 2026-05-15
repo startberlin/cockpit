@@ -5,6 +5,7 @@ import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
 import { env } from "@/env";
+import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
@@ -18,7 +19,6 @@ import {
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
 import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
-import { resend } from "@/lib/resend";
 
 export const membershipReconfirmationWorkflow = inngest.createFunction(
   {
@@ -322,7 +322,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       const includesPaymentCta =
         freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subjectData.email,
         subject: "Your START Berlin membership is now officially documented",

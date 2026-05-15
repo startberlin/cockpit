@@ -5,10 +5,10 @@ import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
+import { sendEmail } from "@/lib/email";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
-import { resend } from "@/lib/resend";
 
 function generateRandomPassword(length = 15) {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -96,7 +96,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         throw error;
       }
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: personalEmail,
         subject: "Welcome to START Berlin — your sign-in details",
@@ -143,7 +143,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     });
 
     await step.run("send-cockpit-access-email", async () => {
-      return await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: user.companyEmail,
         subject: "Your START Cockpit access is ready",
