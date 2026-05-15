@@ -9,7 +9,7 @@ export const membershipPaymentProposalsCron = inngest.createFunction(
   {
     id: "membership-payment-proposals",
     name: "Membership Payment Proposals (Daily)",
-    triggers: [{ cron: "0 9 * * *" }],
+    triggers: [{ cron: "TZ=Europe/Berlin 0 9 * * *" }],
   },
   async ({ step }) => {
     const result = await step.run("check-and-propose", async () => {
