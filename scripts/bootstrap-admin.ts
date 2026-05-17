@@ -37,12 +37,13 @@ async function main() {
       `INSERT INTO "user" (
         id, name, email, email_verified,
         first_name, last_name, personal_email,
-        status, created_at, updated_at
-      ) VALUES ($1, $2, $3, true, $4, $5, $3, 'member', NOW(), NOW())
+        status, role, created_at, updated_at
+      ) VALUES ($1, $2, $3, true, $4, $5, $3, 'member', 'admin', NOW(), NOW())
       ON CONFLICT (email) DO UPDATE
         SET first_name = EXCLUDED.first_name,
             last_name = EXCLUDED.last_name,
             status = 'member',
+            role = 'admin',
             updated_at = NOW()
       RETURNING id`,
       [userId, `${firstName} ${lastName}`, email, firstName, lastName],

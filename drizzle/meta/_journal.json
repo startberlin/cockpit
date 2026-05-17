@@ -141,6 +141,13 @@
       "when": 1779037870216,
       "tag": "0019_odd_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779046925801,
+      "tag": "0020_mysterious_earthquake",
+      "breakpoints": true
     }
   ]
 }

@@ -32,6 +32,7 @@ function user(overrides: Partial<User> = {}): User {
     gocardlessMandateId: null,
     gocardlessCustomerId: null,
     gocardlessSetupSessionId: null,
+    role: "user",
     ...overrides,
   };
 }

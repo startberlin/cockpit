@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
+import { env } from "@/env";
 import { events, inngest } from "@/lib/inngest";
 import { slack } from "@/lib/slack";
 
@@ -12,6 +13,13 @@ export const handleSlackEvent = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { id } = event.data;
+
+    if (env.DISABLE_SLACK) {
+      console.warn(
+        `[slack disabled] handleSlackEvent(${id}) — skipping entire workflow`,
+      );
+      return { skipped: "slack-disabled" };
+    }
 
     const userEmail = await step.run("find-slack-user-email", async () => {
       const response = await slack.users.profile.get({

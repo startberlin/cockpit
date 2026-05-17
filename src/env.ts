@@ -23,6 +23,9 @@ export const env = createEnv({
     GOCARDLESS_WEBHOOK_SECRET: z.string().min(1).optional(),
     GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: z.string().min(1),
     BETTERSTACK_HEARTBEAT_URL: z.url().optional(),
+    DISABLE_EMAIL: z.stringbool().optional().default(false),
+    DISABLE_GOOGLE_WORKSPACE: z.stringbool().optional().default(false),
+    DISABLE_SLACK: z.stringbool().optional().default(false),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -48,5 +51,8 @@ export const env = createEnv({
     GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID:
       process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID,
     BETTERSTACK_HEARTBEAT_URL: process.env.BETTERSTACK_HEARTBEAT_URL,
+    DISABLE_EMAIL: process.env.DISABLE_EMAIL,
+    DISABLE_GOOGLE_WORKSPACE: process.env.DISABLE_GOOGLE_WORKSPACE,
+    DISABLE_SLACK: process.env.DISABLE_SLACK,
   },
 });

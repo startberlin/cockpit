@@ -1,6 +1,7 @@
 import "server-only";
 
 import { type admin_directory_v1, Common, google } from "googleapis";
+import { env } from "@/env";
 import { createGoogleAuth } from "@/lib/google-auth";
 
 const DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user";
@@ -48,6 +49,13 @@ function toCandidate(
 export async function getWorkspaceUser(
   userKey: string,
 ): Promise<WorkspaceUserCandidate | null> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] getWorkspaceUser(${userKey}) → null`,
+    );
+    return null;
+  }
+
   const admin = getDirectoryClient();
 
   try {
@@ -78,6 +86,11 @@ export async function fetchWorkspaceUsersPage({
   pageToken?: string;
   query?: string;
 } = {}): Promise<WorkspaceUsersPage> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn("[google-workspace disabled] fetchWorkspaceUsersPage → []");
+    return { users: [], nextPageToken: null };
+  }
+
   const admin = getDirectoryClient();
 
   const res = await admin.users.list({
@@ -113,6 +126,13 @@ export async function updateWorkspaceUserName(
     familyName: string;
   },
 ) {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] updateWorkspaceUserName(${userKey}, ${givenName} ${familyName}) — skipped`,
+    );
+    return;
+  }
+
   const admin = getDirectoryClient();
 
   const res = await admin.users.update({
