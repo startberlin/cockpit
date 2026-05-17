@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   integer,
   pgEnum,
   pgTable,
@@ -15,6 +16,10 @@ export const group = pgTable("group", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  slackEnabled: boolean("slack_enabled").notNull().default(false),
+  slackChannelId: text("slack_channel_id"),
+  emailEnabled: boolean("email_enabled").notNull().default(false),
+  googleGroupEmail: text("google_group_email"),
 });
 
 export const groupRelations = relations(group, ({ many }) => ({

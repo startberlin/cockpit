@@ -23,13 +23,8 @@ export const events = {
   cockpitUserUpdated: eventType("cockpit/user.updated", {
     schema: staticSchema<{ id: string }>(),
   }),
-  groupCreated: eventType("group.created", {
-    schema: staticSchema<{
-      id: string;
-      name: string;
-      slug: string;
-      integrations: { slack: boolean; email: boolean };
-    }>(),
+  groupSyncRequested: eventType("group/sync.requested", {
+    schema: staticSchema<{ id: string }>(),
   }),
   admissionWorkflowStarted: eventType("membership/admission-workflow.started", {
     schema: staticSchema<{
