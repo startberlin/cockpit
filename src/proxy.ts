@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  let maintenanceMode = true;
+  let maintenanceMode = false;
   try {
     maintenanceMode = (await get<boolean>("maintenanceMode")) === true;
   } catch {
