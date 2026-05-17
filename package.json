@@ -12,6 +12,7 @@
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "db:studio": "drizzle-kit studio",
     "db:up": "docker compose up -d",
     "db:dump": "dotenv -e .env -- sh -c 'pg_dump \"$DATABASE_URL\" --format=plain --no-owner --no-privileges --clean --if-exists --file supabase.sql'",

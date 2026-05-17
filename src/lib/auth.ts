@@ -22,6 +22,13 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: false,
   },
+  // TODO: dev bootstrap — remove `account.accountLinking` once initial admin is signed in.
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+  },
   socialProviders: {
     google: {
       enabled: true,
