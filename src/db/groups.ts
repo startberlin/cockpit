@@ -12,8 +12,15 @@ import db from ".";
 import type { PublicUser } from "./people";
 import type { Department, UserStatus } from "./schema/auth";
 import { user } from "./schema/auth";
-import { group, groupCriteria, usersToGroups } from "./schema/group";
+import {
+  group,
+  groupCriteria,
+  type groupMembershipSource,
+  usersToGroups,
+} from "./schema/group";
 import { getCurrentUser } from "./user";
+
+type GroupMembershipSource = (typeof groupMembershipSource.enumValues)[number];
 
 export interface PublicGroup {
   id: string;
@@ -26,6 +33,7 @@ export interface PublicGroup {
 
 export interface GroupMember extends PublicUser {
   role: "admin" | "member";
+  source: GroupMembershipSource;
 }
 
 export interface GroupDetail {
@@ -122,6 +130,7 @@ export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
         status: user.status,
         batchNumber: sql<number | null>`${user.batchNumber}`,
         role: usersToGroups.role,
+        source: usersToGroups.source,
       })
       .from(usersToGroups)
       .innerJoin(user, eq(usersToGroups.userId, user.id))
@@ -193,12 +202,9 @@ export async function addUserToGroup(
   userId: string,
   groupId: string,
   role: "admin" | "member" = "member",
+  source: GroupMembershipSource = "manual",
 ) {
-  await db.insert(usersToGroups).values({
-    userId,
-    groupId,
-    role,
-  });
+  await addUsersToGroup({ groupId, userIds: [userId], role, source });
 }
 
 export async function removeUserFromGroup(userId: string, groupId: string) {
@@ -217,6 +223,15 @@ export async function updateUserGroupRole(
   await db
     .update(usersToGroups)
     .set({ role })
+    .where(
+      and(eq(usersToGroups.userId, userId), eq(usersToGroups.groupId, groupId)),
+    );
+}
+
+export async function pinGroupMember(userId: string, groupId: string) {
+  await db
+    .update(usersToGroups)
+    .set({ source: "manual" })
     .where(
       and(eq(usersToGroups.userId, userId), eq(usersToGroups.groupId, groupId)),
     );
@@ -342,25 +357,40 @@ export async function addUsersToGroup({
   groupId,
   userIds,
   role = "member",
+  source = "manual",
 }: {
   groupId: string;
   userIds: string[];
   role?: "admin" | "member";
+  source?: GroupMembershipSource;
 }) {
   if (userIds.length === 0) {
     return 0;
   }
 
-  await db
-    .insert(usersToGroups)
-    .values(
-      userIds.map((userId) => ({
-        userId,
-        groupId,
-        role,
-      })),
-    )
-    .onConflictDoNothing();
+  const values = userIds.map((userId) => ({
+    userId,
+    groupId,
+    role,
+    source,
+  }));
+
+  if (source === "manual") {
+    // Manual adds win over criterion-driven rows: if the user is already in
+    // the group with source = 'criteria', upgrade them to 'manual' so future
+    // reconciliations can no longer auto-remove them. We deliberately do not
+    // touch the role on conflict — that's set by separate explicit actions.
+    await db
+      .insert(usersToGroups)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [usersToGroups.userId, usersToGroups.groupId],
+        set: { source: "manual" },
+      });
+  } else {
+    // Criterion-driven adds must never downgrade an existing manual row.
+    await db.insert(usersToGroups).values(values).onConflictDoNothing();
+  }
 
   return userIds.length;
 }
@@ -386,6 +416,7 @@ export async function addUsersMatchingCriteria(
   await addUsersToGroup({
     groupId,
     userIds: matchingUsers.map((matchingUser) => matchingUser.id),
+    source: "criteria",
   });
 
   return matchingUsers.length;

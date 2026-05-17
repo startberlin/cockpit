@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Crown,
   MoreHorizontal,
+  Pin,
   Plus,
   Search,
   Trash2,
@@ -46,6 +47,7 @@ import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import {
   addUserToGroupAction,
+  pinGroupMemberAction,
   removeUserFromGroupAction,
   searchUsersNotInGroupAction,
   updateUserGroupRoleAction,
@@ -110,6 +112,7 @@ export default function GroupDetailClient({
       const newMember: GroupMember = {
         ...user,
         role,
+        source: "manual",
       };
 
       setGroup((prev) => ({
@@ -148,6 +151,27 @@ export default function GroupDetailClient({
     } catch (_error) {
       toast.error(
         "Could not remove member from group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
+  const handlePinMember = async (member: GroupMember) => {
+    try {
+      await pinGroupMemberAction(member.id, group.id);
+
+      setGroup((prev) => ({
+        ...prev,
+        members: prev.members.map((m) =>
+          m.id === member.id ? { ...m, source: "manual" } : m,
+        ),
+      }));
+
+      toast.success(
+        `Pinned ${member.firstName} ${member.lastName}. They will not be auto-removed by matching rules.`,
+      );
+    } catch (_error) {
+      toast.error(
+        "Could not pin member. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     }
   };
@@ -421,6 +445,15 @@ export default function GroupDetailClient({
                             )}
                             {member.role}
                           </Badge>
+                          {member.source === "criteria" && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs"
+                              title="Added automatically via a matching rule. May be removed if attributes change."
+                            >
+                              criteria
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {member.email}
@@ -455,6 +488,14 @@ export default function GroupDetailClient({
                             >
                               <Users className="h-4 w-4 mr-2" />
                               Make Member
+                            </DropdownMenuItem>
+                          )}
+                          {member.source === "criteria" && (
+                            <DropdownMenuItem
+                              onClick={() => handlePinMember(member)}
+                            >
+                              <Pin className="h-4 w-4 mr-2" />
+                              Pin to Group
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />

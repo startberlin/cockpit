@@ -1,6 +1,7 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import db from "@/db";
-import { group } from "@/db/schema/group";
+import { group, groupCriteria } from "@/db/schema/group";
+import { reconcileGroupMembership } from "@/lib/groups/reconcile";
 import { events, inngest } from "@/lib/inngest";
 
 export const syncGroupsCron = inngest.createFunction(
@@ -20,18 +21,53 @@ export const syncGroupsCron = inngest.createFunction(
       }),
     );
 
-    if (pending.length === 0) {
-      return { synced: 0 };
+    if (pending.length > 0) {
+      await step.sendEvent(
+        "fanout-sync",
+        pending.map((g) => ({
+          name: events.groupSyncRequested.name,
+          data: { id: g.id },
+        })),
+      );
     }
 
-    await step.sendEvent(
-      "fanout-sync",
-      pending.map((g) => ({
-        name: events.groupSyncRequested.name,
-        data: { id: g.id },
-      })),
+    const groupsToReconcile = await step.run(
+      "find-groups-with-criteria",
+      async () =>
+        await db
+          .selectDistinct({ id: group.id })
+          .from(group)
+          .innerJoin(groupCriteria, eq(groupCriteria.groupId, group.id)),
     );
 
-    return { synced: pending.length };
+    const reconciliations: {
+      groupId: string;
+      added: number;
+      removed: number;
+    }[] = [];
+
+    for (const g of groupsToReconcile) {
+      try {
+        const result = await step.run(`reconcile-${g.id}`, () =>
+          reconcileGroupMembership(g.id),
+        );
+        reconciliations.push({
+          groupId: result.groupId,
+          added: result.added.length,
+          removed: result.removed.length,
+        });
+      } catch (error) {
+        console.error(
+          `[sync-groups-cron] Reconciliation failed for group ${g.id}`,
+          error,
+        );
+      }
+    }
+
+    return {
+      synced: pending.length,
+      reconciled: reconciliations.length,
+      reconciliations,
+    };
   },
 );

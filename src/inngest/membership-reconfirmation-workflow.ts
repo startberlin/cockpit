@@ -219,6 +219,11 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       });
     });
 
+    await step.sendEvent("user-status-changed", {
+      name: events.cockpitUserUpdated.name,
+      data: { id: subjectData.userId },
+    });
+
     // Step 4: Create the first proposed membership payment.
     // If the member had an importedPaidThroughAt date whose coverage hasn't expired
     // yet (+ 1 year > today), anchor the first cycle to that renewal date.

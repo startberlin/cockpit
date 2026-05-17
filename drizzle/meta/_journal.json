@@ -148,6 +148,13 @@
       "when": 1779046925801,
       "tag": "0020_mysterious_earthquake",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779047437644,
+      "tag": "0021_slow_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

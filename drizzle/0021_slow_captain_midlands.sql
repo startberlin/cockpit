@@ -1,0 +1,2 @@
+CREATE TYPE "public"."group_membership_source" AS ENUM('criteria', 'manual');--> statement-breakpoint
+ALTER TABLE "users_to_groups" ADD COLUMN "source" "group_membership_source" DEFAULT 'manual' NOT NULL;

@@ -12,6 +12,11 @@ import { department, user, userStatus } from "./auth";
 
 export const groupRole = pgEnum("group_role", ["admin", "member"]);
 
+export const groupMembershipSource = pgEnum("group_membership_source", [
+  "criteria",
+  "manual",
+]);
+
 export const group = pgTable("group", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -63,6 +68,7 @@ export const usersToGroups = pgTable(
       .notNull()
       .references(() => group.id),
     role: groupRole("role").notNull().default("member"),
+    source: groupMembershipSource("source").notNull().default("manual"),
   },
   (t) => [primaryKey({ columns: [t.userId, t.groupId] })],
 );
