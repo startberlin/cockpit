@@ -59,3 +59,4 @@ docs/plans/*remediation*
 /supabase.sql
 .claude/settings.local.json
 .codex/config.toml
+.env*.local
