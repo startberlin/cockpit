@@ -1,17 +1,21 @@
-import { createGroupWorkflow } from "./create-group";
+import { syncGroupIntegrationsWorkflow } from "./create-group";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
 import { onboardNewUserWorkflow } from "./new-user-workflow";
+import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
 import { handleSlackEvent } from "./slack-user-joined";
 import { syncGoogleWorkspaceUserNameWorkflow } from "./sync-google-workspace-user-name";
+import { syncGroupsCron } from "./sync-groups-cron";
 
 export const inngestFunctions = [
-  createGroupWorkflow,
+  syncGroupIntegrationsWorkflow,
+  syncGroupsCron,
   handleSlackEvent,
   membershipAdmissionWorkflow,
   membershipPaymentProposalsCron,
   membershipReconfirmationWorkflow,
   onboardNewUserWorkflow,
+  reconcileUserGroupMembershipWorkflow,
   syncGoogleWorkspaceUserNameWorkflow,
 ];

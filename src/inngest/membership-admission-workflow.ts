@@ -521,6 +521,11 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       },
     );
 
+    await step.sendEvent("user-status-changed", {
+      name: events.cockpitUserUpdated.name,
+      data: { id: subjectUserId },
+    });
+
     // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
     await step.run("archive-admission-confirmation", async () => {
       const [boardMembers, application] = await Promise.all([

@@ -134,6 +134,27 @@
       "when": 1778845146414,
       "tag": "0018_outstanding_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1779037870216,
+      "tag": "0019_odd_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779046925801,
+      "tag": "0020_mysterious_earthquake",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779047437644,
+      "tag": "0021_slow_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

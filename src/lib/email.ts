@@ -36,6 +36,13 @@ type SendEmailOptions = {
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
+  if (env.DISABLE_EMAIL) {
+    console.warn(
+      `[email disabled] would have sent "${options.subject}" from ${options.from} to ${recipients.join(", ")}`,
+    );
+    return;
+  }
+
   const suppressed = await db.query.emailSuppression.findMany({
     where: (t, { inArray }) => inArray(t.email, recipients),
     columns: { email: true },

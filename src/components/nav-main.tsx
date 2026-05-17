@@ -1,6 +1,13 @@
 "use client";
 
-import { ChevronRight, CreditCard, IdCard, Layers, Users } from "lucide-react";
+import {
+  ChevronRight,
+  CreditCard,
+  IdCard,
+  Layers,
+  Shield,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Can } from "@/components/can";
@@ -20,6 +27,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { GlobalAction } from "@/lib/permissions";
+import { useIsSuperAdmin } from "@/lib/use-is-superadmin";
+import { QuickImpersonate } from "./quick-impersonate";
 
 type SubItem = {
   href: string;
@@ -34,6 +43,7 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   isActive: (pathname: string) => boolean;
   permission?: GlobalAction;
+  superadminOnly?: boolean;
   items?: SubItem[];
 };
 
@@ -77,11 +87,19 @@ const NAV_ITEMS: NavItem[] = [
     permission: "payments.manage",
     isActive: (p) => p === "/payments" || p.startsWith("/payments/"),
   },
+  {
+    href: "/admin",
+    label: "Admin",
+    icon: Shield,
+    superadminOnly: true,
+    isActive: (p) => p === "/admin" || p.startsWith("/admin/"),
+  },
 ];
 
 export function NavMain() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
+  const isSuperAdmin = useIsSuperAdmin();
 
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
@@ -91,6 +109,10 @@ export function NavMain() {
     <SidebarGroup>
       <SidebarMenu>
         {NAV_ITEMS.map((item) => {
+          if (item.superadminOnly && !isSuperAdmin) {
+            return null;
+          }
+
           if (!item.items?.length) {
             const menuItem = (
               <SidebarMenuItem key={item.href}>
@@ -125,6 +147,7 @@ export function NavMain() {
             />
           );
         })}
+        {isSuperAdmin ? <QuickImpersonate onSelected={closeMobile} /> : null}
       </SidebarMenu>
     </SidebarGroup>
   );

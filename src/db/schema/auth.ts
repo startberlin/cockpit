@@ -74,6 +74,7 @@ export const user = pgTable("user", {
   gocardlessMandateId: text("gocardless_mandate_id"),
   gocardlessCustomerId: text("gocardless_customer_id"),
   gocardlessSetupSessionId: text("gocardless_setup_session_id"),
+  role: text("role").notNull().default("user"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({
@@ -94,6 +95,9 @@ export const session = pgTable("session", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  impersonatedBy: text("impersonated_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const account = pgTable("account", {

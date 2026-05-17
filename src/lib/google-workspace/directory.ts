@@ -1,9 +1,11 @@
 import "server-only";
 
 import { type admin_directory_v1, Common, google } from "googleapis";
+import { env } from "@/env";
 import { createGoogleAuth } from "@/lib/google-auth";
 
 const DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user";
+const GROUP_SCOPE = "https://www.googleapis.com/auth/admin.directory.group";
 
 export interface WorkspaceUserCandidate {
   id: string;
@@ -48,6 +50,13 @@ function toCandidate(
 export async function getWorkspaceUser(
   userKey: string,
 ): Promise<WorkspaceUserCandidate | null> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] getWorkspaceUser(${userKey}) → null`,
+    );
+    return null;
+  }
+
   const admin = getDirectoryClient();
 
   try {
@@ -78,6 +87,11 @@ export async function fetchWorkspaceUsersPage({
   pageToken?: string;
   query?: string;
 } = {}): Promise<WorkspaceUsersPage> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn("[google-workspace disabled] fetchWorkspaceUsersPage → []");
+    return { users: [], nextPageToken: null };
+  }
+
   const admin = getDirectoryClient();
 
   const res = await admin.users.list({
@@ -113,6 +127,13 @@ export async function updateWorkspaceUserName(
     familyName: string;
   },
 ) {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] updateWorkspaceUserName(${userKey}, ${givenName} ${familyName}) — skipped`,
+    );
+    return;
+  }
+
   const admin = getDirectoryClient();
 
   const res = await admin.users.update({
@@ -126,5 +147,68 @@ export async function updateWorkspaceUserName(
     throw new Error(
       `Failed to update Workspace name for ${userKey}: ${res.statusText}`,
     );
+  }
+}
+
+function getGroupClient() {
+  return google.admin({
+    auth: createGoogleAuth(GROUP_SCOPE),
+    version: "directory_v1",
+  });
+}
+
+export async function addGroupMember(
+  groupEmail: string,
+  userEmail: string,
+): Promise<void> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] addGroupMember(${groupEmail}, ${userEmail}) — skipped`,
+    );
+    return;
+  }
+
+  const admin = getGroupClient();
+
+  try {
+    await admin.members.insert({
+      groupKey: groupEmail,
+      requestBody: { email: userEmail, role: "MEMBER" },
+    });
+  } catch (error) {
+    if (error instanceof Common.GaxiosError) {
+      const status = error.response?.status;
+      if (status === 409 || status === 400) {
+        // 409: already a member. 400 with reason "duplicate" also surfaces here.
+        return;
+      }
+    }
+    throw error;
+  }
+}
+
+export async function removeGroupMember(
+  groupEmail: string,
+  userEmail: string,
+): Promise<void> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] removeGroupMember(${groupEmail}, ${userEmail}) — skipped`,
+    );
+    return;
+  }
+
+  const admin = getGroupClient();
+
+  try {
+    await admin.members.delete({
+      groupKey: groupEmail,
+      memberKey: userEmail,
+    });
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return;
+    }
+    throw error;
   }
 }

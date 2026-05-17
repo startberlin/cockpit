@@ -5,6 +5,7 @@ import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
+import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
@@ -60,40 +61,46 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     const user = await step.run("create-google-user", async () => {
       const password = generateRandomPassword();
 
-      const auth = createGoogleAuth(
-        "https://www.googleapis.com/auth/admin.directory.user",
-      );
+      if (env.DISABLE_GOOGLE_WORKSPACE) {
+        console.warn(
+          `[google-workspace disabled] would have provisioned ${companyEmail}`,
+        );
+      } else {
+        const auth = createGoogleAuth(
+          "https://www.googleapis.com/auth/admin.directory.user",
+        );
 
-      const admin = google.admin({
-        auth,
-        version: "directory_v1",
-      });
-
-      try {
-        const res = await admin.users.insert({
-          requestBody: {
-            name: { givenName: firstName, familyName: lastName },
-            primaryEmail: companyEmail,
-            recoveryEmail: personalEmail,
-            password,
-            changePasswordAtNextLogin: true,
-          },
+        const admin = google.admin({
+          auth,
+          version: "directory_v1",
         });
 
-        if (!res.ok) {
-          throw new Error(`Failed to create user: ${res.statusText}.`);
-        }
-      } catch (error) {
-        if (
-          error instanceof Common.GaxiosError &&
-          error.message === "Entity already exists."
-        ) {
-          throw new NonRetriableError(
-            `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
-          );
-        }
+        try {
+          const res = await admin.users.insert({
+            requestBody: {
+              name: { givenName: firstName, familyName: lastName },
+              primaryEmail: companyEmail,
+              recoveryEmail: personalEmail,
+              password,
+              changePasswordAtNextLogin: true,
+            },
+          });
 
-        throw error;
+          if (!res.ok) {
+            throw new Error(`Failed to create user: ${res.statusText}.`);
+          }
+        } catch (error) {
+          if (
+            error instanceof Common.GaxiosError &&
+            error.message === "Entity already exists."
+          ) {
+            throw new NonRetriableError(
+              `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
+            );
+          }
+
+          throw error;
+        }
       }
 
       await sendEmail({
