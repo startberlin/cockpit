@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Can, useCan } from "@/components/can";
@@ -61,6 +61,7 @@ export default function GroupDetailClient({
   groupDetailPromise,
 }: GroupDetailClientProps) {
   const can = useCan();
+  const router = useRouter();
   const groupDetail = use(groupDetailPromise);
 
   if (!groupDetail) {
@@ -205,34 +206,8 @@ export default function GroupDetailClient({
     }
   };
 
-  const handleCriteriaChange = async () => {
-    try {
-      // Fetch updated criteria
-      const criteriaResponse = await fetch(`/api/groups/${group.id}/criteria`);
-      if (!criteriaResponse.ok) {
-        throw new Error("Failed to fetch updated criteria");
-      }
-
-      const { criteria } = await criteriaResponse.json();
-
-      // Also refresh group details to get updated member list
-      const groupResponse = await fetch(`/api/groups/${group.id}`);
-      let updatedMembers = group.members; // fallback to current members
-
-      if (groupResponse.ok) {
-        const groupData = await groupResponse.json();
-        updatedMembers = groupData.members || group.members;
-      }
-
-      setGroup((prev) => ({
-        ...prev,
-        criteria: criteria,
-        members: updatedMembers,
-      }));
-    } catch (error) {
-      console.error("Error refreshing criteria:", error);
-      // We'll still show a toast error but won't prevent the UI from working
-    }
+  const handleCriteriaChange = () => {
+    router.refresh();
   };
 
   const adminCount = group.members.filter((m) => m.role === "admin").length;
