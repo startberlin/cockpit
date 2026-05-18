@@ -118,11 +118,11 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       return { companyEmail, personalEmail };
     });
 
-    await step.run("insert-db-user", async () => {
+    const dbUser = await step.run("insert-db-user", async () => {
       // Convert empty string to null for the database enum
       const departmentValue = department || null;
 
-      return await db
+      const [row] = await db
         .insert(userTable)
         .values({
           id: newId("user"),
@@ -147,6 +147,12 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           },
         })
         .returning({ id: userTable.id });
+      return row;
+    });
+
+    await step.sendEvent("trigger-group-reconciliation", {
+      name: events.cockpitUserUpdated.name,
+      data: { id: dbUser.id },
     });
 
     await step.run("send-cockpit-access-email", async () => {
