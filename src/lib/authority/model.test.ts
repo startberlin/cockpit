@@ -26,8 +26,18 @@ describe("authority domain model", () => {
   });
 
   it("defines admin as a global access grant", () => {
-    assert.deepEqual(globalAccessGrants, ["admin", "finance_admin"]);
-    assert.deepEqual(accessGrants, ["admin", "finance_admin"]);
+    assert.deepEqual(globalAccessGrants, [
+      "super_admin",
+      "admin",
+      "finance_admin",
+      "people_admin",
+    ]);
+    assert.deepEqual(accessGrants, [
+      "super_admin",
+      "admin",
+      "finance_admin",
+      "people_admin",
+    ]);
   });
 
   it("keeps ordinary authority active only for members by default", () => {
