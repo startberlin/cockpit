@@ -1,17 +1,19 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import db from "@/db";
 import { checkSlugAvailability } from "@/db/groups";
-import { group } from "@/db/schema/group";
+import { group, usersToGroups } from "@/db/schema/group";
 import { actionClient } from "@/lib/action-client";
+import { createGoogleGroup } from "@/lib/google-workspace/directory";
+import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { newId } from "@/lib/id";
-import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { createGroupSchema } from "./create-group-schema";
 
 export const createGroupAction = actionClient
   .inputSchema(createGroupSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx: { user: currentUser } }) => {
     if (!(await can("groups.create"))) {
       throw new Error("You are not authorized to create groups.");
     }
@@ -28,8 +30,6 @@ export const createGroupAction = actionClient
         id: groupId,
         name: parsedInput.name,
         slug: parsedInput.slug,
-        slackEnabled: parsedInput.integrations.slack,
-        slackChannelSlug: parsedInput.integrations.slackChannelSlug ?? null,
         emailEnabled: parsedInput.integrations.email,
         googleEmailPrefix: parsedInput.integrations.googleEmailPrefix ?? null,
       });
@@ -47,12 +47,34 @@ export const createGroupAction = actionClient
       throw error;
     }
 
-    // Fire-and-forget: integrations are reconciled by syncGroupIntegrationsWorkflow,
-    // with syncGroupsCron as the safety net if this immediate sync fails.
-    await inngest.send({
-      name: events.groupSyncRequested.name,
-      data: { id: groupId },
+    await db.insert(usersToGroups).values({
+      userId: currentUser.id,
+      groupId,
+      source: "manual",
     });
+
+    if (parsedInput.integrations.email) {
+      const emailPrefix =
+        parsedInput.integrations.googleEmailPrefix ?? parsedInput.slug;
+      try {
+        const googleGroupEmail = await createGoogleGroup(
+          emailPrefix,
+          parsedInput.name,
+        );
+        if (googleGroupEmail) {
+          await db
+            .update(group)
+            .set({ googleGroupEmail })
+            .where(eq(group.id, groupId));
+          await triggerGoogleSync(groupId);
+        }
+      } catch (error) {
+        console.error(
+          `[create-group] Google Group creation failed for group ${groupId}`,
+          error,
+        );
+      }
+    }
 
     return { id: groupId };
   });

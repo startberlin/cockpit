@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Crown, Plus, Users, X } from "lucide-react";
+import { Plus, Users, X } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,7 +36,7 @@ import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface BulkAddUsersDialogProps {
   groupId: string;
-  onUsersAdded: (users: PublicUser[], role: "admin" | "member") => void;
+  onUsersAdded: (users: PublicUser[]) => void;
   children: React.ReactNode;
 }
 
@@ -83,7 +83,7 @@ export default function BulkAddUsersDialog({
 
   const addAction = useAction(bulkAddUsersAction, {
     onSuccess: ({ data }) => {
-      onUsersAdded(previewUsers, "member");
+      onUsersAdded(previewUsers);
       setIsOpen(false);
       setCriteria({ departments: [], statuses: [], batchNumbers: [] });
       const count = data?.added ?? 0;
@@ -128,12 +128,11 @@ export default function BulkAddUsersDialog({
     }
   };
 
-  const handleBulkAdd = (role: "admin" | "member") => {
+  const handleBulkAdd = () => {
     if (previewUsers.length === 0) return;
     addAction.execute({
       groupId,
       userIds: previewUsers.map((u) => u.id),
-      role,
     });
   };
 
@@ -317,23 +316,11 @@ export default function BulkAddUsersDialog({
             Cancel
           </Button>
           {previewUsers.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => handleBulkAdd("member")}
-                disabled={addAction.isPending}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add as group members
-              </Button>
-              <Button
-                onClick={() => handleBulkAdd("admin")}
-                disabled={addAction.isPending}
-              >
-                <Crown className="h-4 w-4 mr-2" />
-                Add as group admins
-              </Button>
-            </div>
+            <Button onClick={handleBulkAdd} disabled={addAction.isPending}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add {previewUsers.length} member
+              {previewUsers.length !== 1 ? "s" : ""}
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

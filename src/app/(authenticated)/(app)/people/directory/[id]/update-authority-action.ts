@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { replaceUserAuthority } from "@/db/authority";
+import { getUserAuthority, replaceUserAuthority } from "@/db/authority";
 import { actionClient } from "@/lib/action-client";
 import { authorityUpdateInputSchema } from "@/lib/authority/assignments";
 import { can } from "@/lib/permissions/server";
@@ -13,6 +13,34 @@ export const updateAuthorityAction = actionClient
       throw new Error(
         "You are not authorized to update positions and permissions.",
       );
+    }
+
+    const canImpersonate = await can("users.impersonate");
+
+    if (!canImpersonate) {
+      // Non-super-admins cannot grant or revoke super_admin.
+      // Strip any super_admin from the submitted grants, then restore whatever
+      // the target user currently holds so it is never silently removed.
+      const existingAuthority = await getUserAuthority(parsedInput.userId);
+      const hadSuperAdmin =
+        existingAuthority?.grants.some((g) => g.grant === "super_admin") ??
+        false;
+
+      parsedInput = {
+        ...parsedInput,
+        grants: [
+          ...parsedInput.grants.filter((g) => g.grant !== "super_admin"),
+          ...(hadSuperAdmin
+            ? [
+                {
+                  grant: "super_admin" as const,
+                  scope: "global" as const,
+                  department: null,
+                },
+              ]
+            : []),
+        ],
+      };
     }
 
     await replaceUserAuthority(parsedInput);

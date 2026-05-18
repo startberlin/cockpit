@@ -17,13 +17,7 @@ export const events = {
       status: UserStatus;
     }>(),
   }),
-  slackUserJoined: eventType("slack/user.joined", {
-    schema: staticSchema<{ id: string }>(),
-  }),
   cockpitUserUpdated: eventType("cockpit/user.updated", {
-    schema: staticSchema<{ id: string }>(),
-  }),
-  groupSyncRequested: eventType("group/sync.requested", {
     schema: staticSchema<{ id: string }>(),
   }),
   admissionWorkflowStarted: eventType("membership/admission-workflow.started", {
@@ -45,6 +39,9 @@ export const events = {
   }),
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
     schema: staticSchema<{ legalMembershipId: string }>(),
+  }),
+  groupCriteriaChanged: eventType("group/criteria.changed", {
+    schema: staticSchema<{ groupId: string }>(),
   }),
   existingMemberDocumentationRequested: eventType(
     "membership/existing-member-documentation.requested",

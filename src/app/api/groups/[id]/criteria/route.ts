@@ -17,7 +17,7 @@ export async function GET(
     );
   }
 
-  if (!(await can("groups.manage_members"))) {
+  if (!(await can("groups.manage_members", { id }))) {
     return NextResponse.json(
       { error: "You are not authorized to manage this group." },
       { status: 403 },

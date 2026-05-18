@@ -19,6 +19,9 @@ export const saveSettingsAction = actionClient
         state: parsedInput.state,
         zip: parsedInput.zip,
         country: parsedInput.country,
+        ...(parsedInput.eventEmailPreference !== undefined && {
+          eventEmailPreference: parsedInput.eventEmailPreference,
+        }),
       })
       .where(eq(userTable.id, ctx.user.id));
 

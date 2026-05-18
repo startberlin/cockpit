@@ -37,6 +37,14 @@ export const department = pgEnum("department", [
   "events",
 ]);
 
+export const eventEmailPreference = pgEnum("event_email_preference", [
+  "personal_email",
+  "start_email",
+]);
+
+export type EventEmailPreference =
+  (typeof eventEmailPreference.enumValues)[number];
+
 export type Department = (typeof department.enumValues)[number];
 
 export const departmentSchema = createSelectSchema(department);
@@ -74,7 +82,7 @@ export const user = pgTable("user", {
   gocardlessMandateId: text("gocardless_mandate_id"),
   gocardlessCustomerId: text("gocardless_customer_id"),
   gocardlessSetupSessionId: text("gocardless_setup_session_id"),
-  role: text("role").notNull().default("user"),
+  eventEmailPreference: eventEmailPreference("event_email_preference"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

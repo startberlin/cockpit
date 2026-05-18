@@ -8,6 +8,7 @@ export const settingsSchema = z.object({
   state: z.string(),
   zip: z.string().min(1, "Please enter your postal code."),
   country: z.string().min(1, "Please enter your country."),
+  eventEmailPreference: z.enum(["personal_email", "start_email"]).optional(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsSchema>;

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { count, ilike, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import {
   getStructuredMembershipState,
@@ -17,10 +17,6 @@ import type {
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
-import {
-  LIVE_TENURE_STATUSES,
-  legalMembership,
-} from "./schema/legal-membership";
 
 export interface PublicUser {
   id: string;
@@ -68,7 +64,6 @@ export interface UserDetail {
   groups: Array<{
     id: string;
     name: string;
-    role: string;
   }>;
 }
 
@@ -89,35 +84,54 @@ export async function getDepartmentHeadForDepartment(
   return row?.user ?? null;
 }
 
-export async function getAllUserPublicData(
-  includeEligibility = false,
-): Promise<PublicUser[]> {
-  const allUsers = await db.query.user.findMany({
-    columns: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      personalEmail: true,
-      phone: true,
-      birthDate: true,
-      batchNumber: true,
-      status: true,
-      department: true,
-    },
-    extras: includeEligibility
-      ? {
-          hasActiveTenure: sql<boolean>`EXISTS (
-        SELECT 1 FROM ${legalMembership}
-        WHERE ${legalMembership.userId} = ${userTable.id}
-        AND ${legalMembership.status} = ANY(${sql.raw(`ARRAY[${LIVE_TENURE_STATUSES.map((s) => `'${s}'`).join(", ")}]::legal_membership_status[]`)})
-      )`.as("has_active_tenure"),
-        }
-      : {},
-  });
+const PEOPLE_PAGE_SIZE = 100;
 
-  return allUsers.map((u): PublicUser => {
-    const base: PublicUser = {
+export interface PaginatedUsers {
+  users: PublicUser[];
+  total: number;
+  pageCount: number;
+}
+
+export async function getAllUserPublicData({
+  page = 1,
+  search = "",
+}: {
+  page?: number;
+  search?: string;
+} = {}): Promise<PaginatedUsers> {
+  const offset = (page - 1) * PEOPLE_PAGE_SIZE;
+  const whereClause = search
+    ? or(
+        ilike(userTable.firstName, `%${search}%`),
+        ilike(userTable.lastName, `%${search}%`),
+        ilike(
+          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
+          `%${search}%`,
+        ),
+      )
+    : undefined;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        firstName: userTable.firstName,
+        lastName: userTable.lastName,
+        email: userTable.email,
+        department: userTable.department,
+        batchNumber: sql<number | null>`${userTable.batchNumber}`,
+        status: userTable.status,
+      })
+      .from(userTable)
+      .where(whereClause)
+      .orderBy(userTable.firstName, userTable.lastName)
+      .limit(PEOPLE_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(userTable).where(whereClause),
+  ]);
+
+  return {
+    users: rows.map((u) => ({
       id: u.id,
       firstName: u.firstName ?? "",
       lastName: u.lastName ?? "",
@@ -125,15 +139,10 @@ export async function getAllUserPublicData(
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
-    };
-
-    if (includeEligibility && "hasActiveTenure" in u) {
-      base.isEligibleForMembershipProposal =
-        getOnboardingProgress(u) === "completed" && !u.hasActiveTenure;
-    }
-
-    return base;
-  });
+    })),
+    pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
+    total,
+  };
 }
 
 export interface UserDetails {
@@ -161,7 +170,6 @@ export interface UserGroupMembership {
   id: string;
   name: string;
   slug: string;
-  role: string;
 }
 
 export interface UserAuthorityData {
@@ -204,6 +212,7 @@ export const getUserDetails = cache(
         gocardlessMandateId: true,
         gocardlessCustomerId: true,
         createdAt: true,
+        eventEmailPreference: true,
       },
       with: {
         batch: { columns: { number: true } },
@@ -251,7 +260,6 @@ export const getUserGroupMemberships = cache(
       id: row.group.id,
       name: row.group.name,
       slug: row.group.slug,
-      role: row.role,
     }));
   },
 );
@@ -316,6 +324,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
       gocardlessMandateId: true,
       gocardlessCustomerId: true,
       createdAt: true,
+      eventEmailPreference: true,
     },
     with: {
       batch: true,
@@ -368,7 +377,6 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     groups: user.usersToGroups.map((utg) => ({
       id: utg.group.id,
       name: utg.group.name,
-      role: utg.role,
     })),
   };
 }

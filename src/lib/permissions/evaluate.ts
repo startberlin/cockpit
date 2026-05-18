@@ -10,22 +10,44 @@ export type DepartmentScopedAction =
   | "users.complete_onboarding"
   | "membership.propose";
 
-export type Action = GlobalAction | DepartmentScopedAction;
+const departmentScopedActions = [
+  "users.view_details",
+  "users.edit",
+  "users.complete_onboarding",
+  "membership.propose",
+] as const;
+
+export function isDepartmentScopedAction(
+  action: Action,
+): action is DepartmentScopedAction {
+  return (departmentScopedActions as readonly Action[]).includes(action);
+}
+
+export type GroupScopedAction =
+  | "groups.view"
+  | "groups.manage_members"
+  | "groups.export";
+
+export type Action = GlobalAction | DepartmentScopedAction | GroupScopedAction;
 
 export type DepartmentScope = {
   targetDepartment: Department | null;
+};
+
+export type GroupScope = {
+  isGroupMember: boolean;
 };
 
 const globalActions = [
   "users.create",
   "users.import",
   "users.manage_authority",
+  "users.impersonate",
   "membership.vote_resolution",
   "membership.view_resolution",
   "membership.manage_workflows",
   "groups.view_all",
   "groups.create",
-  "groups.manage_members",
   "batches.manage",
   "payments.manage",
 ] as const;
@@ -36,10 +58,32 @@ export function isGlobalAction(action: Action): action is GlobalAction {
   return (globalActions as readonly Action[]).includes(action);
 }
 
-function hasAdminGrant(authority: UserAuthority) {
+const groupScopedActions = [
+  "groups.view",
+  "groups.manage_members",
+  "groups.export",
+] as const;
+
+export function isGroupScopedAction(
+  action: Action,
+): action is GroupScopedAction {
+  return (groupScopedActions as readonly Action[]).includes(action);
+}
+
+function hasSuperAdminGrant(authority: UserAuthority) {
   return authority.grants.some(
     (assignment) =>
-      assignment.scope === "global" && assignment.grant === "admin",
+      assignment.scope === "global" && assignment.grant === "super_admin",
+  );
+}
+
+function hasAdminGrant(authority: UserAuthority) {
+  return (
+    hasSuperAdminGrant(authority) ||
+    authority.grants.some(
+      (assignment) =>
+        assignment.scope === "global" && assignment.grant === "admin",
+    )
   );
 }
 
@@ -47,6 +91,13 @@ function hasFinanceAdminGrant(authority: UserAuthority) {
   return authority.grants.some(
     (assignment) =>
       assignment.scope === "global" && assignment.grant === "finance_admin",
+  );
+}
+
+function hasPeopleAdminGrant(authority: UserAuthority) {
+  return authority.grants.some(
+    (assignment) =>
+      assignment.scope === "global" && assignment.grant === "people_admin",
   );
 }
 
@@ -97,6 +148,38 @@ function hasDepartmentScope(scope: unknown): scope is DepartmentScope {
   );
 }
 
+function hasGroupScope(scope: unknown): scope is GroupScope {
+  return (
+    typeof scope === "object" &&
+    scope !== null &&
+    "isGroupMember" in scope &&
+    typeof (scope as GroupScope).isGroupMember === "boolean"
+  );
+}
+
+function evaluateGroupScopedAction(
+  authority: UserAuthority,
+  action: GroupScopedAction,
+  scope: GroupScope,
+) {
+  switch (action) {
+    case "groups.view":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        scope.isGroupMember
+      );
+    case "groups.manage_members":
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+    case "groups.export":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        scope.isGroupMember
+      );
+  }
+}
+
 function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
   switch (action) {
     case "users.create":
@@ -104,7 +187,9 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
     case "users.manage_authority":
     case "membership.manage_workflows":
     case "groups.create":
-    case "groups.manage_members":
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+    case "users.impersonate":
+      return hasSuperAdminGrant(authority);
     case "batches.manage":
       return hasAdminGrant(authority);
     case "payments.manage":
@@ -114,11 +199,7 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
     case "membership.view_resolution":
       return hasAdminGrant(authority) || isLegalOfficer(authority);
     case "groups.view_all":
-      return (
-        hasAdminGrant(authority) ||
-        isLegalOfficer(authority) ||
-        isDepartmentHead(authority)
-      );
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
   }
 }
 
@@ -155,6 +236,11 @@ export function evaluateAuth(
 ): boolean;
 export function evaluateAuth(
   authority: UserAuthority,
+  action: GroupScopedAction,
+  scope: GroupScope,
+): boolean;
+export function evaluateAuth(
+  authority: UserAuthority,
   action: Action,
   scope?: unknown,
 ): boolean {
@@ -166,9 +252,18 @@ export function evaluateAuth(
     return evaluateGlobalAction(authority, action);
   }
 
+  if (isGroupScopedAction(action)) {
+    if (!hasGroupScope(scope)) return false;
+    return evaluateGroupScopedAction(authority, action, scope);
+  }
+
   if (!hasDepartmentScope(scope)) {
     return false;
   }
 
-  return evaluateDepartmentScopedAction(authority, action, scope);
+  return evaluateDepartmentScopedAction(
+    authority,
+    action as DepartmentScopedAction,
+    scope,
+  );
 }

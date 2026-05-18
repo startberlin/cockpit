@@ -2,20 +2,15 @@
 
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  type SortingState,
   useReactTable,
-  type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useMemo, useState } from "react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -46,29 +41,36 @@ import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
   data: PublicUser[];
+  total: number;
+  pageCount: number;
   pendingActions?: PendingBoardAction[];
+  initialSearch: string;
 }
 
-export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
+export function PeopleTable({
+  data,
+  total,
+  pageCount,
+  pendingActions = [],
+  initialSearch,
+}: PeopleTableProps) {
   const router = useRouter();
   const can = useCan();
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
+  const [page, setPage] = useQueryState(
+    "page",
+    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+  );
+  const [search, setSearch] = useQueryState(
+    "q",
+    parseAsString
+      .withDefault(initialSearch)
+      .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
+  );
 
   const pendingActionsMap = useMemo(
     () => new Map(pendingActions.map((a) => [a.subjectUserId, a])),
     [pendingActions],
   );
-
-  const sortedData = useMemo(() => {
-    if (pendingActionsMap.size === 0) return data;
-    return [
-      ...data.filter((u) => pendingActionsMap.has(u.id)),
-      ...data.filter((u) => !pendingActionsMap.has(u.id)),
-    ];
-  }, [data, pendingActionsMap]);
 
   const columns = useMemo<ColumnDef<PublicUser>[]>(
     () => [
@@ -166,48 +168,34 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
   );
 
   const table = useReactTable({
-    data: sortedData,
+    data,
     columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-    },
+    manualPagination: true,
+    pageCount,
   });
 
   const canOpenMemberProfile = (member: PublicUser) =>
-    can("users.view_details", { targetDepartment: member.department });
+    can("users.view_details", member);
 
   const visibleRows = table.getRowModel().rows;
 
-  // Only show the separator when no column sort is active (default view).
-  // Under an active sort, pending users may scatter through the list and the
-  // separator would no longer reliably mark the "vote needed" boundary.
-  const lastPendingIndex =
-    sorting.length === 0
-      ? visibleRows.findLastIndex((row) =>
-          pendingActionsMap.has(row.original.id),
-        )
-      : -1;
+  const lastPendingIndex = visibleRows.findLastIndex((row) =>
+    pendingActionsMap.has(row.original.id),
+  );
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <div className="w-full">
       <div className="flex items-center pb-4">
         <Input
           placeholder="Find users..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="max-w-sm"
         />
       </div>
@@ -238,7 +226,6 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                   <Fragment key={row.id}>
                     <TableRow
                       key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
                       className={
                         canOpenProfile
                           ? "cursor-pointer"
@@ -300,6 +287,34 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
           </TableBody>
         </Table>
       </div>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between py-3">
+          <span className="text-sm text-muted-foreground">
+            {total} member{total === 1 ? "" : "s"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page >= pageCount}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

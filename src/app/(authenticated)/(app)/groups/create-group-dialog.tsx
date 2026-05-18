@@ -47,10 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { handleError } from "@/lib/utils";
-import {
-  checkGoogleEmailPrefixAction,
-  checkSlackSlugAction,
-} from "./check-integration-actions";
+import { checkGoogleEmailPrefixAction } from "./check-integration-actions";
 import { checkSlugAction } from "./check-slug-action";
 import { createGroupAction } from "./create-group-action";
 import { createGroupSchema } from "./create-group-schema";
@@ -71,34 +68,12 @@ function AvailabilityIcon({ state }: { state: AvailabilityState }) {
   return null;
 }
 
-function useAvailabilityQuery(
-  value: string,
-  enabled: boolean,
-  queryFn: (value: string) => Promise<boolean>,
-): AvailabilityState {
-  const [debounced] = useDebounce(value, 300);
-  const isTyping = value !== debounced;
-  const isValidFormat = Boolean(debounced && /^[a-z0-9-]+$/.test(debounced));
-
-  const query = useQuery({
-    queryKey: ["availability", queryFn.name, debounced],
-    queryFn: () => queryFn(debounced),
-    enabled: enabled && isValidFormat,
-  });
-
-  if (!value || !isValidFormat) return null;
-  if (isTyping || query.isFetching) return "checking";
-  if (query.data) return "available";
-  return "unavailable";
-}
-
 export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
   const [open, setOpen] = useQueryState(
     "create",
     parseAsBoolean.withDefault(false),
   );
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-  const [slackSlugUnlocked, setSlackSlugUnlocked] = useState(false);
   const [googlePrefixUnlocked, setGooglePrefixUnlocked] = useState(false);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
@@ -109,7 +84,6 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
         onSuccess: () => {
           setOpen(false);
           setSlugManuallyEdited(false);
-          setSlackSlugUnlocked(false);
           setGooglePrefixUnlocked(false);
           form.reset();
           onSuccess?.();
@@ -121,8 +95,6 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
           name: "",
           slug: "",
           integrations: {
-            slack: false,
-            slackChannelSlug: undefined,
             email: false,
             googleEmailPrefix: undefined,
           },
@@ -134,10 +106,7 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
 
   const nameValue = form.watch("name");
   const slugValue = form.watch("slug");
-  const slackEnabled = form.watch("integrations.slack");
   const emailEnabled = form.watch("integrations.email");
-  const slackChannelSlugValue =
-    form.watch("integrations.slackChannelSlug") ?? slugValue;
   const googleEmailPrefixValue =
     form.watch("integrations.googleEmailPrefix") ?? slugValue;
 
@@ -153,7 +122,6 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
   useEffect(() => {
     if (!open) {
       setSlugManuallyEdited(false);
-      setSlackSlugUnlocked(false);
       setGooglePrefixUnlocked(false);
     }
   }, [open]);
@@ -169,7 +137,7 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
   }, [form]);
 
   // Slug availability
-  const [debouncedSlug] = useDebounce(slugValue, 300);
+  const [debouncedSlug] = useDebounce(slugValue, 550);
   const isSlugTyping = slugValue !== debouncedSlug;
   const isValidSlugFormat = Boolean(
     debouncedSlug && /^[a-z0-9-]+$/.test(debouncedSlug),
@@ -191,31 +159,8 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
           ? "available"
           : "unavailable";
 
-  // Slack channel slug availability
-  const [debouncedSlackSlug] = useDebounce(slackChannelSlugValue, 300);
-  const isSlackTyping = slackChannelSlugValue !== debouncedSlackSlug;
-  const isValidSlackFormat = Boolean(
-    debouncedSlackSlug && /^[a-z0-9-]+$/.test(debouncedSlackSlug),
-  );
-  const slackQuery = useQuery({
-    queryKey: ["slack-availability", debouncedSlackSlug],
-    queryFn: async () => {
-      const result = await checkSlackSlugAction({ slug: debouncedSlackSlug });
-      return result?.data?.available ?? false;
-    },
-    enabled: slackEnabled && isValidSlackFormat,
-  });
-  const slackAvailability: AvailabilityState =
-    !slackEnabled || !slackChannelSlugValue || !isValidSlackFormat
-      ? null
-      : isSlackTyping || slackQuery.isFetching
-        ? "checking"
-        : slackQuery.data
-          ? "available"
-          : "unavailable";
-
   // Google email prefix availability
-  const [debouncedGooglePrefix] = useDebounce(googleEmailPrefixValue, 300);
+  const [debouncedGooglePrefix] = useDebounce(googleEmailPrefixValue, 550);
   const isGoogleTyping = googleEmailPrefixValue !== debouncedGooglePrefix;
   const isValidGoogleFormat = Boolean(
     debouncedGooglePrefix && /^[a-z0-9-]+$/.test(debouncedGooglePrefix),
@@ -241,20 +186,12 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
 
   const isSlugValid =
     slugAvailability === "available" && !form.formState.errors.slug;
-  const isSlackValid =
-    !slackEnabled ||
-    slackAvailability === "available" ||
-    slackAvailability === null;
   const isGoogleValid =
     !emailEnabled ||
     googleAvailability === "available" ||
     googleAvailability === null;
   const canSubmit =
-    form.formState.isValid &&
-    isSlugValid &&
-    isSlackValid &&
-    isGoogleValid &&
-    !action.isPending;
+    form.formState.isValid && isSlugValid && isGoogleValid && !action.isPending;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -320,77 +257,6 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
           </FieldGroup>
 
           <div className="flex flex-col gap-4">
-            <Controller
-              control={form.control}
-              name="integrations.slack"
-              render={({ field }) => (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="integrations.slack"
-                      checked={field.value}
-                      onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        if (!checked) setSlackSlugUnlocked(false);
-                      }}
-                      disabled={action.isPending}
-                    />
-                    <Label htmlFor="integrations.slack" className="font-medium">
-                      Create a Slack channel
-                    </Label>
-                  </div>
-                  {field.value && (
-                    <div className="ml-7">
-                      <InputGroup
-                        aria-invalid={slackAvailability === "unavailable"}
-                      >
-                        <InputGroupAddon align="inline-start">
-                          <InputGroupText>#</InputGroupText>
-                        </InputGroupAddon>
-                        <InputGroupInput
-                          className="font-mono"
-                          disabled={!slackSlugUnlocked || action.isPending}
-                          value={slackChannelSlugValue}
-                          onChange={(e) => {
-                            form.setValue(
-                              "integrations.slackChannelSlug",
-                              e.target.value,
-                              { shouldValidate: true },
-                            );
-                          }}
-                        />
-                        <InputGroupAddon align="inline-end">
-                          {!slackSlugUnlocked ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <InputGroupButton
-                                  size="icon-xs"
-                                  aria-label="Edit Slack channel name"
-                                  onClick={() => setSlackSlugUnlocked(true)}
-                                >
-                                  <PencilIcon />
-                                </InputGroupButton>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Edit Slack channel name
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <AvailabilityIcon state={slackAvailability} />
-                          )}
-                        </InputGroupAddon>
-                      </InputGroup>
-                      {slackAvailability === "unavailable" && (
-                        <p className="mt-1 text-sm text-destructive">
-                          This channel name is already in use.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            />
-
             <Controller
               control={form.control}
               name="integrations.email"

@@ -10,9 +10,17 @@ import { CreateGroupDialog } from "./create-group-dialog";
 
 interface GroupsPageClientProps {
   groups: PublicGroup[];
+  total: number;
+  pageCount: number;
+  initialSearch: string;
 }
 
-export default function GroupsPageClient({ groups }: GroupsPageClientProps) {
+export default function GroupsPageClient({
+  groups,
+  total,
+  pageCount,
+  initialSearch,
+}: GroupsPageClientProps) {
   const router = useRouter();
   const [, setCreate] = useQueryState(
     "create",
@@ -29,7 +37,16 @@ export default function GroupsPageClient({ groups }: GroupsPageClientProps) {
 
   return (
     <>
-      <GroupsTable data={groups} onCreateGroupClick={() => setCreate(true)} />
+      <div className="flex items-center justify-between pb-4">
+        <h1 className="text-xl font-semibold">Groups</h1>
+      </div>
+      <GroupsTable
+        data={groups}
+        total={total}
+        pageCount={pageCount}
+        initialSearch={initialSearch}
+        onCreateGroupClick={() => setCreate(true)}
+      />
       <CreateGroupDialog onSuccess={handleSuccess} />
     </>
   );

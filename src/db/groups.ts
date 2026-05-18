@@ -1,5 +1,6 @@
 import {
   and,
+  count,
   eq,
   ilike,
   inArray,
@@ -15,11 +16,12 @@ import {
   type NormalizedGroupCriteriaInput,
   normalizedGroupCriteriaSchema,
 } from "@/lib/groups/criteria";
+import type { RuleGroup } from "@/lib/groups/rule";
+import { buildRuleGroupSQL } from "@/lib/groups/rule-sql";
 import { nanoid } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
 import db from ".";
 import type { PublicUser } from "./people";
-import type { Department, UserStatus } from "./schema/auth";
 import { user } from "./schema/auth";
 import {
   group,
@@ -36,74 +38,93 @@ export interface PublicGroup {
   name: string;
   slug: string;
   memberCount: number;
-  adminCount: number;
   isMember: boolean;
 }
 
 export interface GroupMember extends PublicUser {
-  role: "admin" | "member";
   source: GroupMembershipSource;
+  personalEmail: string;
+  eventEmailPreference: "personal_email" | "start_email" | null;
 }
 
 export interface GroupDetail {
   id: string;
   name: string;
   slug: string;
+  googleGroupEmail: string | null;
+  googleSyncPending: boolean;
   members: GroupMember[];
+  totalMembers: number;
+  memberPageCount: number;
   criteria: GroupCriteria[];
+  isMember: boolean;
 }
 
-export async function canViewGroup(groupId: string): Promise<boolean> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return false;
-  }
-
-  if (await can("groups.view_all")) {
-    return true;
-  }
-
-  const membership = await db
-    .select({ userId: usersToGroups.userId })
-    .from(usersToGroups)
-    .where(
-      and(
-        eq(usersToGroups.groupId, groupId),
-        eq(usersToGroups.userId, currentUser.id),
-      ),
-    )
-    .limit(1);
-
-  return membership.length > 0;
+export interface PaginatedGroups {
+  groups: PublicGroup[];
+  total: number;
+  pageCount: number;
 }
+
+const MEMBERS_PAGE_SIZE = 1;
+const GROUPS_PAGE_SIZE = 1;
 
 export async function listGroupsForViewer(
   viewerId: string,
-): Promise<PublicGroup[]> {
-  const groups = await db
-    .select({
-      id: group.id,
-      name: group.name,
-      slug: group.slug,
-      memberCount: sql<number>`count(${usersToGroups.userId})::int`,
-      adminCount: sql<number>`count(case when ${usersToGroups.role} = 'admin' then 1 end)::int`,
-      isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
-    })
-    .from(group)
-    .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
-    .groupBy(group.id);
+  { page = 1, search = "" }: { page?: number; search?: string } = {},
+): Promise<PaginatedGroups> {
+  const offset = (page - 1) * GROUPS_PAGE_SIZE;
+  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
 
-  return groups.map((g) => ({
-    ...g,
-    isMember: g.isMember ?? false,
-  }));
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+      })
+      .from(group)
+      .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .where(whereClause)
+      .groupBy(group.id)
+      .orderBy(group.name)
+      .limit(GROUPS_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(group).where(whereClause),
+  ]);
+
+  return {
+    groups: rows.map((g) => ({ ...g, isMember: g.isMember ?? false })),
+    total,
+    pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
+  };
 }
 
 export async function listMemberGroupsForViewer(
   viewerId: string,
 ): Promise<PublicGroup[]> {
-  const groups = await listGroupsForViewer(viewerId);
-  return groups.filter((g) => g.isMember);
+  const rows = await db
+    .select({
+      id: group.id,
+      name: group.name,
+      slug: group.slug,
+      memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+      isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+    })
+    .from(group)
+    .innerJoin(
+      usersToGroups,
+      and(
+        eq(group.id, usersToGroups.groupId),
+        eq(usersToGroups.userId, viewerId),
+      ),
+    )
+    .groupBy(group.id)
+    .orderBy(group.name);
+
+  return rows.map((g) => ({ ...g, isMember: true }));
 }
 
 export async function checkSlugAvailability(slug: string): Promise<boolean> {
@@ -111,23 +132,6 @@ export async function checkSlugAvailability(slug: string): Promise<boolean> {
     .select({ id: group.id })
     .from(group)
     .where(eq(group.slug, slug))
-    .limit(1);
-
-  return existing.length === 0;
-}
-
-export async function checkSlackChannelSlugAvailability(
-  slug: string,
-): Promise<boolean> {
-  const existing = await db
-    .select({ id: group.id })
-    .from(group)
-    .where(
-      or(
-        eq(group.slackChannelSlug, slug),
-        and(isNull(group.slackChannelSlug), eq(group.slug, slug)),
-      ),
-    )
     .limit(1);
 
   return existing.length === 0;
@@ -150,35 +154,67 @@ export async function checkGoogleEmailPrefixAvailability(
   return existing.length === 0;
 }
 
-export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
-  const canManage = await can("groups.manage_members");
+export async function getGroupDetail(
+  id: string,
+  page = 1,
+): Promise<GroupDetail | null> {
+  const currentUser = await getCurrentUser();
 
-  const [groupData, members, criteria] = await Promise.all([
+  const viewerMembership = currentUser
+    ? await db
+        .select({ userId: usersToGroups.userId })
+        .from(usersToGroups)
+        .where(
+          and(
+            eq(usersToGroups.groupId, id),
+            eq(usersToGroups.userId, currentUser.id),
+          ),
+        )
+        .limit(1)
+    : [];
+
+  const isMember = viewerMembership.length > 0;
+  const canManage = await can("groups.manage_members", { id });
+  const offset = (page - 1) * MEMBERS_PAGE_SIZE;
+
+  const membersBaseQuery = db
+    .select({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      personalEmail: user.personalEmail,
+      eventEmailPreference: user.eventEmailPreference,
+      department: user.department,
+      status: user.status,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
+      source: usersToGroups.source,
+    })
+    .from(usersToGroups)
+    .innerJoin(user, eq(usersToGroups.userId, user.id))
+    .where(eq(usersToGroups.groupId, id))
+    .$dynamic();
+
+  const [groupData, members, [{ totalMembers }], criteria] = await Promise.all([
     db
       .select({
         id: group.id,
         name: group.name,
         slug: group.slug,
+        googleGroupEmail: group.googleGroupEmail,
+        googleSyncPending: group.googleSyncPending,
       })
       .from(group)
       .where(eq(group.id, id))
       .limit(1),
+    membersBaseQuery
+      .orderBy(user.firstName, user.lastName)
+      .limit(MEMBERS_PAGE_SIZE)
+      .offset(offset),
     db
-      .select({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        department: user.department,
-        status: user.status,
-        batchNumber: sql<number | null>`${user.batchNumber}`,
-        role: usersToGroups.role,
-        source: usersToGroups.source,
-      })
+      .select({ totalMembers: count() })
       .from(usersToGroups)
-      .innerJoin(user, eq(usersToGroups.userId, user.id))
-      .where(eq(usersToGroups.groupId, id))
-      .orderBy(usersToGroups.role, user.firstName, user.lastName),
+      .where(eq(usersToGroups.groupId, id)),
     canManage
       ? db.query.groupCriteria.findMany({
           where: eq(groupCriteria.groupId, id),
@@ -192,8 +228,34 @@ export async function getGroupDetail(id: string): Promise<GroupDetail | null> {
   return {
     ...groupData[0],
     members,
+    totalMembers,
+    memberPageCount: Math.ceil(totalMembers / MEMBERS_PAGE_SIZE),
     criteria,
+    isMember,
   };
+}
+
+export async function getAllGroupMembersForExport(id: string): Promise<
+  {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    personalEmail: string | null;
+    eventEmailPreference: "personal_email" | "start_email" | null;
+  }[]
+> {
+  return db
+    .select({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      personalEmail: user.personalEmail,
+      eventEmailPreference: user.eventEmailPreference,
+    })
+    .from(usersToGroups)
+    .innerJoin(user, eq(usersToGroups.userId, user.id))
+    .where(eq(usersToGroups.groupId, id))
+    .orderBy(user.firstName, user.lastName);
 }
 
 export async function searchUsersNotInGroup(groupId: string, query?: string) {
@@ -244,10 +306,9 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
 export async function addUserToGroup(
   userId: string,
   groupId: string,
-  role: "admin" | "member" = "member",
   source: GroupMembershipSource = "manual",
 ) {
-  await addUsersToGroup({ groupId, userIds: [userId], role, source });
+  await addUsersToGroup({ groupId, userIds: [userId], source });
 }
 
 export async function removeUserFromGroup(userId: string, groupId: string) {
@@ -282,19 +343,6 @@ export async function removeUsersFromGroup(userIds: string[], groupId: string) {
     );
 }
 
-export async function updateUserGroupRole(
-  userId: string,
-  groupId: string,
-  role: "admin" | "member",
-) {
-  await db
-    .update(usersToGroups)
-    .set({ role })
-    .where(
-      and(eq(usersToGroups.userId, userId), eq(usersToGroups.groupId, groupId)),
-    );
-}
-
 export async function pinGroupMember(userId: string, groupId: string) {
   await db
     .update(usersToGroups)
@@ -308,9 +356,7 @@ export async function pinGroupMember(userId: string, groupId: string) {
 export interface GroupCriteria {
   id: string;
   name: string;
-  department: Department | null;
-  status: UserStatus | null;
-  batchNumber: number | null;
+  conditions: RuleGroup;
   createdAt: Date;
   createdBy: string;
 }
@@ -340,9 +386,7 @@ export async function addGroupCriteria(
       id: criteriaId,
       groupId: input.groupId,
       name: input.name,
-      department: input.department || null,
-      status: input.status || null,
-      batchNumber: input.batchNumber || null,
+      conditions: input.conditions,
       createdBy: input.createdBy,
     })
     .returning();
@@ -434,13 +478,11 @@ export async function findUsersNotInGroupByCriteria(
 export async function addUsersToGroup({
   groupId,
   userIds,
-  role = "member",
   source = "manual",
   tx,
 }: {
   groupId: string;
   userIds: string[];
-  role?: "admin" | "member";
   source?: GroupMembershipSource;
   tx?: Tx;
 }) {
@@ -453,15 +495,13 @@ export async function addUsersToGroup({
   const values = userIds.map((userId) => ({
     userId,
     groupId,
-    role,
     source,
   }));
 
   if (source === "manual") {
     // Manual adds win over criterion-driven rows: if the user is already in
     // the group with source = 'criteria', upgrade them to 'manual' so future
-    // reconciliations can no longer auto-remove them. We deliberately do not
-    // touch the role on conflict — that's set by separate explicit actions.
+    // reconciliations can no longer auto-remove them.
     await ops
       .insert(usersToGroups)
       .values(values)
@@ -479,32 +519,34 @@ export async function addUsersToGroup({
 
 export async function addUsersMatchingCriteria(
   groupId: string,
-  criteria: {
-    department?: Department;
-    status?: UserStatus;
-    batchNumber?: number;
-  },
+  conditions: RuleGroup,
   tx?: Tx,
-) {
-  const matchingUsers = await findUsersNotInGroupByCriteria(
-    {
-      groupId,
-      match: "all",
-      criteria: {
-        departments: criteria.department ? [criteria.department] : [],
-        statuses: criteria.status ? [criteria.status] : [],
-        batchNumbers: criteria.batchNumber ? [criteria.batchNumber] : [],
-      },
-    },
-    tx,
-  );
+): Promise<number> {
+  const whereClause = buildRuleGroupSQL(conditions);
+  if (!whereClause) return 0;
+
+  const ops = tx ?? db;
+
+  const matching = await ops
+    .select({ id: user.id })
+    .from(user)
+    .leftJoin(
+      usersToGroups,
+      and(
+        eq(usersToGroups.userId, user.id),
+        eq(usersToGroups.groupId, groupId),
+      ),
+    )
+    .where(and(sql`${usersToGroups.userId} IS NULL`, whereClause));
+
+  if (matching.length === 0) return 0;
 
   await addUsersToGroup({
     groupId,
-    userIds: matchingUsers.map((matchingUser) => matchingUser.id),
+    userIds: matching.map((u) => u.id),
     source: "criteria",
     tx,
   });
 
-  return matchingUsers.length;
+  return matching.length;
 }

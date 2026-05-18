@@ -16,7 +16,7 @@ const searchByCriteriaSchema = normalizedGroupCriteriaSchema
 export const searchUsersByCriteriaAction = actionClient
   .inputSchema(searchByCriteriaSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members"))) {
+    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
@@ -31,18 +31,17 @@ export const searchUsersByCriteriaAction = actionClient
 const bulkAddUsersSchema = z.object({
   groupId: z.string().min(1),
   userIds: z.array(z.string()).min(1),
-  role: z.enum(["admin", "member"]).default("member"),
 });
 
 export const bulkAddUsersAction = actionClient
   .inputSchema(bulkAddUsersSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members"))) {
+    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
-    const { groupId, userIds, role } = parsedInput;
-    await addUsersToGroup({ groupId, userIds, role });
+    const { groupId, userIds } = parsedInput;
+    await addUsersToGroup({ groupId, userIds });
 
     revalidatePath(`/groups/${groupId}`);
     return { added: userIds.length };

@@ -12,5 +12,5 @@ export const getCurrentUser = cache(async () => {
     return null;
   }
 
-  return user.user as User;
+  return user.user as unknown as User;
 });

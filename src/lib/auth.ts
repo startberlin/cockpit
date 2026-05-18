@@ -1,7 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { admin } from "better-auth/plugins";
 import db from "@/db";
 import { schema } from "@/db/schema";
 import { betterAuthUserAdditionalFields } from "@/db/schema/auth-fields";
@@ -14,6 +13,11 @@ export const auth = betterAuth({
   }),
   user: {
     additionalFields: betterAuthUserAdditionalFields,
+  },
+  session: {
+    additionalFields: {
+      impersonatedBy: { type: "string", input: false },
+    },
   },
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
@@ -40,8 +44,5 @@ export const auth = betterAuth({
       overrideUserInfoOnSignIn: true,
     },
   },
-  plugins: [
-    admin({ adminRoles: ["admin"], defaultRole: "user" }),
-    nextCookies(),
-  ],
+  plugins: [nextCookies()],
 });
