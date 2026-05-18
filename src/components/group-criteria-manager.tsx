@@ -36,7 +36,9 @@ import {
 } from "@/components/ui/select";
 import type { GroupCriteria } from "@/db/groups";
 import { department, userStatus } from "@/db/schema/auth";
+import { DEPARTMENTS } from "@/lib/enums";
 import { addGroupCriteriaSchema } from "@/lib/groups/criteria";
+import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface GroupCriteriaManagerProps {
   groupId: string;
@@ -44,30 +46,13 @@ interface GroupCriteriaManagerProps {
   onCriteriaChange: () => void;
 }
 
-const DEPARTMENT_LABELS: Record<string, string> = {
-  partnerships: "Partnerships",
-  operations: "Operations",
-  community: "Community",
-  growth: "Growth",
-  events: "Events",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  onboarding: "Onboarding",
-  member: "Member",
-  supporting_alumni: "Supporting alumni",
-  alumni: "Alumni",
-};
-
 function formatCriteriaDisplay(criteria: GroupCriteria) {
   const parts: string[] = [];
   if (criteria.department) {
-    parts.push(
-      `Department: ${DEPARTMENT_LABELS[criteria.department] ?? criteria.department}`,
-    );
+    parts.push(`Department: ${DEPARTMENTS[criteria.department]}`);
   }
   if (criteria.status) {
-    parts.push(`Status: ${STATUS_LABELS[criteria.status] ?? criteria.status}`);
+    parts.push(`Status: ${USER_STATUS_INFO[criteria.status].label}`);
   }
   if (criteria.batchNumber) {
     parts.push(`Batch: ${criteria.batchNumber}`);
@@ -189,7 +174,7 @@ export default function GroupCriteriaManager({
                       <SelectItem value="any">Any department</SelectItem>
                       {department.enumValues.map((d) => (
                         <SelectItem key={d} value={d}>
-                          {DEPARTMENT_LABELS[d] ?? d}
+                          {DEPARTMENTS[d]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -217,7 +202,7 @@ export default function GroupCriteriaManager({
                       <SelectItem value="any">Any status</SelectItem>
                       {userStatus.enumValues.map((s) => (
                         <SelectItem key={s} value={s}>
-                          {STATUS_LABELS[s] ?? s}
+                          {USER_STATUS_INFO[s].label}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -29,22 +29,9 @@ import {
 } from "@/components/ui/select";
 import type { PublicUser } from "@/db/people";
 import { department, userStatus } from "@/db/schema/auth";
+import { DEPARTMENTS } from "@/lib/enums";
 import type { NormalizedGroupCriteriaInput } from "@/lib/groups/criteria";
-
-const DEPARTMENT_LABELS: Record<string, string> = {
-  partnerships: "Partnerships",
-  operations: "Operations",
-  community: "Community",
-  growth: "Growth",
-  events: "Events",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  onboarding: "Onboarding",
-  member: "Member",
-  supporting_alumni: "Supporting alumni",
-  alumni: "Alumni",
-};
+import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface BulkAddUsersDialogProps {
   groupId: string;
@@ -56,10 +43,6 @@ interface UserCriteria {
   departments: string[];
   statuses: string[];
   batchNumbers: number[];
-}
-
-function findLabel(labels: Record<string, string>, value: string) {
-  return labels[value] ?? value;
 }
 
 export default function BulkAddUsersDialog({
@@ -167,7 +150,7 @@ export default function BulkAddUsersDialog({
     title: string,
     type: "departments" | "statuses",
     enumValues: readonly string[],
-    labels: Record<string, string>,
+    getLabel: (v: string) => string,
     currentValues: string[],
   ) => (
     <div className="space-y-2">
@@ -181,7 +164,7 @@ export default function BulkAddUsersDialog({
             .filter((v) => !currentValues.includes(v))
             .map((v) => (
               <SelectItem key={v} value={v}>
-                {findLabel(labels, v)}
+                {getLabel(v)}
               </SelectItem>
             ))}
         </SelectContent>
@@ -190,7 +173,7 @@ export default function BulkAddUsersDialog({
         <div className="flex flex-wrap gap-2">
           {currentValues.map((value) => (
             <Badge key={value} variant="secondary" className="text-xs">
-              {findLabel(labels, value)}
+              {getLabel(value)}
               <button
                 onClick={() => handleRemoveCriteria(type, value)}
                 className="ml-1 hover:text-destructive"
@@ -221,14 +204,15 @@ export default function BulkAddUsersDialog({
             "Departments",
             "departments",
             department.enumValues,
-            DEPARTMENT_LABELS,
+            (v) => DEPARTMENTS[v as keyof typeof DEPARTMENTS] ?? v,
             criteria.departments,
           )}
           {renderCriteriaSection(
             "Statuses",
             "statuses",
             userStatus.enumValues,
-            STATUS_LABELS,
+            (v) =>
+              USER_STATUS_INFO[v as keyof typeof USER_STATUS_INFO]?.label ?? v,
             criteria.statuses,
           )}
 
@@ -309,7 +293,7 @@ export default function BulkAddUsersDialog({
                   <div className="flex gap-1">
                     {user.department && (
                       <Badge variant="outline" className="text-xs">
-                        {findLabel(DEPARTMENT_LABELS, user.department)}
+                        {DEPARTMENTS[user.department] ?? user.department}
                       </Badge>
                     )}
                     {user.batchNumber != null && (
@@ -318,7 +302,7 @@ export default function BulkAddUsersDialog({
                       </Badge>
                     )}
                     <Badge variant="outline" className="text-xs">
-                      {findLabel(STATUS_LABELS, user.status)}
+                      {USER_STATUS_INFO[user.status]?.label ?? user.status}
                     </Badge>
                   </div>
                 </div>
