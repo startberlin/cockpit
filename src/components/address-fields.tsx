@@ -132,9 +132,7 @@ export function AddressFields<TFieldValues extends FieldValues = FieldValues>({
                 }}
                 inputValue={field.value}
                 onInputValueChange={(value, eventDetails) => {
-                  const isUserInput =
-                    eventDetails.reason === "input-change" ||
-                    eventDetails.reason === "input-paste";
+                  const isUserInput = eventDetails.reason === "input-change";
                   if (!isUserInput) return;
                   setUserHasEditedStreet(true);
                   setAddressField("street", value, { shouldValidate: true });
