@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { google } from "googleapis";
 import db from "@/db";
 import { group } from "@/db/schema/group";
@@ -33,22 +33,41 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
         // failures; we only swallow once retries are exhausted. The cron will pick
         // it up later.
         try {
-          await step.run("sync-slack-channel", async () => {
-            const result = await slack.conversations.create({
-              name: g.slug,
-              is_private: true,
-            });
+          const channelId = await step.run(
+            "create-or-resolve-slack-channel",
+            async () => {
+              const result = await slack.conversations.create({
+                name: g.slug,
+                is_private: true,
+              });
 
-            if (!result.ok || !result.channel?.id) {
+              if (result.ok && result.channel?.id) {
+                return result.channel.id;
+              }
+
+              if (result.error === "name_taken") {
+                const listResult = await slack.conversations.list({
+                  types: "private_channel",
+                });
+                const existing = listResult.channels?.find(
+                  (ch) => ch.name === g.slug,
+                );
+                if (existing?.id) {
+                  return existing.id;
+                }
+              }
+
               throw new Error(
                 `Failed to create Slack channel: ${result.error}`,
               );
-            }
+            },
+          );
 
+          await step.run("persist-slack-channel-id", async () => {
             await db
               .update(group)
-              .set({ slackChannelId: result.channel.id })
-              .where(eq(group.id, id));
+              .set({ slackChannelId: channelId })
+              .where(and(eq(group.id, id), isNull(group.slackChannelId)));
           });
         } catch (error) {
           console.error(
