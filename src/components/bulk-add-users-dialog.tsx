@@ -1,8 +1,9 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Crown, Plus, Users, X } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   bulkAddUsersAction,
@@ -56,26 +57,35 @@ export default function BulkAddUsersDialog({
     statuses: [],
     batchNumbers: [],
   });
-  const [previewUsers, setPreviewUsers] = useState<PublicUser[]>([]);
   const [newBatchNumber, setNewBatchNumber] = useState<string>("");
 
-  const searchAction = useAction(searchUsersByCriteriaAction, {
-    onSuccess: ({ data }) => {
-      setPreviewUsers(data?.users ?? []);
+  const hasCriteria =
+    criteria.departments.length > 0 ||
+    criteria.statuses.length > 0 ||
+    criteria.batchNumbers.length > 0;
+
+  const { data: searchData, isFetching: isSearching } = useQuery({
+    queryKey: ["group-criteria-preview", groupId, criteria],
+    queryFn: async () => {
+      const result = await searchUsersByCriteriaAction({
+        groupId,
+        match: "any",
+        criteria: criteria as NormalizedGroupCriteriaInput["criteria"],
+      });
+      if (!result?.data) throw new Error("Failed to search members.");
+      return result.data;
     },
-    onError: () => {
-      toast.error(
-        "Could not load matching members. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    },
+    enabled: isOpen && hasCriteria,
+    staleTime: 0,
   });
+
+  const previewUsers = hasCriteria ? (searchData?.users ?? []) : [];
 
   const addAction = useAction(bulkAddUsersAction, {
     onSuccess: ({ data }) => {
       onUsersAdded(previewUsers, "member");
       setIsOpen(false);
       setCriteria({ departments: [], statuses: [], batchNumbers: [] });
-      setPreviewUsers([]);
       const count = data?.added ?? 0;
       toast.success(
         `Added ${count} member${count !== 1 ? "s" : ""} to the group.`,
@@ -87,25 +97,6 @@ export default function BulkAddUsersDialog({
       );
     },
   });
-
-  const executeSearch = searchAction.execute;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const hasCriteria =
-      criteria.departments.length > 0 ||
-      criteria.statuses.length > 0 ||
-      criteria.batchNumbers.length > 0;
-    if (!hasCriteria) {
-      setPreviewUsers([]);
-      return;
-    }
-    executeSearch({
-      groupId,
-      match: "any",
-      criteria: criteria as NormalizedGroupCriteriaInput["criteria"],
-    });
-  }, [isOpen, criteria, groupId, executeSearch]);
 
   const handleAddCriteria = (
     type: keyof UserCriteria,
@@ -267,7 +258,7 @@ export default function BulkAddUsersDialog({
             <span className="font-medium">
               Matching members ({previewUsers.length})
             </span>
-            {searchAction.isPending && (
+            {isSearching && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2" />
             )}
           </div>
@@ -310,7 +301,7 @@ export default function BulkAddUsersDialog({
             </div>
           )}
 
-          {!searchAction.isPending &&
+          {!isSearching &&
             previewUsers.length === 0 &&
             (criteria.departments.length > 0 ||
               criteria.statuses.length > 0 ||
