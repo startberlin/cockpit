@@ -131,7 +131,11 @@ export function AddressFields<TFieldValues extends FieldValues = FieldValues>({
                   setStreetSuggestionsOpen(open && canShowAddressSuggestions);
                 }}
                 inputValue={field.value}
-                onInputValueChange={(value) => {
+                onInputValueChange={(value, eventDetails) => {
+                  const isUserInput =
+                    eventDetails.reason === "input-change" ||
+                    eventDetails.reason === "input-paste";
+                  if (!isUserInput) return;
                   setUserHasEditedStreet(true);
                   setAddressField("street", value, { shouldValidate: true });
                 }}
