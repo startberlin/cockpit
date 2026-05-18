@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeGroupCriteria } from "@/db/groups";
+import { getGroupCriteriaById, removeGroupCriteria } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
 import { can } from "@/lib/permissions/server";
 
@@ -23,8 +23,14 @@ export async function DELETE(
     );
   }
 
+  const { id } = await params;
+
+  const criteria = await getGroupCriteriaById(id);
+  if (!criteria) {
+    return NextResponse.json({ error: "Criteria not found." }, { status: 404 });
+  }
+
   try {
-    const { id } = await params;
     await removeGroupCriteria({ criteriaId: id });
     return NextResponse.json({ success: true });
   } catch (error) {

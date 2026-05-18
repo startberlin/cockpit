@@ -283,6 +283,15 @@ export async function addGroupCriteria(
   return newCriteria;
 }
 
+export async function getGroupCriteriaById(
+  criteriaId: string,
+): Promise<GroupCriteria | null> {
+  const row = await db.query.groupCriteria.findFirst({
+    where: eq(groupCriteria.id, criteriaId),
+  });
+  return row ?? null;
+}
+
 const removeGroupCriteriaSchema = z.object({
   criteriaId: z.string(),
 });
