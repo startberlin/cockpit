@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import db from "@/db";
 import { addUsersToGroup, removeUserFromGroup } from "@/db/groups";
 import type { Department, UserStatus } from "@/db/schema/auth";
@@ -121,6 +121,25 @@ async function pushRemoveToIntegrations(
   }
 }
 
+function buildMatchingWhereClause(
+  criteria: CriterionRow[],
+): SQL<unknown> | undefined {
+  const clauses = criteria
+    .filter(criterionHasAnyField)
+    .map((c) => {
+      const parts: SQL<unknown>[] = [];
+      if (c.department !== null) parts.push(eq(user.department, c.department));
+      if (c.status !== null) parts.push(eq(user.status, c.status));
+      if (c.batchNumber !== null)
+        parts.push(eq(user.batchNumber, c.batchNumber));
+      return parts.length === 1 ? parts[0] : and(...parts);
+    })
+    .filter((c): c is SQL<unknown> => c !== undefined);
+
+  if (clauses.length === 0) return undefined;
+  return clauses.length === 1 ? clauses[0] : or(...clauses);
+}
+
 /**
  * Reconcile a single group's membership against its current criteria:
  * add users that match but aren't members, remove users whose membership
@@ -145,17 +164,20 @@ export async function reconcileGroupMembership(
     .from(groupCriteria)
     .where(eq(groupCriteria.groupId, groupId));
 
-  const allUsers = await db
-    .select({
-      id: user.id,
-      email: user.email,
-      department: user.department,
-      status: user.status,
-      batchNumber: user.batchNumber,
-    })
-    .from(user);
+  const whereClause = buildMatchingWhereClause(criteria);
 
-  const matching = allUsers.filter((u) => userMatchesAnyCriterion(u, criteria));
+  const matching = whereClause
+    ? await db
+        .select({
+          id: user.id,
+          email: user.email,
+          department: user.department,
+          status: user.status,
+          batchNumber: user.batchNumber,
+        })
+        .from(user)
+        .where(whereClause)
+    : [];
   const matchingIds = new Set(matching.map((u) => u.id));
 
   const currentMembers = await db
