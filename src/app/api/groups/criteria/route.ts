@@ -48,6 +48,7 @@ export async function POST(request: Request) {
           status: parsed.data.status,
           batchNumber: parsed.data.batchNumber,
         },
+        tx,
       );
 
       return { criteria, addedUsersCount };

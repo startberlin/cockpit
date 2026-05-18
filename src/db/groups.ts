@@ -317,11 +317,13 @@ function buildCriteriaConditions({
   return conditions;
 }
 
-export async function findUsersNotInGroupByCriteria({
-  groupId,
-  match,
-  criteria,
-}: NormalizedGroupCriteriaInput): Promise<PublicUser[]> {
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function findUsersNotInGroupByCriteria(
+  { groupId, match, criteria }: NormalizedGroupCriteriaInput,
+  tx?: Tx,
+): Promise<PublicUser[]> {
+  const ops = tx ?? db;
   const conditions = buildCriteriaConditions(criteria);
 
   if (conditions.length === 0) {
@@ -331,7 +333,7 @@ export async function findUsersNotInGroupByCriteria({
   const matchCondition =
     match === "all" ? and(...conditions) : or(...conditions);
 
-  return await db
+  return await ops
     .select({
       id: user.id,
       firstName: user.firstName,
@@ -358,15 +360,19 @@ export async function addUsersToGroup({
   userIds,
   role = "member",
   source = "manual",
+  tx,
 }: {
   groupId: string;
   userIds: string[];
   role?: "admin" | "member";
   source?: GroupMembershipSource;
+  tx?: Tx;
 }) {
   if (userIds.length === 0) {
     return 0;
   }
+
+  const ops = tx ?? db;
 
   const values = userIds.map((userId) => ({
     userId,
@@ -380,7 +386,7 @@ export async function addUsersToGroup({
     // the group with source = 'criteria', upgrade them to 'manual' so future
     // reconciliations can no longer auto-remove them. We deliberately do not
     // touch the role on conflict — that's set by separate explicit actions.
-    await db
+    await ops
       .insert(usersToGroups)
       .values(values)
       .onConflictDoUpdate({
@@ -389,7 +395,7 @@ export async function addUsersToGroup({
       });
   } else {
     // Criterion-driven adds must never downgrade an existing manual row.
-    await db.insert(usersToGroups).values(values).onConflictDoNothing();
+    await ops.insert(usersToGroups).values(values).onConflictDoNothing();
   }
 
   return userIds.length;
@@ -402,21 +408,26 @@ export async function addUsersMatchingCriteria(
     status?: UserStatus;
     batchNumber?: number;
   },
+  tx?: Tx,
 ) {
-  const matchingUsers = await findUsersNotInGroupByCriteria({
-    groupId,
-    match: "all",
-    criteria: {
-      departments: criteria.department ? [criteria.department] : [],
-      statuses: criteria.status ? [criteria.status] : [],
-      batchNumbers: criteria.batchNumber ? [criteria.batchNumber] : [],
+  const matchingUsers = await findUsersNotInGroupByCriteria(
+    {
+      groupId,
+      match: "all",
+      criteria: {
+        departments: criteria.department ? [criteria.department] : [],
+        statuses: criteria.status ? [criteria.status] : [],
+        batchNumbers: criteria.batchNumber ? [criteria.batchNumber] : [],
+      },
     },
-  });
+    tx,
+  );
 
   await addUsersToGroup({
     groupId,
     userIds: matchingUsers.map((matchingUser) => matchingUser.id),
     source: "criteria",
+    tx,
   });
 
   return matchingUsers.length;
