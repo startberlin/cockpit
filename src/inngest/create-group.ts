@@ -26,18 +26,16 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
     if (g.slackEnabled && !g.slackChannelId) {
       if (env.DISABLE_SLACK) {
         console.warn(
-          `[slack disabled] would have created channel ${g.slug} for group ${id}`,
+          `[slack disabled] would have created channel ${g.slackChannelSlug ?? g.slug} for group ${id}`,
         );
       } else {
-        // Try/catch wraps step.run so Inngest still retries the step on transient
-        // failures; we only swallow once retries are exhausted. The cron will pick
-        // it up later.
         try {
+          const channelSlug = g.slackChannelSlug ?? g.slug;
           const channelId = await step.run(
             "create-or-resolve-slack-channel",
             async () => {
               const result = await slack.conversations.create({
-                name: g.slug,
+                name: channelSlug,
                 is_private: true,
               });
 
@@ -50,7 +48,7 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
                   types: "private_channel",
                 });
                 const existing = listResult.channels?.find(
-                  (ch) => ch.name === g.slug,
+                  (ch) => ch.name === channelSlug,
                 );
                 if (existing?.id) {
                   return existing.id;
@@ -81,7 +79,7 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
     if (g.emailEnabled && !g.googleGroupEmail) {
       if (env.DISABLE_GOOGLE_WORKSPACE) {
         console.warn(
-          `[google-workspace disabled] would have created Google Group ${g.slug}@start-berlin.com for group ${id}`,
+          `[google-workspace disabled] would have created Google Group ${g.googleEmailPrefix ?? g.slug}@start-berlin.com for group ${id}`,
         );
       } else {
         try {
@@ -91,15 +89,28 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
             );
 
             const admin = google.admin({ auth, version: "directory_v1" });
-            const groupEmail = `${g.slug}@start-berlin.com`;
+            const emailPrefix = g.googleEmailPrefix ?? g.slug;
+            const groupEmail = `${emailPrefix}@start-berlin.com`;
 
-            await admin.groups.insert({
-              requestBody: {
-                email: groupEmail,
-                name: g.name,
-                description: `Email group for ${g.name}`,
-              },
-            });
+            try {
+              await admin.groups.insert({
+                requestBody: {
+                  email: groupEmail,
+                  name: g.name,
+                  description: `Email group for ${g.name}`,
+                },
+              });
+            } catch (insertError: unknown) {
+              const status =
+                insertError &&
+                typeof insertError === "object" &&
+                "status" in insertError
+                  ? (insertError as { status: number }).status
+                  : null;
+
+              // 409 means the group already exists — resolve and reuse it.
+              if (status !== 409) throw insertError;
+            }
 
             await db
               .update(group)

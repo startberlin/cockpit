@@ -22,8 +22,10 @@ export const group = pgTable("group", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   slackEnabled: boolean("slack_enabled").notNull().default(false),
+  slackChannelSlug: text("slack_channel_slug"),
   slackChannelId: text("slack_channel_id"),
   emailEnabled: boolean("email_enabled").notNull().default(false),
+  googleEmailPrefix: text("google_email_prefix"),
   googleGroupEmail: text("google_group_email"),
 });
 

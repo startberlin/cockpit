@@ -27,6 +27,25 @@ export async function lookupSlackUserIdByEmail(
   }
 }
 
+export async function slackChannelExists(name: string): Promise<boolean> {
+  if (env.DISABLE_SLACK) return false;
+
+  let cursor: string | undefined;
+  do {
+    const res = await slack.conversations.list({
+      types: "private_channel,public_channel",
+      exclude_archived: true,
+      limit: 1000,
+      cursor,
+    });
+
+    if (res.channels?.some((ch) => ch.name === name)) return true;
+    cursor = res.response_metadata?.next_cursor || undefined;
+  } while (cursor);
+
+  return false;
+}
+
 export async function inviteToChannel(
   channelId: string,
   slackUserIds: string[],

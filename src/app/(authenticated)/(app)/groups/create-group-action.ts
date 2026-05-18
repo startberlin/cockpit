@@ -29,7 +29,9 @@ export const createGroupAction = actionClient
         name: parsedInput.name,
         slug: parsedInput.slug,
         slackEnabled: parsedInput.integrations.slack,
+        slackChannelSlug: parsedInput.integrations.slackChannelSlug ?? null,
         emailEnabled: parsedInput.integrations.email,
+        googleEmailPrefix: parsedInput.integrations.googleEmailPrefix ?? null,
       });
     } catch (error) {
       if (

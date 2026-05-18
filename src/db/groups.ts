@@ -1,4 +1,13 @@
-import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import {
   type AddGroupCriteriaInput,
@@ -102,6 +111,40 @@ export async function checkSlugAvailability(slug: string): Promise<boolean> {
     .select({ id: group.id })
     .from(group)
     .where(eq(group.slug, slug))
+    .limit(1);
+
+  return existing.length === 0;
+}
+
+export async function checkSlackChannelSlugAvailability(
+  slug: string,
+): Promise<boolean> {
+  const existing = await db
+    .select({ id: group.id })
+    .from(group)
+    .where(
+      or(
+        eq(group.slackChannelSlug, slug),
+        and(isNull(group.slackChannelSlug), eq(group.slug, slug)),
+      ),
+    )
+    .limit(1);
+
+  return existing.length === 0;
+}
+
+export async function checkGoogleEmailPrefixAvailability(
+  prefix: string,
+): Promise<boolean> {
+  const existing = await db
+    .select({ id: group.id })
+    .from(group)
+    .where(
+      or(
+        eq(group.googleEmailPrefix, prefix),
+        and(isNull(group.googleEmailPrefix), eq(group.slug, prefix)),
+      ),
+    )
     .limit(1);
 
   return existing.length === 0;

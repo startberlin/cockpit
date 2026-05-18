@@ -3,7 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircleIcon, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import {
+  AlertCircleIcon,
+  CheckCircle2,
+  Loader2,
+  PencilIcon,
+  XCircle,
+} from "lucide-react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { Controller } from "react-hook-form";
@@ -27,8 +33,24 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { handleError } from "@/lib/utils";
+import {
+  checkGoogleEmailPrefixAction,
+  checkSlackSlugAction,
+} from "./check-integration-actions";
 import { checkSlugAction } from "./check-slug-action";
 import { createGroupAction } from "./create-group-action";
 import { createGroupSchema } from "./create-group-schema";
@@ -37,12 +59,47 @@ interface CreateGroupDialogProps {
   onSuccess?: () => void;
 }
 
+type AvailabilityState = "checking" | "available" | "unavailable" | null;
+
+function AvailabilityIcon({ state }: { state: AvailabilityState }) {
+  if (state === "checking")
+    return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+  if (state === "available")
+    return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+  if (state === "unavailable")
+    return <XCircle className="h-4 w-4 text-destructive" />;
+  return null;
+}
+
+function useAvailabilityQuery(
+  value: string,
+  enabled: boolean,
+  queryFn: (value: string) => Promise<boolean>,
+): AvailabilityState {
+  const [debounced] = useDebounce(value, 300);
+  const isTyping = value !== debounced;
+  const isValidFormat = Boolean(debounced && /^[a-z0-9-]+$/.test(debounced));
+
+  const query = useQuery({
+    queryKey: ["availability", queryFn.name, debounced],
+    queryFn: () => queryFn(debounced),
+    enabled: enabled && isValidFormat,
+  });
+
+  if (!value || !isValidFormat) return null;
+  if (isTyping || query.isFetching) return "checking";
+  if (query.data) return "available";
+  return "unavailable";
+}
+
 export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
   const [open, setOpen] = useQueryState(
     "create",
     parseAsBoolean.withDefault(false),
   );
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [slackSlugUnlocked, setSlackSlugUnlocked] = useState(false);
+  const [googlePrefixUnlocked, setGooglePrefixUnlocked] = useState(false);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     createGroupAction,
@@ -52,6 +109,8 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
         onSuccess: () => {
           setOpen(false);
           setSlugManuallyEdited(false);
+          setSlackSlugUnlocked(false);
+          setGooglePrefixUnlocked(false);
           form.reset();
           onSuccess?.();
         },
@@ -63,7 +122,9 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
           slug: "",
           integrations: {
             slack: false,
+            slackChannelSlug: undefined,
             email: false,
+            googleEmailPrefix: undefined,
           },
         },
         mode: "onChange",
@@ -73,42 +134,31 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
 
   const nameValue = form.watch("name");
   const slugValue = form.watch("slug");
-  const [debouncedSlug] = useDebounce(slugValue, 300);
+  const slackEnabled = form.watch("integrations.slack");
+  const emailEnabled = form.watch("integrations.email");
+  const slackChannelSlugValue =
+    form.watch("integrations.slackChannelSlug") ?? slugValue;
+  const googleEmailPrefixValue =
+    form.watch("integrations.googleEmailPrefix") ?? slugValue;
 
-  const isValidSlugFormat = Boolean(
-    debouncedSlug && /^[a-z0-9-]+$/.test(debouncedSlug),
-  );
-
-  const slugQuery = useQuery({
-    queryKey: ["slug-availability", debouncedSlug],
-    queryFn: async () => {
-      const result = await checkSlugAction({ slug: debouncedSlug });
-      return result?.data?.available ?? false;
-    },
-    enabled: isValidSlugFormat,
-  });
-
-  // Auto-generate slug from name when name changes (if not manually edited)
+  // Auto-generate slug from name
   useEffect(() => {
     if (!slugManuallyEdited && nameValue) {
-      const generatedSlug = slugify(nameValue, {
-        lower: true,
-        strict: true,
-      });
-      form.setValue("slug", generatedSlug, { shouldValidate: true });
+      const generated = slugify(nameValue, { lower: true, strict: true });
+      form.setValue("slug", generated, { shouldValidate: true });
     }
   }, [nameValue, slugManuallyEdited, form]);
 
-  // Reset state when dialog closes
+  // Reset lock state when dialog closes
   useEffect(() => {
     if (!open) {
       setSlugManuallyEdited(false);
+      setSlackSlugUnlocked(false);
+      setGooglePrefixUnlocked(false);
     }
   }, [open]);
 
   // Trigger parent validation when nested integration fields change
-  // This is required because RHF + Zod only validates the specific field path,
-  // not the parent's .refine() which checks cross-field constraints
   useEffect(() => {
     const subscription = form.watch((_, { name }) => {
       if (name?.startsWith("integrations.")) {
@@ -118,25 +168,93 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
     return () => subscription.unsubscribe();
   }, [form]);
 
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSlugManuallyEdited(true);
-    form.setValue("slug", e.target.value, { shouldValidate: true });
-  };
-
-  // Derive availability state from query and input state
-  const isTyping = slugValue !== debouncedSlug;
-  const slugAvailability =
+  // Slug availability
+  const [debouncedSlug] = useDebounce(slugValue, 300);
+  const isSlugTyping = slugValue !== debouncedSlug;
+  const isValidSlugFormat = Boolean(
+    debouncedSlug && /^[a-z0-9-]+$/.test(debouncedSlug),
+  );
+  const slugQuery = useQuery({
+    queryKey: ["slug-availability", debouncedSlug],
+    queryFn: async () => {
+      const result = await checkSlugAction({ slug: debouncedSlug });
+      return result?.data?.available ?? false;
+    },
+    enabled: isValidSlugFormat,
+  });
+  const slugAvailability: AvailabilityState =
     !slugValue || !isValidSlugFormat
       ? null
-      : isTyping || slugQuery.isFetching
+      : isSlugTyping || slugQuery.isFetching
         ? "checking"
         : slugQuery.data
           ? "available"
           : "unavailable";
 
+  // Slack channel slug availability
+  const [debouncedSlackSlug] = useDebounce(slackChannelSlugValue, 300);
+  const isSlackTyping = slackChannelSlugValue !== debouncedSlackSlug;
+  const isValidSlackFormat = Boolean(
+    debouncedSlackSlug && /^[a-z0-9-]+$/.test(debouncedSlackSlug),
+  );
+  const slackQuery = useQuery({
+    queryKey: ["slack-availability", debouncedSlackSlug],
+    queryFn: async () => {
+      const result = await checkSlackSlugAction({ slug: debouncedSlackSlug });
+      return result?.data?.available ?? false;
+    },
+    enabled: slackEnabled && isValidSlackFormat,
+  });
+  const slackAvailability: AvailabilityState =
+    !slackEnabled || !slackChannelSlugValue || !isValidSlackFormat
+      ? null
+      : isSlackTyping || slackQuery.isFetching
+        ? "checking"
+        : slackQuery.data
+          ? "available"
+          : "unavailable";
+
+  // Google email prefix availability
+  const [debouncedGooglePrefix] = useDebounce(googleEmailPrefixValue, 300);
+  const isGoogleTyping = googleEmailPrefixValue !== debouncedGooglePrefix;
+  const isValidGoogleFormat = Boolean(
+    debouncedGooglePrefix && /^[a-z0-9-]+$/.test(debouncedGooglePrefix),
+  );
+  const googleQuery = useQuery({
+    queryKey: ["google-email-availability", debouncedGooglePrefix],
+    queryFn: async () => {
+      const result = await checkGoogleEmailPrefixAction({
+        prefix: debouncedGooglePrefix,
+      });
+      return result?.data?.available ?? false;
+    },
+    enabled: emailEnabled && isValidGoogleFormat,
+  });
+  const googleAvailability: AvailabilityState =
+    !emailEnabled || !googleEmailPrefixValue || !isValidGoogleFormat
+      ? null
+      : isGoogleTyping || googleQuery.isFetching
+        ? "checking"
+        : googleQuery.data
+          ? "available"
+          : "unavailable";
+
   const isSlugValid =
     slugAvailability === "available" && !form.formState.errors.slug;
-  const canSubmit = form.formState.isValid && isSlugValid && !action.isPending;
+  const isSlackValid =
+    !slackEnabled ||
+    slackAvailability === "available" ||
+    slackAvailability === null;
+  const isGoogleValid =
+    !emailEnabled ||
+    googleAvailability === "available" ||
+    googleAvailability === null;
+  const canSubmit =
+    form.formState.isValid &&
+    isSlugValid &&
+    isSlackValid &&
+    isGoogleValid &&
+    !action.isPending;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -178,18 +296,15 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
                   }
                   disabled={action.isPending}
                   value={slugValue}
-                  onChange={handleSlugChange}
+                  onChange={(e) => {
+                    setSlugManuallyEdited(true);
+                    form.setValue("slug", e.target.value, {
+                      shouldValidate: true,
+                    });
+                  }}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {slugAvailability === "checking" && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  {slugAvailability === "available" && (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  )}
-                  {slugAvailability === "unavailable" && (
-                    <XCircle className="h-4 w-4 text-destructive" />
-                  )}
+                  <AvailabilityIcon state={slugAvailability} />
                 </div>
               </div>
               <FieldDescription className="pt-0.5 text-xs">
@@ -208,27 +323,70 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
             <Controller
               control={form.control}
               name="integrations.slack"
-              render={({ field, fieldState }) => (
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="integrations.slack"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    disabled={action.isPending}
-                    aria-invalid={!!fieldState.error}
-                  />
-                  <div className="flex flex-col gap-1">
+              render={({ field }) => (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="integrations.slack"
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (!checked) setSlackSlugUnlocked(false);
+                      }}
+                      disabled={action.isPending}
+                    />
                     <Label htmlFor="integrations.slack" className="font-medium">
                       Create a Slack channel
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Members will be added to a private Slack channel{" "}
-                      <span className="font-mono">
-                        #{slugValue || "group-name"}
-                      </span>{" "}
-                      .
-                    </p>
                   </div>
+                  {field.value && (
+                    <div className="ml-7">
+                      <InputGroup
+                        aria-invalid={slackAvailability === "unavailable"}
+                      >
+                        <InputGroupAddon align="inline-start">
+                          <InputGroupText>#</InputGroupText>
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          className="font-mono"
+                          disabled={!slackSlugUnlocked || action.isPending}
+                          value={slackChannelSlugValue}
+                          onChange={(e) => {
+                            form.setValue(
+                              "integrations.slackChannelSlug",
+                              e.target.value,
+                              { shouldValidate: true },
+                            );
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          {!slackSlugUnlocked ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <InputGroupButton
+                                  size="icon-xs"
+                                  aria-label="Edit Slack channel name"
+                                  onClick={() => setSlackSlugUnlocked(true)}
+                                >
+                                  <PencilIcon />
+                                </InputGroupButton>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Edit Slack channel name
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <AvailabilityIcon state={slackAvailability} />
+                          )}
+                        </InputGroupAddon>
+                      </InputGroup>
+                      {slackAvailability === "unavailable" && (
+                        <p className="mt-1 text-sm text-destructive">
+                          This channel name is already in use.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             />
@@ -236,27 +394,68 @@ export function CreateGroupDialog({ onSuccess }: CreateGroupDialogProps) {
             <Controller
               control={form.control}
               name="integrations.email"
-              render={({ field, fieldState }) => (
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="integrations.email"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    disabled={action.isPending}
-                    aria-invalid={!!fieldState.error}
-                  />
-                  <div className="flex flex-col gap-1">
+              render={({ field }) => (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="integrations.email"
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        field.onChange(checked);
+                        if (!checked) setGooglePrefixUnlocked(false);
+                      }}
+                      disabled={action.isPending}
+                    />
                     <Label htmlFor="integrations.email" className="font-medium">
                       Create an email address
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Emails to{" "}
-                      <span className="font-mono">
-                        {slugValue || "group-name"}@start-berlin.com
-                      </span>{" "}
-                      will be sent to all group members.
-                    </p>
                   </div>
+                  {field.value && (
+                    <div className="ml-7">
+                      <InputGroup
+                        aria-invalid={googleAvailability === "unavailable"}
+                      >
+                        <InputGroupInput
+                          className="font-mono"
+                          disabled={!googlePrefixUnlocked || action.isPending}
+                          value={googleEmailPrefixValue}
+                          onChange={(e) => {
+                            form.setValue(
+                              "integrations.googleEmailPrefix",
+                              e.target.value,
+                              { shouldValidate: true },
+                            );
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupText>@start-berlin.com</InputGroupText>
+                          {!googlePrefixUnlocked ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <InputGroupButton
+                                  size="icon-xs"
+                                  aria-label="Edit email address"
+                                  onClick={() => setGooglePrefixUnlocked(true)}
+                                >
+                                  <PencilIcon />
+                                </InputGroupButton>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Edit email address
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <AvailabilityIcon state={googleAvailability} />
+                          )}
+                        </InputGroupAddon>
+                      </InputGroup>
+                      {googleAvailability === "unavailable" && (
+                        <p className="mt-1 text-sm text-destructive">
+                          This email address is already in use.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             />

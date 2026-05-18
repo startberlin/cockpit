@@ -157,6 +157,22 @@ function getGroupClient() {
   });
 }
 
+export async function googleGroupExists(groupEmail: string): Promise<boolean> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) return false;
+
+  const admin = getGroupClient();
+
+  try {
+    await admin.groups.get({ groupKey: groupEmail });
+    return true;
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function addGroupMember(
   groupEmail: string,
   userEmail: string,
