@@ -215,6 +215,18 @@ export async function removeUserFromGroup(userId: string, groupId: string) {
     );
 }
 
+export async function removeUsersFromGroup(userIds: string[], groupId: string) {
+  if (userIds.length === 0) return;
+  await db
+    .delete(usersToGroups)
+    .where(
+      and(
+        inArray(usersToGroups.userId, userIds),
+        eq(usersToGroups.groupId, groupId),
+      ),
+    );
+}
+
 export async function updateUserGroupRole(
   userId: string,
   groupId: string,

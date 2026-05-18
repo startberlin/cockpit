@@ -2,7 +2,11 @@ import "server-only";
 
 import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import db from "@/db";
-import { addUsersToGroup, removeUserFromGroup } from "@/db/groups";
+import {
+  addUsersToGroup,
+  removeUserFromGroup,
+  removeUsersFromGroup,
+} from "@/db/groups";
 import type { Department, UserStatus } from "@/db/schema/auth";
 import { user } from "@/db/schema/auth";
 import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
@@ -205,9 +209,10 @@ export async function reconcileGroupMembership(
     });
   }
 
-  for (const m of toRemove) {
-    await removeUserFromGroup(m.userId, groupId);
-  }
+  await removeUsersFromGroup(
+    toRemove.map((m) => m.userId),
+    groupId,
+  );
 
   for (const u of toAdd) {
     await pushAddToIntegrations(g, u.email);
