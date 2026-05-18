@@ -1,6 +1,6 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import db from "@/db";
-import { group, groupCriteria } from "@/db/schema/group";
+import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
 import { reconcileGroupMembership } from "@/lib/groups/reconcile";
 import { events, inngest } from "@/lib/inngest";
 
@@ -33,11 +33,37 @@ export const syncGroupsCron = inngest.createFunction(
 
     const groupsToReconcile = await step.run(
       "find-groups-with-criteria",
-      async () =>
-        await db
-          .selectDistinct({ id: group.id })
-          .from(group)
-          .innerJoin(groupCriteria, eq(groupCriteria.groupId, group.id)),
+      async () => {
+        // Include groups that have active criteria OR groups that still have
+        // criteria-sourced members (so cleanup runs after the last criterion
+        // is deleted — the INNER JOIN would otherwise skip them).
+        const [withCriteria, withOrphanedMembers] = await Promise.all([
+          db
+            .selectDistinct({ id: group.id })
+            .from(group)
+            .innerJoin(groupCriteria, eq(groupCriteria.groupId, group.id)),
+          db
+            .selectDistinct({ id: group.id })
+            .from(group)
+            .innerJoin(
+              usersToGroups,
+              and(
+                eq(usersToGroups.groupId, group.id),
+                eq(usersToGroups.source, "criteria"),
+              ),
+            ),
+        ]);
+
+        const seen = new Set<string>();
+        const merged: { id: string }[] = [];
+        for (const row of [...withCriteria, ...withOrphanedMembers]) {
+          if (!seen.has(row.id)) {
+            seen.add(row.id);
+            merged.push(row);
+          }
+        }
+        return merged;
+      },
     );
 
     const reconciliations: {

@@ -145,8 +145,6 @@ export async function reconcileGroupMembership(
     .from(groupCriteria)
     .where(eq(groupCriteria.groupId, groupId));
 
-  if (criteria.length === 0) return { groupId, added: [], removed: [] };
-
   const allUsers = await db
     .select({
       id: user.id,
