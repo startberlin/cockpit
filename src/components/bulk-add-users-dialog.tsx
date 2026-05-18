@@ -1,8 +1,14 @@
 "use client";
 
-import { Crown, Plus, Users, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Users, X } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
+import { useState } from "react";
 import { toast } from "sonner";
+import {
+  bulkAddUsersAction,
+  searchUsersByCriteriaAction,
+} from "@/app/(authenticated)/(app)/groups/[id]/bulk-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,10 +29,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { PublicUser } from "@/db/people";
+import { department, userStatus } from "@/db/schema/auth";
+import { DEPARTMENTS } from "@/lib/enums";
+import type { NormalizedGroupCriteriaInput } from "@/lib/groups/criteria";
+import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface BulkAddUsersDialogProps {
   groupId: string;
-  onUsersAdded: (users: PublicUser[], role: "admin" | "member") => void;
+  onUsersAdded: (users: PublicUser[]) => void;
   children: React.ReactNode;
 }
 
@@ -34,28 +44,6 @@ interface UserCriteria {
   departments: string[];
   statuses: string[];
   batchNumbers: number[];
-}
-
-const DEPARTMENTS = [
-  { value: "partnerships", label: "Partnerships" },
-  { value: "operations", label: "Operations" },
-  { value: "community", label: "Community" },
-  { value: "growth", label: "Growth" },
-  { value: "events", label: "Events" },
-];
-
-const STATUSES = [
-  { value: "onboarding", label: "Onboarding" },
-  { value: "member", label: "Member" },
-  { value: "supporting_alumni", label: "Supporting alumni" },
-  { value: "alumni", label: "Alumni" },
-];
-
-function findLabel(
-  options: Array<{ value: string; label: string }>,
-  value: string,
-) {
-  return options.find((option) => option.value === value)?.label ?? value;
 }
 
 export default function BulkAddUsersDialog({
@@ -69,55 +57,46 @@ export default function BulkAddUsersDialog({
     statuses: [],
     batchNumbers: [],
   });
-  const [previewUsers, setPreviewUsers] = useState<PublicUser[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
   const [newBatchNumber, setNewBatchNumber] = useState<string>("");
 
-  const fetchPreviewUsers = useCallback(async () => {
-    if (
-      criteria.departments.length === 0 &&
-      criteria.statuses.length === 0 &&
-      criteria.batchNumbers.length === 0
-    ) {
-      setPreviewUsers([]);
-      return;
-    }
+  const hasCriteria =
+    criteria.departments.length > 0 ||
+    criteria.statuses.length > 0 ||
+    criteria.batchNumbers.length > 0;
 
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/users/search-by-criteria", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          groupId,
-          criteria,
-        }),
+  const { data: searchData, isFetching: isSearching } = useQuery({
+    queryKey: ["group-criteria-preview", groupId, criteria],
+    queryFn: async () => {
+      const result = await searchUsersByCriteriaAction({
+        groupId,
+        match: "any",
+        criteria: criteria as NormalizedGroupCriteriaInput["criteria"],
       });
+      if (!result?.data) throw new Error("Failed to search members.");
+      return result.data;
+    },
+    enabled: isOpen && hasCriteria,
+    staleTime: 0,
+  });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
+  const previewUsers = hasCriteria ? (searchData?.users ?? []) : [];
 
-      const users = await response.json();
-      setPreviewUsers(users);
-    } catch (error) {
-      toast.error(
-        "Could not load matching members. Please try again. If this keeps happening, email operations@start-berlin.com.",
+  const addAction = useAction(bulkAddUsersAction, {
+    onSuccess: ({ data }) => {
+      onUsersAdded(previewUsers);
+      setIsOpen(false);
+      setCriteria({ departments: [], statuses: [], batchNumbers: [] });
+      const count = data?.added ?? 0;
+      toast.success(
+        `Added ${count} member${count !== 1 ? "s" : ""} to the group.`,
       );
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [groupId, criteria]);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchPreviewUsers();
-    }
-  }, [isOpen, fetchPreviewUsers]);
+    },
+    onError: () => {
+      toast.error(
+        "Could not add members to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    },
+  });
 
   const handleAddCriteria = (
     type: keyof UserCriteria,
@@ -125,7 +104,7 @@ export default function BulkAddUsersDialog({
   ) => {
     setCriteria((prev) => ({
       ...prev,
-      [type]: [...(prev[type] as any[]), value],
+      [type]: [...(prev[type] as (string | number)[]), value],
     }));
   };
 
@@ -135,7 +114,9 @@ export default function BulkAddUsersDialog({
   ) => {
     setCriteria((prev) => ({
       ...prev,
-      [type]: (prev[type] as any[]).filter((item) => item !== value),
+      [type]: (prev[type] as (string | number)[]).filter(
+        (item) => item !== value,
+      ),
     }));
   };
 
@@ -147,52 +128,19 @@ export default function BulkAddUsersDialog({
     }
   };
 
-  const handleBulkAdd = async (role: "admin" | "member" = "member") => {
+  const handleBulkAdd = () => {
     if (previewUsers.length === 0) return;
-
-    setIsAdding(true);
-    try {
-      const response = await fetch("/api/groups/bulk-add-users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          groupId,
-          userIds: previewUsers.map((u) => u.id),
-          role,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to add users");
-      }
-
-      onUsersAdded(previewUsers, role);
-      setIsOpen(false);
-      setCriteria({
-        departments: [],
-        statuses: [],
-        batchNumbers: [],
-      });
-      setPreviewUsers([]);
-      toast.success(
-        `Added ${previewUsers.length} member${previewUsers.length !== 1 ? "s" : ""} to the group.`,
-      );
-    } catch (error) {
-      toast.error(
-        "Could not add members to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-      console.error(error);
-    } finally {
-      setIsAdding(false);
-    }
+    addAction.execute({
+      groupId,
+      userIds: previewUsers.map((u) => u.id),
+    });
   };
 
   const renderCriteriaSection = (
     title: string,
-    type: keyof UserCriteria,
-    options: Array<{ value: string; label: string }>,
+    type: "departments" | "statuses",
+    enumValues: readonly string[],
+    getLabel: (v: string) => string,
     currentValues: string[],
   ) => (
     <div className="space-y-2">
@@ -202,31 +150,28 @@ export default function BulkAddUsersDialog({
           <SelectValue placeholder={`Choose ${title.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
-          {options
-            .filter((option) => !currentValues.includes(option.value))
-            .map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+          {enumValues
+            .filter((v) => !currentValues.includes(v))
+            .map((v) => (
+              <SelectItem key={v} value={v}>
+                {getLabel(v)}
               </SelectItem>
             ))}
         </SelectContent>
       </Select>
       {currentValues.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {currentValues.map((value) => {
-            const option = options.find((opt) => opt.value === value);
-            return (
-              <Badge key={value} variant="secondary" className="text-xs">
-                {option?.label || value}
-                <button
-                  onClick={() => handleRemoveCriteria(type, value)}
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            );
-          })}
+          {currentValues.map((value) => (
+            <Badge key={value} variant="secondary" className="text-xs">
+              {getLabel(value)}
+              <button
+                onClick={() => handleRemoveCriteria(type, value)}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
         </div>
       )}
     </div>
@@ -248,13 +193,16 @@ export default function BulkAddUsersDialog({
           {renderCriteriaSection(
             "Departments",
             "departments",
-            DEPARTMENTS,
+            department.enumValues,
+            (v) => DEPARTMENTS[v as keyof typeof DEPARTMENTS] ?? v,
             criteria.departments,
           )}
           {renderCriteriaSection(
             "Statuses",
             "statuses",
-            STATUSES,
+            userStatus.enumValues,
+            (v) =>
+              USER_STATUS_INFO[v as keyof typeof USER_STATUS_INFO]?.label ?? v,
             criteria.statuses,
           )}
 
@@ -303,15 +251,14 @@ export default function BulkAddUsersDialog({
           </div>
         </div>
 
-        {/* Preview Section */}
         <div className="border-t pt-4 space-y-3">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="font-medium">
               Matching members ({previewUsers.length})
             </span>
-            {isLoading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2"></div>
+            {isSearching && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2" />
             )}
           </div>
 
@@ -336,7 +283,7 @@ export default function BulkAddUsersDialog({
                   <div className="flex gap-1">
                     {user.department && (
                       <Badge variant="outline" className="text-xs">
-                        {findLabel(DEPARTMENTS, user.department)}
+                        {DEPARTMENTS[user.department] ?? user.department}
                       </Badge>
                     )}
                     {user.batchNumber != null && (
@@ -345,7 +292,7 @@ export default function BulkAddUsersDialog({
                       </Badge>
                     )}
                     <Badge variant="outline" className="text-xs">
-                      {findLabel(STATUSES, user.status)}
+                      {USER_STATUS_INFO[user.status]?.label ?? user.status}
                     </Badge>
                   </div>
                 </div>
@@ -353,7 +300,7 @@ export default function BulkAddUsersDialog({
             </div>
           )}
 
-          {!isLoading &&
+          {!isSearching &&
             previewUsers.length === 0 &&
             (criteria.departments.length > 0 ||
               criteria.statuses.length > 0 ||
@@ -369,23 +316,11 @@ export default function BulkAddUsersDialog({
             Cancel
           </Button>
           {previewUsers.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => handleBulkAdd("member")}
-                disabled={isAdding}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add as group members
-              </Button>
-              <Button
-                onClick={() => handleBulkAdd("admin")}
-                disabled={isAdding}
-              >
-                <Crown className="h-4 w-4 mr-2" />
-                Add as group admins
-              </Button>
-            </div>
+            <Button onClick={handleBulkAdd} disabled={addAction.isPending}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add {previewUsers.length} member
+              {previewUsers.length !== 1 ? "s" : ""}
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

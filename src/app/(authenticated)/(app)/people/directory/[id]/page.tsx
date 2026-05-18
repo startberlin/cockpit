@@ -19,6 +19,7 @@ import { can } from "@/lib/permissions/server";
 import { AuthorityCard } from "./authority-card";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
+import { ImpersonateButton } from "./impersonate-button";
 import { ProfileCard } from "./profile-card";
 import { ProposeMembershipButton } from "./propose-membership-button";
 
@@ -51,9 +52,8 @@ export default async function UserDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const canViewDetails = await can("users.view_details", {
-    targetDepartment: user.department,
-  });
+  const canViewDetails = await can("users.view_details", user);
+
   if (!canViewDetails) {
     return (
       <Empty className="min-h-[50vh]">
@@ -75,6 +75,7 @@ export default async function UserDetailPage({ params }: PageProps) {
   }
 
   const canManageAuthority = await can("users.manage_authority");
+  const canImpersonate = await can("users.impersonate");
 
   const isEligibleForMembershipProposal =
     user.profileOnboardingComplete &&
@@ -83,8 +84,7 @@ export default async function UserDetailPage({ params }: PageProps) {
     );
 
   const canProposeMembership =
-    isEligibleForMembershipProposal &&
-    (await can("membership.propose", { targetDepartment: user.department }));
+    isEligibleForMembershipProposal && (await can("membership.propose", user));
 
   return (
     <div className="w-full space-y-6">
@@ -110,13 +110,18 @@ export default async function UserDetailPage({ params }: PageProps) {
             </h1>
             <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
           </div>
-          {canProposeMembership && (
-            <ProposeMembershipButton
-              userId={user.id}
-              firstName={user.firstName}
-              lastName={user.lastName}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {canImpersonate && (
+              <ImpersonateButton userId={user.id} userEmail={user.email} />
+            )}
+            {canProposeMembership && (
+              <ProposeMembershipButton
+                userId={user.id}
+                firstName={user.firstName}
+                lastName={user.lastName}
+              />
+            )}
+          </div>
         </div>
       </div>
 

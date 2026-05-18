@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { AlertCircleIcon, LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 import { AddressFields } from "@/components/address-fields";
 import { PhoneNumberInput } from "@/components/phone-number-input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -24,6 +24,8 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Tooltip,
   TooltipContent,
@@ -34,12 +36,16 @@ import { handleError } from "@/lib/utils";
 import { saveSettingsAction } from "./save-settings-action";
 import { settingsSchema } from "./settings-validation";
 
+const EVENT_EMAIL_PREF_STATUSES = ["onboarding", "member", "supporting_alumni"];
+
 interface SettingsFormProps {
   user: User;
 }
 
 export function SettingsForm({ user }: SettingsFormProps) {
   const router = useRouter();
+
+  const showEmailPreference = EVENT_EMAIL_PREF_STATUSES.includes(user.status);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     saveSettingsAction,
@@ -58,10 +64,16 @@ export function SettingsForm({ user }: SettingsFormProps) {
           state: user.state ?? "",
           zip: user.zip ?? "",
           country: user.country ?? "",
+          eventEmailPreference: user.eventEmailPreference ?? undefined,
         },
       },
     },
   );
+
+  const watchedPersonalEmail = useWatch({
+    control: form.control,
+    name: "personalEmail",
+  });
 
   return (
     <form className="flex flex-col gap-y-8" onSubmit={handleSubmitWithAction}>
@@ -134,6 +146,66 @@ export function SettingsForm({ user }: SettingsFormProps) {
         setValue={form.setValue}
         disabled={action.isPending}
       />
+      {showEmailPreference && (
+        <FieldSet>
+          <FieldLegend>Event invites</FieldLegend>
+          <p className="text-sm text-muted-foreground -mt-2">
+            We send invites for all our events by email. Choose which address
+            you'd like us to use so you always know what's happening.
+          </p>
+          <FieldGroup>
+            <Controller
+              name="eventEmailPreference"
+              control={form.control}
+              render={({ field }) => (
+                <RadioGroup
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  disabled={action.isPending}
+                  className="gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem
+                      value="personal_email"
+                      id="pref-personal"
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor="pref-personal"
+                      className="flex items-start flex-col gap-0.5 cursor-pointer"
+                    >
+                      <span className="font-medium">
+                        {watchedPersonalEmail ||
+                          user.personalEmail ||
+                          "No personal email set"}
+                      </span>
+                      <span className="font-normal text-muted-foreground text-xs">
+                        Personal email
+                      </span>
+                    </Label>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem
+                      value="start_email"
+                      id="pref-start"
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor="pref-start"
+                      className="flex items-start flex-col gap-0.5 cursor-pointer"
+                    >
+                      <span className="font-medium">{user.email}</span>
+                      <span className="font-normal text-muted-foreground text-xs">
+                        START Berlin email
+                      </span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              )}
+            />
+          </FieldGroup>
+        </FieldSet>
+      )}
       {form.formState.errors.root && (
         <Alert className="text-destructive text-sm" variant="destructive">
           <AlertCircleIcon className="h-4 w-4" />

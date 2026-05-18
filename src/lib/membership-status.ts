@@ -37,6 +37,7 @@ type MembershipStatusUser = Pick<
   | "legalMembershipState"
   | "gocardlessMandateId"
   | "gocardlessCustomerId"
+  | "eventEmailPreference"
 >;
 
 export function getStructuredMembershipState(

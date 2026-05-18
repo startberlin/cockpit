@@ -8,15 +8,16 @@ import { Can } from "@/components/can";
 import { PeopleTable } from "@/components/people-table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { PublicUser } from "@/db/people";
+import type { PaginatedUsers } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
 import { CreateUserDialog } from "../create-user-dialog";
 import { ImportGoogleUserDialog } from "../import-google-user-dialog";
 
 interface DirectoryPageClientProps {
-  usersPromise: Promise<PublicUser[]>;
+  usersPromise: Promise<PaginatedUsers>;
   batches: { number: number }[];
   pendingActions: PendingBoardAction[];
+  initialSearch: string;
 }
 
 function DirectoryTableSkeleton() {
@@ -48,13 +49,15 @@ function DirectoryTableSkeleton() {
 function UserTableSection({
   usersPromise,
   pendingActions,
+  initialSearch,
 }: {
-  usersPromise: Promise<PublicUser[]>;
+  usersPromise: Promise<PaginatedUsers>;
   pendingActions: PendingBoardAction[];
+  initialSearch: string;
 }) {
-  const users = React.use(usersPromise);
+  const { users, total, pageCount } = React.use(usersPromise);
 
-  if (users.length === 0) {
+  if (total === 0 && !initialSearch) {
     return (
       <p className="text-muted-foreground py-8 text-center">
         No members found.
@@ -62,13 +65,22 @@ function UserTableSection({
     );
   }
 
-  return <PeopleTable data={users} pendingActions={pendingActions} />;
+  return (
+    <PeopleTable
+      data={users}
+      total={total}
+      pageCount={pageCount}
+      pendingActions={pendingActions}
+      initialSearch={initialSearch}
+    />
+  );
 }
 
 export default function DirectoryPageClient({
   usersPromise,
   batches,
   pendingActions,
+  initialSearch,
 }: DirectoryPageClientProps) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -106,6 +118,7 @@ export default function DirectoryPageClient({
         <UserTableSection
           usersPromise={usersPromise}
           pendingActions={pendingActions}
+          initialSearch={initialSearch}
         />
       </React.Suspense>
 

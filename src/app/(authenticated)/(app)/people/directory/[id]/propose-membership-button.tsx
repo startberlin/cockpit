@@ -47,7 +47,9 @@ export function ProposeMembershipButton({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Propose for membership</Button>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Propose for membership
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

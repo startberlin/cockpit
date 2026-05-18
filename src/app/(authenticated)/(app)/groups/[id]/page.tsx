@@ -1,17 +1,19 @@
 import { notFound } from "next/navigation";
 import * as React from "react";
-import { canViewGroup, getGroupDetail } from "@/db/groups";
+import { getGroupDetail } from "@/db/groups";
 import { createMetadata } from "@/lib/metadata";
+import { can } from "@/lib/permissions/server";
 import GroupDetailClient from "./page-client";
 import GroupDetailSkeleton from "./skeleton";
 
 interface GroupPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
 }
 
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
-  const mayViewGroup = await canViewGroup(id);
+  const mayViewGroup = await can("groups.view", { id });
 
   if (!mayViewGroup) {
     return createMetadata({
@@ -35,15 +37,21 @@ export async function generateMetadata({ params }: GroupPageProps) {
   });
 }
 
-export default async function GroupPage({ params }: GroupPageProps) {
+export default async function GroupPage({
+  params,
+  searchParams,
+}: GroupPageProps) {
   const { id } = await params;
-  const mayViewGroup = await canViewGroup(id);
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+
+  const mayViewGroup = await can("groups.view", { id });
 
   if (!mayViewGroup) {
     notFound();
   }
 
-  const groupDetailPromise = getGroupDetail(id);
+  const groupDetailPromise = getGroupDetail(id, page);
 
   return (
     <React.Suspense fallback={<GroupDetailSkeleton />}>

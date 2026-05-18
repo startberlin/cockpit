@@ -157,6 +157,56 @@ function getGroupClient() {
   });
 }
 
+export async function createGoogleGroup(
+  emailPrefix: string,
+  name: string,
+): Promise<string | null> {
+  const groupEmail = `${emailPrefix}@start-berlin.com`;
+
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] would create Google Group ${groupEmail}`,
+    );
+    return null;
+  }
+
+  const admin = getGroupClient();
+
+  try {
+    await admin.groups.insert({
+      requestBody: {
+        email: groupEmail,
+        name,
+        description: `Email group for ${name}`,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 409) {
+      // Already exists — reuse it.
+    } else {
+      throw error;
+    }
+  }
+
+  return groupEmail;
+}
+
+export async function googleGroupExists(groupEmail: string): Promise<boolean> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) return false;
+
+  const admin = getGroupClient();
+
+  try {
+    await admin.groups.get({ groupKey: groupEmail });
+    return true;
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function addGroupMember(
   groupEmail: string,
   userEmail: string,
@@ -211,4 +261,37 @@ export async function removeGroupMember(
     }
     throw error;
   }
+}
+
+export async function listGroupMemberEmails(
+  groupEmail: string,
+): Promise<string[]> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] listGroupMemberEmails(${groupEmail}) → []`,
+    );
+    return [];
+  }
+
+  const admin = getGroupClient();
+  const emails: string[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const res = await admin.members.list({
+      groupKey: groupEmail,
+      maxResults: 200,
+      pageToken,
+    });
+
+    for (const member of res.data.members ?? []) {
+      if (member.email) {
+        emails.push(member.email.toLowerCase());
+      }
+    }
+
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return emails;
 }

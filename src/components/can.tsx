@@ -1,19 +1,28 @@
 "use client";
 
 import { useCallback } from "react";
+import type { Department } from "@/db/schema/auth";
 import {
   type Action,
   type DepartmentScope,
   type DepartmentScopedAction,
   evaluateAuth,
   type GlobalAction,
+  type GroupScope,
+  type GroupScopedAction,
+  isDepartmentScopedAction,
   isGlobalAction,
+  isGroupScopedAction,
 } from "@/lib/permissions";
 import { useAuthority } from "@/lib/permissions/authority-context";
 
 export type CanCheck = {
   (permission: GlobalAction): boolean;
-  (permission: DepartmentScopedAction, scope: DepartmentScope): boolean;
+  (
+    permission: DepartmentScopedAction,
+    user: { department: Department | null },
+  ): boolean;
+  (permission: GroupScopedAction, group: { isMember: boolean }): boolean;
 };
 
 interface CanComponentProps {
@@ -28,19 +37,39 @@ type CanProps =
     })
   | (CanComponentProps & {
       permission: DepartmentScopedAction;
-      context: DepartmentScope;
+      context: { department: Department | null };
+    })
+  | (CanComponentProps & {
+      permission: GroupScopedAction;
+      context: { isMember: boolean };
     });
 
 export function useCan(): CanCheck;
 export function useCan(permission: GlobalAction): boolean;
 export function useCan(
   permission: DepartmentScopedAction,
-  scope: DepartmentScope,
+  user: { department: Department | null },
 ): boolean;
-export function useCan(permission?: Action, scope?: DepartmentScope) {
+export function useCan(
+  permission: GroupScopedAction,
+  group: { isMember: boolean },
+): boolean;
+export function useCan(
+  permission?: Action,
+  resource?: {
+    department?: Department | null;
+    isMember?: boolean;
+  },
+) {
   const authority = useAuthority();
   const check = useCallback<CanCheck>(
-    (action: Action, checkScope?: DepartmentScope) => {
+    (
+      action: Action,
+      checkResource?: {
+        department?: Department | null;
+        isMember?: boolean;
+      },
+    ) => {
       if (!authority) {
         return false;
       }
@@ -49,11 +78,21 @@ export function useCan(permission?: Action, scope?: DepartmentScope) {
         return evaluateAuth(authority, action);
       }
 
-      if (!checkScope) {
-        return false;
+      if (isDepartmentScopedAction(action)) {
+        const scope: DepartmentScope = {
+          targetDepartment: checkResource?.department ?? null,
+        };
+        return evaluateAuth(authority, action, scope);
       }
 
-      return evaluateAuth(authority, action, checkScope);
+      if (isGroupScopedAction(action)) {
+        const scope: GroupScope = {
+          isGroupMember: checkResource?.isMember ?? false,
+        };
+        return evaluateAuth(authority, action, scope);
+      }
+
+      return false;
     },
     [authority],
   );
@@ -66,24 +105,33 @@ export function useCan(permission?: Action, scope?: DepartmentScope) {
     return check(permission);
   }
 
-  if (!scope) {
-    return false;
+  if (isDepartmentScopedAction(permission)) {
+    return check(permission, resource as { department: Department | null });
   }
 
-  return check(permission, scope);
+  if (isGroupScopedAction(permission)) {
+    return check(permission, resource as { isMember: boolean });
+  }
+
+  return false;
 }
 
 export function Can(props: CanProps) {
   const check = useCan();
 
   if (isGlobalAction(props.permission)) {
-    const can = check(props.permission);
-    return can ? props.children : null;
+    return check(props.permission) ? props.children : null;
   }
 
-  const can = check(
-    props.permission as DepartmentScopedAction,
-    props.context as DepartmentScope,
-  );
-  return can ? props.children : null;
+  if (isDepartmentScopedAction(props.permission)) {
+    const context = props.context as { department: Department | null };
+    return check(props.permission, context) ? props.children : null;
+  }
+
+  if (isGroupScopedAction(props.permission)) {
+    const context = props.context as { isMember: boolean };
+    return check(props.permission, context) ? props.children : null;
+  }
+
+  return null;
 }

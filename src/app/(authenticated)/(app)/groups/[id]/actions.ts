@@ -6,10 +6,10 @@ import {
   pinGroupMember,
   removeUserFromGroup,
   searchUsersNotInGroup,
-  updateUserGroupRole,
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
+import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { can } from "@/lib/permissions/server";
 
 export async function searchUsersNotInGroupAction(
@@ -17,7 +17,7 @@ export async function searchUsersNotInGroupAction(
   query?: string,
 ): Promise<PublicUser[]> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members"))) {
+  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
@@ -27,14 +27,14 @@ export async function searchUsersNotInGroupAction(
 export async function addUserToGroupAction(
   userId: string,
   groupId: string,
-  role: "admin" | "member" = "member",
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members"))) {
+  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
-  await addUserToGroup(userId, groupId, role);
+  await addUserToGroup(userId, groupId);
+  await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
 }
 
@@ -43,25 +43,12 @@ export async function removeUserFromGroupAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members"))) {
+  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
   await removeUserFromGroup(userId, groupId);
-  revalidatePath(`/groups/${groupId}`);
-}
-
-export async function updateUserGroupRoleAction(
-  userId: string,
-  groupId: string,
-  role: "admin" | "member",
-): Promise<void> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members"))) {
-    throw new Error("You are not authorized to manage group members.");
-  }
-
-  await updateUserGroupRole(userId, groupId, role);
+  await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
 }
 
@@ -70,7 +57,7 @@ export async function pinGroupMemberAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members"))) {
+  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 

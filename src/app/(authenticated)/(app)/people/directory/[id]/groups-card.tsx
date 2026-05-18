@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -32,12 +31,9 @@ export async function GroupsCard({ userId }: GroupsCardProps) {
             <Link
               key={group.id}
               href={`/groups/${group.id}`}
-              className="hover:bg-accent flex items-center justify-between rounded-lg border p-3 transition-colors"
+              className="hover:bg-accent flex items-center rounded-lg border p-3 transition-colors"
             >
               <span className="font-medium">{group.name}</span>
-              <Badge variant="outline" className="capitalize">
-                {group.role.replace(/_/g, " ")}
-              </Badge>
             </Link>
           ))}
         </div>

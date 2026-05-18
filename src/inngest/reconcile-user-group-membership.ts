@@ -11,10 +11,10 @@ export const reconcileUserGroupMembershipWorkflow = inngest.createFunction(
     },
   },
   async ({ event, step }) => {
-    const results = await step.run("reconcile-user", async () => {
-      return await reconcileUserGroupMembership(event.data.id);
-    });
+    const results = await step.run("reconcile-db-user", () =>
+      reconcileUserGroupMembership(event.data.id),
+    );
 
-    return { results };
+    return { reconciled: results.length };
   },
 );

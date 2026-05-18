@@ -1,163 +1,72 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import db from "@/db";
-import { addUsersToGroup, removeUserFromGroup } from "@/db/groups";
-import type { Department, UserStatus } from "@/db/schema/auth";
+import {
+  addUsersToGroup,
+  removeUserFromGroups,
+  removeUsersFromGroup,
+} from "@/db/groups";
 import { user } from "@/db/schema/auth";
 import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
-import {
-  addGroupMember,
-  removeGroupMember,
-} from "@/lib/google-workspace/directory";
-import {
-  inviteToChannel,
-  kickFromChannel,
-  lookupSlackUserIdByEmail,
-} from "@/lib/slack";
+import { buildRuleGroupSQL } from "./rule-sql";
 
-export interface ReconcileResult {
-  groupId: string;
-  added: string[];
-  removed: string[];
-}
-
-interface GroupForReconcile {
+export interface GroupForReconcile {
   id: string;
-  slackChannelId: string | null;
   googleGroupEmail: string | null;
 }
 
-interface MatchableUser {
-  id: string;
-  email: string;
-  department: Department | null;
-  status: UserStatus;
-  batchNumber: number | null;
+export interface ReconcileResult {
+  groupId: string;
+  group: GroupForReconcile;
+  addedUsers: { id: string; email: string }[];
+  removedUsers: { id: string; email: string }[];
 }
 
-interface CriterionRow {
-  department: Department | null;
-  status: UserStatus | null;
-  batchNumber: number | null;
-}
+function buildGroupWhereClause(
+  criteria: { conditions: Parameters<typeof buildRuleGroupSQL>[0] }[],
+): SQL<unknown> | undefined {
+  const clauses = criteria
+    .map((c) => buildRuleGroupSQL(c.conditions))
+    .filter((c): c is SQL<unknown> => c !== undefined);
 
-function criterionHasAnyField(c: CriterionRow): boolean {
-  return c.department !== null || c.status !== null || c.batchNumber !== null;
-}
-
-function userMatchesCriterion(u: MatchableUser, c: CriterionRow): boolean {
-  if (!criterionHasAnyField(c)) return false;
-  if (c.department !== null && c.department !== u.department) return false;
-  if (c.status !== null && c.status !== u.status) return false;
-  if (c.batchNumber !== null && c.batchNumber !== u.batchNumber) return false;
-  return true;
-}
-
-function userMatchesAnyCriterion(
-  u: MatchableUser,
-  criteria: CriterionRow[],
-): boolean {
-  return criteria.some((c) => userMatchesCriterion(u, c));
-}
-
-async function pushAddToIntegrations(
-  g: GroupForReconcile,
-  email: string,
-): Promise<void> {
-  if (g.slackChannelId) {
-    try {
-      const slackUserId = await lookupSlackUserIdByEmail(email);
-      if (slackUserId) {
-        await inviteToChannel(g.slackChannelId, [slackUserId]);
-      }
-    } catch (error) {
-      console.error(
-        `[reconcile] Slack invite failed for ${email} in channel ${g.slackChannelId}`,
-        error,
-      );
-    }
-  }
-
-  if (g.googleGroupEmail) {
-    try {
-      await addGroupMember(g.googleGroupEmail, email);
-    } catch (error) {
-      console.error(
-        `[reconcile] Google group add failed for ${email} in ${g.googleGroupEmail}`,
-        error,
-      );
-    }
-  }
-}
-
-async function pushRemoveToIntegrations(
-  g: GroupForReconcile,
-  email: string,
-): Promise<void> {
-  if (g.slackChannelId) {
-    try {
-      const slackUserId = await lookupSlackUserIdByEmail(email);
-      if (slackUserId) {
-        await kickFromChannel(g.slackChannelId, slackUserId);
-      }
-    } catch (error) {
-      console.error(
-        `[reconcile] Slack kick failed for ${email} in channel ${g.slackChannelId}`,
-        error,
-      );
-    }
-  }
-
-  if (g.googleGroupEmail) {
-    try {
-      await removeGroupMember(g.googleGroupEmail, email);
-    } catch (error) {
-      console.error(
-        `[reconcile] Google group remove failed for ${email} in ${g.googleGroupEmail}`,
-        error,
-      );
-    }
-  }
+  if (clauses.length === 0) return undefined;
+  return clauses.length === 1 ? clauses[0] : or(...clauses);
 }
 
 /**
- * Reconcile a single group's membership against its current criteria:
- * add users that match but aren't members, remove users whose membership
- * was criterion-driven and no longer matches. Manual memberships are
- * never auto-removed regardless of match state.
+ * Reconcile a single group's membership against its current criteria.
+ * Only mutates the database — Google sync is the caller's responsibility.
  */
 export async function reconcileGroupMembership(
   groupId: string,
 ): Promise<ReconcileResult> {
   const g = await db.query.group.findFirst({
     where: eq(group.id, groupId),
-    columns: { id: true, slackChannelId: true, googleGroupEmail: true },
+    columns: { id: true, googleGroupEmail: true },
   });
-  if (!g) return { groupId, added: [], removed: [] };
+  if (!g) {
+    return {
+      groupId,
+      group: { id: groupId, googleGroupEmail: null },
+      addedUsers: [],
+      removedUsers: [],
+    };
+  }
 
   const criteria = await db
-    .select({
-      department: groupCriteria.department,
-      status: groupCriteria.status,
-      batchNumber: groupCriteria.batchNumber,
-    })
+    .select({ conditions: groupCriteria.conditions })
     .from(groupCriteria)
     .where(eq(groupCriteria.groupId, groupId));
 
-  if (criteria.length === 0) return { groupId, added: [], removed: [] };
+  const whereClause = buildGroupWhereClause(criteria);
 
-  const allUsers = await db
-    .select({
-      id: user.id,
-      email: user.email,
-      department: user.department,
-      status: user.status,
-      batchNumber: user.batchNumber,
-    })
-    .from(user);
-
-  const matching = allUsers.filter((u) => userMatchesAnyCriterion(u, criteria));
+  const matching = whereClause
+    ? await db
+        .select({ id: user.id, email: user.email })
+        .from(user)
+        .where(whereClause)
+    : [];
   const matchingIds = new Set(matching.map((u) => u.id));
 
   const currentMembers = await db
@@ -185,51 +94,39 @@ export async function reconcileGroupMembership(
     });
   }
 
-  for (const m of toRemove) {
-    await removeUserFromGroup(m.userId, groupId);
-  }
-
-  for (const u of toAdd) {
-    await pushAddToIntegrations(g, u.email);
-  }
-  for (const m of toRemove) {
-    await pushRemoveToIntegrations(g, m.email);
-  }
+  await removeUsersFromGroup(
+    toRemove.map((m) => m.userId),
+    groupId,
+  );
 
   return {
     groupId,
-    added: toAdd.map((u) => u.id),
-    removed: toRemove.map((m) => m.userId),
+    group: g,
+    addedUsers: toAdd.map((u) => ({ id: u.id, email: u.email })),
+    removedUsers: toRemove.map((m) => ({ id: m.userId, email: m.email })),
   };
 }
 
 /**
  * Reconcile a single user's membership across every group that has at
- * least one criterion. Adds the user where they newly match, removes
- * them where their `criteria` row no longer matches.
+ * least one criterion. Only mutates the database — Google sync is the
+ * caller's responsibility.
  */
 export async function reconcileUserGroupMembership(
   userId: string,
 ): Promise<ReconcileResult[]> {
-  const u = await db
-    .select({
-      id: user.id,
-      email: user.email,
-      department: user.department,
-      status: user.status,
-      batchNumber: user.batchNumber,
-    })
+  const userRows = await db
+    .select({ id: user.id, email: user.email })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
 
-  if (u.length === 0) return [];
-  const subject = u[0];
+  if (userRows.length === 0) return [];
+  const subject = userRows[0];
 
   const groupsWithCriteria = await db
     .selectDistinct({
       id: group.id,
-      slackChannelId: group.slackChannelId,
       googleGroupEmail: group.googleGroupEmail,
     })
     .from(group)
@@ -242,29 +139,23 @@ export async function reconcileUserGroupMembership(
   const allCriteria = await db
     .select({
       groupId: groupCriteria.groupId,
-      department: groupCriteria.department,
-      status: groupCriteria.status,
-      batchNumber: groupCriteria.batchNumber,
+      conditions: groupCriteria.conditions,
     })
     .from(groupCriteria)
     .where(inArray(groupCriteria.groupId, groupIds));
 
-  const criteriaByGroup = new Map<string, CriterionRow[]>();
+  const criteriaByGroup = new Map<
+    string,
+    { conditions: Parameters<typeof buildRuleGroupSQL>[0] }[]
+  >();
   for (const c of allCriteria) {
     const list = criteriaByGroup.get(c.groupId) ?? [];
-    list.push({
-      department: c.department,
-      status: c.status,
-      batchNumber: c.batchNumber,
-    });
+    list.push({ conditions: c.conditions });
     criteriaByGroup.set(c.groupId, list);
   }
 
   const currentMemberships = await db
-    .select({
-      groupId: usersToGroups.groupId,
-      source: usersToGroups.source,
-    })
+    .select({ groupId: usersToGroups.groupId, source: usersToGroups.source })
     .from(usersToGroups)
     .where(
       and(
@@ -277,11 +168,33 @@ export async function reconcileUserGroupMembership(
     currentMemberships.map((m) => [m.groupId, m] as const),
   );
 
+  // Check per-group match in parallel — each group has its own WHERE clause
+  const matchResults = await Promise.all(
+    groupsWithCriteria.map(async (g) => {
+      const criteria = criteriaByGroup.get(g.id) ?? [];
+      const whereClause = buildGroupWhereClause(criteria);
+
+      if (!whereClause) return { groupId: g.id, matches: false };
+
+      const [row] = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.id, userId), whereClause))
+        .limit(1);
+
+      return { groupId: g.id, matches: row !== undefined };
+    }),
+  );
+
+  const matchesByGroup = new Map(
+    matchResults.map((r) => [r.groupId, r.matches]),
+  );
+
   const results: ReconcileResult[] = [];
+  const groupIdsToRemoveFrom: string[] = [];
 
   for (const g of groupsWithCriteria) {
-    const criteria = criteriaByGroup.get(g.id) ?? [];
-    const matches = userMatchesAnyCriterion(subject, criteria);
+    const matches = matchesByGroup.get(g.id) ?? false;
     const current = currentByGroup.get(g.id);
 
     if (matches && !current) {
@@ -290,13 +203,25 @@ export async function reconcileUserGroupMembership(
         userIds: [userId],
         source: "criteria",
       });
-      await pushAddToIntegrations(g, subject.email);
-      results.push({ groupId: g.id, added: [userId], removed: [] });
+      results.push({
+        groupId: g.id,
+        group: g,
+        addedUsers: [{ id: userId, email: subject.email }],
+        removedUsers: [],
+      });
     } else if (!matches && current?.source === "criteria") {
-      await removeUserFromGroup(userId, g.id);
-      await pushRemoveToIntegrations(g, subject.email);
-      results.push({ groupId: g.id, added: [], removed: [userId] });
+      groupIdsToRemoveFrom.push(g.id);
+      results.push({
+        groupId: g.id,
+        group: g,
+        addedUsers: [],
+        removedUsers: [{ id: userId, email: subject.email }],
+      });
     }
+  }
+
+  if (groupIdsToRemoveFrom.length > 0) {
+    await removeUserFromGroups(userId, groupIdsToRemoveFrom);
   }
 
   return results;

@@ -16,5 +16,9 @@ export default async function OnboardingRoot() {
     return redirect("/");
   }
 
+  if (progress === "event-email") {
+    return redirect(`/onboarding/${ONBOARDING_STEPS.EVENT_EMAIL}`);
+  }
+
   return redirect(`/onboarding/${ONBOARDING_STEPS.MASTER_DATA}`);
 }

@@ -38,6 +38,7 @@ interface AuthorityEditorProps {
   userId: string;
   positions: ExistingPosition[];
   grants: ExistingGrant[];
+  canSetSuperAdmin: boolean;
 }
 
 type PositionInput =
@@ -53,7 +54,7 @@ type PositionInput =
     };
 
 type GrantInput = {
-  grant: "admin" | "finance_admin";
+  grant: "super_admin" | "admin" | "finance_admin" | "people_admin";
   scope: "global";
   department: null;
 };
@@ -71,6 +72,7 @@ export function AuthorityEditor({
   userId,
   positions,
   grants,
+  canSetSuperAdmin,
 }: AuthorityEditorProps) {
   const router = useRouter();
   const initialGlobalPositions = useMemo(
@@ -106,6 +108,12 @@ export function AuthorityEditor({
   const [departmentHeadDepartments, setDepartmentHeadDepartments] = useState(
     initialDepartmentHeadDepartments,
   );
+  const [isSuperAdminGrant, setIsSuperAdminGrant] = useState(
+    grants.some(
+      (assignment) =>
+        assignment.grant === "super_admin" && assignment.scope === "global",
+    ),
+  );
   const [isAdmin, setIsAdmin] = useState(
     grants.some(
       (assignment) =>
@@ -116,6 +124,12 @@ export function AuthorityEditor({
     grants.some(
       (assignment) =>
         assignment.grant === "finance_admin" && assignment.scope === "global",
+    ),
+  );
+  const [isPeopleAdmin, setIsPeopleAdmin] = useState(
+    grants.some(
+      (assignment) =>
+        assignment.grant === "people_admin" && assignment.scope === "global",
     ),
   );
   const [isSaving, setIsSaving] = useState(false);
@@ -164,12 +178,26 @@ export function AuthorityEditor({
       }
 
       const nextGrants: GrantInput[] = [];
+      if (canSetSuperAdmin && isSuperAdminGrant) {
+        nextGrants.push({
+          grant: "super_admin",
+          scope: "global",
+          department: null,
+        });
+      }
       if (isAdmin) {
         nextGrants.push({ grant: "admin", scope: "global", department: null });
       }
       if (isFinanceAdmin) {
         nextGrants.push({
           grant: "finance_admin",
+          scope: "global",
+          department: null,
+        });
+      }
+      if (isPeopleAdmin) {
+        nextGrants.push({
+          grant: "people_admin",
           scope: "global",
           department: null,
         });
@@ -243,6 +271,26 @@ export function AuthorityEditor({
             Cockpit for every department.
           </FieldDescription>
           <div className="space-y-3 pt-2">
+            {canSetSuperAdmin && (
+              <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+                <Checkbox
+                  checked={isSuperAdminGrant}
+                  onCheckedChange={(checked) =>
+                    setIsSuperAdminGrant(checked === true)
+                  }
+                />
+                <span className="inline-flex items-center gap-2">
+                  <ShieldCheck className="size-4" />
+                  <span className="flex flex-col gap-0.5">
+                    <span>Super Admin</span>
+                    <span className="text-muted-foreground text-xs">
+                      All Admin permissions, plus can impersonate any user. Only
+                      Super Admins can grant this role.
+                    </span>
+                  </span>
+                </span>
+              </label>
+            )}
             <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
               <Checkbox
                 checked={isAdmin}
@@ -273,6 +321,24 @@ export function AuthorityEditor({
                   <span className="text-muted-foreground text-xs">
                     Can view and manage membership payments across START
                     Cockpit.
+                  </span>
+                </span>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+              <Checkbox
+                checked={isPeopleAdmin}
+                onCheckedChange={(checked) =>
+                  setIsPeopleAdmin(checked === true)
+                }
+              />
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck className="size-4" />
+                <span className="flex flex-col gap-0.5">
+                  <span>People Admin</span>
+                  <span className="text-muted-foreground text-xs">
+                    Can create groups, manage group members, and manage matching
+                    rules across START Cockpit.
                   </span>
                 </span>
               </span>

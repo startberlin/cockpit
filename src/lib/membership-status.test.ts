@@ -33,6 +33,7 @@ function user(overrides: Partial<User> = {}): User {
     gocardlessCustomerId: null,
     gocardlessSetupSessionId: null,
     role: "user",
+    eventEmailPreference: "personal_email",
     ...overrides,
   };
 }

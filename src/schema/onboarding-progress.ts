@@ -13,12 +13,18 @@ export function isOnboardedUser(
   return !!(user.personalEmail && user.phone && user.birthDate);
 }
 
+const EVENT_EMAIL_PREF_STATUSES: User["status"][] = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+];
+
 type OnboardingProgressUser = Pick<
   User,
-  "personalEmail" | "phone" | "birthDate"
+  "personalEmail" | "phone" | "birthDate" | "status" | "eventEmailPreference"
 >;
 
-export type OnboardingProgress = "master-data" | "completed";
+export type OnboardingProgress = "master-data" | "event-email" | "completed";
 
 export function getOnboardingProgress(
   user: OnboardingProgressUser,
@@ -31,6 +37,13 @@ export function getOnboardingProgress(
 
   if (!masterDataValidation.success) {
     return "master-data";
+  }
+
+  if (
+    EVENT_EMAIL_PREF_STATUSES.includes(user.status) &&
+    !user.eventEmailPreference
+  ) {
+    return "event-email";
   }
 
   return "completed";

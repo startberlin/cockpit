@@ -1,7 +1,6 @@
-import { listGroupsForViewer, listMemberGroupsForViewer } from "@/db/groups";
+import { listGroupsForViewer } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import { can } from "@/lib/permissions/server";
 import GroupsPageClient from "./page-client";
 
 export const metadata = createMetadata({
@@ -9,17 +8,33 @@ export const metadata = createMetadata({
   description: "View and manage START Berlin groups.",
 });
 
-export default async function GroupsPage() {
+interface GroupsPageProps {
+  searchParams: Promise<{ page?: string; q?: string }>;
+}
+
+export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return <p>No groups found</p>;
   }
 
-  const canViewAll = await can("groups.view_all");
+  const { page: pageParam, q: search = "" } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const groups = canViewAll
-    ? await listGroupsForViewer(currentUser.id)
-    : await listMemberGroupsForViewer(currentUser.id);
+  const { groups, total, pageCount } = await listGroupsForViewer(
+    currentUser.id,
+    {
+      page,
+      search,
+    },
+  );
 
-  return <GroupsPageClient groups={groups} />;
+  return (
+    <GroupsPageClient
+      groups={groups}
+      total={total}
+      pageCount={pageCount}
+      initialSearch={search}
+    />
+  );
 }

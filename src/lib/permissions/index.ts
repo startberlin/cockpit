@@ -13,5 +13,9 @@ export {
   type DepartmentScopedAction,
   evaluateAuth,
   type GlobalAction,
+  type GroupScope,
+  type GroupScopedAction,
+  isDepartmentScopedAction,
   isGlobalAction,
+  isGroupScopedAction,
 } from "./evaluate";

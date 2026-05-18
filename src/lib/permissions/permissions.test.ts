@@ -107,7 +107,17 @@ describe("permissions", () => {
     );
   });
 
-  it("allows any department head to view all groups without target context", () => {
+  it("allows people admins to view all groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        "groups.view_all",
+      ),
+      true,
+    );
+  });
+
+  it("denies department heads from viewing all groups", () => {
     assert.equal(
       evaluateAuth(
         authority({
@@ -121,7 +131,7 @@ describe("permissions", () => {
         }),
         "groups.view_all",
       ),
-      true,
+      false,
     );
   });
 
@@ -143,14 +153,82 @@ describe("permissions", () => {
     );
   });
 
-  it("does not allow legal officers to perform admin-only actions", () => {
+  it("does not allow legal officers to manage group members", () => {
     assert.equal(
       evaluateAuth(
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
         "groups.manage_members",
+        { isGroupMember: false },
       ),
+      false,
+    );
+  });
+
+  it("allows admins to manage group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        "groups.manage_members",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows people admins to manage group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        "groups.manage_members",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("denies ordinary group members from managing the group", () => {
+    assert.equal(
+      evaluateAuth(authority(), "groups.manage_members", {
+        isGroupMember: true,
+      }),
+      false,
+    );
+  });
+
+  it("allows admins to export group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        "groups.export",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows people admins to export group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        "groups.export",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows group members to export their group", () => {
+    assert.equal(
+      evaluateAuth(authority(), "groups.export", { isGroupMember: true }),
+      true,
+    );
+  });
+
+  it("denies non-members from exporting", () => {
+    assert.equal(
+      evaluateAuth(authority(), "groups.export", { isGroupMember: false }),
       false,
     );
   });
@@ -190,6 +268,7 @@ describe("permissions", () => {
             grants: [{ grant: "admin", scope: "global" }],
           }),
           "groups.manage_members",
+          { isGroupMember: false },
         ),
         false,
       );
@@ -204,6 +283,7 @@ describe("permissions", () => {
           grants: [{ grant: "admin", scope: "global" }],
         }),
         "groups.manage_members",
+        { isGroupMember: false },
       ),
       true,
     );

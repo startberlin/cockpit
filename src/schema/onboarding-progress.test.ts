@@ -33,12 +33,13 @@ function user(overrides: Partial<User> = {}): User {
     gocardlessCustomerId: null,
     gocardlessSetupSessionId: null,
     role: "user",
+    eventEmailPreference: "personal_email",
     ...overrides,
   };
 }
 
 describe("getOnboardingProgress", () => {
-  it("user with personal email, phone, and birthDate is completed", () => {
+  it("user with all required fields is completed", () => {
     assert.equal(getOnboardingProgress(user()), "completed");
   });
 
@@ -57,27 +58,24 @@ describe("getOnboardingProgress", () => {
     );
   });
 
-  it("completed for active_member without address", () => {
+  it("completed for member status with all required fields", () => {
     assert.equal(
-      getOnboardingProgress(
-        user({
-          legalMembershipState: "active_member",
-          street: null,
-          city: null,
-        }),
-      ),
+      getOnboardingProgress(user({ status: "member" })),
       "completed",
     );
   });
 
-  it("completed for former_member without address", () => {
+  it("completed for supporting_alumni with all required fields", () => {
+    assert.equal(
+      getOnboardingProgress(user({ status: "supporting_alumni" })),
+      "completed",
+    );
+  });
+
+  it("completed for alumni without email preference", () => {
     assert.equal(
       getOnboardingProgress(
-        user({
-          legalMembershipState: "former_member",
-          street: null,
-          city: null,
-        }),
+        user({ status: "alumni", eventEmailPreference: null }),
       ),
       "completed",
     );
@@ -101,20 +99,36 @@ describe("getOnboardingProgress", () => {
     );
   });
 
-  it("missing phone blocks completion for active_member", () => {
+  it("routes to event-email step when preference is missing for onboarding status", () => {
     assert.equal(
       getOnboardingProgress(
-        user({ legalMembershipState: "active_member", phone: null }),
+        user({ status: "onboarding", eventEmailPreference: null }),
       ),
-      "master-data",
+      "event-email",
     );
   });
 
-  it("missing personalEmail blocks completion for former_member", () => {
+  it("routes to event-email step when preference is missing for member status", () => {
     assert.equal(
       getOnboardingProgress(
-        user({ legalMembershipState: "former_member", personalEmail: "" }),
+        user({ status: "member", eventEmailPreference: null }),
       ),
+      "event-email",
+    );
+  });
+
+  it("routes to event-email step when preference is missing for supporting_alumni status", () => {
+    assert.equal(
+      getOnboardingProgress(
+        user({ status: "supporting_alumni", eventEmailPreference: null }),
+      ),
+      "event-email",
+    );
+  });
+
+  it("missing phone blocks completion for member status", () => {
+    assert.equal(
+      getOnboardingProgress(user({ status: "member", phone: null })),
       "master-data",
     );
   });
