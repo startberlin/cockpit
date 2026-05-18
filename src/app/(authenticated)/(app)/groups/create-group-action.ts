@@ -23,13 +23,27 @@ export const createGroupAction = actionClient
 
     const groupId = newId("group");
 
-    await db.insert(group).values({
-      id: groupId,
-      name: parsedInput.name,
-      slug: parsedInput.slug,
-      slackEnabled: parsedInput.integrations.slack,
-      emailEnabled: parsedInput.integrations.email,
-    });
+    try {
+      await db.insert(group).values({
+        id: groupId,
+        name: parsedInput.name,
+        slug: parsedInput.slug,
+        slackEnabled: parsedInput.integrations.slack,
+        emailEnabled: parsedInput.integrations.email,
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: string }).code === "23505"
+      ) {
+        throw new Error(
+          "This slug is already taken. Please choose another one.",
+        );
+      }
+      throw error;
+    }
 
     // Fire-and-forget: integrations are reconciled by syncGroupIntegrationsWorkflow,
     // with syncGroupsCron as the safety net if this immediate sync fails.
