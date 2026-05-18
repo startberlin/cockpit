@@ -4,7 +4,7 @@ import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import db from "@/db";
 import {
   addUsersToGroup,
-  removeUserFromGroup,
+  removeUserFromGroups,
   removeUsersFromGroup,
 } from "@/db/groups";
 import type { Department, UserStatus } from "@/db/schema/auth";
@@ -20,16 +20,17 @@ import {
   lookupSlackUserIdByEmail,
 } from "@/lib/slack";
 
-export interface ReconcileResult {
-  groupId: string;
-  added: string[];
-  removed: string[];
-}
-
-interface GroupForReconcile {
+export interface GroupForReconcile {
   id: string;
   slackChannelId: string | null;
   googleGroupEmail: string | null;
+}
+
+export interface ReconcileResult {
+  groupId: string;
+  group: GroupForReconcile;
+  addedUsers: { id: string; email: string }[];
+  removedUsers: { id: string; email: string }[];
 }
 
 interface MatchableUser {
@@ -65,63 +66,35 @@ function userMatchesAnyCriterion(
   return criteria.some((c) => userMatchesCriterion(u, c));
 }
 
-async function pushAddToIntegrations(
+export async function pushAddToIntegrations(
   g: GroupForReconcile,
   email: string,
 ): Promise<void> {
   if (g.slackChannelId) {
-    try {
-      const slackUserId = await lookupSlackUserIdByEmail(email);
-      if (slackUserId) {
-        await inviteToChannel(g.slackChannelId, [slackUserId]);
-      }
-    } catch (error) {
-      console.error(
-        `[reconcile] Slack invite failed for ${email} in channel ${g.slackChannelId}`,
-        error,
-      );
+    const slackUserId = await lookupSlackUserIdByEmail(email);
+    if (slackUserId) {
+      await inviteToChannel(g.slackChannelId, [slackUserId]);
     }
   }
 
   if (g.googleGroupEmail) {
-    try {
-      await addGroupMember(g.googleGroupEmail, email);
-    } catch (error) {
-      console.error(
-        `[reconcile] Google group add failed for ${email} in ${g.googleGroupEmail}`,
-        error,
-      );
-    }
+    await addGroupMember(g.googleGroupEmail, email);
   }
 }
 
-async function pushRemoveToIntegrations(
+export async function pushRemoveToIntegrations(
   g: GroupForReconcile,
   email: string,
 ): Promise<void> {
   if (g.slackChannelId) {
-    try {
-      const slackUserId = await lookupSlackUserIdByEmail(email);
-      if (slackUserId) {
-        await kickFromChannel(g.slackChannelId, slackUserId);
-      }
-    } catch (error) {
-      console.error(
-        `[reconcile] Slack kick failed for ${email} in channel ${g.slackChannelId}`,
-        error,
-      );
+    const slackUserId = await lookupSlackUserIdByEmail(email);
+    if (slackUserId) {
+      await kickFromChannel(g.slackChannelId, slackUserId);
     }
   }
 
   if (g.googleGroupEmail) {
-    try {
-      await removeGroupMember(g.googleGroupEmail, email);
-    } catch (error) {
-      console.error(
-        `[reconcile] Google group remove failed for ${email} in ${g.googleGroupEmail}`,
-        error,
-      );
-    }
+    await removeGroupMember(g.googleGroupEmail, email);
   }
 }
 
@@ -145,10 +118,8 @@ function buildMatchingWhereClause(
 }
 
 /**
- * Reconcile a single group's membership against its current criteria:
- * add users that match but aren't members, remove users whose membership
- * was criterion-driven and no longer matches. Manual memberships are
- * never auto-removed regardless of match state.
+ * Reconcile a single group's membership against its current criteria.
+ * Only mutates the database — integration pushes are the caller's responsibility.
  */
 export async function reconcileGroupMembership(
   groupId: string,
@@ -157,7 +128,14 @@ export async function reconcileGroupMembership(
     where: eq(group.id, groupId),
     columns: { id: true, slackChannelId: true, googleGroupEmail: true },
   });
-  if (!g) return { groupId, added: [], removed: [] };
+  if (!g) {
+    return {
+      groupId,
+      group: { id: groupId, slackChannelId: null, googleGroupEmail: null },
+      addedUsers: [],
+      removedUsers: [],
+    };
+  }
 
   const criteria = await db
     .select({
@@ -214,24 +192,18 @@ export async function reconcileGroupMembership(
     groupId,
   );
 
-  for (const u of toAdd) {
-    await pushAddToIntegrations(g, u.email);
-  }
-  for (const m of toRemove) {
-    await pushRemoveToIntegrations(g, m.email);
-  }
-
   return {
     groupId,
-    added: toAdd.map((u) => u.id),
-    removed: toRemove.map((m) => m.userId),
+    group: g,
+    addedUsers: toAdd.map((u) => ({ id: u.id, email: u.email })),
+    removedUsers: toRemove.map((m) => ({ id: m.userId, email: m.email })),
   };
 }
 
 /**
  * Reconcile a single user's membership across every group that has at
- * least one criterion. Adds the user where they newly match, removes
- * them where their `criteria` row no longer matches.
+ * least one criterion. Only mutates the database — integration pushes are
+ * the caller's responsibility.
  */
 export async function reconcileUserGroupMembership(
   userId: string,
@@ -303,6 +275,7 @@ export async function reconcileUserGroupMembership(
   );
 
   const results: ReconcileResult[] = [];
+  const groupIdsToRemoveFrom: string[] = [];
 
   for (const g of groupsWithCriteria) {
     const criteria = criteriaByGroup.get(g.id) ?? [];
@@ -315,13 +288,25 @@ export async function reconcileUserGroupMembership(
         userIds: [userId],
         source: "criteria",
       });
-      await pushAddToIntegrations(g, subject.email);
-      results.push({ groupId: g.id, added: [userId], removed: [] });
+      results.push({
+        groupId: g.id,
+        group: g,
+        addedUsers: [{ id: userId, email: subject.email }],
+        removedUsers: [],
+      });
     } else if (!matches && current?.source === "criteria") {
-      await removeUserFromGroup(userId, g.id);
-      await pushRemoveToIntegrations(g, subject.email);
-      results.push({ groupId: g.id, added: [], removed: [userId] });
+      groupIdsToRemoveFrom.push(g.id);
+      results.push({
+        groupId: g.id,
+        group: g,
+        addedUsers: [],
+        removedUsers: [{ id: userId, email: subject.email }],
+      });
     }
+  }
+
+  if (groupIdsToRemoveFrom.length > 0) {
+    await removeUserFromGroups(userId, groupIdsToRemoveFrom);
   }
 
   return results;

@@ -1,7 +1,11 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import db from "@/db";
 import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
-import { reconcileGroupMembership } from "@/lib/groups/reconcile";
+import {
+  pushAddToIntegrations,
+  pushRemoveToIntegrations,
+  reconcileGroupMembership,
+} from "@/lib/groups/reconcile";
 import { events, inngest } from "@/lib/inngest";
 
 export const syncGroupsCron = inngest.createFunction(
@@ -74,14 +78,27 @@ export const syncGroupsCron = inngest.createFunction(
 
     for (const g of groupsToReconcile) {
       try {
-        const result = await step.run(`reconcile-${g.id}`, () =>
+        const result = await step.run(`reconcile-db-${g.id}`, () =>
           reconcileGroupMembership(g.id),
         );
         reconciliations.push({
           groupId: result.groupId,
-          added: result.added.length,
-          removed: result.removed.length,
+          added: result.addedUsers.length,
+          removed: result.removedUsers.length,
         });
+
+        if (result.addedUsers.length > 0 || result.removedUsers.length > 0) {
+          await step.run(`push-integrations-${g.id}`, async () => {
+            await Promise.all([
+              ...result.addedUsers.map((u) =>
+                pushAddToIntegrations(result.group, u.email),
+              ),
+              ...result.removedUsers.map((u) =>
+                pushRemoveToIntegrations(result.group, u.email),
+              ),
+            ]);
+          });
+        }
       } catch (error) {
         console.error(
           `[sync-groups-cron] Reconciliation failed for group ${g.id}`,
