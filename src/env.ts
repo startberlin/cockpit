@@ -13,7 +13,6 @@ export const env = createEnv({
     AWS_SECRET_ACCESS_KEY: z.string().min(1),
     AWS_SES_SNS_TOPIC_ARN: z.string().min(1),
     GOOGLE_APPLICATION_CREDENTIALS_BASE64: z.string().min(1),
-    GOOGLE_WORKSPACE_DOMAIN: z.string().min(1),
     SLACK_SIGNING_SECRET: z.string().min(1),
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     GOCARDLESS_API_KEY: z.string().min(1).optional(),
@@ -44,7 +43,6 @@ export const env = createEnv({
     AWS_SES_SNS_TOPIC_ARN: process.env.AWS_SES_SNS_TOPIC_ARN,
     GOOGLE_APPLICATION_CREDENTIALS_BASE64:
       process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64,
-    GOOGLE_WORKSPACE_DOMAIN: process.env.GOOGLE_WORKSPACE_DOMAIN,
     SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
     GOCARDLESS_API_KEY: process.env.GOCARDLESS_API_KEY,

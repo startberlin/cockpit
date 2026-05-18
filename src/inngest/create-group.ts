@@ -81,7 +81,7 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
     if (g.emailEnabled && !g.googleGroupEmail) {
       if (env.DISABLE_GOOGLE_WORKSPACE) {
         console.warn(
-          `[google-workspace disabled] would have created Google Group ${g.slug}@${env.GOOGLE_WORKSPACE_DOMAIN} for group ${id}`,
+          `[google-workspace disabled] would have created Google Group ${g.slug}@start-berlin.com for group ${id}`,
         );
       } else {
         try {
@@ -91,7 +91,7 @@ export const syncGroupIntegrationsWorkflow = inngest.createFunction(
             );
 
             const admin = google.admin({ auth, version: "directory_v1" });
-            const groupEmail = `${g.slug}@${env.GOOGLE_WORKSPACE_DOMAIN}`;
+            const groupEmail = `${g.slug}@start-berlin.com`;
 
             await admin.groups.insert({
               requestBody: {
