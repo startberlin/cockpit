@@ -25,13 +25,13 @@ import { DEPARTMENTS } from "@/lib/enums";
 interface ExistingPosition {
   position: OrganizationPosition;
   scope: AuthorityScope;
-  department: Department | null;
+  department: Department;
 }
 
 interface ExistingGrant {
   grant: AccessGrant;
   scope: AuthorityScope;
-  department: Department | null;
+  department: Department;
 }
 
 interface AuthorityEditorProps {
@@ -45,7 +45,7 @@ type PositionInput =
   | {
       position: GlobalOrganizationPosition;
       scope: "global";
-      department: null;
+      department?: "none";
     }
   | {
       position: "department_head";
@@ -56,7 +56,7 @@ type PositionInput =
 type GrantInput = {
   grant: "super_admin" | "admin" | "finance_admin" | "people_admin";
   scope: "global";
-  department: null;
+  department?: "none";
 };
 
 const GLOBAL_POSITIONS = [
@@ -165,7 +165,6 @@ export function AuthorityEditor({
         ...Array.from(globalPositions).map((position) => ({
           position,
           scope: "global" as const,
-          department: null,
         })),
       ];
 
@@ -179,28 +178,16 @@ export function AuthorityEditor({
 
       const nextGrants: GrantInput[] = [];
       if (canSetSuperAdmin && isSuperAdminGrant) {
-        nextGrants.push({
-          grant: "super_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "super_admin", scope: "global" });
       }
       if (isAdmin) {
-        nextGrants.push({ grant: "admin", scope: "global", department: null });
+        nextGrants.push({ grant: "admin", scope: "global" });
       }
       if (isFinanceAdmin) {
-        nextGrants.push({
-          grant: "finance_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "finance_admin", scope: "global" });
       }
       if (isPeopleAdmin) {
-        nextGrants.push({
-          grant: "people_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "people_admin", scope: "global" });
       }
 
       const result = await updateAuthorityAction({
