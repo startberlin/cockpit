@@ -68,7 +68,7 @@ export default async function UserDetailPage({ params }: PageProps) {
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" asChild>
-          <Link href="/people/directory">Back to people</Link>
+          <Link href="/admin/people/directory">Back to people</Link>
         </Button>
       </Empty>
     );
@@ -90,15 +90,16 @@ export default async function UserDetailPage({ params }: PageProps) {
     <div className="w-full space-y-6">
       <BreadcrumbCrumb
         crumbs={[
-          { label: "People", href: "/people/directory" },
-          { label: "Directory", href: "/people/directory" },
+          { label: "Admin", href: "/admin/people/directory" },
+          { label: "People", href: "/admin/people/directory" },
+          { label: "Directory", href: "/admin/people/directory" },
           { label: `${user.firstName} ${user.lastName}` },
         ]}
       />
 
       <div className="flex flex-col gap-4">
         <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
-          <Link href="/people/directory">
+          <Link href="/admin/people/directory">
             <ArrowLeft />
             Back to directory
           </Link>

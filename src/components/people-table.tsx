@@ -235,7 +235,7 @@ export function PeopleTable({
                         canOpenProfile
                           ? () =>
                               router.push(
-                                `/people/directory/${row.original.id}`,
+                                `/admin/people/directory/${row.original.id}`,
                               )
                           : undefined
                       }

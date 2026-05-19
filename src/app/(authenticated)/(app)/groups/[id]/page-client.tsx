@@ -395,7 +395,7 @@ export default function GroupDetailClient({
                             <div className="font-medium text-sm">
                               {canViewProfile ? (
                                 <Link
-                                  href={`/people/directory/${member.id}`}
+                                  href={`/admin/people/directory/${member.id}`}
                                   className="hover:underline"
                                 >
                                   {member.firstName} {member.lastName}

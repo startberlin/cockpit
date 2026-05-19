@@ -66,8 +66,8 @@ export interface PaginatedGroups {
   pageCount: number;
 }
 
-const MEMBERS_PAGE_SIZE = 1;
-const GROUPS_PAGE_SIZE = 1;
+const MEMBERS_PAGE_SIZE = 50;
+const GROUPS_PAGE_SIZE = 50;
 
 export async function listGroupsForViewer(
   viewerId: string,

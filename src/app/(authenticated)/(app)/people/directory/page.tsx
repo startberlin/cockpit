@@ -1,45 +1,70 @@
-import { all } from "better-all";
 import db from "@/db";
 import { getAllUserPublicData } from "@/db/people";
-import { getPendingBoardActionsForUser } from "@/db/people-actions";
+import type { Department, UserStatus } from "@/db/schema/auth";
 import { batch } from "@/db/schema/batch";
-import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 
 import DirectoryPageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Directory",
-  description: "Manage START Berlin members.",
+  description: "Browse START Berlin members.",
 });
 
 interface DirectoryPageProps {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    q?: string;
+    department?: string;
+    batchNumber?: string;
+    status?: string;
+  }>;
 }
 
 export default async function DirectoryPage({
   searchParams,
 }: DirectoryPageProps) {
-  const currentUser = await getCurrentUser();
-  const { page: pageParam, q: search = "" } = await searchParams;
+  const {
+    page: pageParam,
+    q: search = "",
+    department: departmentParam,
+    batchNumber: batchNumberParam,
+    status: statusParam,
+  } = await searchParams;
+
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const department = departmentParam as Department | undefined;
+  const batchNumber = batchNumberParam
+    ? parseInt(batchNumberParam, 10) || undefined
+    : undefined;
+  const statusFilter = statusParam
+    ? (statusParam.split(",").filter(Boolean) as UserStatus[])
+    : undefined;
 
-  const usersPromise = getAllUserPublicData({ page, search });
-
-  const { batches, pendingActions } = await all({
-    batches: async () => db.select().from(batch).orderBy(batch.number),
-    pendingActions: async () =>
-      currentUser
-        ? getPendingBoardActionsForUser(currentUser.id)
-        : Promise.resolve([]),
+  const usersPromise = getAllUserPublicData({
+    page,
+    search,
+    department,
+    batchNumber,
+    status: statusFilter,
   });
+
+  const batches = await db
+    .select({ number: batch.number })
+    .from(batch)
+    .orderBy(batch.number);
 
   return (
     <DirectoryPageClient
       usersPromise={usersPromise}
       batches={batches}
-      pendingActions={pendingActions}
-      initialSearch={search}
+      pageCount={1}
+      initialFilters={{
+        search,
+        department: departmentParam ?? "",
+        batchNumber: batchNumber ?? null,
+        status: statusParam ?? "",
+      }}
     />
   );
 }

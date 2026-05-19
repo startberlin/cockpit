@@ -1,11 +1,11 @@
-import { listGroupsForViewer } from "@/db/groups";
+import { listGroupsPublic } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import GroupsPageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Groups",
-  description: "View and manage START Berlin groups.",
+  description: "Browse groups in the START Berlin community.",
 });
 
 interface GroupsPageProps {
@@ -21,13 +21,10 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   const { page: pageParam, q: search = "" } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const { groups, total, pageCount } = await listGroupsForViewer(
-    currentUser.id,
-    {
-      page,
-      search,
-    },
-  );
+  const { groups, total, pageCount } = await listGroupsPublic(currentUser.id, {
+    page,
+    search,
+  });
 
   return (
     <GroupsPageClient

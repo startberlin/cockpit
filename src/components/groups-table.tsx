@@ -138,16 +138,18 @@ export function GroupsTable({
           onChange={(e) => handleSearchChange(e.target.value)}
           className="max-w-sm"
         />
-        <Can permission="groups.create">
-          <Button
-            variant="outline"
-            className="ml-auto"
-            onClick={onCreateGroupClick}
-          >
-            <Plus />
-            Create group
-          </Button>
-        </Can>
+        {onCreateGroupClick && (
+          <Can permission="groups.create">
+            <Button
+              variant="outline"
+              className="ml-auto"
+              onClick={onCreateGroupClick}
+            >
+              <Plus />
+              Create group
+            </Button>
+          </Can>
+        )}
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
