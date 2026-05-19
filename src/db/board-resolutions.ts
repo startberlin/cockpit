@@ -1,22 +1,20 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import db from ".";
 import type { UserStatus } from "./schema/auth";
 import { user } from "./schema/auth";
-import type { BoardVoteValue, OfficerFunction } from "./schema/board-admission";
-import {
-  admissionParticipant,
-  boardResolution,
-  boardVote,
-} from "./schema/board-admission";
-import type { LegalMembershipStatus } from "./schema/legal-membership";
+import type {
+  BoardVote,
+  BoardVoteValue,
+  LegalMembershipStatus,
+  OfficerFunction,
+} from "./schema/legal-membership";
 import { legalMembership } from "./schema/legal-membership";
 
 export interface ResolutionDetail {
   legalMembershipId: string;
   status: LegalMembershipStatus;
-  resolutionId: string;
   resolutionText: string;
   resolutionTextHash: string;
   subject: { id: string; name: string; status: UserStatus };
@@ -29,77 +27,69 @@ export interface ResolutionDetail {
 }
 
 export async function getResolutionDetail(
-  resolutionId: string,
+  legalMembershipId: string,
 ): Promise<ResolutionDetail | null> {
-  // Join board_resolution → legal_membership → user (subject)
-  const rows = await db
+  const row = await db
     .select({
-      legalMembershipId: legalMembership.id,
+      id: legalMembership.id,
       status: legalMembership.status,
-      resolutionId: boardResolution.id,
-      resolutionText: boardResolution.resolutionText,
-      resolutionTextHash: boardResolution.resolutionTextHash,
+      boardResolutionText: legalMembership.boardResolutionText,
+      boardResolutionHash: legalMembership.boardResolutionHash,
+      boardParticipants: legalMembership.boardParticipants,
+      boardVotes: legalMembership.boardVotes,
       subjectId: user.id,
       subjectFirstName: user.firstName,
       subjectLastName: user.lastName,
       subjectStatus: user.status,
     })
-    .from(boardResolution)
-    .innerJoin(
-      legalMembership,
-      eq(legalMembership.id, boardResolution.legalMembershipId),
-    )
+    .from(legalMembership)
     .innerJoin(user, eq(user.id, legalMembership.userId))
-    .where(eq(boardResolution.id, resolutionId));
+    .where(eq(legalMembership.id, legalMembershipId))
+    .then((rows) => rows[0] ?? null);
 
-  if (rows.length === 0) return null;
+  if (!row) return null;
 
-  const row = rows[0];
+  if (!row.boardResolutionText || !row.boardResolutionHash) return null;
 
-  // Load admission participants joined with their user records
-  const participantRows = await db
-    .select({
-      userId: admissionParticipant.userId,
-      officerFunction: admissionParticipant.officerFunction,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    })
-    .from(admissionParticipant)
-    .innerJoin(user, eq(user.id, admissionParticipant.userId))
-    .where(eq(admissionParticipant.legalMembershipId, row.legalMembershipId));
-
-  // Load board votes for this legal membership
-  const voteRows = await db
-    .select({
-      voterUserId: boardVote.voterUserId,
-      value: boardVote.value,
-      castAt: boardVote.castAt,
-    })
-    .from(boardVote)
-    .where(and(eq(boardVote.legalMembershipId, row.legalMembershipId)));
+  const participants = row.boardParticipants ?? [];
+  const votes: BoardVote[] = row.boardVotes ?? [];
 
   const votesByVoter = new Map(
-    voteRows.map((v) => [v.voterUserId, { value: v.value, castAt: v.castAt }]),
+    votes.map((v) => [
+      v.voterUserId,
+      { value: v.value, castAt: new Date(v.castAt) },
+    ]),
   );
 
-  const participants = participantRows.map((p) => ({
-    userId: p.userId,
-    name: `${p.firstName} ${p.lastName}`,
-    officerFunction: p.officerFunction,
-    vote: votesByVoter.get(p.userId) ?? null,
-  }));
+  // Resolve participant names: we need user records for each participant.
+  const participantUserIds = participants.map((p) => p.userId);
+  const participantUsers =
+    participantUserIds.length > 0
+      ? await db.query.user.findMany({
+          where: (u, { inArray }) => inArray(u.id, participantUserIds),
+          columns: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+
+  const userNameById = new Map(
+    participantUsers.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]),
+  );
 
   return {
-    legalMembershipId: row.legalMembershipId,
+    legalMembershipId: row.id,
     status: row.status,
-    resolutionId: row.resolutionId,
-    resolutionText: row.resolutionText,
-    resolutionTextHash: row.resolutionTextHash,
+    resolutionText: row.boardResolutionText,
+    resolutionTextHash: row.boardResolutionHash,
     subject: {
       id: row.subjectId,
-      name: `${row.subjectFirstName} ${row.subjectLastName}`,
+      name: `${row.subjectFirstName} ${row.subjectLastName}`.trim(),
       status: row.subjectStatus,
     },
-    participants,
+    participants: participants.map((p) => ({
+      userId: p.userId,
+      name: userNameById.get(p.userId) ?? p.userId,
+      officerFunction: p.officerFunction,
+      vote: votesByVoter.get(p.userId) ?? null,
+    })),
   };
 }

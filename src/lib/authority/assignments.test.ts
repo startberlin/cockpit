@@ -16,7 +16,7 @@ describe("authority assignment validation", () => {
           department: "events",
         },
       ],
-      grants: [{ grant: "admin", scope: "global" }],
+      grants: [{ grant: "admin" }],
     });
 
     assert.equal(result.success, true);
@@ -32,7 +32,7 @@ describe("authority assignment validation", () => {
           department: "events",
         },
       ],
-      grants: [{ grant: "admin", scope: "global", department: null }],
+      grants: [{ grant: "admin" }],
     });
   });
 
@@ -58,12 +58,12 @@ describe("authority assignment validation", () => {
     );
   });
 
-  it("rejects invalid grant scopes", () => {
+  it("rejects unknown grant values", () => {
     assert.equal(
       authorityUpdateInputSchema.safeParse({
         userId: "usr_test",
         positions: [],
-        grants: [{ grant: "admin", scope: "department", department: "events" }],
+        grants: [{ grant: "unknown_role" }],
       }).success,
       false,
     );
@@ -97,10 +97,7 @@ describe("authority assignment validation", () => {
       authorityUpdateInputSchema.safeParse({
         userId: "usr_test",
         positions: [],
-        grants: [
-          { grant: "admin", scope: "global" },
-          { grant: "admin", scope: "global" },
-        ],
+        grants: [{ grant: "admin" }, { grant: "admin" }],
       }).success,
       false,
     );

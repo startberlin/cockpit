@@ -49,16 +49,12 @@ export interface UserDetail {
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
   organizationPositions: Array<{
-    id: string;
     position: OrganizationPosition;
     scope: AuthorityScope;
     department: Department | null;
   }>;
   accessGrants: Array<{
-    id: string;
     grant: AccessGrant;
-    scope: AuthorityScope;
-    department: Department | null;
   }>;
   createdAt: Date;
   groups: Array<{
@@ -175,16 +171,12 @@ export interface UserGroupMembership {
 export interface UserAuthorityData {
   id: string;
   organizationPositions: Array<{
-    id: string;
     position: OrganizationPosition;
     scope: AuthorityScope;
     department: Department | null;
   }>;
   accessGrants: Array<{
-    id: string;
     grant: AccessGrant;
-    scope: AuthorityScope;
-    department: Department | null;
   }>;
 }
 
@@ -272,10 +264,10 @@ export const getUserAuthorityData = cache(
       columns: { id: true },
       with: {
         organizationPositions: {
-          columns: { id: true, position: true, scope: true, department: true },
+          columns: { position: true, scope: true, department: true },
         },
         accessGrants: {
-          columns: { id: true, grant: true, scope: true, department: true },
+          columns: { grant: true },
         },
       },
     });
@@ -287,16 +279,12 @@ export const getUserAuthorityData = cache(
     return {
       id: user.id,
       organizationPositions: user.organizationPositions.map((p) => ({
-        id: p.id,
         position: p.position,
         scope: p.scope,
         department: p.department,
       })),
       accessGrants: user.accessGrants.map((g) => ({
-        id: g.id,
         grant: g.grant,
-        scope: g.scope,
-        department: g.department,
       })),
     };
   },
@@ -362,16 +350,12 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.gocardlessMandateId,
     organizationPositions: user.organizationPositions.map((assignment) => ({
-      id: assignment.id,
       position: assignment.position,
       scope: assignment.scope,
       department: assignment.department,
     })),
     accessGrants: user.accessGrants.map((assignment) => ({
-      id: assignment.id,
       grant: assignment.grant,
-      scope: assignment.scope,
-      department: assignment.department,
     })),
     createdAt: user.createdAt,
     groups: user.usersToGroups.map((utg) => ({

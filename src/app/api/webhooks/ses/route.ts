@@ -4,7 +4,6 @@ import { z } from "zod";
 import db from "@/db";
 import { emailSuppression } from "@/db/schema";
 import { env } from "@/env";
-import { newId } from "@/lib/id";
 import { inngest } from "@/lib/inngest";
 
 // SNS always sends Content-Type: text/plain even though the body is JSON.
@@ -185,7 +184,6 @@ export const POST = inngest.endpoint(async (req: Request) => {
         db
           .insert(emailSuppression)
           .values({
-            id: newId("emailSuppression"),
             email,
             reason: "bounce",
             detail: "Permanent bounce",
@@ -209,7 +207,6 @@ export const POST = inngest.endpoint(async (req: Request) => {
         db
           .insert(emailSuppression)
           .values({
-            id: newId("emailSuppression"),
             email,
             reason: "complaint",
             detail: "Spam complaint",

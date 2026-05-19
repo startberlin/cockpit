@@ -1,7 +1,7 @@
 import type {
   BoardVoteValue,
   OfficerFunction,
-} from "@/db/schema/board-admission";
+} from "@/db/schema/legal-membership";
 
 export type { BoardVoteValue };
 

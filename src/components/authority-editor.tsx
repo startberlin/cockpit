@@ -30,8 +30,6 @@ interface ExistingPosition {
 
 interface ExistingGrant {
   grant: AccessGrant;
-  scope: AuthorityScope;
-  department: Department | null;
 }
 
 interface AuthorityEditorProps {
@@ -45,7 +43,6 @@ type PositionInput =
   | {
       position: GlobalOrganizationPosition;
       scope: "global";
-      department: null;
     }
   | {
       position: "department_head";
@@ -55,8 +52,6 @@ type PositionInput =
 
 type GrantInput = {
   grant: "super_admin" | "admin" | "finance_admin" | "people_admin";
-  scope: "global";
-  department: null;
 };
 
 const GLOBAL_POSITIONS = [
@@ -109,28 +104,16 @@ export function AuthorityEditor({
     initialDepartmentHeadDepartments,
   );
   const [isSuperAdminGrant, setIsSuperAdminGrant] = useState(
-    grants.some(
-      (assignment) =>
-        assignment.grant === "super_admin" && assignment.scope === "global",
-    ),
+    grants.some((a) => a.grant === "super_admin"),
   );
   const [isAdmin, setIsAdmin] = useState(
-    grants.some(
-      (assignment) =>
-        assignment.grant === "admin" && assignment.scope === "global",
-    ),
+    grants.some((a) => a.grant === "admin"),
   );
   const [isFinanceAdmin, setIsFinanceAdmin] = useState(
-    grants.some(
-      (assignment) =>
-        assignment.grant === "finance_admin" && assignment.scope === "global",
-    ),
+    grants.some((a) => a.grant === "finance_admin"),
   );
   const [isPeopleAdmin, setIsPeopleAdmin] = useState(
-    grants.some(
-      (assignment) =>
-        assignment.grant === "people_admin" && assignment.scope === "global",
-    ),
+    grants.some((a) => a.grant === "people_admin"),
   );
   const [isSaving, setIsSaving] = useState(false);
 
@@ -165,7 +148,6 @@ export function AuthorityEditor({
         ...Array.from(globalPositions).map((position) => ({
           position,
           scope: "global" as const,
-          department: null,
         })),
       ];
 
@@ -179,28 +161,16 @@ export function AuthorityEditor({
 
       const nextGrants: GrantInput[] = [];
       if (canSetSuperAdmin && isSuperAdminGrant) {
-        nextGrants.push({
-          grant: "super_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "super_admin" });
       }
       if (isAdmin) {
-        nextGrants.push({ grant: "admin", scope: "global", department: null });
+        nextGrants.push({ grant: "admin" });
       }
       if (isFinanceAdmin) {
-        nextGrants.push({
-          grant: "finance_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "finance_admin" });
       }
       if (isPeopleAdmin) {
-        nextGrants.push({
-          grant: "people_admin",
-          scope: "global",
-          department: null,
-        });
+        nextGrants.push({ grant: "people_admin" });
       }
 
       const result = await updateAuthorityAction({

@@ -9,8 +9,7 @@ export type EmailSuppressionReason =
   (typeof emailSuppressionReason.enumValues)[number];
 
 export const emailSuppression = pgTable("email_suppression", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  email: text("email").primaryKey(),
   reason: emailSuppressionReason("reason").notNull(),
   detail: text("detail"),
   suppressedAt: timestamp("suppressed_at").notNull().defaultNow(),

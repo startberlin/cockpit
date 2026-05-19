@@ -78,6 +78,7 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
 4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
 5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
+6. **Never use `psql` or raw SQL clients to apply schema changes.** All database changes must go through Drizzle migrations so that production deployments (which run `npm run db:migrate`) stay in sync.
 
 ### Server Actions
 

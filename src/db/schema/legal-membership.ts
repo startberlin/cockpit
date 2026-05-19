@@ -1,12 +1,50 @@
 import { sql } from "drizzle-orm";
 import {
+  customType,
   pgEnum,
   pgTable,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import { user } from "./auth";
+
+function validatedJsonb<T>(schema: z.ZodType<T>) {
+  return customType<{ data: T; driverData: unknown }>({
+    dataType() {
+      return "jsonb";
+    },
+    fromDriver(val: unknown): T {
+      return schema.parse(val);
+    },
+    toDriver(val: T): string {
+      return JSON.stringify(val);
+    },
+  });
+}
+
+export const boardParticipantSchema = z.object({
+  userId: z.string(),
+  officerFunction: z.enum(["president", "vice_president", "head_of_finance"]),
+});
+
+export const boardVoteSchema = z.object({
+  voterUserId: z.string(),
+  value: z.enum(["yes", "no"]),
+  castAt: z.string(),
+  displayedResolutionHash: z.string(),
+});
+
+export type OfficerFunction =
+  | "president"
+  | "vice_president"
+  | "head_of_finance";
+
+export type BoardVoteValue = "yes" | "no";
+
+export type BoardParticipant = z.infer<typeof boardParticipantSchema>;
+export type BoardVote = z.infer<typeof boardVoteSchema>;
 
 export const legalMembershipStatus = pgEnum("legal_membership_status", [
   "admission_pending",
@@ -54,6 +92,12 @@ export const legalMembership = pgTable(
     activatedAt: timestamp("activated_at"),
     importedPaidThroughAt: timestamp("imported_paid_through_at"),
     endedAt: timestamp("ended_at"),
+    boardResolutionText: text("board_resolution_text"),
+    boardResolutionHash: text("board_resolution_hash"),
+    boardParticipants: validatedJsonb(z.array(boardParticipantSchema))(
+      "board_participants",
+    ),
+    boardVotes: validatedJsonb(z.array(boardVoteSchema))("board_votes"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")
       .notNull()

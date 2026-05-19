@@ -6,18 +6,9 @@ export const nanoid = customAlphabet(
 export const prefixes = {
   user: "usr",
   group: "gr",
-  authorityPosition: "aup",
-  accessGrant: "aug",
-  auditLog: "aud",
   legalMembership: "lm",
-  boardResolution: "brs",
-  admissionParticipant: "ap",
-  boardVote: "bv",
   membershipApplication: "ma",
-  legalDocument: "ld",
-  task: "tsk",
   membershipPaymentCycle: "mc",
-  emailSuppression: "emls",
 } as const;
 
 export function isPrefixedId(value: string): boolean {

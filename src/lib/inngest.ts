@@ -3,7 +3,6 @@ import "server-only";
 import { eventType, Inngest, staticSchema } from "inngest";
 import { endpointAdapter } from "inngest/next";
 import type { Department, UserStatus } from "@/db/schema/auth";
-import type { BoardVoteValue } from "@/db/schema/board-admission";
 
 export const events = {
   userCreated: eventType("user.created", {
@@ -30,7 +29,7 @@ export const events = {
     schema: staticSchema<{
       legalMembershipId: string;
       voterId: string;
-      value: BoardVoteValue;
+      value: "yes" | "no";
       castAt: string;
     }>(),
   }),

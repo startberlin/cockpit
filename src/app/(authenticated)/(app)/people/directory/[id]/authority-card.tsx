@@ -73,7 +73,10 @@ export async function AuthorityCard({
             <div className="flex flex-wrap gap-2">
               {data.organizationPositions.length > 0 ? (
                 data.organizationPositions.map((assignment) => (
-                  <Badge key={assignment.id} variant="secondary">
+                  <Badge
+                    key={`${assignment.position}-${assignment.scope}`}
+                    variant="secondary"
+                  >
                     {formatRoleLabel(
                       assignment.position,
                       assignment.department,
@@ -95,7 +98,7 @@ export async function AuthorityCard({
             <div className="flex flex-wrap gap-2">
               {data.accessGrants.length > 0 ? (
                 data.accessGrants.map((assignment) => (
-                  <Badge key={assignment.id} variant="secondary">
+                  <Badge key={assignment.grant} variant="secondary">
                     {PERMISSION_LABELS[assignment.grant] ?? assignment.grant}
                   </Badge>
                 ))

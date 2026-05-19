@@ -3,9 +3,9 @@ import {
   check,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
-  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import {
@@ -34,7 +34,6 @@ export type AuthorityScope = (typeof authorityScope.enumValues)[number];
 export const userOrganizationPosition = pgTable(
   "user_organization_position",
   {
-    id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -48,9 +47,9 @@ export const userOrganizationPosition = pgTable(
       .notNull(),
   },
   (table) => [
-    unique("user_position_scope_department_unique")
-      .on(table.userId, table.position, table.scope, table.department)
-      .nullsNotDistinct(),
+    primaryKey({
+      columns: [table.userId, table.position, table.scope],
+    }),
     uniqueIndex("one_president_unique")
       .on(table.position)
       .where(
@@ -84,13 +83,10 @@ export const userOrganizationPosition = pgTable(
 export const userAccessGrant = pgTable(
   "user_access_grant",
   {
-    id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     grant: accessGrant("grant").notNull(),
-    scope: authorityScope("scope").notNull(),
-    department: department("department"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -98,15 +94,9 @@ export const userAccessGrant = pgTable(
       .notNull(),
   },
   (table) => [
-    unique("user_grant_scope_department_unique")
-      .on(table.userId, table.grant, table.scope, table.department)
-      .nullsNotDistinct(),
-    check(
-      "user_access_grant_valid_scope_check",
-      sql`(
-        ${table.scope} = 'global' AND ${table.department} IS NULL
-      )`,
-    ),
+    primaryKey({
+      columns: [table.userId, table.grant],
+    }),
   ],
 );
 

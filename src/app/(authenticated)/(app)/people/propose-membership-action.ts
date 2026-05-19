@@ -1,9 +1,9 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import db from "@/db";
-import { createAdmissionWorkflow } from "@/db/admission";
 import { getAllUserAuthorities } from "@/db/authority";
 import {
   LIVE_TENURE_STATUSES,
@@ -19,10 +19,6 @@ import { getOnboardingProgress } from "@/schema/onboarding-progress";
 export const proposeMembershipAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
   .action(async ({ parsedInput }) => {
-    // The permission check requires the target user's department, so we must
-    // fetch the user first. This means an authenticated caller can distinguish
-    // "user not found" from "user exists but you lack permission" — an accepted
-    // residual risk given the caller must be authenticated (not public-facing).
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
     });
@@ -41,10 +37,6 @@ export const proposeMembershipAction = actionClient
       throw new Error("The user has not completed their profile onboarding.");
     }
 
-    // Guard against double tenure — check before creating any rows.
-    // Recovery path: if a tenure exists in admission_pending but inngestRunId is
-    // null, the previous inngest.send failed after the transaction committed.
-    // Resend the event rather than blocking forever.
     const existingTenure = await db.query.legalMembership.findFirst({
       where: (lm, { and, inArray }) =>
         and(
@@ -73,7 +65,6 @@ export const proposeMembershipAction = actionClient
       );
     }
 
-    // Board roster validation MUST happen before any DB rows are created
     const allAuthorities = await getAllUserAuthorities();
     const boardRoster = getBoardRosterSetup(allAuthorities);
 
@@ -83,7 +74,23 @@ export const proposeMembershipAction = actionClient
       );
     }
 
-    // Create all rows in a transaction
+    const { presidentId, vicePresidentId, headOfFinanceId } =
+      boardRoster.officers;
+
+    const firstName = targetUser.firstName ?? "";
+    const lastName = targetUser.lastName ?? "";
+
+    const resolutionText = `Der Vorstand beschließt die Aufnahme von ${firstName} ${lastName} als ordentliches Mitglied des Vereins START Berlin e.V., sofern die betreffende Person einen entsprechenden Aufnahmeantrag stellt.`;
+    const boardResolutionHash = createHash("sha256")
+      .update(resolutionText)
+      .digest("hex");
+
+    const boardParticipants = [
+      { userId: presidentId, officerFunction: "president" as const },
+      { userId: vicePresidentId, officerFunction: "vice_president" as const },
+      { userId: headOfFinanceId, officerFunction: "head_of_finance" as const },
+    ];
+
     const lm = await db.transaction(async (tx) => {
       const legalMembershipId = newId("legalMembership");
 
@@ -93,17 +100,12 @@ export const proposeMembershipAction = actionClient
           id: legalMembershipId,
           userId: targetUser.id,
           status: "admission_pending",
+          boardResolutionText: resolutionText,
+          boardResolutionHash,
+          boardParticipants,
+          boardVotes: [],
         })
         .returning({ id: legalMembership.id });
-
-      await createAdmissionWorkflow(tx, {
-        legalMembershipId: createdLm.id,
-        subjectUser: {
-          firstName: targetUser.firstName ?? "",
-          lastName: targetUser.lastName ?? "",
-        },
-        officers: boardRoster.officers,
-      });
 
       return createdLm;
     });

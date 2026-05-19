@@ -16,10 +16,7 @@ function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
 describe("permissions", () => {
   it("allows global admins to perform admin-listed actions", () => {
     assert.equal(
-      evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
-        "users.create",
-      ),
+      evaluateAuth(authority({ grants: [{ grant: "admin" }] }), "users.create"),
       true,
     );
   });
@@ -110,7 +107,7 @@ describe("permissions", () => {
   it("allows people admins to view all groups", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "people_admin" }] }),
         "groups.view_all",
       ),
       true,
@@ -169,7 +166,7 @@ describe("permissions", () => {
   it("allows admins to manage group members", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "groups.manage_members",
         { isGroupMember: false },
       ),
@@ -180,7 +177,7 @@ describe("permissions", () => {
   it("allows people admins to manage group members", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "people_admin" }] }),
         "groups.manage_members",
         { isGroupMember: false },
       ),
@@ -200,7 +197,7 @@ describe("permissions", () => {
   it("allows admins to export group members", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "groups.export",
         { isGroupMember: false },
       ),
@@ -211,7 +208,7 @@ describe("permissions", () => {
   it("allows people admins to export group members", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "people_admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "people_admin" }] }),
         "groups.export",
         { isGroupMember: false },
       ),
@@ -236,7 +233,7 @@ describe("permissions", () => {
   it("allows global admins to manage batches", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "batches.manage",
       ),
       true,
@@ -265,7 +262,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({
             status,
-            grants: [{ grant: "admin", scope: "global" }],
+            grants: [{ grant: "admin" }],
           }),
           "groups.manage_members",
           { isGroupMember: false },
@@ -280,7 +277,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           status: "member",
-          grants: [{ grant: "admin", scope: "global" }],
+          grants: [{ grant: "admin" }],
         }),
         "groups.manage_members",
         { isGroupMember: false },
@@ -422,7 +419,7 @@ describe("permissions", () => {
   it("allows finance_admin grant to manage payments", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "finance_admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "finance_admin" }] }),
         "payments.manage",
       ),
       true,
@@ -432,7 +429,7 @@ describe("permissions", () => {
   it("denies admin grant from managing payments", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "payments.manage",
       ),
       false,
@@ -444,7 +441,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           positions: [{ position: "head_of_finance", scope: "global" }],
-          grants: [{ grant: "finance_admin", scope: "global" }],
+          grants: [{ grant: "finance_admin" }],
         }),
         "payments.manage",
       ),
@@ -469,7 +466,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           status: "alumni",
-          grants: [{ grant: "finance_admin", scope: "global" }],
+          grants: [{ grant: "finance_admin" }],
         }),
         "payments.manage",
       ),
