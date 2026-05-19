@@ -16,23 +16,23 @@ describe("authority assignment validation", () => {
           department: "events",
         },
       ],
-      grants: [{ grant: "admin", scope: "global" }],
+      grants: [{ grant: "admin" }],
     });
 
     assert.equal(result.success, true);
     assert.deepEqual(result.data, {
       userId: "usr_test",
       positions: [
-        { position: "president", scope: "global", department: "none" },
-        { position: "vice_president", scope: "global", department: "none" },
-        { position: "head_of_finance", scope: "global", department: "none" },
+        { position: "president", scope: "global", department: null },
+        { position: "vice_president", scope: "global", department: null },
+        { position: "head_of_finance", scope: "global", department: null },
         {
           position: "department_head",
           scope: "department",
           department: "events",
         },
       ],
-      grants: [{ grant: "admin", scope: "global", department: "none" }],
+      grants: [{ grant: "admin" }],
     });
   });
 
@@ -58,12 +58,12 @@ describe("authority assignment validation", () => {
     );
   });
 
-  it("rejects invalid grant scopes", () => {
+  it("rejects unknown grant values", () => {
     assert.equal(
       authorityUpdateInputSchema.safeParse({
         userId: "usr_test",
         positions: [],
-        grants: [{ grant: "admin", scope: "department", department: "events" }],
+        grants: [{ grant: "unknown_role" }],
       }).success,
       false,
     );
@@ -97,10 +97,7 @@ describe("authority assignment validation", () => {
       authorityUpdateInputSchema.safeParse({
         userId: "usr_test",
         positions: [],
-        grants: [
-          { grant: "admin", scope: "global" },
-          { grant: "admin", scope: "global" },
-        ],
+        grants: [{ grant: "admin" }, { grant: "admin" }],
       }).success,
       false,
     );

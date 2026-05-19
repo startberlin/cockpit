@@ -45,7 +45,6 @@ export type PositionAssignment =
   | {
       position: GlobalOrganizationPosition;
       scope: "global";
-      department?: "none";
     }
   | {
       position: typeof departmentHeadPosition;
@@ -55,8 +54,6 @@ export type PositionAssignment =
 
 export type GrantAssignment = {
   grant: GlobalAccessGrant;
-  scope: "global";
-  department?: "none";
 };
 
 export interface UserAuthority {

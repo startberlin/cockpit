@@ -39,7 +39,7 @@ export const userOrganizationPosition = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     position: organizationPosition("position").notNull(),
     scope: authorityScope("scope").notNull(),
-    department: department("department").notNull().default("none"),
+    department: department("department"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -48,7 +48,7 @@ export const userOrganizationPosition = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.userId, table.position, table.scope, table.department],
+      columns: [table.userId, table.position, table.scope],
     }),
     uniqueIndex("one_president_unique")
       .on(table.position)
@@ -73,8 +73,8 @@ export const userOrganizationPosition = pgTable(
     check(
       "user_organization_position_valid_scope_check",
       sql`(
-        (${table.position} IN ('president', 'vice_president', 'head_of_finance') AND ${table.scope} = 'global' AND ${table.department} = 'none')
-        OR (${table.position} = 'department_head' AND ${table.scope} = 'department' AND ${table.department} != 'none')
+        (${table.position} IN ('president', 'vice_president', 'head_of_finance') AND ${table.scope} = 'global' AND ${table.department} IS NULL)
+        OR (${table.position} = 'department_head' AND ${table.scope} = 'department' AND ${table.department} IS NOT NULL)
       )`,
     ),
   ],
@@ -87,8 +87,6 @@ export const userAccessGrant = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     grant: accessGrant("grant").notNull(),
-    scope: authorityScope("scope").notNull(),
-    department: department("department").notNull().default("none"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -97,14 +95,8 @@ export const userAccessGrant = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.userId, table.grant, table.scope, table.department],
+      columns: [table.userId, table.grant],
     }),
-    check(
-      "user_access_grant_valid_scope_check",
-      sql`(
-        ${table.scope} = 'global' AND ${table.department} = 'none'
-      )`,
-    ),
   ],
 );
 

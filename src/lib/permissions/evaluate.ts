@@ -71,34 +71,22 @@ export function isGroupScopedAction(
 }
 
 function hasSuperAdminGrant(authority: UserAuthority) {
-  return authority.grants.some(
-    (assignment) =>
-      assignment.scope === "global" && assignment.grant === "super_admin",
-  );
+  return authority.grants.some((a) => a.grant === "super_admin");
 }
 
 function hasAdminGrant(authority: UserAuthority) {
   return (
     hasSuperAdminGrant(authority) ||
-    authority.grants.some(
-      (assignment) =>
-        assignment.scope === "global" && assignment.grant === "admin",
-    )
+    authority.grants.some((a) => a.grant === "admin")
   );
 }
 
 function hasFinanceAdminGrant(authority: UserAuthority) {
-  return authority.grants.some(
-    (assignment) =>
-      assignment.scope === "global" && assignment.grant === "finance_admin",
-  );
+  return authority.grants.some((a) => a.grant === "finance_admin");
 }
 
 function hasPeopleAdminGrant(authority: UserAuthority) {
-  return authority.grants.some(
-    (assignment) =>
-      assignment.scope === "global" && assignment.grant === "people_admin",
-  );
+  return authority.grants.some((a) => a.grant === "people_admin");
 }
 
 function isHeadOfFinance(authority: UserAuthority) {

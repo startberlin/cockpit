@@ -30,15 +30,7 @@ export const updateAuthorityAction = actionClient
         ...parsedInput,
         grants: [
           ...parsedInput.grants.filter((g) => g.grant !== "super_admin"),
-          ...(hadSuperAdmin
-            ? [
-                {
-                  grant: "super_admin" as const,
-                  scope: "global" as const,
-                  department: "none" as const,
-                },
-              ]
-            : []),
+          ...(hadSuperAdmin ? [{ grant: "super_admin" as const }] : []),
         ],
       };
     }

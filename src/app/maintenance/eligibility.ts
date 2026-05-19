@@ -13,7 +13,6 @@ export async function isMaintenanceAdmin(): Promise<boolean> {
     where: and(
       eq(userAccessGrant.userId, user.id),
       eq(userAccessGrant.grant, "admin"),
-      eq(userAccessGrant.scope, "global"),
     ),
   });
 

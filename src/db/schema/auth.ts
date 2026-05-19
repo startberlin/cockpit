@@ -30,7 +30,6 @@ export const userStatus = pgEnum("user_status", [
 export type UserStatus = (typeof userStatus.enumValues)[number];
 
 export const department = pgEnum("department", [
-  "none",
   "partnerships",
   "operations",
   "community",

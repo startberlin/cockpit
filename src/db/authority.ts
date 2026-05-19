@@ -26,13 +26,11 @@ type AuthorityUserRow = NonNullable<
 type PersistedPositionAssignment = {
   position: OrganizationPosition;
   scope: AuthorityScope;
-  department: Department;
+  department: Department | null;
 };
 
 type PersistedGrantAssignment = {
   grant: GrantAssignment["grant"];
-  scope: AuthorityScope;
-  department: Department;
 };
 
 function isGlobalOrganizationPosition(
@@ -70,19 +68,18 @@ function mapPositionAssignment(
   if (
     assignment.scope === "global" &&
     isGlobalOrganizationPosition(assignment.position) &&
-    assignment.department === "none"
+    assignment.department === null
   ) {
     return {
       position: assignment.position,
       scope: "global",
-      department: "none",
     };
   }
 
   if (
     assignment.scope === "department" &&
     isDepartmentHeadPosition(assignment.position) &&
-    assignment.department
+    assignment.department !== null
   ) {
     return {
       position: assignment.position,
@@ -97,16 +94,8 @@ function mapPositionAssignment(
 function mapGrantAssignment(
   assignment: PersistedGrantAssignment,
 ): GrantAssignment {
-  if (
-    assignment.scope === "global" &&
-    globalAccessGrants.includes(assignment.grant) &&
-    assignment.department === "none"
-  ) {
-    return {
-      grant: assignment.grant,
-      scope: "global",
-      department: "none",
-    };
+  if (globalAccessGrants.includes(assignment.grant)) {
+    return { grant: assignment.grant };
   }
 
   throw new Error("Invalid persisted access grant assignment.");
@@ -178,8 +167,6 @@ export async function replaceUserAuthority(input: AuthorityUpdateInput) {
         authorityInput.grants.map((assignment) => ({
           userId: authorityInput.userId,
           grant: assignment.grant,
-          scope: assignment.scope,
-          department: assignment.department,
         })),
       );
     }
