@@ -23,16 +23,16 @@ describe("authority assignment validation", () => {
     assert.deepEqual(result.data, {
       userId: "usr_test",
       positions: [
-        { position: "president", scope: "global", department: null },
-        { position: "vice_president", scope: "global", department: null },
-        { position: "head_of_finance", scope: "global", department: null },
+        { position: "president", scope: "global", department: "none" },
+        { position: "vice_president", scope: "global", department: "none" },
+        { position: "head_of_finance", scope: "global", department: "none" },
         {
           position: "department_head",
           scope: "department",
           department: "events",
         },
       ],
-      grants: [{ grant: "admin", scope: "global", department: null }],
+      grants: [{ grant: "admin", scope: "global", department: "none" }],
     });
   });
 
