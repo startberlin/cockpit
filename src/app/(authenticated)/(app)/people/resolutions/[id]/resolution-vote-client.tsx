@@ -25,7 +25,7 @@ import type { ResolutionDetail } from "@/db/board-resolutions";
 import type {
   BoardVoteValue,
   OfficerFunction,
-} from "@/db/schema/board-admission";
+} from "@/db/schema/legal-membership";
 import { computeResolutionRoles } from "@/lib/board-resolution-rules";
 import { castVoteAction } from "./vote-action";
 
@@ -91,7 +91,7 @@ export default function ResolutionVoteClient({
     setIsPending(true);
     try {
       const result = await castVoteAction({
-        resolutionId: resolution.resolutionId,
+        legalMembershipId: resolution.legalMembershipId,
         value,
         displayedResolutionHash: resolution.resolutionTextHash,
       });

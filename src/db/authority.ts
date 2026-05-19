@@ -15,7 +15,6 @@ import {
   type PositionAssignment,
   type UserAuthority,
 } from "@/lib/authority/model";
-import { newId } from "@/lib/id";
 import db from ".";
 import type { Department } from "./schema/auth";
 import { userAccessGrant, userOrganizationPosition } from "./schema/authority";
@@ -27,13 +26,13 @@ type AuthorityUserRow = NonNullable<
 type PersistedPositionAssignment = {
   position: OrganizationPosition;
   scope: AuthorityScope;
-  department: Department | null;
+  department: Department;
 };
 
 type PersistedGrantAssignment = {
   grant: GrantAssignment["grant"];
   scope: AuthorityScope;
-  department: Department | null;
+  department: Department;
 };
 
 function isGlobalOrganizationPosition(
@@ -71,12 +70,12 @@ function mapPositionAssignment(
   if (
     assignment.scope === "global" &&
     isGlobalOrganizationPosition(assignment.position) &&
-    assignment.department === null
+    assignment.department === "none"
   ) {
     return {
       position: assignment.position,
       scope: "global",
-      department: null,
+      department: "none",
     };
   }
 
@@ -101,12 +100,12 @@ function mapGrantAssignment(
   if (
     assignment.scope === "global" &&
     globalAccessGrants.includes(assignment.grant) &&
-    assignment.department === null
+    assignment.department === "none"
   ) {
     return {
       grant: assignment.grant,
       scope: "global",
-      department: null,
+      department: "none",
     };
   }
 
@@ -166,7 +165,6 @@ export async function replaceUserAuthority(input: AuthorityUpdateInput) {
     if (authorityInput.positions.length > 0) {
       await tx.insert(userOrganizationPosition).values(
         authorityInput.positions.map((assignment) => ({
-          id: newId("authorityPosition"),
           userId: authorityInput.userId,
           position: assignment.position,
           scope: assignment.scope,
@@ -178,7 +176,6 @@ export async function replaceUserAuthority(input: AuthorityUpdateInput) {
     if (authorityInput.grants.length > 0) {
       await tx.insert(userAccessGrant).values(
         authorityInput.grants.map((assignment) => ({
-          id: newId("accessGrant"),
           userId: authorityInput.userId,
           grant: assignment.grant,
           scope: assignment.scope,

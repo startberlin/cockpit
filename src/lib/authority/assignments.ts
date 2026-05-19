@@ -12,7 +12,7 @@ export const positionAssignmentSchema = z.union([
   z.object({
     position: z.enum(globalOrganizationPositions),
     scope: z.literal("global"),
-    department: z.null().optional(),
+    department: z.literal("none").optional(),
   }),
   z.object({
     position: z.literal(departmentHeadPosition),
@@ -25,7 +25,7 @@ export const grantAssignmentSchema = z.union([
   z.object({
     grant: z.enum(globalAccessGrants),
     scope: z.literal("global"),
-    department: z.null().optional(),
+    department: z.literal("none").optional(),
   }),
 ]);
 
@@ -78,11 +78,11 @@ export const authorityUpdateInputSchema =
     positions: input.positions.map((assignment) => ({
       ...assignment,
       department:
-        assignment.scope === "department" ? assignment.department : null,
+        assignment.scope === "department" ? assignment.department : "none",
     })),
     grants: input.grants.map((assignment) => ({
       ...assignment,
-      department: null,
+      department: "none",
     })),
   }));
 

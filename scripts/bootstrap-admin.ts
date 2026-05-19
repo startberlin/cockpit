@@ -53,10 +53,10 @@ async function main() {
 
     await client.query(
       `INSERT INTO user_access_grant (
-        id, user_id, "grant", scope, department, created_at, updated_at
-      ) VALUES ($1, $2, 'admin', 'global', NULL, NOW(), NOW())
+        user_id, "grant", scope, department, created_at, updated_at
+      ) VALUES ($1, 'admin', 'global', 'none', NOW(), NOW())
       ON CONFLICT (user_id, "grant", scope, department) DO NOTHING`,
-      [`aug_${nanoid()}`, id],
+      [id],
     );
 
     await client.query("COMMIT");

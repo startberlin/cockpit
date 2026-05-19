@@ -117,87 +117,86 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         : subjectData.userId;
 
     // Step 2: Archive the membership application PDF.
-    await step.run("archive-membership-application", async () => {
-      const renderedAt = new Date();
-      const { renderToBuffer } = await import("@react-pdf/renderer");
+    const { driveFileId: applicationFileDriveId } = await step.run(
+      "archive-membership-application",
+      async () => {
+        const renderedAt = new Date();
+        const { renderToBuffer } = await import("@react-pdf/renderer");
 
-      const element = renderMembershipApplicationTemplate({
-        legalMembershipId,
-        applicationId: subjectData.applicationId,
-        subjectName,
-        email: subjectData.personalEmail ?? undefined,
-        birthDate: subjectData.birthDate,
-        address: {
-          street: subjectData.street,
-          city: subjectData.city,
-          state: subjectData.state,
-          zip: subjectData.zip,
-          country: subjectData.country,
-        },
-        declarations: subjectData.declarations,
-        feeTextVersion: subjectData.feeTextVersion,
-        applicationVersion: subjectData.applicationVersion,
-        submittedAt: new Date(subjectData.submittedAt),
-        renderedAt,
-      });
+        const element = renderMembershipApplicationTemplate({
+          legalMembershipId,
+          applicationId: subjectData.applicationId,
+          subjectName,
+          email: subjectData.personalEmail ?? undefined,
+          birthDate: subjectData.birthDate,
+          address: {
+            street: subjectData.street,
+            city: subjectData.city,
+            state: subjectData.state,
+            zip: subjectData.zip,
+            country: subjectData.country,
+          },
+          declarations: subjectData.declarations,
+          feeTextVersion: subjectData.feeTextVersion,
+          applicationVersion: subjectData.applicationVersion,
+          submittedAt: new Date(subjectData.submittedAt),
+          renderedAt,
+        });
 
-      const [
-        mainBuffer,
-        appendixABuffer,
-        appendixBBuffer,
-        satzungBuffer,
-        finanzordnungBuffer,
-      ] = await Promise.all([
-        renderToBuffer(element).then((b) => Buffer.from(b)),
-        renderToBuffer(
-          renderAppendixPage({
-            letter: "A",
-            title: "Bylaws (Satzung)",
-            docId: "ANX-A",
-            legalMembershipId,
-            renderedAt,
-          }),
-        ).then((b) => Buffer.from(b)),
-        renderToBuffer(
-          renderAppendixPage({
-            letter: "B",
-            title: "Financial Regulations (Finanzordnung)",
-            docId: "ANX-B",
-            legalMembershipId,
-            renderedAt,
-          }),
-        ).then((b) => Buffer.from(b)),
-        readSatzungBuffer(),
-        readFinanzordnungBuffer(),
-      ]);
+        const [
+          mainBuffer,
+          appendixABuffer,
+          appendixBBuffer,
+          satzungBuffer,
+          finanzordnungBuffer,
+        ] = await Promise.all([
+          renderToBuffer(element).then((b) => Buffer.from(b)),
+          renderToBuffer(
+            renderAppendixPage({
+              letter: "A",
+              title: "Bylaws (Satzung)",
+              docId: "ANX-A",
+              legalMembershipId,
+              renderedAt,
+            }),
+          ).then((b) => Buffer.from(b)),
+          renderToBuffer(
+            renderAppendixPage({
+              letter: "B",
+              title: "Financial Regulations (Finanzordnung)",
+              docId: "ANX-B",
+              legalMembershipId,
+              renderedAt,
+            }),
+          ).then((b) => Buffer.from(b)),
+          readSatzungBuffer(),
+          readFinanzordnungBuffer(),
+        ]);
 
-      const buffer = await mergePdfsWithAttachments(mainBuffer, [
-        {
-          title: "Appendix A: Bylaws",
-          buffer: satzungBuffer,
-          dividerBuffer: appendixABuffer,
-        },
-        {
-          title: "Appendix B: Financial Regulations",
-          buffer: finanzordnungBuffer,
-          dividerBuffer: appendixBBuffer,
-        },
-      ]);
+        const buffer = await mergePdfsWithAttachments(mainBuffer, [
+          {
+            title: "Appendix A: Bylaws",
+            buffer: satzungBuffer,
+            dividerBuffer: appendixABuffer,
+          },
+          {
+            title: "Appendix B: Financial Regulations",
+            buffer: finanzordnungBuffer,
+            dividerBuffer: appendixBBuffer,
+          },
+        ]);
 
-      await archiveLegalDocument({
-        legalMembershipId,
-        documentType: "membership_application",
-        buffer,
-        fileName: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-        firstName: subjectData.firstName,
-        lastName: subjectData.lastName,
-      });
-    });
+        return archiveLegalDocument({
+          legalMembershipId,
+          buffer,
+          fileName: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+          firstName: subjectData.firstName,
+          lastName: subjectData.lastName,
+        });
+      },
+    );
 
     // Step 3: Activate the legal membership and insert the payment row.
-    // Preserves the historical activatedAt set at import time.
-    // Also promotes onboarding → member, mirroring the admission workflow:
-    // legal membership and payment are independent.
     await step.run("activate-legal-membership", async () => {
       await db.transaction(async (tx) => {
         await tx
@@ -225,9 +224,6 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     });
 
     // Step 4: Create the first proposed membership payment.
-    // If the member had an importedPaidThroughAt date whose coverage hasn't expired
-    // yet (+ 1 year > today), anchor the first cycle to that renewal date.
-    // Otherwise fall back to today so the cron can pick it up on the next run.
     await step.run("create-proposed-payment", async () => {
       const today = new Date().toISOString().slice(0, 10);
       let activationDate = today;
@@ -245,37 +241,38 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     });
 
     // Step 5: Archive the admission confirmation PDF.
-    // Board list is empty for reconfirmations.
-    await step.run("archive-admission-confirmation", async () => {
-      const subjectAddress = [
-        subjectData.street,
-        `${subjectData.zip} ${subjectData.city}`.trim(),
-        subjectData.country,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+    const { driveFileId: confirmationFileDriveId } = await step.run(
+      "archive-admission-confirmation",
+      async () => {
+        const subjectAddress = [
+          subjectData.street,
+          `${subjectData.zip} ${subjectData.city}`.trim(),
+          subjectData.country,
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
-      const { renderToBuffer } = await import("@react-pdf/renderer");
-      const element = renderAdmissionConfirmationTemplate({
-        legalMembershipId,
-        subjectName,
-        subjectAddress,
-        board: [],
-        activatedAt: new Date(subjectData.activatedAt),
-        renderedAt: new Date(),
-      });
+        const { renderToBuffer } = await import("@react-pdf/renderer");
+        const element = renderAdmissionConfirmationTemplate({
+          legalMembershipId,
+          subjectName,
+          subjectAddress,
+          board: [],
+          activatedAt: new Date(subjectData.activatedAt),
+          renderedAt: new Date(),
+        });
 
-      const buffer = Buffer.from(await renderToBuffer(element));
+        const buffer = Buffer.from(await renderToBuffer(element));
 
-      await archiveLegalDocument({
-        legalMembershipId,
-        documentType: "admission_confirmation",
-        buffer,
-        fileName: `admission-confirmation-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-        firstName: subjectData.firstName,
-        lastName: subjectData.lastName,
-      });
-    });
+        return archiveLegalDocument({
+          legalMembershipId,
+          buffer,
+          fileName: `admission-confirmation-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
+          firstName: subjectData.firstName,
+          lastName: subjectData.lastName,
+        });
+      },
+    );
 
     // Step 6: Send confirmation email with both PDFs attached.
     await step.run("send-confirmation-email", async () => {
@@ -283,43 +280,25 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         throw new Error(`Missing email for user ${subjectData.userId}`);
       }
 
-      const [applicationDoc, confirmationDoc, freshUser] = await Promise.all([
-        db.query.legalDocument.findFirst({
-          where: (d, { and: andFn, eq: eqFn }) =>
-            andFn(
-              eqFn(d.legalMembershipId, legalMembershipId),
-              eqFn(d.documentType, "membership_application"),
-            ),
-          columns: { driveFileId: true },
-        }),
-        db.query.legalDocument.findFirst({
-          where: (d, { and: andFn, eq: eqFn }) =>
-            andFn(
-              eqFn(d.legalMembershipId, legalMembershipId),
-              eqFn(d.documentType, "admission_confirmation"),
-            ),
-          columns: { driveFileId: true },
-        }),
-        db.query.user.findFirst({
-          where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
-          columns: { status: true, gocardlessMandateId: true },
-        }),
-      ]);
+      const freshUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
+        columns: { status: true, gocardlessMandateId: true },
+      });
 
       const attachments = [];
 
-      if (applicationDoc?.driveFileId) {
+      if (applicationFileDriveId) {
         attachments.push({
           filename: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-          content: await downloadArchivedDocument(applicationDoc.driveFileId),
+          content: await downloadArchivedDocument(applicationFileDriveId),
           contentType: "application/pdf",
         });
       }
 
-      if (confirmationDoc?.driveFileId) {
+      if (confirmationFileDriveId) {
         attachments.push({
           filename: `admission-confirmation-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-          content: await downloadArchivedDocument(confirmationDoc.driveFileId),
+          content: await downloadArchivedDocument(confirmationFileDriveId),
           contentType: "application/pdf",
         });
       }

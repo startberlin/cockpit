@@ -35,7 +35,7 @@ export const updateAuthorityAction = actionClient
                 {
                   grant: "super_admin" as const,
                   scope: "global" as const,
-                  department: null,
+                  department: "none" as const,
                 },
               ]
             : []),

@@ -1,3 +1,4 @@
+import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
@@ -8,6 +9,7 @@ import { syncGoogleWorkspaceUserNameWorkflow } from "./sync-google-workspace-use
 import { syncGroupsCron } from "./sync-groups-cron";
 
 export const inngestFunctions = [
+  gocardlessEventsCleanupCron,
   syncGroupsCron,
   membershipAdmissionWorkflow,
   membershipPaymentProposalsCron,

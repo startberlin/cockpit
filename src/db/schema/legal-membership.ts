@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -7,6 +8,25 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+
+export type OfficerFunction =
+  | "president"
+  | "vice_president"
+  | "head_of_finance";
+
+export type BoardVoteValue = "yes" | "no";
+
+export type BoardParticipant = {
+  userId: string;
+  officerFunction: OfficerFunction;
+};
+
+export type BoardVote = {
+  voterUserId: string;
+  value: BoardVoteValue;
+  castAt: string;
+  displayedResolutionHash: string;
+};
 
 export const legalMembershipStatus = pgEnum("legal_membership_status", [
   "admission_pending",
@@ -54,6 +74,10 @@ export const legalMembership = pgTable(
     activatedAt: timestamp("activated_at"),
     importedPaidThroughAt: timestamp("imported_paid_through_at"),
     endedAt: timestamp("ended_at"),
+    boardResolutionText: text("board_resolution_text"),
+    boardResolutionHash: text("board_resolution_hash"),
+    boardParticipants: jsonb("board_participants").$type<BoardParticipant[]>(),
+    boardVotes: jsonb("board_votes").$type<BoardVote[]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")
       .notNull()
