@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-stage:
+  build:
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.deploy.outputs.url }}
@@ -49,8 +49,8 @@ jobs:
       - name: Smoke test staged deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
 
-  promote-and-migrate:
-    needs: build-and-stage
+  migrate:
+    needs: build
     runs-on: ubuntu-latest
     environment: production
 
@@ -69,10 +69,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
+  promote:
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
       - name: Promote production deployment
         run: |
           npx vercel@54.0.0 promote \
-            "${{ needs.build-and-stage.outputs.url }}" \
+            "${{ needs.build.outputs.url }}" \
             --yes \
             --timeout=5m \
             --scope start-berlin
@@ -84,6 +93,12 @@ jobs:
       - name: Smoke test production domain
         run: curl --fail "https://cockpit.start-berlin.com/api/health"
 
+  sync-inngest:
+    needs: promote
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
       - name: Sync Inngest production
         run: |
           curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \

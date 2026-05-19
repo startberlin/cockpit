@@ -12,9 +12,10 @@ permissions:
   contents: read
 
 jobs:
-  deploy-staging:
+  build:
     runs-on: ubuntu-latest
-    environment: preview
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -28,7 +29,7 @@ jobs:
 
       - run: npm test
 
-      - name: Create Vercel Preview deployment
+      - name: Create Vercel preview deployment
         id: deploy
         run: |
           output=$(npx vercel@54.0.0 deploy \
@@ -44,14 +45,35 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test Preview deployment
+      - name: Smoke test preview deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+
+  migrate:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
 
       - name: Apply staging database migrations
         run: npm run db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
 
+  sync-inngest:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
       - name: Sync Inngest staging
         run: |
           curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \
