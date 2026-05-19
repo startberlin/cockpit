@@ -1,9 +1,16 @@
 "use client";
 
-import { ChevronRight, CreditCard, IdCard, Layers, Users } from "lucide-react";
+import {
+  ChevronRight,
+  CreditCard,
+  IdCard,
+  Layers,
+  Settings,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Can } from "@/components/can";
+import { Can, useCan } from "@/components/can";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,6 +18,8 @@ import {
 } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -19,128 +28,235 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { GlobalAction } from "@/lib/permissions";
-
-type SubItem = {
-  href: string;
-  label: string;
-  permission?: GlobalAction;
-  isActive: (pathname: string) => boolean;
-};
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  isActive: (pathname: string) => boolean;
-  permission?: GlobalAction;
-  items?: SubItem[];
-};
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    href: "/membership",
-    label: "My membership",
-    icon: IdCard,
-    isActive: (p) => p === "/membership" || p.startsWith("/membership/"),
-  },
-  {
-    href: "/people",
-    label: "People",
-    icon: Users,
-    isActive: (p) => p === "/people" || p.startsWith("/people/"),
-    items: [
-      {
-        href: "/people/directory",
-        label: "Directory",
-        isActive: (p) =>
-          p === "/people/directory" || p.startsWith("/people/directory/"),
-      },
-      {
-        href: "/people/batches",
-        label: "Batches",
-        permission: "batches.manage",
-        isActive: (p) => p.startsWith("/people/batches"),
-      },
-    ],
-  },
-  {
-    href: "/groups",
-    label: "Groups",
-    icon: Layers,
-    isActive: (p) => p === "/groups" || p.startsWith("/groups/"),
-  },
-  {
-    href: "/payments",
-    label: "Payments",
-    icon: CreditCard,
-    permission: "payments.manage",
-    isActive: (p) => p === "/payments" || p.startsWith("/payments/"),
-  },
-];
+import { useAuthority } from "@/lib/permissions/authority-context";
 
 export function NavMain() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
+  const authority = useAuthority();
+  const can = useCan();
 
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
   };
 
+  const showAdminGroup =
+    authority?.grants.some((g) =>
+      ["admin", "super_admin", "people_admin", "finance_admin"].includes(
+        g.grant,
+      ),
+    ) ||
+    authority?.positions.some(
+      (p) =>
+        p.position === "department_head" || p.position === "head_of_finance",
+    ) ||
+    false;
+
+  const canSeeAdminDirectory =
+    authority?.grants.some((g) =>
+      ["admin", "super_admin", "people_admin"].includes(g.grant),
+    ) ||
+    authority?.positions.some((p) => p.position === "department_head") ||
+    false;
+
+  const canSeeSettings =
+    authority?.grants.some((g) => ["admin", "super_admin"].includes(g.grant)) ||
+    false;
+
+  const adminPeopleActive = pathname.startsWith("/admin/people/");
+  const showAdminPeople = canSeeAdminDirectory || can("batches.manage");
+
   return (
-    <SidebarGroup>
-      <SidebarMenu>
-        {NAV_ITEMS.map((item) => {
-          if (!item.items?.length) {
-            const menuItem = (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={item.isActive(pathname)}
-                  tooltip={item.label}
+    <>
+      {/* Personal */}
+      <SidebarGroup>
+        <SidebarGroupLabel>Personal</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === "/membership" ||
+                  pathname.startsWith("/membership/")
+                }
+                tooltip="My membership"
+              >
+                <Link href="/membership" onClick={closeMobile}>
+                  <IdCard />
+                  <span>My membership</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      {/* Community */}
+      <SidebarGroup>
+        <SidebarGroupLabel>Community</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === "/people/directory" ||
+                  pathname.startsWith("/people/directory/")
+                }
+                tooltip="Directory"
+              >
+                <Link href="/people/directory" onClick={closeMobile}>
+                  <Users />
+                  <span>Directory</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === "/groups" || pathname.startsWith("/groups/")
+                }
+                tooltip="Groups"
+              >
+                <Link href="/groups" onClick={closeMobile}>
+                  <Layers />
+                  <span>Groups</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      {/* Admin */}
+      {showAdminGroup && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {/* Admin > People (collapsible) */}
+              {showAdminPeople && (
+                <NavMainCollapsibleItem
+                  label="People"
+                  icon={Users}
+                  isParentActive={adminPeopleActive}
+                  tooltip="People"
                 >
-                  <Link href={item.href} onClick={closeMobile}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
+                  {canSeeAdminDirectory && (
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={
+                          pathname === "/admin/people/directory" ||
+                          pathname.startsWith("/admin/people/directory/")
+                        }
+                      >
+                        <Link
+                          href="/admin/people/directory"
+                          onClick={closeMobile}
+                        >
+                          <span>Directory</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  )}
+                  <Can permission="batches.manage">
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname.startsWith("/admin/people/batches")}
+                      >
+                        <Link
+                          href="/admin/people/batches"
+                          onClick={closeMobile}
+                        >
+                          <span>Batches</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </Can>
+                </NavMainCollapsibleItem>
+              )}
 
-            return item.permission ? (
-              <Can key={item.href} permission={item.permission}>
-                {menuItem}
+              {/* Admin > Groups */}
+              <Can permission="groups.view_all">
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      pathname === "/admin/groups" ||
+                      pathname.startsWith("/admin/groups/")
+                    }
+                    tooltip="Groups"
+                  >
+                    <Link href="/admin/groups" onClick={closeMobile}>
+                      <Layers />
+                      <span>Groups</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </Can>
-            ) : (
-              menuItem
-            );
-          }
 
-          return (
-            <NavMainCollapsibleItem
-              key={item.href}
-              item={item as NavItem & { items: SubItem[] }}
-              pathname={pathname}
-              onNavigate={closeMobile}
-            />
-          );
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
+              {/* Admin > Payments */}
+              <Can permission="payments.manage">
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      pathname === "/admin/payments" ||
+                      pathname.startsWith("/admin/payments/")
+                    }
+                    tooltip="Payments"
+                  >
+                    <Link href="/admin/payments" onClick={closeMobile}>
+                      <CreditCard />
+                      <span>Payments</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </Can>
+
+              {/* Admin > Settings */}
+              {canSeeSettings && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      pathname === "/admin/settings" ||
+                      pathname.startsWith("/admin/settings/")
+                    }
+                    tooltip="Settings"
+                  >
+                    <Link href="/admin/settings" onClick={closeMobile}>
+                      <Settings />
+                      <span>Settings</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )}
+    </>
   );
 }
 
 function NavMainCollapsibleItem({
-  item,
-  pathname,
-  onNavigate,
+  label,
+  icon: Icon,
+  isParentActive,
+  tooltip,
+  children,
 }: {
-  item: NavItem & { items: SubItem[] };
-  pathname: string;
-  onNavigate: () => void;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isParentActive: boolean;
+  tooltip: string;
+  children: React.ReactNode;
 }) {
-  const isParentActive = item.isActive(pathname);
-
   return (
     <Collapsible
       asChild
@@ -149,37 +265,14 @@ function NavMainCollapsibleItem({
     >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton isActive={isParentActive} tooltip={item.label}>
-            <item.icon />
-            <span>{item.label}</span>
+          <SidebarMenuButton isActive={isParentActive} tooltip={tooltip}>
+            <Icon />
+            <span>{label}</span>
             <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub>
-            {item.items.map((sub) => {
-              const link = (
-                <SidebarMenuSubItem key={sub.href}>
-                  <SidebarMenuSubButton
-                    asChild
-                    isActive={sub.isActive(pathname)}
-                  >
-                    <Link href={sub.href} onClick={onNavigate}>
-                      <span>{sub.label}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              );
-
-              return sub.permission ? (
-                <Can key={sub.href} permission={sub.permission}>
-                  {link}
-                </Can>
-              ) : (
-                link
-              );
-            })}
-          </SidebarMenuSub>
+          <SidebarMenuSub>{children}</SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
     </Collapsible>
