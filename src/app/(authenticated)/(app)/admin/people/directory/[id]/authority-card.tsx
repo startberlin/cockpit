@@ -1,5 +1,6 @@
-import { AuthorityEditor } from "@/components/authority-editor";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { getUserAuthorityData } from "@/db/people";
 import { DEPARTMENTS } from "@/lib/enums";
-import { can } from "@/lib/permissions/server";
 
 interface AuthorityCardProps {
   userId: string;
@@ -112,12 +112,11 @@ export async function AuthorityCard({
         </div>
 
         {canManageAuthority && (
-          <AuthorityEditor
-            userId={data.id}
-            positions={data.organizationPositions}
-            grants={data.accessGrants}
-            canSetSuperAdmin={await can("users.impersonate")}
-          />
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/settings">Manage in Settings →</Link>
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

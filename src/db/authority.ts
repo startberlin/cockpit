@@ -17,7 +17,13 @@ import {
 } from "@/lib/authority/model";
 import db from ".";
 import type { Department } from "./schema/auth";
-import { userAccessGrant, userOrganizationPosition } from "./schema/authority";
+import {
+  type AccessGrant as SchemaAccessGrant,
+  type AuthorityScope as SchemaAuthorityScope,
+  type OrganizationPosition as SchemaOrganizationPosition,
+  userAccessGrant,
+  userOrganizationPosition,
+} from "./schema/authority";
 
 type AuthorityUserRow = NonNullable<
   Awaited<ReturnType<typeof findAuthorityUserById>>
@@ -138,6 +144,53 @@ export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
   });
 
   return authorityUsers.map(mapAuthorityUser);
+}
+
+export interface UserWithAuthority {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  positions: Array<{
+    position: SchemaOrganizationPosition;
+    scope: SchemaAuthorityScope;
+    department: Department | null;
+  }>;
+  grants: Array<{
+    grant: SchemaAccessGrant;
+  }>;
+}
+
+export async function getUsersWithAnyAuthority(): Promise<UserWithAuthority[]> {
+  const users = await db.query.user.findMany({
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
+    with: {
+      organizationPositions: {
+        columns: { position: true, scope: true, department: true },
+      },
+      accessGrants: {
+        columns: { grant: true },
+      },
+    },
+  });
+
+  return users
+    .filter(
+      (u) => u.organizationPositions.length > 0 || u.accessGrants.length > 0,
+    )
+    .map((u) => ({
+      userId: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      positions: u.organizationPositions,
+      grants: u.accessGrants,
+    }));
 }
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {
