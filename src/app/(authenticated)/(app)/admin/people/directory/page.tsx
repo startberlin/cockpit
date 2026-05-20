@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { getAllUsersForAdmin } from "@/db/people";
 import type { Department, UserStatus } from "@/db/schema/auth";
 import { createMetadata } from "@/lib/metadata";
+import { can } from "@/lib/permissions/server";
 import AdminDirectoryPageClient from "./page-client";
 
 export const metadata = createMetadata({
@@ -19,6 +21,10 @@ interface PageProps {
 }
 
 export default async function AdminDirectoryPage({ searchParams }: PageProps) {
+  if (!(await can("users.view_all"))) {
+    redirect("/membership");
+  }
+
   const {
     page: pageParam,
     q: search = "",
