@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import db from "@/db";
 import {
   getEligibleUsersForPositions,
   getPositionAssignments,
@@ -29,15 +30,18 @@ function formatPositionLabel(
     | "department_head",
   department?: Department,
 ): string {
-  if (position === "department_head" && department) {
-    return `Head of ${DEPARTMENT_NAMES[department]}`;
+  if (position === "department_head") {
+    return `Head of ${DEPARTMENT_NAMES[department!]}`;
   }
-  const labels: Record<string, string> = {
+  const labels: Record<
+    "president" | "vice_president" | "head_of_finance",
+    string
+  > = {
     president: "President",
     vice_president: "Vice President",
     head_of_finance: "Head of Finance",
   };
-  return labels[position] ?? position;
+  return labels[position];
 }
 
 export const updatePositionsAction = actionClient
@@ -56,7 +60,10 @@ export const updatePositionsAction = actionClient
 
     function holderFromId(id: string | null): PositionHolder | null {
       if (!id) return null;
-      return userMap.get(id) ?? null;
+      const holder = userMap.get(id);
+      if (!holder)
+        throw new Error(`User ${id} is not eligible for position assignment`);
+      return holder;
     }
 
     const next = {
@@ -68,13 +75,8 @@ export const updatePositionsAction = actionClient
           dept,
           holderFromId(userId),
         ]),
-      ) as Partial<Record<Department, PositionHolder>>,
+      ) as Partial<Record<Department, PositionHolder | null>>,
     };
-
-    await replacePositionAssignments(next);
-
-    revalidatePath("/admin/settings/positions");
-    revalidatePath("/admin/people/directory", "layout");
 
     const notificationEvents: Parameters<typeof inngest.send>[0] = [];
 
@@ -94,6 +96,7 @@ export const updatePositionsAction = actionClient
 
       if (oldHolder) {
         notificationEvents.push({
+          id: `pos-removed-v1-${oldHolder.userId}-${pos}`,
           name: events.positionAssignmentDeleted.name,
           data: {
             email: oldHolder.email,
@@ -105,6 +108,7 @@ export const updatePositionsAction = actionClient
 
       if (newHolder) {
         notificationEvents.push({
+          id: `pos-assigned-v1-${newHolder.userId}-${pos}`,
           name: events.positionAssignmentCreated.name,
           data: {
             email: newHolder.email,
@@ -125,6 +129,7 @@ export const updatePositionsAction = actionClient
 
       if (oldHolder) {
         notificationEvents.push({
+          id: `pos-removed-v1-${oldHolder.userId}-department_head-${dept}`,
           name: events.positionAssignmentDeleted.name,
           data: {
             email: oldHolder.email,
@@ -136,6 +141,7 @@ export const updatePositionsAction = actionClient
 
       if (newHolder) {
         notificationEvents.push({
+          id: `pos-assigned-v1-${newHolder.userId}-department_head-${dept}`,
           name: events.positionAssignmentCreated.name,
           data: {
             email: newHolder.email,
@@ -146,7 +152,13 @@ export const updatePositionsAction = actionClient
       }
     }
 
-    if (notificationEvents.length > 0) {
-      await inngest.send(notificationEvents);
-    }
+    await db.transaction(async (tx) => {
+      await replacePositionAssignments(next, tx);
+      if (notificationEvents.length > 0) {
+        await inngest.send(notificationEvents);
+      }
+    });
+
+    revalidatePath("/admin/settings/positions");
+    revalidatePath("/admin/people/directory", "layout");
   });

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { cache } from "react";
 import {
   type AuthorityUpdateInput,
@@ -159,7 +159,7 @@ export interface PositionAssignments {
   president: PositionHolder | null;
   vice_president: PositionHolder | null;
   head_of_finance: PositionHolder | null;
-  departmentHeads: Partial<Record<Department, PositionHolder>>;
+  departmentHeads: Partial<Record<Department, PositionHolder | null>>;
 }
 
 export async function getPositionAssignments(): Promise<PositionAssignments> {
@@ -222,10 +222,18 @@ export async function getEligibleUsersForPositions(): Promise<
     .orderBy(userTable.lastName, userTable.firstName);
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Stable advisory lock key for position writes — prevents concurrent saves from corrupting state
+const POSITIONS_LOCK_KEY = 42_000_001;
+
 export async function replacePositionAssignments(
   assignments: PositionAssignments,
+  externalTx?: Tx,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
+  const doWork = async (tx: Tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${POSITIONS_LOCK_KEY})`);
+
     await tx.delete(userOrganizationPosition);
 
     const rows: Array<{
@@ -265,7 +273,13 @@ export async function replacePositionAssignments(
     if (rows.length > 0) {
       await tx.insert(userOrganizationPosition).values(rows);
     }
-  });
+  };
+
+  if (externalTx) {
+    await doWork(externalTx);
+  } else {
+    await db.transaction(doWork);
+  }
 }
 
 export async function replaceUserGrants(

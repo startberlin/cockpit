@@ -12,6 +12,19 @@ import {
 import { reconcileGroupMembership } from "@/lib/groups/reconcile";
 import { inngest } from "@/lib/inngest";
 
+async function listGroupMemberEmailsOrNull(
+  groupEmail: string,
+): Promise<string[] | null> {
+  try {
+    return await listGroupMemberEmails(groupEmail);
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export const syncGroupsCron = inngest.createFunction(
   {
     id: "sync-groups-cron",
@@ -89,28 +102,21 @@ export const syncGroupsCron = inngest.createFunction(
 
       try {
         // Returns null when the group doesn't exist in GWS (404).
-        const googleEmails = await step.run(
+        // dbMembers is fetched inside the step so replays use the cached result.
+        const { googleEmails, dbMembers } = await step.run(
           `check-google-${g.id}`,
           async () => {
-            try {
-              return await listGroupMemberEmails(groupEmail);
-            } catch (error) {
-              if (
-                error instanceof Common.GaxiosError &&
-                error.response?.status === 404
-              ) {
-                return null;
-              }
-              throw error;
-            }
+            const [googleEmails, dbMembers] = await Promise.all([
+              listGroupMemberEmailsOrNull(groupEmail),
+              db
+                .select({ email: user.email, userId: user.id })
+                .from(usersToGroups)
+                .innerJoin(user, eq(usersToGroups.userId, user.id))
+                .where(eq(usersToGroups.groupId, g.id)),
+            ]);
+            return { googleEmails, dbMembers };
           },
         );
-
-        const dbMembers = await db
-          .select({ email: user.email })
-          .from(usersToGroups)
-          .innerJoin(user, eq(usersToGroups.userId, user.id))
-          .where(eq(usersToGroups.groupId, g.id));
 
         if (googleEmails === null) {
           if (!g.googleEmailPrefix) {
@@ -123,7 +129,7 @@ export const syncGroupsCron = inngest.createFunction(
 
           await Promise.all(
             dbMembers.map((m) =>
-              step.run(`populate-${g.id}-${m.email}`, () =>
+              step.run(`populate-${g.id}-${m.userId}`, () =>
                 addGroupMember(groupEmail, m.email),
               ),
             ),
@@ -142,7 +148,7 @@ export const syncGroupsCron = inngest.createFunction(
 
           await Promise.all([
             ...toAdd.map((m) =>
-              step.run(`add-${g.id}-${m.email}`, () =>
+              step.run(`add-${g.id}-${m.userId}`, () =>
                 addGroupMember(groupEmail, m.email),
               ),
             ),

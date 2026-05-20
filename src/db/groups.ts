@@ -390,6 +390,7 @@ export async function pinGroupMember(userId: string, groupId: string) {
 // Group Criteria Types and Interfaces
 export interface GroupCriteria {
   id: string;
+  groupId: string;
   name: string;
   conditions: RuleGroup;
   createdAt: Date;
