@@ -3,6 +3,10 @@ import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
 import { onboardNewUserWorkflow } from "./new-user-workflow";
+import {
+  positionAssignmentCreatedNotification,
+  positionAssignmentDeletedNotification,
+} from "./position-assignment-notifications";
 import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
 import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
 import { syncGoogleWorkspaceUserNameWorkflow } from "./sync-google-workspace-user-name";
@@ -15,6 +19,8 @@ export const inngestFunctions = [
   membershipPaymentProposalsCron,
   membershipReconfirmationWorkflow,
   onboardNewUserWorkflow,
+  positionAssignmentCreatedNotification,
+  positionAssignmentDeletedNotification,
   reconcileGroupMembershipWorkflow,
   reconcileUserGroupMembershipWorkflow,
   syncGoogleWorkspaceUserNameWorkflow,

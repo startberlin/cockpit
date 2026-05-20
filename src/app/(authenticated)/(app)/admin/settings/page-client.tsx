@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/combobox";
 import type { PositionAssignments, PositionHolder } from "@/db/authority";
 import type { Department } from "@/db/schema/auth";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { updatePositionsAction } from "./update-positions-action";
 
 const GLOBAL_POSITIONS = [
@@ -29,8 +29,6 @@ const GLOBAL_POSITIONS = [
   { key: "vice_president" as const, label: "Vice President" },
   { key: "head_of_finance" as const, label: "Head of Finance" },
 ];
-
-const DEPARTMENT_KEYS = Object.keys(DEPARTMENTS) as Department[];
 
 interface AdminSettingsPageClientProps {
   positions: PositionAssignments;
@@ -53,7 +51,7 @@ export default function AdminSettingsPageClient({
     Record<Department, PositionHolder | null>
   >(
     Object.fromEntries(
-      DEPARTMENT_KEYS.map((dept) => [
+      DEPARTMENT_IDS.map((dept) => [
         dept,
         positions.departmentHeads[dept] ?? null,
       ]),
@@ -70,12 +68,11 @@ export default function AdminSettingsPageClient({
         vice_president: globalSelections.vice_president?.userId ?? null,
         head_of_finance: globalSelections.head_of_finance?.userId ?? null,
         departmentHeads: Object.fromEntries(
-          DEPARTMENT_KEYS.map((dept) => [
+          DEPARTMENT_IDS.map((dept) => [
             dept,
             deptSelections[dept]?.userId ?? null,
           ]),
         ) as Record<Department, string | null>,
-        eligibleUsers,
       });
 
       if (result?.serverError || result?.validationErrors) {
@@ -131,10 +128,10 @@ export default function AdminSettingsPageClient({
               Department heads
             </p>
             <div className="space-y-4">
-              {DEPARTMENT_KEYS.map((dept) => (
+              {DEPARTMENT_IDS.map((dept) => (
                 <PositionRow
                   key={dept}
-                  label={`Head of ${DEPARTMENTS[dept]}`}
+                  label={`Head of ${DEPARTMENT_NAMES[dept]}`}
                   value={deptSelections[dept]}
                   eligibleUsers={eligibleUsers}
                   onChange={(holder) =>
@@ -169,7 +166,7 @@ function PositionRow({
 }) {
   return (
     <div className="flex items-center gap-4">
-      <span className="text-sm font-medium w-48 shrink-0">{label}</span>
+      <span className="text-sm font-medium w-52 shrink-0">{label}</span>
       <Combobox<PositionHolder>
         items={eligibleUsers}
         value={value}
