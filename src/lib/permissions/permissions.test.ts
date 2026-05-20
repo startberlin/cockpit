@@ -614,6 +614,28 @@ describe("permissions", () => {
     });
   });
 
+  it("allows admin grant to edit user status", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin" }] }),
+        "user.edit.status",
+        { targetDepartment: "events", targetStatus: "member" },
+      ),
+      true,
+    );
+  });
+
+  it("denies people_admin from completing onboarding", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "user.complete_onboarding",
+        { targetDepartment: "events", targetStatus: "member" },
+      ),
+      false,
+    );
+  });
+
   describe("people_admin", () => {
     it("allows user.edit.contact", () => {
       assert.equal(

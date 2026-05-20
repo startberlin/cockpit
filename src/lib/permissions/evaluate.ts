@@ -156,7 +156,7 @@ function evaluateGroupScopedAction(
   authority: UserAuthority,
   action: GroupScopedAction,
   scope: GroupScope,
-) {
+): boolean {
   switch (action) {
     case "group.view":
       return (
@@ -175,7 +175,10 @@ function evaluateGroupScopedAction(
   }
 }
 
-function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
+function evaluateGlobalAction(
+  authority: UserAuthority,
+  action: GlobalAction,
+): boolean {
   switch (action) {
     case "users.create":
     case "users.import":
@@ -210,7 +213,7 @@ function evaluateUserScopedAction(
   authority: UserAuthority,
   action: UserScopedAction,
   scope: UserScope,
-) {
+): boolean {
   switch (action) {
     case "user.view":
     case "user.edit.contact":
@@ -266,9 +269,9 @@ export function evaluateAuth(
     return evaluateGroupScopedAction(authority, action, scope);
   }
 
-  if (!hasUserScope(scope)) {
+  if (!hasUserScope(scope) || !isUserScopedAction(action)) {
     return false;
   }
 
-  return evaluateUserScopedAction(authority, action as UserScopedAction, scope);
+  return evaluateUserScopedAction(authority, action, scope);
 }

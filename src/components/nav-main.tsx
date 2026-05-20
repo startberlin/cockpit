@@ -44,7 +44,7 @@ export function NavMain() {
 
   const showAdminSettings = canManageSettings;
   const showAdminPeople = canViewAll || canManageBatches;
-  const showAdminGroup = canViewAll || canManagePayments;
+  const showAdminSection = canViewAll || canManagePayments;
 
   const adminPeopleActive = pathname.startsWith("/admin/people/");
 
@@ -113,7 +113,7 @@ export function NavMain() {
       </SidebarGroup>
 
       {/* Admin */}
-      {showAdminGroup && (
+      {showAdminSection && (
         <SidebarGroup>
           <SidebarGroupLabel>Admin</SidebarGroupLabel>
           <SidebarGroupContent>
