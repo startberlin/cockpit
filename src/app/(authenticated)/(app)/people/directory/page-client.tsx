@@ -16,14 +16,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { PaginatedUsers, PublicUser } from "@/db/people";
+import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 
-const DEPARTMENTS = [
-  { value: "partnerships", label: "Partnerships" },
-  { value: "operations", label: "Operations" },
-  { value: "community", label: "Community" },
-  { value: "growth", label: "Growth" },
-  { value: "events", label: "Events" },
-] as const;
+const DEPARTMENTS = DEPARTMENT_IDS.map((id) => ({
+  value: id,
+  label: DEPARTMENT_NAMES[id],
+}));
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },

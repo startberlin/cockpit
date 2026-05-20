@@ -9,6 +9,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
+import { DEPARTMENT_IDS } from "@/lib/departments";
 import { batch } from "./batch";
 
 export const legalMembershipState = pgEnum("legal_membership_state", [
@@ -29,13 +30,7 @@ export const userStatus = pgEnum("user_status", [
 
 export type UserStatus = (typeof userStatus.enumValues)[number];
 
-export const department = pgEnum("department", [
-  "partnerships",
-  "operations",
-  "community",
-  "growth",
-  "events",
-]);
+export const department = pgEnum("department", DEPARTMENT_IDS);
 
 export const eventEmailPreference = pgEnum("event_email_preference", [
   "personal_email",

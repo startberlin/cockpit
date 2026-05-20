@@ -32,7 +32,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import {
   type ImportGoogleWorkspaceUserData,
@@ -250,7 +250,7 @@ export function ProfileStep({
                       <SelectValue placeholder="Select a department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(DEPARTMENTS).map(([id, name]) => (
+                      {Object.entries(DEPARTMENT_NAMES).map(([id, name]) => (
                         <SelectItem key={id} value={id}>
                           {name}
                         </SelectItem>

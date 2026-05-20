@@ -51,7 +51,7 @@ import {
 import type { GroupCriteria } from "@/db/groups";
 import type { Department, UserStatus } from "@/db/schema/auth";
 import { department, userStatus } from "@/db/schema/auth";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { addGroupCriteriaSchema } from "@/lib/groups/criteria";
 import type { FieldCondition, RuleGroup } from "@/lib/groups/rule";
 import { isFieldCondition } from "@/lib/groups/rule";
@@ -77,7 +77,7 @@ const BATCH_OP_LABELS: Record<string, string> = {
 function formatFieldCondition(c: FieldCondition): string {
   switch (c.field) {
     case "department":
-      return `Dept: ${c.value.map((d) => DEPARTMENTS[d as Department]).join(", ")}`;
+      return `Dept: ${c.value.map((d) => DEPARTMENT_NAMES[d as Department]).join(", ")}`;
     case "status":
       return `Status: ${c.value.map((s) => USER_STATUS_INFO[s as UserStatus].label).join(", ")}`;
     case "batchNumber":
@@ -159,7 +159,7 @@ type ConditionField = "department" | "status" | "batchNumber";
 
 const DEPARTMENT_OPTIONS = department.enumValues.map((d) => ({
   value: d,
-  label: DEPARTMENTS[d],
+  label: DEPARTMENT_NAMES[d],
 }));
 
 const STATUS_OPTIONS = userStatus.enumValues.map((s) => ({
