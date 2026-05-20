@@ -39,12 +39,14 @@ export default function AdminSettingsPageClient({
   positions,
   eligibleUsers,
 }: AdminSettingsPageClientProps) {
+  const NONE = "__none__";
+
   const [globalSelections, setGlobalSelections] = useState<
     Record<string, string>
   >({
-    president: positions.president?.userId ?? "",
-    vice_president: positions.vice_president?.userId ?? "",
-    head_of_finance: positions.head_of_finance?.userId ?? "",
+    president: positions.president?.userId ?? NONE,
+    vice_president: positions.vice_president?.userId ?? NONE,
+    head_of_finance: positions.head_of_finance?.userId ?? NONE,
   });
 
   const [deptSelections, setDeptSelections] = useState<
@@ -53,7 +55,7 @@ export default function AdminSettingsPageClient({
     Object.fromEntries(
       DEPARTMENT_KEYS.map((dept) => [
         dept,
-        positions.departmentHeads[dept]?.userId ?? "",
+        positions.departmentHeads[dept]?.userId ?? NONE,
       ]),
     ) as Record<Department, string>,
   );
@@ -63,12 +65,13 @@ export default function AdminSettingsPageClient({
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const toUserId = (v: string) => (v === NONE ? null : v);
       const result = await updatePositionsAction({
-        president: globalSelections.president || null,
-        vice_president: globalSelections.vice_president || null,
-        head_of_finance: globalSelections.head_of_finance || null,
+        president: toUserId(globalSelections.president),
+        vice_president: toUserId(globalSelections.vice_president),
+        head_of_finance: toUserId(globalSelections.head_of_finance),
         departmentHeads: Object.fromEntries(
-          DEPARTMENT_KEYS.map((dept) => [dept, deptSelections[dept] || null]),
+          DEPARTMENT_KEYS.map((dept) => [dept, toUserId(deptSelections[dept])]),
         ) as Record<Department, string | null>,
         eligibleUsers,
       });
@@ -170,7 +173,7 @@ function PositionRow({
           <SelectValue placeholder="— Unassigned —" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">— Unassigned —</SelectItem>
+          <SelectItem value="__none__">— Unassigned —</SelectItem>
           {eligibleUsers.map((user) => (
             <SelectItem key={user.userId} value={user.userId}>
               {user.firstName} {user.lastName}
