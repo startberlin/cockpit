@@ -60,8 +60,7 @@ export function NavMain() {
     false;
 
   const canSeeSettings =
-    authority?.grants.some((g) => ["admin", "super_admin"].includes(g.grant)) ||
-    false;
+    authority?.grants.some((g) => g.grant === "super_admin") || false;
 
   const adminPeopleActive = pathname.startsWith("/admin/people/");
   const showAdminPeople = canSeeAdminDirectory || can("batches.manage");
@@ -218,23 +217,30 @@ export function NavMain() {
                 </SidebarMenuItem>
               </Can>
 
-              {/* Admin > Settings */}
+              {/* Admin > Settings (collapsible) */}
               {canSeeSettings && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      pathname === "/admin/settings" ||
-                      pathname.startsWith("/admin/settings/")
-                    }
-                    tooltip="Settings"
-                  >
-                    <Link href="/admin/settings" onClick={closeMobile}>
-                      <Settings />
-                      <span>Settings</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <NavMainCollapsibleItem
+                  label="Settings"
+                  icon={Settings}
+                  isParentActive={pathname.startsWith("/admin/settings")}
+                  tooltip="Settings"
+                >
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={pathname.startsWith(
+                        "/admin/settings/positions",
+                      )}
+                    >
+                      <Link
+                        href="/admin/settings/positions"
+                        onClick={closeMobile}
+                      >
+                        <span>Officer Assignments</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </NavMainCollapsibleItem>
               )}
             </SidebarMenu>
           </SidebarGroupContent>

@@ -9,7 +9,7 @@ export const DEPARTMENT_IDS = [
 export const DEPARTMENT_NAMES = {
   partnerships: "Partnerships",
   operations: "Operations & Digital",
-  community: "Community & HR",
+  community: "People",
   growth: "Growth",
   events: "Events",
 } as const satisfies Record<(typeof DEPARTMENT_IDS)[number], string>;

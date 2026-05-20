@@ -43,7 +43,7 @@ function formatPositionLabel(
 export const updatePositionsAction = actionClient
   .inputSchema(schema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("users.manage_authority"))) {
+    if (!(await can("settings.positions.manage"))) {
       throw new Error("You are not authorized to update positions.");
     }
 
@@ -73,7 +73,7 @@ export const updatePositionsAction = actionClient
 
     await replacePositionAssignments(next);
 
-    revalidatePath("/admin/settings");
+    revalidatePath("/admin/settings/positions");
     revalidatePath("/admin/people/directory", "layout");
 
     const notificationEvents: Parameters<typeof inngest.send>[0] = [];

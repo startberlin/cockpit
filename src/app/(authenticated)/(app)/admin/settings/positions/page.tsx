@@ -8,12 +8,12 @@ import { can } from "@/lib/permissions/server";
 import AdminSettingsPageClient from "./page-client";
 
 export const metadata = createMetadata({
-  title: "Settings",
-  description: "Manage START Berlin positions and org settings.",
+  title: "Positions",
+  description: "Manage START Berlin org positions.",
 });
 
-export default async function AdminSettingsPage() {
-  if (!(await can("users.manage_authority"))) {
+export default async function AdminSettingsPositionsPage() {
+  if (!(await can("settings.positions.manage"))) {
     redirect("/membership");
   }
 
