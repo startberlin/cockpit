@@ -11,12 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import type { PositionAssignments, PositionHolder } from "@/db/authority";
 import type { Department } from "@/db/schema/auth";
 import { DEPARTMENTS } from "@/lib/enums";
@@ -39,25 +41,23 @@ export default function AdminSettingsPageClient({
   positions,
   eligibleUsers,
 }: AdminSettingsPageClientProps) {
-  const NONE = "__none__";
-
   const [globalSelections, setGlobalSelections] = useState<
-    Record<string, string>
+    Record<string, PositionHolder | null>
   >({
-    president: positions.president?.userId ?? NONE,
-    vice_president: positions.vice_president?.userId ?? NONE,
-    head_of_finance: positions.head_of_finance?.userId ?? NONE,
+    president: positions.president ?? null,
+    vice_president: positions.vice_president ?? null,
+    head_of_finance: positions.head_of_finance ?? null,
   });
 
   const [deptSelections, setDeptSelections] = useState<
-    Record<Department, string>
+    Record<Department, PositionHolder | null>
   >(
     Object.fromEntries(
       DEPARTMENT_KEYS.map((dept) => [
         dept,
-        positions.departmentHeads[dept]?.userId ?? NONE,
+        positions.departmentHeads[dept] ?? null,
       ]),
-    ) as Record<Department, string>,
+    ) as Record<Department, PositionHolder | null>,
   );
 
   const [isSaving, setIsSaving] = useState(false);
@@ -65,13 +65,15 @@ export default function AdminSettingsPageClient({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const toUserId = (v: string) => (v === NONE ? null : v);
       const result = await updatePositionsAction({
-        president: toUserId(globalSelections.president),
-        vice_president: toUserId(globalSelections.vice_president),
-        head_of_finance: toUserId(globalSelections.head_of_finance),
+        president: globalSelections.president?.userId ?? null,
+        vice_president: globalSelections.vice_president?.userId ?? null,
+        head_of_finance: globalSelections.head_of_finance?.userId ?? null,
         departmentHeads: Object.fromEntries(
-          DEPARTMENT_KEYS.map((dept) => [dept, toUserId(deptSelections[dept])]),
+          DEPARTMENT_KEYS.map((dept) => [
+            dept,
+            deptSelections[dept]?.userId ?? null,
+          ]),
         ) as Record<Department, string | null>,
         eligibleUsers,
       });
@@ -108,7 +110,7 @@ export default function AdminSettingsPageClient({
           <CardTitle>Positions</CardTitle>
           <CardDescription>
             Each position can be held by exactly one member with an active
-            membership. Select from the list or leave unassigned.
+            membership. Search by name or leave unassigned.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -118,8 +120,8 @@ export default function AdminSettingsPageClient({
               label={label}
               value={globalSelections[key]}
               eligibleUsers={eligibleUsers}
-              onChange={(userId) =>
-                setGlobalSelections((prev) => ({ ...prev, [key]: userId }))
+              onChange={(holder) =>
+                setGlobalSelections((prev) => ({ ...prev, [key]: holder }))
               }
             />
           ))}
@@ -135,8 +137,8 @@ export default function AdminSettingsPageClient({
                   label={`Head of ${DEPARTMENTS[dept]}`}
                   value={deptSelections[dept]}
                   eligibleUsers={eligibleUsers}
-                  onChange={(userId) =>
-                    setDeptSelections((prev) => ({ ...prev, [dept]: userId }))
+                  onChange={(holder) =>
+                    setDeptSelections((prev) => ({ ...prev, [dept]: holder }))
                   }
                 />
               ))}
@@ -161,26 +163,35 @@ function PositionRow({
   onChange,
 }: {
   label: string;
-  value: string;
+  value: PositionHolder | null;
   eligibleUsers: PositionHolder[];
-  onChange: (userId: string) => void;
+  onChange: (holder: PositionHolder | null) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex items-center gap-4">
       <span className="text-sm font-medium w-48 shrink-0">{label}</span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="flex-1 max-w-xs">
-          <SelectValue placeholder="— Unassigned —" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">— Unassigned —</SelectItem>
-          {eligibleUsers.map((user) => (
-            <SelectItem key={user.userId} value={user.userId}>
-              {user.firstName} {user.lastName}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Combobox<PositionHolder>
+        items={eligibleUsers}
+        value={value}
+        onValueChange={onChange}
+        itemToStringLabel={(u) => `${u.firstName} ${u.lastName}`}
+        itemToStringValue={(u) => `${u.firstName} ${u.lastName}`}
+        isItemEqualToValue={(a, b) => a.userId === b.userId}
+      >
+        <ComboboxInput placeholder="Unassigned" showClear className="w-64" />
+        <ComboboxContent>
+          <ComboboxEmpty>No members found.</ComboboxEmpty>
+          <ComboboxList>
+            <ComboboxCollection>
+              {(user: PositionHolder) => (
+                <ComboboxItem key={user.userId} value={user}>
+                  {user.firstName} {user.lastName}
+                </ComboboxItem>
+              )}
+            </ComboboxCollection>
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
     </div>
   );
 }
