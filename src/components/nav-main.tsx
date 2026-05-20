@@ -42,7 +42,6 @@ export function NavMain() {
     if (isMobile) setOpenMobile(false);
   };
 
-  const showAdminDirectory = canViewAll;
   const showAdminSettings = canManageSettings;
   const showAdminPeople = canViewAll || canManageBatches;
   const showAdminGroup = canViewAll || canManagePayments;
@@ -127,7 +126,7 @@ export function NavMain() {
                   isParentActive={adminPeopleActive}
                   tooltip="People"
                 >
-                  {showAdminDirectory && (
+                  {canViewAll && (
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton
                         asChild

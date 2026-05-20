@@ -126,7 +126,9 @@ function isDepartmentHead(
       return true;
     }
 
-    return !!targetDepartment && assignment.department === targetDepartment;
+    return (
+      targetDepartment !== null && assignment.department === targetDepartment
+    );
   });
 }
 
@@ -223,11 +225,6 @@ function evaluateUserScopedAction(
         isDepartmentHead(authority, scope.targetDepartment)
       );
     case "user.complete_onboarding":
-      return (
-        hasAdminGrant(authority) ||
-        isLegalOfficer(authority) ||
-        isDepartmentHead(authority, scope.targetDepartment)
-      );
     case "user.membership.propose":
       return (
         hasAdminGrant(authority) ||
