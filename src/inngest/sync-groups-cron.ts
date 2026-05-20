@@ -113,14 +113,12 @@ export const syncGroupsCron = inngest.createFunction(
           .where(eq(usersToGroups.groupId, g.id));
 
         if (googleEmails === null) {
-          const groupEmail = g.googleGroupEmail;
-
-          if (!groupEmail) {
+          if (!g.googleEmailPrefix) {
             continue;
           }
 
           await step.run(`recreate-google-${g.id}`, () =>
-            createGoogleGroup(groupEmail, g.name),
+            createGoogleGroup(g.googleEmailPrefix!, g.name),
           );
 
           await Promise.all(
