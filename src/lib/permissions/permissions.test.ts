@@ -473,4 +473,92 @@ describe("permissions", () => {
       false,
     );
   });
+
+  describe("users.view_all", () => {
+    it("allows admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows super_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows people_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows any department_head position", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain member", () => {
+      assert.equal(evaluateAuth(authority(), "users.view_all"), false);
+    });
+
+    it("denies finance_admin grant only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "finance_admin" }] }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+
+    it("denies head_of_finance position only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "head_of_finance", scope: "global" }],
+          }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+
+    it("denies president position only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+  });
 });

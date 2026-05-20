@@ -6,6 +6,7 @@ declare const authority: UserAuthority;
 declare const check: CanCheck;
 
 evaluateAuth(authority, "groups.view_all");
+evaluateAuth(authority, "users.view_all");
 evaluateAuth(authority, "users.view_details", { targetDepartment: "events" });
 evaluateAuth(authority, "groups.manage_members", { isGroupMember: true });
 evaluateAuth(authority, "groups.export", { isGroupMember: true });

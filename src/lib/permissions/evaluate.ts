@@ -51,6 +51,7 @@ const globalActions = [
   "batches.manage",
   "payments.manage",
   "settings.positions.manage",
+  "users.view_all",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -190,6 +191,12 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
       return hasAdminGrant(authority) || isLegalOfficer(authority);
     case "groups.view_all":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+    case "users.view_all":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isDepartmentHead(authority)
+      );
   }
 }
 
