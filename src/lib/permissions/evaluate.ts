@@ -4,20 +4,9 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 
-export type UserScopedAction =
-  | "user.view"
-  | "user.edit.contact"
-  | "user.edit.status"
-  | "user.complete_onboarding"
-  | "user.membership.propose";
+export type UserScopedAction = "user.view" | "user.membership.propose";
 
-const userScopedActions = [
-  "user.view",
-  "user.edit.contact",
-  "user.edit.status",
-  "user.complete_onboarding",
-  "user.membership.propose",
-] as const;
+const userScopedActions = ["user.view", "user.membership.propose"] as const;
 
 export function isUserScopedAction(action: Action): action is UserScopedAction {
   return (userScopedActions as readonly Action[]).includes(action);
@@ -45,7 +34,6 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.vote",
   "membership.resolution.view",
-  "membership.workflows.manage",
   "groups.view_all",
   "groups.create",
   "batches.manage",
@@ -177,7 +165,6 @@ function evaluateGlobalAction(
     case "users.import":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "users.manage_authority":
-    case "membership.workflows.manage":
     case "groups.create":
       return hasAdminGrant(authority);
     case "users.impersonate":
@@ -209,18 +196,11 @@ function evaluateUserScopedAction(
 ): boolean {
   switch (action) {
     case "user.view":
-    case "user.edit.contact":
       return (
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
-    case "user.edit.status":
-      return (
-        hasAdminGrant(authority) ||
-        isDepartmentHead(authority, scope.targetDepartment)
-      );
-    case "user.complete_onboarding":
     case "user.membership.propose":
       return (
         hasAdminGrant(authority) ||
