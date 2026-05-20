@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import db from "@/db";
 import {
   addGroupCriteria,
+  addUsersMatchingCriteria,
   getGroupCriteriaById,
   removeGroupCriteria,
 } from "@/db/groups";
@@ -20,9 +22,17 @@ export const addGroupCriteriaAction = actionClient
       throw new Error("You are not authorized to manage group members.");
     }
 
-    const criteria = await addGroupCriteria({
-      ...parsedInput,
-      createdBy: currentUser.id,
+    const criteria = await db.transaction(async (tx) => {
+      const newCriteria = await addGroupCriteria(
+        { ...parsedInput, createdBy: currentUser.id },
+        tx,
+      );
+      await addUsersMatchingCriteria(
+        parsedInput.groupId,
+        newCriteria.conditions,
+        tx,
+      );
+      return newCriteria;
     });
 
     await reconcileGroupMembership(parsedInput.groupId);
@@ -45,7 +55,7 @@ export const removeGroupCriteriaAction = actionClient
     }
 
     const criteria = await getGroupCriteriaById(parsedInput.criteriaId);
-    if (!criteria) {
+    if (!criteria || criteria.groupId !== parsedInput.groupId) {
       throw new Error("Criteria not found.");
     }
 
