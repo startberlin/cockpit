@@ -33,7 +33,7 @@ export default async function DirectoryPage({
   } = await loadSearchParams(searchParams);
 
   const usersPromise = getAllUserPublicData({
-    page,
+    page: Math.max(1, page),
     search,
     department: department ?? undefined,
     batchNumber: batchNumber ?? undefined,

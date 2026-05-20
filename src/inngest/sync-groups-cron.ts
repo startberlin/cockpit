@@ -137,14 +137,18 @@ export const syncGroupsCron = inngest.createFunction(
 
           googleAdded += dbMembers.length;
         } else {
-          const googleSet = new Set(googleEmails);
+          const googleSet = new Set(
+            googleEmails.map((email) => email.toLowerCase()),
+          );
           const dbEmailSet = new Set(
             dbMembers.map((m) => m.email.toLowerCase()),
           );
           const toAdd = dbMembers.filter(
             (m) => !googleSet.has(m.email.toLowerCase()),
           );
-          const toRemove = googleEmails.filter((e) => !dbEmailSet.has(e));
+          const toRemove = googleEmails.filter(
+            (e) => !dbEmailSet.has(e.toLowerCase()),
+          );
 
           await Promise.all([
             ...toAdd.map((m) =>

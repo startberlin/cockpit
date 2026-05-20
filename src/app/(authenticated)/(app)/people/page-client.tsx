@@ -299,7 +299,7 @@ function ResultsSection({
 }) {
   const { users, total, pageCount } = React.use(usersPromise);
 
-  if (total === 0) {
+  if (total === 0 || users.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-12 text-center">
         <p className="text-sm font-semibold">No members match this search.</p>
@@ -484,6 +484,8 @@ export default function DirectoryPageClient({
             <button
               type="button"
               onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+              aria-pressed={viewMode === "grid"}
               className={cn(
                 "h-9 w-9 border inline-flex items-center justify-center rounded-md bg-background transition-colors",
                 viewMode === "grid"
@@ -496,6 +498,8 @@ export default function DirectoryPageClient({
             <button
               type="button"
               onClick={() => setViewMode("list")}
+              aria-label="List view"
+              aria-pressed={viewMode === "list"}
               className={cn(
                 "h-9 w-9 border inline-flex items-center justify-center rounded-md bg-background transition-colors",
                 viewMode === "list"

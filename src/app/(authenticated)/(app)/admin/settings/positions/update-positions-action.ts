@@ -24,28 +24,6 @@ const schema = z.object({
   departmentHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
 });
 
-function formatPositionLabel(
-  position:
-    | "president"
-    | "vice_president"
-    | "head_of_finance"
-    | "department_head",
-  department?: Department,
-): string {
-  if (position === "department_head") {
-    return `Head of ${DEPARTMENT_NAMES[department!]}`;
-  }
-  const labels: Record<
-    "president" | "vice_president" | "head_of_finance",
-    string
-  > = {
-    president: "President",
-    vice_president: "Vice President",
-    head_of_finance: "Head of Finance",
-  };
-  return labels[position];
-}
-
 export const updatePositionsAction = actionClient
   .inputSchema(schema)
   .action(async ({ parsedInput }) => {
@@ -99,7 +77,13 @@ export const updatePositionsAction = actionClient
 
         if (oldHolder?.userId === newHolder?.userId) continue;
 
-        const label = formatPositionLabel(pos);
+        const positionLabels = {
+          president: "President",
+          vice_president: "Vice President",
+          head_of_finance: "Head of Finance",
+        } as const;
+
+        const label = positionLabels[pos];
 
         if (oldHolder) {
           pendingEvents.push({
@@ -132,8 +116,6 @@ export const updatePositionsAction = actionClient
 
         if (oldHolder?.userId === newHolder?.userId) continue;
 
-        const label = formatPositionLabel("department_head", dept);
-
         if (oldHolder) {
           pendingEvents.push({
             id: `pos-removed-v1-${oldHolder.userId}-department_head-${dept}`,
@@ -141,7 +123,7 @@ export const updatePositionsAction = actionClient
             data: {
               email: oldHolder.email,
               firstName: oldHolder.firstName,
-              positionLabel: label,
+              positionLabel: `Head of ${DEPARTMENT_NAMES[dept]}`,
             },
           });
         }
@@ -153,7 +135,7 @@ export const updatePositionsAction = actionClient
             data: {
               email: newHolder.email,
               firstName: newHolder.firstName,
-              positionLabel: label,
+              positionLabel: `Head of ${DEPARTMENT_NAMES[dept]}`,
             },
           });
         }
@@ -164,10 +146,10 @@ export const updatePositionsAction = actionClient
       return pendingEvents;
     });
 
+    revalidatePath("/admin/settings/positions");
+    revalidatePath("/admin/people/directory", "layout");
+
     if (notificationEvents.length > 0) {
       await inngest.send(notificationEvents);
     }
-
-    revalidatePath("/admin/settings/positions");
-    revalidatePath("/admin/people/directory", "layout");
   });
