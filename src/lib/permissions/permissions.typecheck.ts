@@ -7,41 +7,53 @@ declare const check: CanCheck;
 
 evaluateAuth(authority, "groups.view_all");
 evaluateAuth(authority, "users.view_all");
-evaluateAuth(authority, "users.view_details", { targetDepartment: "events" });
-evaluateAuth(authority, "groups.manage_members", { isGroupMember: true });
-evaluateAuth(authority, "groups.export", { isGroupMember: true });
+evaluateAuth(authority, "user.view", {
+  targetDepartment: "events",
+  targetStatus: "member",
+});
+evaluateAuth(authority, "group.members.manage", { isGroupMember: true });
+evaluateAuth(authority, "group.export", { isGroupMember: true });
 
-// @ts-expect-error target-department permissions require context.
-evaluateAuth(authority, "users.view_details");
+// @ts-expect-error user-scoped permissions require context.
+evaluateAuth(authority, "user.view");
 
-// @ts-expect-error contextless permissions do not accept target-department context.
+// @ts-expect-error contextless permissions do not accept user-scoped context.
 evaluateAuth(authority, "groups.view_all", { targetDepartment: "events" });
 
 // @ts-expect-error group-scoped permissions require group context.
-evaluateAuth(authority, "groups.manage_members");
+evaluateAuth(authority, "group.members.manage");
+
+// @ts-expect-error user-scoped permissions require targetStatus.
+evaluateAuth(authority, "user.view", { targetDepartment: "events" });
 
 can("groups.view_all");
-can("users.view_details", { department: "events" });
-can("groups.manage_members", { id: "gr_123" });
+can("user.view", { department: "events", status: "member" });
+can("group.members.manage", { id: "gr_123" });
 
-// @ts-expect-error department-scoped server checks require a user resource.
-can("users.view_details");
+// @ts-expect-error user-scoped server checks require a user resource.
+can("user.view");
+
+// @ts-expect-error user-scoped server checks require status.
+can("user.view", { department: "events" });
 
 // @ts-expect-error global server checks do not accept a resource.
 can("groups.view_all", { department: "events" });
 
 // @ts-expect-error group-scoped server checks require a group id.
-can("groups.manage_members");
+can("group.members.manage");
 
 check("groups.view_all");
-check("users.view_details", { department: "events" });
-check("groups.manage_members", { isMember: true });
+check("user.view", { department: "events", status: "member" });
+check("group.members.manage", { isMember: true });
 
-// @ts-expect-error department-scoped client checks require a user resource.
-check("users.view_details");
+// @ts-expect-error user-scoped client checks require a user resource.
+check("user.view");
+
+// @ts-expect-error user-scoped client checks require status.
+check("user.view", { department: "events" });
 
 // @ts-expect-error global client checks do not accept a resource.
 check("groups.view_all", { department: "events" });
 
 // @ts-expect-error group-scoped client checks require group context.
-check("groups.manage_members");
+check("group.members.manage");

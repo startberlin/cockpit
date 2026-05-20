@@ -33,8 +33,8 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
-        { targetDepartment: "events" },
+        "user.view",
+        { targetDepartment: "events", targetStatus: "member" },
       ),
       true,
     );
@@ -52,8 +52,8 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
-        { targetDepartment: "growth" },
+        "user.view",
+        { targetDepartment: "growth", targetStatus: "member" },
       ),
       false,
     );
@@ -71,8 +71,11 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
-        undefined as unknown as { targetDepartment: null },
+        "user.view",
+        undefined as unknown as {
+          targetDepartment: null;
+          targetStatus: "member";
+        },
       ),
       false,
     );
@@ -84,8 +87,8 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "users.view_details",
-        { targetDepartment: "events" },
+        "user.view",
+        { targetDepartment: "events", targetStatus: "member" },
       ),
       false,
     );
@@ -97,8 +100,8 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "membership.propose",
-        { targetDepartment: "events" },
+        "user.membership.propose",
+        { targetDepartment: "events", targetStatus: "member" },
       ),
       true,
     );
@@ -144,7 +147,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "membership.vote_resolution",
+        "membership.resolution.vote",
       ),
       false,
     );
@@ -156,7 +159,7 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "groups.manage_members",
+        "group.members.manage",
         { isGroupMember: false },
       ),
       false,
@@ -167,7 +170,7 @@ describe("permissions", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
-        "groups.manage_members",
+        "group.members.manage",
         { isGroupMember: false },
       ),
       true,
@@ -178,7 +181,7 @@ describe("permissions", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
-        "groups.manage_members",
+        "group.members.manage",
         { isGroupMember: false },
       ),
       false,
@@ -224,7 +227,7 @@ describe("permissions", () => {
 
   it("denies ordinary group members from managing the group", () => {
     assert.equal(
-      evaluateAuth(authority(), "groups.manage_members", {
+      evaluateAuth(authority(), "group.members.manage", {
         isGroupMember: true,
       }),
       false,
@@ -235,7 +238,7 @@ describe("permissions", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
-        "groups.export",
+        "group.export",
         { isGroupMember: false },
       ),
       true,
@@ -246,7 +249,7 @@ describe("permissions", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
-        "groups.export",
+        "group.export",
         { isGroupMember: false },
       ),
       true,
@@ -255,14 +258,14 @@ describe("permissions", () => {
 
   it("allows group members to export their group", () => {
     assert.equal(
-      evaluateAuth(authority(), "groups.export", { isGroupMember: true }),
+      evaluateAuth(authority(), "group.export", { isGroupMember: true }),
       true,
     );
   });
 
   it("denies non-members from exporting", () => {
     assert.equal(
-      evaluateAuth(authority(), "groups.export", { isGroupMember: false }),
+      evaluateAuth(authority(), "group.export", { isGroupMember: false }),
       false,
     );
   });
@@ -301,7 +304,7 @@ describe("permissions", () => {
             status,
             grants: [{ grant: "admin" }],
           }),
-          "groups.manage_members",
+          "group.members.manage",
           { isGroupMember: false },
         ),
         false,
@@ -316,7 +319,7 @@ describe("permissions", () => {
           status: "member",
           grants: [{ grant: "admin" }],
         }),
-        "groups.manage_members",
+        "group.members.manage",
         { isGroupMember: false },
       ),
       true,
@@ -595,6 +598,84 @@ describe("permissions", () => {
           "users.view_all",
         ),
         false,
+      );
+    });
+  });
+
+  describe("isUserScopedAction", () => {
+    it('returns true for "user.view"', () => {
+      const { isUserScopedAction } = require("./evaluate");
+      assert.equal(isUserScopedAction("user.view"), true);
+    });
+
+    it('returns false for "users.view_all"', () => {
+      const { isUserScopedAction } = require("./evaluate");
+      assert.equal(isUserScopedAction("users.view_all"), false);
+    });
+  });
+
+  describe("people_admin", () => {
+    it("allows user.edit.contact", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.edit.contact",
+          { targetDepartment: "events", targetStatus: "member" },
+        ),
+        true,
+      );
+    });
+
+    it("denies user.edit.status", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.edit.status",
+          { targetDepartment: "events", targetStatus: "member" },
+        ),
+        false,
+      );
+    });
+
+    it("denies user.membership.propose", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.membership.propose",
+          { targetDepartment: "events", targetStatus: "member" },
+        ),
+        false,
+      );
+    });
+
+    it("allows user.view for any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.view",
+          { targetDepartment: "growth", targetStatus: "member" },
+        ),
+        true,
+      );
+    });
+
+    it("allows users.view_all", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows groups.view_all", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "groups.view_all",
+        ),
+        true,
       );
     });
   });
