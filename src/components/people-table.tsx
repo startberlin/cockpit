@@ -175,8 +175,7 @@ export function PeopleTable({
     pageCount,
   });
 
-  const canOpenMemberProfile = (member: PublicUser) =>
-    can("users.view_details", member);
+  const canOpenMemberProfile = (member: PublicUser) => can("user.view", member);
 
   const visibleRows = table.getRowModel().rows;
 

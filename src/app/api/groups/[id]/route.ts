@@ -17,7 +17,7 @@ export async function GET(
     );
   }
 
-  if (!(await can("groups.view", { id }))) {
+  if (!(await can("group.view", { id }))) {
     return NextResponse.json(
       { error: "You are not authorized to view this group." },
       { status: 403 },

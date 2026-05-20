@@ -16,7 +16,7 @@ import { can } from "@/lib/permissions/server";
 export const addGroupCriteriaAction = actionClient
   .inputSchema(addGroupCriteriaSchema)
   .action(async ({ parsedInput, ctx: { user: currentUser } }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
@@ -40,7 +40,7 @@ const removeGroupCriteriaInputSchema = z.object({
 export const removeGroupCriteriaAction = actionClient
   .inputSchema(removeGroupCriteriaInputSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 

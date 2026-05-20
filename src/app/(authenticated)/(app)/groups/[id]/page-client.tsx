@@ -182,10 +182,10 @@ export default function GroupDetailClient({
   };
 
   const groupScope = { isMember: group.isMember };
-  const canManageMembers = can("groups.manage_members", groupScope);
-  const canExport = can("groups.export", groupScope);
+  const canManageMembers = can("group.members.manage", groupScope);
+  const canExport = can("group.export", groupScope);
   const canViewMemberProfile = (member: GroupMember) =>
-    can("users.view_details", member);
+    can("user.view", member);
 
   return (
     <div className="w-full space-y-6">
@@ -237,7 +237,7 @@ export default function GroupDetailClient({
         )}
       </div>
 
-      <Can permission="groups.manage_members" context={groupScope}>
+      <Can permission="group.members.manage" context={groupScope}>
         <GroupCriteriaManager
           groupId={group.id}
           criteria={group.criteria}

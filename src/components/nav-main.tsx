@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Can } from "@/components/can";
+import { Can, useCan } from "@/components/can";
 import {
   Collapsible,
   CollapsibleContent,
@@ -28,35 +28,26 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useAuthority } from "@/lib/permissions/authority-context";
-import {
-  canAccessAdminBatches,
-  canAccessAdminPeopleDirectory,
-  canAccessAdminSettings,
-  canAccessAnyAdminRoute,
-} from "@/lib/permissions/nav-access";
 
 export function NavMain() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
-  const authority = useAuthority();
+
+  const canViewAll = useCan("users.view_all");
+  const canManagePayments = useCan("payments.manage");
+  const canManageBatches = useCan("batches.manage");
+  const canManageSettings = useCan("settings.positions.manage");
 
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
   };
 
-  const showAdminGroup = authority ? canAccessAnyAdminRoute(authority) : false;
-  const showAdminDirectory = authority
-    ? canAccessAdminPeopleDirectory(authority)
-    : false;
-  const showAdminSettings = authority
-    ? canAccessAdminSettings(authority)
-    : false;
+  const showAdminDirectory = canViewAll;
+  const showAdminSettings = canManageSettings;
+  const showAdminPeople = canViewAll || canManageBatches;
+  const showAdminGroup = canViewAll || canManagePayments;
 
   const adminPeopleActive = pathname.startsWith("/admin/people/");
-  const showAdminPeople =
-    showAdminDirectory ||
-    (authority ? canAccessAdminBatches(authority) : false);
 
   return (
     <>

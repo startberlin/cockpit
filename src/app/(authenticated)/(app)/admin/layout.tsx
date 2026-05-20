@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
-import { canAccessAnyAdminRoute } from "@/lib/permissions/nav-access";
+import { can } from "@/lib/permissions/server";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -14,13 +13,12 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
     return redirect("/auth");
   }
 
-  const authority = await getUserAuthority(user.id);
+  const [canViewAll, canManagePayments] = await Promise.all([
+    can("users.view_all"),
+    can("payments.manage"),
+  ]);
 
-  if (!authority) {
-    return redirect("/auth");
-  }
-
-  if (!canAccessAnyAdminRoute(authority)) {
+  if (!canViewAll && !canManagePayments) {
     return redirect("/membership");
   }
 

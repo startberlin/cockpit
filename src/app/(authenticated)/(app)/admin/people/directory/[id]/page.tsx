@@ -52,7 +52,7 @@ export default async function UserDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const canViewDetails = await can("users.view_details", user);
+  const canViewDetails = await can("user.view", user);
 
   if (!canViewDetails) {
     return (
@@ -84,7 +84,8 @@ export default async function UserDetailPage({ params }: PageProps) {
     );
 
   const canProposeMembership =
-    isEligibleForMembershipProposal && (await can("membership.propose", user));
+    isEligibleForMembershipProposal &&
+    (await can("user.membership.propose", user));
 
   return (
     <div className="w-full space-y-6">

@@ -207,7 +207,7 @@ export async function getGroupDetail(
     : [];
 
   const isMember = viewerMembership.length > 0;
-  const canManage = await can("groups.manage_members", { id });
+  const canManage = await can("group.members.manage", { id });
   const offset = (page - 1) * MEMBERS_PAGE_SIZE;
 
   const membersBaseQuery = db

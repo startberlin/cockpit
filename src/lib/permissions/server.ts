@@ -3,24 +3,24 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserAuthority } from "@/db/authority";
-import type { Department } from "@/db/schema/auth";
+import type { Department, UserStatus } from "@/db/schema/auth";
 import { usersToGroups } from "@/db/schema/group";
 import { getCurrentUser } from "@/db/user";
 import {
   type Action,
-  type DepartmentScopedAction,
   evaluateAuth,
   type GlobalAction,
   type GroupScopedAction,
-  isDepartmentScopedAction,
   isGlobalAction,
   isGroupScopedAction,
+  isUserScopedAction,
+  type UserScopedAction,
 } from ".";
 
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
-  action: DepartmentScopedAction,
-  user: { department: Department | null },
+  action: UserScopedAction,
+  user: { department: Department | null; status: UserStatus },
 ): Promise<boolean>;
 export function can(
   action: GroupScopedAction,
@@ -28,7 +28,11 @@ export function can(
 ): Promise<boolean>;
 export async function can(
   action: Action,
-  resource?: { department?: Department | null; id?: string },
+  resource?: {
+    department?: Department | null;
+    status?: UserStatus;
+    id?: string;
+  },
 ): Promise<boolean> {
   const currentUser = await getCurrentUser();
   if (!currentUser) return false;
@@ -40,9 +44,13 @@ export async function can(
     return evaluateAuth(authority, action);
   }
 
-  if (isDepartmentScopedAction(action)) {
+  if (isUserScopedAction(action)) {
     const department = resource?.department ?? null;
-    return evaluateAuth(authority, action, { targetDepartment: department });
+    const status = resource?.status ?? "member";
+    return evaluateAuth(authority, action, {
+      targetDepartment: department,
+      targetStatus: status,
+    });
   }
 
   if (isGroupScopedAction(action)) {

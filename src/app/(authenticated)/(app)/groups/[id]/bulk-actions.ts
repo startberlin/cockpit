@@ -16,7 +16,7 @@ const searchByCriteriaSchema = normalizedGroupCriteriaSchema
 export const searchUsersByCriteriaAction = actionClient
   .inputSchema(searchByCriteriaSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
@@ -36,7 +36,7 @@ const bulkAddUsersSchema = z.object({
 export const bulkAddUsersAction = actionClient
   .inputSchema(bulkAddUsersSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 

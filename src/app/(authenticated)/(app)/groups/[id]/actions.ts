@@ -17,7 +17,7 @@ export async function searchUsersNotInGroupAction(
   query?: string,
 ): Promise<PublicUser[]> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
@@ -29,7 +29,7 @@ export async function addUserToGroupAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
@@ -43,7 +43,7 @@ export async function removeUserFromGroupAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 
@@ -57,7 +57,7 @@ export async function pinGroupMemberAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("groups.manage_members", { id: groupId }))) {
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
     throw new Error("You are not authorized to manage group members.");
   }
 

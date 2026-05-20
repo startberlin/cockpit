@@ -19,7 +19,7 @@ export const completeUserOnboardingAction = actionClient
       throw new Error("User not found.");
     }
 
-    if (!(await can("users.complete_onboarding", targetUser))) {
+    if (!(await can("user.complete_onboarding", targetUser))) {
       throw new Error("You are not authorized to complete user onboarding.");
     }
 
