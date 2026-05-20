@@ -1,9 +1,11 @@
 import { and, eq, isNotNull } from "drizzle-orm";
+import { Common } from "googleapis";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
 import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
 import {
   addGroupMember,
+  createGoogleGroup,
   listGroupMemberEmails,
   removeGroupMember,
 } from "@/lib/google-workspace/directory";
@@ -70,6 +72,8 @@ export const syncGroupsCron = inngest.createFunction(
         db
           .select({
             id: group.id,
+            name: group.name,
+            googleEmailPrefix: group.googleEmailPrefix,
             googleGroupEmail: group.googleGroupEmail,
           })
           .from(group)
@@ -81,22 +85,58 @@ export const syncGroupsCron = inngest.createFunction(
 
     for (const g of groupsWithEmail) {
       if (!g.googleGroupEmail) continue;
-      try {
-        await step.run(`sync-google-${g.id}`, async () => {
-          const [googleEmails, dbMembers] = await Promise.all([
-            listGroupMemberEmails(g.googleGroupEmail as string),
-            db
-              .select({ email: user.email })
-              .from(usersToGroups)
-              .innerJoin(user, eq(usersToGroups.userId, user.id))
-              .where(eq(usersToGroups.groupId, g.id)),
-          ]);
+      const groupEmail = g.googleGroupEmail;
 
+      try {
+        // Returns null when the group doesn't exist in GWS (404).
+        const googleEmails = await step.run(
+          `check-google-${g.id}`,
+          async () => {
+            try {
+              return await listGroupMemberEmails(groupEmail);
+            } catch (error) {
+              if (
+                error instanceof Common.GaxiosError &&
+                error.response?.status === 404
+              ) {
+                return null;
+              }
+              throw error;
+            }
+          },
+        );
+
+        const dbMembers = await db
+          .select({ email: user.email })
+          .from(usersToGroups)
+          .innerJoin(user, eq(usersToGroups.userId, user.id))
+          .where(eq(usersToGroups.groupId, g.id));
+
+        if (googleEmails === null) {
+          const groupEmail = g.googleGroupEmail;
+
+          if (!groupEmail) {
+            continue;
+          }
+
+          await step.run(`recreate-google-${g.id}`, () =>
+            createGoogleGroup(groupEmail, g.name),
+          );
+
+          await Promise.all(
+            dbMembers.map((m) =>
+              step.run(`populate-${g.id}-${m.email}`, () =>
+                addGroupMember(groupEmail, m.email),
+              ),
+            ),
+          );
+
+          googleAdded += dbMembers.length;
+        } else {
           const googleSet = new Set(googleEmails);
           const dbEmailSet = new Set(
             dbMembers.map((m) => m.email.toLowerCase()),
           );
-
           const toAdd = dbMembers.filter(
             (m) => !googleSet.has(m.email.toLowerCase()),
           );
@@ -104,16 +144,20 @@ export const syncGroupsCron = inngest.createFunction(
 
           await Promise.all([
             ...toAdd.map((m) =>
-              addGroupMember(g.googleGroupEmail as string, m.email),
+              step.run(`add-${g.id}-${m.email}`, () =>
+                addGroupMember(groupEmail, m.email),
+              ),
             ),
             ...toRemove.map((e) =>
-              removeGroupMember(g.googleGroupEmail as string, e),
+              step.run(`remove-${g.id}-${e}`, () =>
+                removeGroupMember(groupEmail, e),
+              ),
             ),
           ]);
 
           googleAdded += toAdd.length;
           googleRemoved += toRemove.length;
-        });
+        }
       } catch (error) {
         console.error(
           `[sync-groups-cron] Google sync failed for group ${g.id}`,
