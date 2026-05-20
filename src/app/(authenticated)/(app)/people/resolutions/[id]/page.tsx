@@ -17,7 +17,7 @@ export default async function ResolutionDetailPage({
 }) {
   const { id } = await params;
 
-  if (!(await can("membership.view_resolution"))) {
+  if (!(await can("membership.resolution.view"))) {
     notFound();
   }
 

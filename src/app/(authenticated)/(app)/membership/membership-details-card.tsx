@@ -5,7 +5,7 @@ import { getMemberSinceDate, requiresMembershipBilling } from "@/db/membership";
 import { getActivePaymentTerm } from "@/db/membership-payments";
 import { getDepartmentHeadForDepartment } from "@/db/people";
 import type { User } from "@/db/schema/auth";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 
 interface MembershipDetailsCardProps {
   user: User;
@@ -149,7 +149,7 @@ export async function MembershipDetailsCard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <MembershipField
                   label="Department"
-                  value={DEPARTMENTS[user.department]}
+                  value={DEPARTMENT_NAMES[user.department]}
                 />
                 <div className="flex flex-col gap-2">
                   <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground leading-none">

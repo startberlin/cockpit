@@ -1,4 +1,4 @@
-import { count, ilike, or, sql } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import {
   getStructuredMembershipState,
@@ -23,6 +23,7 @@ export interface PublicUser {
   firstName: string;
   lastName: string;
   email: string;
+  image: string | null;
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
@@ -86,17 +87,32 @@ export interface PaginatedUsers {
   users: PublicUser[];
   total: number;
   pageCount: number;
+  offset: number;
 }
+
+const DEFAULT_COMMUNITY_STATUSES: UserStatus[] = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+];
 
 export async function getAllUserPublicData({
   page = 1,
   search = "",
+  status,
+  department,
+  batchNumber,
 }: {
   page?: number;
   search?: string;
+  status?: UserStatus[];
+  department?: Department[];
+  batchNumber?: number[];
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
-  const whereClause = search
+  const effectiveStatus = status ?? DEFAULT_COMMUNITY_STATUSES;
+
+  const searchClause = search
     ? or(
         ilike(userTable.firstName, `%${search}%`),
         ilike(userTable.lastName, `%${search}%`),
@@ -107,6 +123,15 @@ export async function getAllUserPublicData({
       )
     : undefined;
 
+  const whereClause = and(
+    searchClause,
+    inArray(userTable.status, effectiveStatus),
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
+      : undefined,
+  );
+
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({
@@ -114,6 +139,7 @@ export async function getAllUserPublicData({
         firstName: userTable.firstName,
         lastName: userTable.lastName,
         email: userTable.email,
+        image: userTable.image,
         department: userTable.department,
         batchNumber: sql<number | null>`${userTable.batchNumber}`,
         status: userTable.status,
@@ -132,12 +158,86 @@ export async function getAllUserPublicData({
       firstName: u.firstName ?? "",
       lastName: u.lastName ?? "",
       email: u.email ?? "",
+      image: u.image ?? null,
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
+    offset,
+  };
+}
+
+export async function getAllUsersForAdmin({
+  page = 1,
+  search = "",
+  status,
+  department,
+  batchNumber,
+}: {
+  page?: number;
+  search?: string;
+  status?: UserStatus[];
+  department?: Department;
+  batchNumber?: number;
+} = {}): Promise<PaginatedUsers> {
+  const offset = (page - 1) * PEOPLE_PAGE_SIZE;
+
+  const searchClause = search
+    ? or(
+        ilike(userTable.firstName, `%${search}%`),
+        ilike(userTable.lastName, `%${search}%`),
+        ilike(
+          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
+          `%${search}%`,
+        ),
+      )
+    : undefined;
+
+  const whereClause = and(
+    searchClause,
+    status !== undefined ? inArray(userTable.status, status) : undefined,
+    department !== undefined ? eq(userTable.department, department) : undefined,
+    batchNumber !== undefined
+      ? eq(userTable.batchNumber, batchNumber)
+      : undefined,
+  );
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        firstName: userTable.firstName,
+        lastName: userTable.lastName,
+        email: userTable.email,
+        image: userTable.image,
+        department: userTable.department,
+        batchNumber: sql<number | null>`${userTable.batchNumber}`,
+        status: userTable.status,
+      })
+      .from(userTable)
+      .where(whereClause)
+      .orderBy(userTable.firstName, userTable.lastName)
+      .limit(PEOPLE_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(userTable).where(whereClause),
+  ]);
+
+  return {
+    users: rows.map((u) => ({
+      id: u.id,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      email: u.email ?? "",
+      image: u.image ?? null,
+      department: u.department ?? null,
+      batchNumber: u.batchNumber ?? null,
+      status: u.status,
+    })),
+    pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
+    total,
+    offset,
   };
 }
 

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { getUserDetails } from "@/db/people";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 
 interface ProfileCardProps {
@@ -68,7 +68,9 @@ export async function ProfileCard({ userId }: ProfileCardProps) {
                 <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                   Department
                 </p>
-                <Badge variant="outline">{DEPARTMENTS[user.department]}</Badge>
+                <Badge variant="outline">
+                  {DEPARTMENT_NAMES[user.department]}
+                </Badge>
               </div>
               <Separator />
             </>

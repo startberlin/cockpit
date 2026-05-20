@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { useCan } from "./can";
 import { Badge } from "./ui/badge";
@@ -90,7 +90,7 @@ export function PeopleTable({
         cell: ({ row }) =>
           row.original.department ? (
             <Badge variant="outline">
-              {DEPARTMENTS[row.original.department]}
+              {DEPARTMENT_NAMES[row.original.department]}
             </Badge>
           ) : (
             <p>—</p>
@@ -175,8 +175,7 @@ export function PeopleTable({
     pageCount,
   });
 
-  const canOpenMemberProfile = (member: PublicUser) =>
-    can("users.view_details", member);
+  const canOpenMemberProfile = (member: PublicUser) => can("user.view", member);
 
   const visibleRows = table.getRowModel().rows;
 
@@ -235,7 +234,7 @@ export function PeopleTable({
                         canOpenProfile
                           ? () =>
                               router.push(
-                                `/people/directory/${row.original.id}`,
+                                `/admin/people/directory/${row.original.id}`,
                               )
                           : undefined
                       }

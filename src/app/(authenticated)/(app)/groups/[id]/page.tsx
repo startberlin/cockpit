@@ -13,7 +13,7 @@ interface GroupPageProps {
 
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
-  const mayViewGroup = await can("groups.view", { id });
+  const mayViewGroup = await can("group.view", { id });
 
   if (!mayViewGroup) {
     return createMetadata({
@@ -45,7 +45,7 @@ export default async function GroupPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const mayViewGroup = await can("groups.view", { id });
+  const mayViewGroup = await can("group.view", { id });
 
   if (!mayViewGroup) {
     notFound();

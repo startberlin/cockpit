@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getUserAuthorityData } from "@/db/people";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { can } from "@/lib/permissions/server";
 
 interface AuthorityCardProps {
@@ -31,7 +31,7 @@ const PERMISSION_LABELS: Record<string, string> = {
 
 function formatScope(department: string | null) {
   return department
-    ? DEPARTMENTS[department as keyof typeof DEPARTMENTS]
+    ? DEPARTMENT_NAMES[department as keyof typeof DEPARTMENT_NAMES]
     : null;
 }
 
@@ -114,7 +114,6 @@ export async function AuthorityCard({
         {canManageAuthority && (
           <AuthorityEditor
             userId={data.id}
-            positions={data.organizationPositions}
             grants={data.accessGrants}
             canSetSuperAdmin={await can("users.impersonate")}
           />

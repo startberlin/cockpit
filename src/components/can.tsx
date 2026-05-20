@@ -1,25 +1,26 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useContext, useId, useLayoutEffect } from "react";
+import { HidableGroupContext } from "@/components/hidable-group-context";
 import type { Department } from "@/db/schema/auth";
 import {
   type Action,
-  type DepartmentScope,
-  type DepartmentScopedAction,
   evaluateAuth,
   type GlobalAction,
   type GroupScope,
   type GroupScopedAction,
-  isDepartmentScopedAction,
   isGlobalAction,
   isGroupScopedAction,
+  isUserScopedAction,
+  type UserScope,
+  type UserScopedAction,
 } from "@/lib/permissions";
 import { useAuthority } from "@/lib/permissions/authority-context";
 
 export type CanCheck = {
   (permission: GlobalAction): boolean;
   (
-    permission: DepartmentScopedAction,
+    permission: UserScopedAction,
     user: { department: Department | null },
   ): boolean;
   (permission: GroupScopedAction, group: { isMember: boolean }): boolean;
@@ -36,7 +37,7 @@ type CanProps =
       context?: never;
     })
   | (CanComponentProps & {
-      permission: DepartmentScopedAction;
+      permission: UserScopedAction;
       context: { department: Department | null };
     })
   | (CanComponentProps & {
@@ -47,7 +48,7 @@ type CanProps =
 export function useCan(): CanCheck;
 export function useCan(permission: GlobalAction): boolean;
 export function useCan(
-  permission: DepartmentScopedAction,
+  permission: UserScopedAction,
   user: { department: Department | null },
 ): boolean;
 export function useCan(
@@ -78,8 +79,8 @@ export function useCan(
         return evaluateAuth(authority, action);
       }
 
-      if (isDepartmentScopedAction(action)) {
-        const scope: DepartmentScope = {
+      if (isUserScopedAction(action)) {
+        const scope: UserScope = {
           targetDepartment: checkResource?.department ?? null,
         };
         return evaluateAuth(authority, action, scope);
@@ -105,7 +106,7 @@ export function useCan(
     return check(permission);
   }
 
-  if (isDepartmentScopedAction(permission)) {
+  if (isUserScopedAction(permission)) {
     return check(permission, resource as { department: Department | null });
   }
 
@@ -117,21 +118,29 @@ export function useCan(
 }
 
 export function Can(props: CanProps) {
+  const hidable = useContext(HidableGroupContext);
+  const id = useId();
   const check = useCan();
 
+  let granted: boolean;
   if (isGlobalAction(props.permission)) {
-    return check(props.permission) ? props.children : null;
+    granted = check(props.permission);
+  } else if (isUserScopedAction(props.permission)) {
+    granted = check(
+      props.permission,
+      props.context as { department: Department | null },
+    );
+  } else if (isGroupScopedAction(props.permission)) {
+    granted = check(props.permission, props.context as { isMember: boolean });
+  } else {
+    granted = false;
   }
 
-  if (isDepartmentScopedAction(props.permission)) {
-    const context = props.context as { department: Department | null };
-    return check(props.permission, context) ? props.children : null;
-  }
+  useLayoutEffect(() => {
+    if (!hidable) return;
+    hidable.report(id, granted);
+    return () => hidable.report(id, false);
+  }, [hidable, id, granted]);
 
-  if (isGroupScopedAction(props.permission)) {
-    const context = props.context as { isMember: boolean };
-    return check(props.permission, context) ? props.children : null;
-  }
-
-  return null;
+  return granted ? props.children : null;
 }

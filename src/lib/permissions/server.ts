@@ -8,18 +8,18 @@ import { usersToGroups } from "@/db/schema/group";
 import { getCurrentUser } from "@/db/user";
 import {
   type Action,
-  type DepartmentScopedAction,
   evaluateAuth,
   type GlobalAction,
   type GroupScopedAction,
-  isDepartmentScopedAction,
   isGlobalAction,
   isGroupScopedAction,
+  isUserScopedAction,
+  type UserScopedAction,
 } from ".";
 
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
-  action: DepartmentScopedAction,
+  action: UserScopedAction,
   user: { department: Department | null },
 ): Promise<boolean>;
 export function can(
@@ -28,7 +28,10 @@ export function can(
 ): Promise<boolean>;
 export async function can(
   action: Action,
-  resource?: { department?: Department | null; id?: string },
+  resource?: {
+    department?: Department | null;
+    id?: string;
+  },
 ): Promise<boolean> {
   const currentUser = await getCurrentUser();
   if (!currentUser) return false;
@@ -40,9 +43,10 @@ export async function can(
     return evaluateAuth(authority, action);
   }
 
-  if (isDepartmentScopedAction(action)) {
-    const department = resource?.department ?? null;
-    return evaluateAuth(authority, action, { targetDepartment: department });
+  if (isUserScopedAction(action)) {
+    return evaluateAuth(authority, action, {
+      targetDepartment: resource?.department ?? null,
+    });
   }
 
   if (isGroupScopedAction(action)) {

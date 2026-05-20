@@ -49,6 +49,7 @@ next-env.d.ts
 # symlinks to .agents/skills/
 .cursor/skills/
 .claude/skills/
+.claude/worktrees/
 
 # security audit artifacts — never publish to public repo
 .deepsec/

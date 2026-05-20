@@ -12,7 +12,7 @@ export const metadata = createMetadata({
 
 export default async function BatchesPage() {
   if (!(await can("batches.manage"))) {
-    redirect("/people/directory");
+    redirect("/membership");
   }
 
   const batches = await db.select().from(batch).orderBy(batch.number);

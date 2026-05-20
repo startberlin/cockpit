@@ -39,7 +39,7 @@ export default async function PaymentsPage({
   }>;
 }) {
   if (!(await can("payments.manage"))) {
-    redirect("/people/directory");
+    redirect("/membership");
   }
 
   const {

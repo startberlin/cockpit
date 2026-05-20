@@ -46,7 +46,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Department, UserStatus } from "@/db/schema";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { handleError } from "@/lib/utils";
 
@@ -309,7 +309,7 @@ export function CreateUserForm({
                     <SelectItem value="onboarding">Onboarding</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="supporting_alumni">
-                      Supporting alumni
+                      Supporting Alumni
                     </SelectItem>
                     <SelectItem value="alumni">Alumni</SelectItem>
                   </SelectContent>
@@ -335,7 +335,7 @@ export function CreateUserForm({
                       <SelectValue placeholder="Select a department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(DEPARTMENTS).map(([id, name]) => (
+                      {Object.entries(DEPARTMENT_NAMES).map(([id, name]) => (
                         <SelectItem key={id} value={id}>
                           {name}
                         </SelectItem>

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { cache } from "react";
 import {
   type AuthorityUpdateInput,
@@ -16,8 +16,16 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 import db from ".";
+import { legalMembership } from "./schema";
 import type { Department } from "./schema/auth";
-import { userAccessGrant, userOrganizationPosition } from "./schema/authority";
+import { user as userTable } from "./schema/auth";
+import {
+  type AccessGrant as SchemaAccessGrant,
+  type AuthorityScope as SchemaAuthorityScope,
+  type OrganizationPosition as SchemaOrganizationPosition,
+  userAccessGrant,
+  userOrganizationPosition,
+} from "./schema/authority";
 
 type AuthorityUserRow = NonNullable<
   Awaited<ReturnType<typeof findAuthorityUserById>>
@@ -138,6 +146,157 @@ export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
   });
 
   return authorityUsers.map(mapAuthorityUser);
+}
+
+export interface PositionHolder {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export interface PositionAssignments {
+  president: PositionHolder | null;
+  vice_president: PositionHolder | null;
+  head_of_finance: PositionHolder | null;
+  departmentHeads: Partial<Record<Department, PositionHolder | null>>;
+}
+
+export async function getPositionAssignments(
+  tx?: Tx,
+): Promise<PositionAssignments> {
+  const rows = await (tx ?? db).query.userOrganizationPosition.findMany({
+    columns: { position: true, scope: true, department: true },
+    with: {
+      user: {
+        columns: { id: true, firstName: true, lastName: true, email: true },
+      },
+    },
+  });
+
+  const result: PositionAssignments = {
+    president: null,
+    vice_president: null,
+    head_of_finance: null,
+    departmentHeads: {},
+  };
+
+  for (const row of rows) {
+    const holder: PositionHolder = {
+      userId: row.user.id,
+      firstName: row.user.firstName,
+      lastName: row.user.lastName,
+      email: row.user.email,
+    };
+    if (row.scope === "global") {
+      if (
+        row.position === "president" ||
+        row.position === "vice_president" ||
+        row.position === "head_of_finance"
+      ) {
+        result[row.position] = holder;
+      }
+    } else if (
+      row.scope === "department" &&
+      row.position === "department_head" &&
+      row.department
+    ) {
+      result.departmentHeads[row.department as Department] = holder;
+    }
+  }
+
+  return result;
+}
+
+export async function getEligibleUsersForPositions(): Promise<
+  PositionHolder[]
+> {
+  return db
+    .select({
+      userId: userTable.id,
+      firstName: userTable.firstName,
+      lastName: userTable.lastName,
+      email: userTable.email,
+    })
+    .from(userTable)
+    .innerJoin(legalMembership, eq(userTable.id, legalMembership.userId))
+    .where(eq(legalMembership.status, "active"))
+    .orderBy(userTable.lastName, userTable.firstName);
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Stable advisory lock key for position writes — prevents concurrent saves from corrupting state
+export const POSITIONS_LOCK_KEY = 42_000_001;
+
+export async function replacePositionAssignments(
+  assignments: PositionAssignments,
+  externalTx?: Tx,
+): Promise<void> {
+  const doWork = async (tx: Tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${POSITIONS_LOCK_KEY})`);
+
+    await tx.delete(userOrganizationPosition);
+
+    const rows: Array<{
+      userId: string;
+      position: SchemaOrganizationPosition;
+      scope: SchemaAuthorityScope;
+      department: Department | null;
+    }> = [];
+
+    for (const pos of [
+      "president",
+      "vice_president",
+      "head_of_finance",
+    ] as const) {
+      const holder = assignments[pos];
+      if (holder) {
+        rows.push({
+          userId: holder.userId,
+          position: pos,
+          scope: "global",
+          department: null,
+        });
+      }
+    }
+
+    for (const [dept, holder] of Object.entries(assignments.departmentHeads)) {
+      if (holder) {
+        rows.push({
+          userId: holder.userId,
+          position: "department_head",
+          scope: "department",
+          department: dept as Department,
+        });
+      }
+    }
+
+    if (rows.length > 0) {
+      await tx.insert(userOrganizationPosition).values(rows);
+    }
+  };
+
+  if (externalTx) {
+    await doWork(externalTx);
+  } else {
+    await db.transaction(doWork);
+  }
+}
+
+export async function replaceUserGrants(
+  userId: string,
+  grants: Array<{ grant: SchemaAccessGrant }>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(userAccessGrant).where(eq(userAccessGrant.userId, userId));
+
+    if (grants.length > 0) {
+      await tx
+        .insert(userAccessGrant)
+        .values(grants.map((g) => ({ userId, grant: g.grant })));
+    }
+  });
 }
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {

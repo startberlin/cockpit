@@ -17,7 +17,7 @@ export async function GET(
     );
   }
 
-  const canExport = await can("groups.export", { id });
+  const canExport = await can("group.export", { id });
   if (!canExport) {
     return NextResponse.json(
       { error: "You are not authorized to export this group." },

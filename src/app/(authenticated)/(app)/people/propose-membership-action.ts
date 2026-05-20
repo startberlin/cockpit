@@ -27,7 +27,7 @@ export const proposeMembershipAction = actionClient
       throw new Error("User not found.");
     }
 
-    if (!(await can("membership.propose", targetUser))) {
+    if (!(await can("user.membership.propose", targetUser))) {
       throw new Error(
         "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );

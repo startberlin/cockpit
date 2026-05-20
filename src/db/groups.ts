@@ -66,10 +66,43 @@ export interface PaginatedGroups {
   pageCount: number;
 }
 
-const MEMBERS_PAGE_SIZE = 1;
-const GROUPS_PAGE_SIZE = 1;
+const MEMBERS_PAGE_SIZE = 50;
+const GROUPS_PAGE_SIZE = 50;
 
 export async function listGroupsForViewer(
+  viewerId: string,
+  { page = 1, search = "" }: { page?: number; search?: string } = {},
+): Promise<PaginatedGroups> {
+  const offset = (page - 1) * GROUPS_PAGE_SIZE;
+  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+      })
+      .from(group)
+      .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .where(whereClause)
+      .groupBy(group.id)
+      .orderBy(group.name)
+      .limit(GROUPS_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(group).where(whereClause),
+  ]);
+
+  return {
+    groups: rows.map((g) => ({ ...g, isMember: g.isMember ?? false })),
+    total,
+    pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
+  };
+}
+
+export async function listGroupsPublic(
   viewerId: string,
   { page = 1, search = "" }: { page?: number; search?: string } = {},
 ): Promise<PaginatedGroups> {
@@ -174,7 +207,7 @@ export async function getGroupDetail(
     : [];
 
   const isMember = viewerMembership.length > 0;
-  const canManage = await can("groups.manage_members", { id });
+  const canManage = await can("group.members.manage", { id });
   const offset = (page - 1) * MEMBERS_PAGE_SIZE;
 
   const membersBaseQuery = db
@@ -183,6 +216,7 @@ export async function getGroupDetail(
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image,
       personalEmail: user.personalEmail,
       eventEmailPreference: user.eventEmailPreference,
       department: user.department,
@@ -265,6 +299,7 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image,
       department: user.department,
       status: user.status,
       batchNumber: sql<number | null>`${user.batchNumber}`,
@@ -355,6 +390,7 @@ export async function pinGroupMember(userId: string, groupId: string) {
 // Group Criteria Types and Interfaces
 export interface GroupCriteria {
   id: string;
+  groupId: string;
   name: string;
   conditions: RuleGroup;
   createdAt: Date;
@@ -459,6 +495,7 @@ export async function findUsersNotInGroupByCriteria(
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image,
       department: user.department,
       status: user.status,
       batchNumber: sql<number | null>`${user.batchNumber}`,
@@ -515,6 +552,63 @@ export async function addUsersToGroup({
   }
 
   return userIds.length;
+}
+
+export interface AdminGroup {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount: number;
+  emailEnabled: boolean;
+  googleGroupEmail: string | null;
+  googleSyncPending: boolean;
+}
+
+export interface PaginatedAdminGroups {
+  groups: AdminGroup[];
+  total: number;
+  pageCount: number;
+}
+
+export async function listAllGroupsForAdmin({
+  page = 1,
+  search = "",
+}: {
+  page?: number;
+  search?: string;
+} = {}): Promise<PaginatedAdminGroups> {
+  const offset = (page - 1) * GROUPS_PAGE_SIZE;
+  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        emailEnabled: group.emailEnabled,
+        googleGroupEmail: group.googleGroupEmail,
+        googleSyncPending: group.googleSyncPending,
+      })
+      .from(group)
+      .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .where(whereClause)
+      .groupBy(group.id)
+      .orderBy(group.name)
+      .limit(GROUPS_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(group).where(whereClause),
+  ]);
+
+  return {
+    groups: rows.map((g) => ({
+      ...g,
+      googleGroupEmail: g.googleGroupEmail ?? null,
+    })),
+    total,
+    pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
+  };
 }
 
 export async function addUsersMatchingCriteria(

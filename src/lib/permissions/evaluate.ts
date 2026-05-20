@@ -4,33 +4,22 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 
-export type DepartmentScopedAction =
-  | "users.view_details"
-  | "users.edit"
-  | "users.complete_onboarding"
-  | "membership.propose";
+export type UserScopedAction = "user.view" | "user.membership.propose";
 
-const departmentScopedActions = [
-  "users.view_details",
-  "users.edit",
-  "users.complete_onboarding",
-  "membership.propose",
-] as const;
+const userScopedActions = ["user.view", "user.membership.propose"] as const;
 
-export function isDepartmentScopedAction(
-  action: Action,
-): action is DepartmentScopedAction {
-  return (departmentScopedActions as readonly Action[]).includes(action);
+export function isUserScopedAction(action: Action): action is UserScopedAction {
+  return (userScopedActions as readonly Action[]).includes(action);
 }
 
 export type GroupScopedAction =
-  | "groups.view"
-  | "groups.manage_members"
-  | "groups.export";
+  | "group.view"
+  | "group.members.manage"
+  | "group.export";
 
-export type Action = GlobalAction | DepartmentScopedAction | GroupScopedAction;
+export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
-export type DepartmentScope = {
+export type UserScope = {
   targetDepartment: Department | null;
 };
 
@@ -43,13 +32,14 @@ const globalActions = [
   "users.import",
   "users.manage_authority",
   "users.impersonate",
-  "membership.vote_resolution",
-  "membership.view_resolution",
-  "membership.manage_workflows",
+  "membership.resolution.vote",
+  "membership.resolution.view",
   "groups.view_all",
   "groups.create",
   "batches.manage",
   "payments.manage",
+  "settings.positions.manage",
+  "users.view_all",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -59,9 +49,9 @@ export function isGlobalAction(action: Action): action is GlobalAction {
 }
 
 const groupScopedActions = [
-  "groups.view",
-  "groups.manage_members",
-  "groups.export",
+  "group.view",
+  "group.members.manage",
+  "group.export",
 ] as const;
 
 export function isGroupScopedAction(
@@ -123,16 +113,18 @@ function isDepartmentHead(
       return true;
     }
 
-    return !!targetDepartment && assignment.department === targetDepartment;
+    return (
+      targetDepartment !== null && assignment.department === targetDepartment
+    );
   });
 }
 
-function hasDepartmentScope(scope: unknown): scope is DepartmentScope {
+function hasUserScope(scope: unknown): scope is UserScope {
   return (
     typeof scope === "object" &&
     scope !== null &&
     "targetDepartment" in scope &&
-    (scope as DepartmentScope).targetDepartment !== undefined
+    (scope as UserScope).targetDepartment !== undefined
   );
 }
 
@@ -149,62 +141,67 @@ function evaluateGroupScopedAction(
   authority: UserAuthority,
   action: GroupScopedAction,
   scope: GroupScope,
-) {
+): boolean {
   switch (action) {
-    case "groups.view":
+    case "group.view":
       return (
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         scope.isGroupMember
       );
-    case "groups.manage_members":
+    case "group.members.manage":
+      return hasAdminGrant(authority);
+    case "group.export":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
-    case "groups.export":
-      return (
-        hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        scope.isGroupMember
-      );
   }
 }
 
-function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
+function evaluateGlobalAction(
+  authority: UserAuthority,
+  action: GlobalAction,
+): boolean {
   switch (action) {
     case "users.create":
     case "users.import":
-    case "users.manage_authority":
-    case "membership.manage_workflows":
-    case "groups.create":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+    case "users.manage_authority":
+    case "groups.create":
+      return hasAdminGrant(authority);
     case "users.impersonate":
+    case "settings.positions.manage":
       return hasSuperAdminGrant(authority);
     case "batches.manage":
       return hasAdminGrant(authority);
     case "payments.manage":
       return isHeadOfFinance(authority) || hasFinanceAdminGrant(authority);
-    case "membership.vote_resolution":
+    case "membership.resolution.vote":
       return isLegalOfficer(authority);
-    case "membership.view_resolution":
+    case "membership.resolution.view":
       return hasAdminGrant(authority) || isLegalOfficer(authority);
     case "groups.view_all":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+    case "users.view_all":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isDepartmentHead(authority)
+      );
   }
 }
 
-function evaluateDepartmentScopedAction(
+function evaluateUserScopedAction(
   authority: UserAuthority,
-  action: DepartmentScopedAction,
-  scope: DepartmentScope,
-) {
+  action: UserScopedAction,
+  scope: UserScope,
+): boolean {
   switch (action) {
-    case "users.view_details":
-    case "users.edit":
+    case "user.view":
       return (
         hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
-    case "users.complete_onboarding":
-    case "membership.propose":
+    case "user.membership.propose":
       return (
         hasAdminGrant(authority) ||
         isLegalOfficer(authority) ||
@@ -219,8 +216,8 @@ export function evaluateAuth(
 ): boolean;
 export function evaluateAuth(
   authority: UserAuthority,
-  action: DepartmentScopedAction,
-  scope: DepartmentScope,
+  action: UserScopedAction,
+  scope: UserScope,
 ): boolean;
 export function evaluateAuth(
   authority: UserAuthority,
@@ -245,13 +242,9 @@ export function evaluateAuth(
     return evaluateGroupScopedAction(authority, action, scope);
   }
 
-  if (!hasDepartmentScope(scope)) {
+  if (!hasUserScope(scope) || !isUserScopedAction(action)) {
     return false;
   }
 
-  return evaluateDepartmentScopedAction(
-    authority,
-    action as DepartmentScopedAction,
-    scope,
-  );
+  return evaluateUserScopedAction(authority, action, scope);
 }

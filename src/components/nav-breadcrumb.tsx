@@ -6,6 +6,7 @@ import { BreadcrumbView, type Crumb } from "@/components/breadcrumb-view";
 import { isPrefixedId } from "@/lib/id";
 
 const SEGMENT_LABELS: Record<string, string> = {
+  admin: "Admin",
   membership: "My membership",
   application: "Application",
   "payment-return": "Payment",

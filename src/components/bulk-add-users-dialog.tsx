@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import type { PublicUser } from "@/db/people";
 import { department, userStatus } from "@/db/schema/auth";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import type { NormalizedGroupCriteriaInput } from "@/lib/groups/criteria";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 
@@ -194,7 +194,7 @@ export default function BulkAddUsersDialog({
             "Departments",
             "departments",
             department.enumValues,
-            (v) => DEPARTMENTS[v as keyof typeof DEPARTMENTS] ?? v,
+            (v) => DEPARTMENT_NAMES[v as keyof typeof DEPARTMENT_NAMES] ?? v,
             criteria.departments,
           )}
           {renderCriteriaSection(
@@ -283,7 +283,7 @@ export default function BulkAddUsersDialog({
                   <div className="flex gap-1">
                     {user.department && (
                       <Badge variant="outline" className="text-xs">
-                        {DEPARTMENTS[user.department] ?? user.department}
+                        {DEPARTMENT_NAMES[user.department] ?? user.department}
                       </Badge>
                     )}
                     {user.batchNumber != null && (

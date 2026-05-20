@@ -51,6 +51,20 @@ export const events = {
       }>(),
     },
   ),
+  positionAssignmentCreated: eventType("settings/position-assignment.created", {
+    schema: staticSchema<{
+      email: string;
+      firstName: string;
+      positionLabel: string;
+    }>(),
+  }),
+  positionAssignmentDeleted: eventType("settings/position-assignment.deleted", {
+    schema: staticSchema<{
+      email: string;
+      firstName: string;
+      positionLabel: string;
+    }>(),
+  }),
 };
 
 export const inngest = new Inngest({

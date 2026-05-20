@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import db from "@/db";
 import {
   addGroupCriteria,
+  addUsersMatchingCriteria,
   getGroupCriteriaById,
   removeGroupCriteria,
 } from "@/db/groups";
@@ -16,13 +18,21 @@ import { can } from "@/lib/permissions/server";
 export const addGroupCriteriaAction = actionClient
   .inputSchema(addGroupCriteriaSchema)
   .action(async ({ parsedInput, ctx: { user: currentUser } }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
-    const criteria = await addGroupCriteria({
-      ...parsedInput,
-      createdBy: currentUser.id,
+    const criteria = await db.transaction(async (tx) => {
+      const newCriteria = await addGroupCriteria(
+        { ...parsedInput, createdBy: currentUser.id },
+        tx,
+      );
+      await addUsersMatchingCriteria(
+        parsedInput.groupId,
+        newCriteria.conditions,
+        tx,
+      );
+      return newCriteria;
     });
 
     await reconcileGroupMembership(parsedInput.groupId);
@@ -40,12 +50,12 @@ const removeGroupCriteriaInputSchema = z.object({
 export const removeGroupCriteriaAction = actionClient
   .inputSchema(removeGroupCriteriaInputSchema)
   .action(async ({ parsedInput }) => {
-    if (!(await can("groups.manage_members", { id: parsedInput.groupId }))) {
+    if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
 
     const criteria = await getGroupCriteriaById(parsedInput.criteriaId);
-    if (!criteria) {
+    if (!criteria || criteria.groupId !== parsedInput.groupId) {
       throw new Error("Criteria not found.");
     }
 
