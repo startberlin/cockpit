@@ -174,12 +174,49 @@ describe("permissions", () => {
     );
   });
 
-  it("allows people admins to manage group members", () => {
+  it("denies people admins from managing group members", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "groups.manage_members",
         { isGroupMember: false },
+      ),
+      false,
+    );
+  });
+
+  it("denies people admins from creating groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "groups.create",
+      ),
+      false,
+    );
+  });
+
+  it("denies people admins from managing authority", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.manage_authority",
+      ),
+      false,
+    );
+  });
+
+  it("allows people admins to create and import users", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.create",
+      ),
+      true,
+    );
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.import",
       ),
       true,
     );

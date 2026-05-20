@@ -160,7 +160,7 @@ function evaluateGroupScopedAction(
         scope.isGroupMember
       );
     case "groups.manage_members":
-      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+      return hasAdminGrant(authority);
     case "groups.export":
       return (
         hasAdminGrant(authority) ||
@@ -174,10 +174,11 @@ function evaluateGlobalAction(authority: UserAuthority, action: GlobalAction) {
   switch (action) {
     case "users.create":
     case "users.import":
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "users.manage_authority":
     case "membership.manage_workflows":
     case "groups.create":
-      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+      return hasAdminGrant(authority);
     case "users.impersonate":
     case "settings.positions.manage":
       return hasSuperAdminGrant(authority);
