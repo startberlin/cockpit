@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useContext, useId, useLayoutEffect } from "react";
+import { HidableGroupContext } from "@/components/hidable-group-context";
 import type { Department } from "@/db/schema/auth";
 import {
   type Action,
@@ -117,21 +118,29 @@ export function useCan(
 }
 
 export function Can(props: CanProps) {
+  const hidable = useContext(HidableGroupContext);
+  const id = useId();
   const check = useCan();
 
+  let granted: boolean;
   if (isGlobalAction(props.permission)) {
-    return check(props.permission) ? props.children : null;
+    granted = check(props.permission);
+  } else if (isUserScopedAction(props.permission)) {
+    granted = check(
+      props.permission,
+      props.context as { department: Department | null },
+    );
+  } else if (isGroupScopedAction(props.permission)) {
+    granted = check(props.permission, props.context as { isMember: boolean });
+  } else {
+    granted = false;
   }
 
-  if (isUserScopedAction(props.permission)) {
-    const context = props.context as { department: Department | null };
-    return check(props.permission, context) ? props.children : null;
-  }
+  useLayoutEffect(() => {
+    if (!hidable) return;
+    hidable.report(id, granted);
+    return () => hidable.report(id, false);
+  }, [hidable, id, granted]);
 
-  if (isGroupScopedAction(props.permission)) {
-    const context = props.context as { isMember: boolean };
-    return check(props.permission, context) ? props.children : null;
-  }
-
-  return null;
+  return granted ? props.children : null;
 }

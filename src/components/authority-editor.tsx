@@ -49,7 +49,9 @@ export function AuthorityEditor({
     setIsSaving(true);
     try {
       const nextGrants: Array<{ grant: AccessGrant }> = [];
-      if (canSetSuperAdmin && isSuperAdminGrant) {
+      if (canSetSuperAdmin) {
+        if (isSuperAdminGrant) nextGrants.push({ grant: "super_admin" });
+      } else if (grants.some((g) => g.grant === "super_admin")) {
         nextGrants.push({ grant: "super_admin" });
       }
       if (isAdmin) nextGrants.push({ grant: "admin" });

@@ -162,8 +162,10 @@ export interface PositionAssignments {
   departmentHeads: Partial<Record<Department, PositionHolder | null>>;
 }
 
-export async function getPositionAssignments(): Promise<PositionAssignments> {
-  const rows = await db.query.userOrganizationPosition.findMany({
+export async function getPositionAssignments(
+  tx?: Tx,
+): Promise<PositionAssignments> {
+  const rows = await (tx ?? db).query.userOrganizationPosition.findMany({
     columns: { position: true, scope: true, department: true },
     with: {
       user: {
@@ -225,7 +227,7 @@ export async function getEligibleUsersForPositions(): Promise<
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // Stable advisory lock key for position writes — prevents concurrent saves from corrupting state
-const POSITIONS_LOCK_KEY = 42_000_001;
+export const POSITIONS_LOCK_KEY = 42_000_001;
 
 export async function replacePositionAssignments(
   assignments: PositionAssignments,

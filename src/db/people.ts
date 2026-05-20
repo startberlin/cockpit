@@ -87,6 +87,7 @@ export interface PaginatedUsers {
   users: PublicUser[];
   total: number;
   pageCount: number;
+  offset: number;
 }
 
 const DEFAULT_COMMUNITY_STATUSES: UserStatus[] = [
@@ -105,8 +106,8 @@ export async function getAllUserPublicData({
   page?: number;
   search?: string;
   status?: UserStatus[];
-  department?: Department;
-  batchNumber?: number;
+  department?: Department[];
+  batchNumber?: number[];
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
   const effectiveStatus = status ?? DEFAULT_COMMUNITY_STATUSES;
@@ -125,9 +126,9 @@ export async function getAllUserPublicData({
   const whereClause = and(
     searchClause,
     inArray(userTable.status, effectiveStatus),
-    department !== undefined ? eq(userTable.department, department) : undefined,
-    batchNumber !== undefined
-      ? eq(userTable.batchNumber, batchNumber)
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
       : undefined,
   );
 
@@ -164,6 +165,7 @@ export async function getAllUserPublicData({
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
+    offset,
   };
 }
 
@@ -235,6 +237,7 @@ export async function getAllUsersForAdmin({
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
+    offset,
   };
 }
 

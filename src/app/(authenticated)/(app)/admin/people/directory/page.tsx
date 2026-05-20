@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import { getAllUsersForAdmin } from "@/db/people";
-import type { Department, UserStatus } from "@/db/schema/auth";
+import {
+  type Department,
+  department as departmentEnum,
+  type UserStatus,
+  userStatus,
+} from "@/db/schema/auth";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import AdminDirectoryPageClient from "./page-client";
@@ -37,10 +42,16 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
   const batchNum = batchNumber
     ? parseInt(batchNumber, 10) || undefined
     : undefined;
+  const validStatuses = new Set<string>(userStatus.enumValues);
   const statusFilter = status
-    ? (status.split(",").filter(Boolean) as UserStatus[])
+    ? status.split(",").filter((s): s is UserStatus => validStatuses.has(s))
     : undefined;
-  const deptFilter = department as Department | undefined;
+
+  const validDepartments = new Set<string>(departmentEnum.enumValues);
+  const deptFilter =
+    department && validDepartments.has(department)
+      ? (department as Department)
+      : undefined;
 
   const usersPromise = getAllUsersForAdmin({
     page,

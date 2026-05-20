@@ -10,7 +10,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Can, useCan } from "@/components/can";
+import { useId, useLayoutEffect } from "react";
+import { Can } from "@/components/can";
+import {
+  HidableGroupContext,
+  useHidableGroupContext,
+  useHidableGroupState,
+} from "@/components/hidable-group-context";
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,20 +39,9 @@ export function NavMain() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const canViewAll = useCan("users.view_all");
-  const canManagePayments = useCan("payments.manage");
-  const canManageBatches = useCan("batches.manage");
-  const canManageSettings = useCan("settings.positions.manage");
-
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
   };
-
-  const showAdminSettings = canManageSettings;
-  const showAdminPeople = canViewAll || canManageBatches;
-  const showAdminSection = canViewAll || canManagePayments;
-
-  const adminPeopleActive = pathname.startsWith("/admin/people/");
 
   return (
     <>
@@ -82,15 +77,12 @@ export function NavMain() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={
-                  pathname === "/people/directory" ||
-                  pathname.startsWith("/people/directory/")
-                }
-                tooltip="Directory"
+                isActive={pathname === "/people"}
+                tooltip="People"
               >
-                <Link href="/people/directory" onClick={closeMobile}>
+                <Link href="/people" onClick={closeMobile}>
                   <Users />
-                  <span>Directory</span>
+                  <span>People</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -112,128 +104,129 @@ export function NavMain() {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      {/* Admin */}
-      {showAdminSection && (
-        <SidebarGroup>
-          <SidebarGroupLabel>Admin</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {/* Admin > People (collapsible) */}
-              {showAdminPeople && (
-                <NavMainCollapsibleItem
-                  label="People"
-                  icon={Users}
-                  isParentActive={adminPeopleActive}
-                  tooltip="People"
+      {/* Admin — auto-hides when user has no admin permissions */}
+      <HidableSidebarGroup label="Admin">
+        <SidebarMenu>
+          {/* Admin > People (collapsible) */}
+          <HidableNavCollapsibleItem
+            label="People"
+            icon={Users}
+            isParentActive={pathname.startsWith("/admin/people/")}
+            tooltip="People"
+          >
+            <Can permission="users.view_all">
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={
+                    pathname === "/admin/people/directory" ||
+                    pathname.startsWith("/admin/people/directory/")
+                  }
                 >
-                  {canViewAll && (
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={
-                          pathname === "/admin/people/directory" ||
-                          pathname.startsWith("/admin/people/directory/")
-                        }
-                      >
-                        <Link
-                          href="/admin/people/directory"
-                          onClick={closeMobile}
-                        >
-                          <span>Directory</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  )}
-                  <Can permission="batches.manage">
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={pathname.startsWith("/admin/people/batches")}
-                      >
-                        <Link
-                          href="/admin/people/batches"
-                          onClick={closeMobile}
-                        >
-                          <span>Batches</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </Can>
-                </NavMainCollapsibleItem>
-              )}
-
-              {/* Admin > Groups */}
-              <Can permission="groups.view_all">
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      pathname === "/admin/groups" ||
-                      pathname.startsWith("/admin/groups/")
-                    }
-                    tooltip="Groups"
-                  >
-                    <Link href="/admin/groups" onClick={closeMobile}>
-                      <Layers />
-                      <span>Groups</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </Can>
-
-              {/* Admin > Payments */}
-              <Can permission="payments.manage">
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      pathname === "/admin/payments" ||
-                      pathname.startsWith("/admin/payments/")
-                    }
-                    tooltip="Payments"
-                  >
-                    <Link href="/admin/payments" onClick={closeMobile}>
-                      <CreditCard />
-                      <span>Payments</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </Can>
-
-              {/* Admin > Settings (collapsible) */}
-              {showAdminSettings && (
-                <NavMainCollapsibleItem
-                  label="Settings"
-                  icon={Settings}
-                  isParentActive={pathname.startsWith("/admin/settings")}
-                  tooltip="Settings"
+                  <Link href="/admin/people/directory" onClick={closeMobile}>
+                    <span>Directory</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            </Can>
+            <Can permission="batches.manage">
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={pathname.startsWith("/admin/people/batches")}
                 >
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      asChild
-                      isActive={pathname.startsWith(
-                        "/admin/settings/positions",
-                      )}
-                    >
-                      <Link
-                        href="/admin/settings/positions"
-                        onClick={closeMobile}
-                      >
-                        <span>Officer Assignments</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </NavMainCollapsibleItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      )}
+                  <Link href="/admin/people/batches" onClick={closeMobile}>
+                    <span>Batches</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            </Can>
+          </HidableNavCollapsibleItem>
+
+          {/* Admin > Groups */}
+          <Can permission="groups.view_all">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === "/admin/groups" ||
+                  pathname.startsWith("/admin/groups/")
+                }
+                tooltip="Groups"
+              >
+                <Link href="/admin/groups" onClick={closeMobile}>
+                  <Layers />
+                  <span>Groups</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </Can>
+
+          {/* Admin > Payments */}
+          <Can permission="payments.manage">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === "/admin/payments" ||
+                  pathname.startsWith("/admin/payments/")
+                }
+                tooltip="Payments"
+              >
+                <Link href="/admin/payments" onClick={closeMobile}>
+                  <CreditCard />
+                  <span>Payments</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </Can>
+
+          {/* Admin > Settings (collapsible) */}
+          <HidableNavCollapsibleItem
+            label="Settings"
+            icon={Settings}
+            isParentActive={pathname.startsWith("/admin/settings")}
+            tooltip="Settings"
+          >
+            <Can permission="settings.positions.manage">
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={pathname.startsWith("/admin/settings/positions")}
+                >
+                  <Link href="/admin/settings/positions" onClick={closeMobile}>
+                    <span>Officer Assignments</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            </Can>
+          </HidableNavCollapsibleItem>
+        </SidebarMenu>
+      </HidableSidebarGroup>
     </>
   );
 }
 
-function NavMainCollapsibleItem({
+function HidableSidebarGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const { hasVisible, contextValue } = useHidableGroupState();
+
+  return (
+    <HidableGroupContext.Provider value={contextValue}>
+      <SidebarGroup className={hasVisible ? undefined : "hidden"}>
+        <SidebarGroupLabel>{label}</SidebarGroupLabel>
+        <SidebarGroupContent>{children}</SidebarGroupContent>
+      </SidebarGroup>
+    </HidableGroupContext.Provider>
+  );
+}
+
+function HidableNavCollapsibleItem({
   label,
   icon: Icon,
   isParentActive,
@@ -246,24 +239,36 @@ function NavMainCollapsibleItem({
   tooltip: string;
   children: React.ReactNode;
 }) {
+  const outerContext = useHidableGroupContext();
+  const outerReportId = useId();
+  const { hasVisible, contextValue } = useHidableGroupState();
+
+  useLayoutEffect(() => {
+    if (!outerContext) return;
+    outerContext.report(outerReportId, hasVisible);
+    return () => outerContext.report(outerReportId, false);
+  }, [outerContext, outerReportId, hasVisible]);
+
   return (
-    <Collapsible
-      asChild
-      defaultOpen={isParentActive}
-      className="group/collapsible"
-    >
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton isActive={isParentActive} tooltip={tooltip}>
-            <Icon />
-            <span>{label}</span>
-            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>{children}</SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
+    <HidableGroupContext.Provider value={contextValue}>
+      <Collapsible
+        asChild
+        defaultOpen={isParentActive}
+        className={`group/collapsible${hasVisible ? "" : " hidden"}`}
+      >
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton isActive={isParentActive} tooltip={tooltip}>
+              <Icon />
+              <span>{label}</span>
+              <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent forceMount className="data-[state=closed]:hidden">
+            <SidebarMenuSub>{children}</SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    </HidableGroupContext.Provider>
   );
 }

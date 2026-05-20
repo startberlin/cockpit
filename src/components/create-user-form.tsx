@@ -309,7 +309,7 @@ export function CreateUserForm({
                     <SelectItem value="onboarding">Onboarding</SelectItem>
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="supporting_alumni">
-                      Supporting alumni
+                      Supporting Alumni
                     </SelectItem>
                     <SelectItem value="alumni">Alumni</SelectItem>
                   </SelectContent>
