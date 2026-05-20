@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Can, useCan } from "@/components/can";
+import { Can } from "@/components/can";
 import {
   Collapsible,
   CollapsibleContent,
@@ -29,41 +29,34 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuthority } from "@/lib/permissions/authority-context";
+import {
+  canAccessAdminBatches,
+  canAccessAdminPeopleDirectory,
+  canAccessAdminSettings,
+  canAccessAnyAdminRoute,
+} from "@/lib/permissions/nav-access";
 
 export function NavMain() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
   const authority = useAuthority();
-  const can = useCan();
 
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false);
   };
 
-  const showAdminGroup =
-    authority?.grants.some((g) =>
-      ["admin", "super_admin", "people_admin", "finance_admin"].includes(
-        g.grant,
-      ),
-    ) ||
-    authority?.positions.some(
-      (p) =>
-        p.position === "department_head" || p.position === "head_of_finance",
-    ) ||
-    false;
-
-  const canSeeAdminDirectory =
-    authority?.grants.some((g) =>
-      ["admin", "super_admin", "people_admin"].includes(g.grant),
-    ) ||
-    authority?.positions.some((p) => p.position === "department_head") ||
-    false;
-
-  const canSeeSettings =
-    authority?.grants.some((g) => g.grant === "super_admin") || false;
+  const showAdminGroup = authority ? canAccessAnyAdminRoute(authority) : false;
+  const showAdminDirectory = authority
+    ? canAccessAdminPeopleDirectory(authority)
+    : false;
+  const showAdminSettings = authority
+    ? canAccessAdminSettings(authority)
+    : false;
 
   const adminPeopleActive = pathname.startsWith("/admin/people/");
-  const showAdminPeople = canSeeAdminDirectory || can("batches.manage");
+  const showAdminPeople =
+    showAdminDirectory ||
+    (authority ? canAccessAdminBatches(authority) : false);
 
   return (
     <>
@@ -143,7 +136,7 @@ export function NavMain() {
                   isParentActive={adminPeopleActive}
                   tooltip="People"
                 >
-                  {canSeeAdminDirectory && (
+                  {showAdminDirectory && (
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton
                         asChild
@@ -218,7 +211,7 @@ export function NavMain() {
               </Can>
 
               {/* Admin > Settings (collapsible) */}
-              {canSeeSettings && (
+              {showAdminSettings && (
                 <NavMainCollapsibleItem
                   label="Settings"
                   icon={Settings}
