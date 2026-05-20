@@ -16,7 +16,9 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 import db from ".";
+import { legalMembership } from "./schema";
 import type { Department } from "./schema/auth";
+import { user as userTable } from "./schema/auth";
 import {
   type AccessGrant as SchemaAccessGrant,
   type AuthorityScope as SchemaAuthorityScope,
@@ -146,51 +148,139 @@ export async function getAllUserAuthorities(): Promise<UserAuthority[]> {
   return authorityUsers.map(mapAuthorityUser);
 }
 
-export interface UserWithAuthority {
+export interface PositionHolder {
   userId: string;
   firstName: string;
   lastName: string;
   email: string;
-  positions: Array<{
-    position: SchemaOrganizationPosition;
-    scope: SchemaAuthorityScope;
-    department: Department | null;
-  }>;
-  grants: Array<{
-    grant: SchemaAccessGrant;
-  }>;
 }
 
-export async function getUsersWithAnyAuthority(): Promise<UserWithAuthority[]> {
-  const users = await db.query.user.findMany({
-    columns: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-    },
+export interface PositionAssignments {
+  president: PositionHolder | null;
+  vice_president: PositionHolder | null;
+  head_of_finance: PositionHolder | null;
+  departmentHeads: Partial<Record<Department, PositionHolder>>;
+}
+
+export async function getPositionAssignments(): Promise<PositionAssignments> {
+  const rows = await db.query.userOrganizationPosition.findMany({
+    columns: { position: true, scope: true, department: true },
     with: {
-      organizationPositions: {
-        columns: { position: true, scope: true, department: true },
-      },
-      accessGrants: {
-        columns: { grant: true },
+      user: {
+        columns: { id: true, firstName: true, lastName: true, email: true },
       },
     },
   });
 
-  return users
-    .filter(
-      (u) => u.organizationPositions.length > 0 || u.accessGrants.length > 0,
-    )
-    .map((u) => ({
-      userId: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      positions: u.organizationPositions,
-      grants: u.accessGrants,
-    }));
+  const result: PositionAssignments = {
+    president: null,
+    vice_president: null,
+    head_of_finance: null,
+    departmentHeads: {},
+  };
+
+  for (const row of rows) {
+    const holder: PositionHolder = {
+      userId: row.user.id,
+      firstName: row.user.firstName,
+      lastName: row.user.lastName,
+      email: row.user.email,
+    };
+    if (row.scope === "global") {
+      if (
+        row.position === "president" ||
+        row.position === "vice_president" ||
+        row.position === "head_of_finance"
+      ) {
+        result[row.position] = holder;
+      }
+    } else if (
+      row.scope === "department" &&
+      row.position === "department_head" &&
+      row.department
+    ) {
+      result.departmentHeads[row.department as Department] = holder;
+    }
+  }
+
+  return result;
+}
+
+export async function getEligibleUsersForPositions(): Promise<
+  PositionHolder[]
+> {
+  return db
+    .select({
+      userId: userTable.id,
+      firstName: userTable.firstName,
+      lastName: userTable.lastName,
+      email: userTable.email,
+    })
+    .from(userTable)
+    .innerJoin(legalMembership, eq(userTable.id, legalMembership.userId))
+    .where(eq(legalMembership.status, "active"))
+    .orderBy(userTable.lastName, userTable.firstName);
+}
+
+export async function replacePositionAssignments(
+  assignments: PositionAssignments,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(userOrganizationPosition);
+
+    const rows: Array<{
+      userId: string;
+      position: SchemaOrganizationPosition;
+      scope: SchemaAuthorityScope;
+      department: Department | null;
+    }> = [];
+
+    for (const pos of [
+      "president",
+      "vice_president",
+      "head_of_finance",
+    ] as const) {
+      const holder = assignments[pos];
+      if (holder) {
+        rows.push({
+          userId: holder.userId,
+          position: pos,
+          scope: "global",
+          department: null,
+        });
+      }
+    }
+
+    for (const [dept, holder] of Object.entries(assignments.departmentHeads)) {
+      if (holder) {
+        rows.push({
+          userId: holder.userId,
+          position: "department_head",
+          scope: "department",
+          department: dept as Department,
+        });
+      }
+    }
+
+    if (rows.length > 0) {
+      await tx.insert(userOrganizationPosition).values(rows);
+    }
+  });
+}
+
+export async function replaceUserGrants(
+  userId: string,
+  grants: Array<{ grant: SchemaAccessGrant }>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(userAccessGrant).where(eq(userAccessGrant.userId, userId));
+
+    if (grants.length > 0) {
+      await tx
+        .insert(userAccessGrant)
+        .values(grants.map((g) => ({ userId, grant: g.grant })));
+    }
+  });
 }
 
 export async function replaceUserAuthority(input: AuthorityUpdateInput) {

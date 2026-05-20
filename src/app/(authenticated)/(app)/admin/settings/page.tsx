@@ -1,12 +1,15 @@
 import { redirect } from "next/navigation";
-import { getUsersWithAnyAuthority } from "@/db/authority";
+import {
+  getEligibleUsersForPositions,
+  getPositionAssignments,
+} from "@/db/authority";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import AdminSettingsPageClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Settings",
-  description: "Manage START Cockpit settings and member permissions.",
+  description: "Manage START Berlin positions and org settings.",
 });
 
 export default async function AdminSettingsPage() {
@@ -14,15 +17,15 @@ export default async function AdminSettingsPage() {
     redirect("/membership");
   }
 
-  const [users, canSetSuperAdmin] = await Promise.all([
-    getUsersWithAnyAuthority(),
-    can("users.impersonate"),
+  const [positions, eligibleUsers] = await Promise.all([
+    getPositionAssignments(),
+    getEligibleUsersForPositions(),
   ]);
 
   return (
     <AdminSettingsPageClient
-      users={users}
-      canSetSuperAdmin={canSetSuperAdmin}
+      positions={positions}
+      eligibleUsers={eligibleUsers}
     />
   );
 }
