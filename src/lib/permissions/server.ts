@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserAuthority } from "@/db/authority";
-import type { Department, UserStatus } from "@/db/schema/auth";
+import type { Department } from "@/db/schema/auth";
 import { usersToGroups } from "@/db/schema/group";
 import { getCurrentUser } from "@/db/user";
 import {
@@ -20,7 +20,7 @@ import {
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
   action: UserScopedAction,
-  user: { department: Department | null; status: UserStatus },
+  user: { department: Department | null },
 ): Promise<boolean>;
 export function can(
   action: GroupScopedAction,
@@ -30,7 +30,6 @@ export async function can(
   action: Action,
   resource?: {
     department?: Department | null;
-    status?: UserStatus;
     id?: string;
   },
 ): Promise<boolean> {
@@ -45,11 +44,8 @@ export async function can(
   }
 
   if (isUserScopedAction(action)) {
-    const department = resource?.department ?? null;
-    const status = resource?.status ?? "member";
     return evaluateAuth(authority, action, {
-      targetDepartment: department,
-      targetStatus: status,
+      targetDepartment: resource?.department ?? null,
     });
   }
 

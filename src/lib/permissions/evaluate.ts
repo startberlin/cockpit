@@ -1,4 +1,4 @@
-import type { Department, UserStatus } from "@/db/schema/auth";
+import type { Department } from "@/db/schema/auth";
 import {
   isActiveAuthorityStatus,
   type UserAuthority,
@@ -32,7 +32,6 @@ export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
 export type UserScope = {
   targetDepartment: Department | null;
-  targetStatus: UserStatus;
 };
 
 export type GroupScope = {
@@ -137,9 +136,7 @@ function hasUserScope(scope: unknown): scope is UserScope {
     typeof scope === "object" &&
     scope !== null &&
     "targetDepartment" in scope &&
-    (scope as UserScope).targetDepartment !== undefined &&
-    "targetStatus" in scope &&
-    (scope as UserScope).targetStatus !== undefined
+    (scope as UserScope).targetDepartment !== undefined
   );
 }
 
@@ -167,11 +164,7 @@ function evaluateGroupScopedAction(
     case "group.members.manage":
       return hasAdminGrant(authority);
     case "group.export":
-      return (
-        hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        scope.isGroupMember
-      );
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
   }
 }
 

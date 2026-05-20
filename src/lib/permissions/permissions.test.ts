@@ -34,7 +34,7 @@ describe("permissions", () => {
           ],
         }),
         "user.view",
-        { targetDepartment: "events", targetStatus: "member" },
+        { targetDepartment: "events" },
       ),
       true,
     );
@@ -53,7 +53,7 @@ describe("permissions", () => {
           ],
         }),
         "user.view",
-        { targetDepartment: "growth", targetStatus: "member" },
+        { targetDepartment: "growth" },
       ),
       false,
     );
@@ -74,7 +74,6 @@ describe("permissions", () => {
         "user.view",
         undefined as unknown as {
           targetDepartment: null;
-          targetStatus: "member";
         },
       ),
       false,
@@ -88,7 +87,7 @@ describe("permissions", () => {
           positions: [{ position: "president", scope: "global" }],
         }),
         "user.view",
-        { targetDepartment: "events", targetStatus: "member" },
+        { targetDepartment: "events" },
       ),
       false,
     );
@@ -101,7 +100,7 @@ describe("permissions", () => {
           positions: [{ position: "president", scope: "global" }],
         }),
         "user.membership.propose",
-        { targetDepartment: "events", targetStatus: "member" },
+        { targetDepartment: "events" },
       ),
       true,
     );
@@ -256,10 +255,10 @@ describe("permissions", () => {
     );
   });
 
-  it("allows group members to export their group", () => {
+  it("denies plain group members from exporting", () => {
     assert.equal(
       evaluateAuth(authority(), "group.export", { isGroupMember: true }),
-      true,
+      false,
     );
   });
 
@@ -619,7 +618,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
         "user.edit.status",
-        { targetDepartment: "events", targetStatus: "member" },
+        { targetDepartment: "events" },
       ),
       true,
     );
@@ -630,7 +629,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "user.complete_onboarding",
-        { targetDepartment: "events", targetStatus: "member" },
+        { targetDepartment: "events" },
       ),
       false,
     );
@@ -642,7 +641,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.edit.contact",
-          { targetDepartment: "events", targetStatus: "member" },
+          { targetDepartment: "events" },
         ),
         true,
       );
@@ -653,7 +652,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.edit.status",
-          { targetDepartment: "events", targetStatus: "member" },
+          { targetDepartment: "events" },
         ),
         false,
       );
@@ -664,7 +663,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.membership.propose",
-          { targetDepartment: "events", targetStatus: "member" },
+          { targetDepartment: "events" },
         ),
         false,
       );
@@ -675,7 +674,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.view",
-          { targetDepartment: "growth", targetStatus: "member" },
+          { targetDepartment: "growth" },
         ),
         true,
       );

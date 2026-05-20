@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import type { Department, UserStatus } from "@/db/schema/auth";
+import type { Department } from "@/db/schema/auth";
 import {
   type Action,
   evaluateAuth,
@@ -20,7 +20,7 @@ export type CanCheck = {
   (permission: GlobalAction): boolean;
   (
     permission: UserScopedAction,
-    user: { department: Department | null; status: UserStatus },
+    user: { department: Department | null },
   ): boolean;
   (permission: GroupScopedAction, group: { isMember: boolean }): boolean;
 };
@@ -37,7 +37,7 @@ type CanProps =
     })
   | (CanComponentProps & {
       permission: UserScopedAction;
-      context: { department: Department | null; status: UserStatus };
+      context: { department: Department | null };
     })
   | (CanComponentProps & {
       permission: GroupScopedAction;
@@ -48,7 +48,7 @@ export function useCan(): CanCheck;
 export function useCan(permission: GlobalAction): boolean;
 export function useCan(
   permission: UserScopedAction,
-  user: { department: Department | null; status: UserStatus },
+  user: { department: Department | null },
 ): boolean;
 export function useCan(
   permission: GroupScopedAction,
@@ -58,7 +58,6 @@ export function useCan(
   permission?: Action,
   resource?: {
     department?: Department | null;
-    status?: UserStatus;
     isMember?: boolean;
   },
 ) {
@@ -68,7 +67,6 @@ export function useCan(
       action: Action,
       checkResource?: {
         department?: Department | null;
-        status?: UserStatus;
         isMember?: boolean;
       },
     ) => {
@@ -83,7 +81,6 @@ export function useCan(
       if (isUserScopedAction(action)) {
         const scope: UserScope = {
           targetDepartment: checkResource?.department ?? null,
-          targetStatus: checkResource?.status ?? "member",
         };
         return evaluateAuth(authority, action, scope);
       }
@@ -109,10 +106,7 @@ export function useCan(
   }
 
   if (isUserScopedAction(permission)) {
-    return check(
-      permission,
-      resource as { department: Department | null; status: UserStatus },
-    );
+    return check(permission, resource as { department: Department | null });
   }
 
   if (isGroupScopedAction(permission)) {
@@ -130,10 +124,7 @@ export function Can(props: CanProps) {
   }
 
   if (isUserScopedAction(props.permission)) {
-    const context = props.context as {
-      department: Department | null;
-      status: UserStatus;
-    };
+    const context = props.context as { department: Department | null };
     return check(props.permission, context) ? props.children : null;
   }
 
