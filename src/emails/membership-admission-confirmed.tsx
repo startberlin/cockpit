@@ -1,20 +1,7 @@
-import {
-  Body,
-  Button,
-  Container,
-  Font,
-  Head,
-  Heading,
-  Html,
-  Img,
-  Link,
-  Preview,
-  pixelBasedPreset,
-  Section,
-  Tailwind,
-  Text,
-} from "@react-email/components";
-import { env } from "@/env";
+import { Heading, Text } from "react-email";
+import { EmailCta } from "@/emails/components/email-cta";
+import { EmailShell } from "@/emails/components/email-shell";
+import { EmailStatusBadge } from "@/emails/components/email-status-badge";
 
 interface MembershipAdmissionConfirmedEmailProps {
   firstName: string;
@@ -27,95 +14,47 @@ export const MembershipAdmissionConfirmedEmail = ({
   includesPaymentCta,
   membershipUrl,
 }: MembershipAdmissionConfirmedEmailProps) => {
+  const preview = includesPaymentCta
+    ? "Finalize your START Berlin membership"
+    : "Your START Berlin membership is active";
+
   return (
-    <Html>
-      <Head>
-        <Font
-          fontFamily="Avenir Next"
-          fallbackFontFamily="sans-serif"
-          webFont={{
-            url: `${env.NEXT_PUBLIC_COCKPIT_URL}/avenirnext-bold.otf`,
-            format: "opentype",
-          }}
-          fontWeight={700}
-          fontStyle="bold"
-        />
-        <Font
-          fontFamily="Avenir Next"
-          fallbackFontFamily="sans-serif"
-          webFont={{
-            url: `${env.NEXT_PUBLIC_COCKPIT_URL}/avenirnext-medium.otf`,
-            format: "opentype",
-          }}
-          fontWeight={400}
-          fontStyle="normal"
-        />
-      </Head>
-      <Tailwind config={{ presets: [pixelBasedPreset] }}>
-        <Body className="mx-auto my-auto bg-white px-2 font-sans">
-          <Preview>Your START Berlin membership has been confirmed</Preview>
-          <Container className="mx-auto my-[40px] max-w-[465px] border border-[#E7E5E4] border-solid p-[20px]">
-            <Section className="mt-[10px]">
-              <Img
-                src={`${env.NEXT_PUBLIC_COCKPIT_URL}/logo-black.png`}
-                width="72"
-                height="33"
-                alt="START Berlin"
-                className="my-0"
-              />
-            </Section>
-            <Heading className="mx-0 my-[30px] p-0 font-bold text-[24px] text-black uppercase">
-              Welcome to START Berlin
-            </Heading>
-            <Text className="text-[14px] text-black leading-[24px]">
-              Hello {firstName},
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
-              Your membership in START Berlin e.V. has been confirmed. You are
-              now an official member of the association.
-            </Text>
-            {includesPaymentCta ? (
-              <>
-                <Text className="text-[14px] text-black leading-[24px]">
-                  To complete your membership setup, you need to set up your
-                  yearly membership payment. START Berlin membership costs 40
-                  EUR per year. It covers the essentials that keep the
-                  association running and helps fund internal and external
-                  events and member benefits throughout the year.
-                </Text>
-                <Section className="my-[24px]">
-                  <Button
-                    href={membershipUrl}
-                    className="bg-black text-white px-[18px] py-[12px] text-[14px] font-bold no-underline"
-                  >
-                    Set up membership payment
-                  </Button>
-                  <Text className="text-[12px] text-[#57534E] leading-[18px] mt-[16px] mb-0">
-                    If the button does not work, open this link:
-                    <br />
-                    <Link href={membershipUrl}>{membershipUrl}</Link>
-                  </Text>
-                </Section>
-              </>
-            ) : (
-              <Text className="text-[14px] text-black leading-[24px]">
-                Your membership is active. Thanks for being part of START
-                Berlin.
-              </Text>
-            )}
-            <Text className="text-[14px] text-black leading-[24px]">
-              If you run into any issues, contact the Operations & Digital
-              department:
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
-              <Link href="mailto:operations@start-berlin.com">
-                operations@start-berlin.com
-              </Link>
-            </Text>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
+    <EmailShell preview={preview} eyebrow="Welcome to START Berlin">
+      {includesPaymentCta ? (
+        <>
+          <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+            Set up your yearly membership payment
+          </Heading>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Hi {firstName},
+          </Text>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Your membership in START Berlin e.V. is confirmed. To complete your
+            membership, please set up your yearly payment.
+          </Text>
+          <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
+            START Berlin membership is{" "}
+            <strong style={{ color: "#1C1917" }}>40 EUR per year</strong>. It
+            funds events, operations, and member benefits throughout the year.
+          </Text>
+          <EmailCta href={membershipUrl} label="Set up membership payment" />
+        </>
+      ) : (
+        <>
+          <Heading className="mt-0 mb-[16px] p-0 font-bold text-[24px] text-[#1C1917]">
+            Your membership is active
+          </Heading>
+          <EmailStatusBadge variant="active" label="Active member" />
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Hi {firstName},
+          </Text>
+          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+            Your membership in START Berlin e.V. is confirmed and active. Thanks
+            for being part of START Berlin.
+          </Text>
+        </>
+      )}
+    </EmailShell>
   );
 };
 

@@ -1,19 +1,7 @@
-import {
-  Body,
-  Container,
-  Font,
-  Head,
-  Heading,
-  Html,
-  Img,
-  Link,
-  Preview,
-  pixelBasedPreset,
-  Section,
-  Tailwind,
-  Text,
-} from "@react-email/components";
-import { env } from "@/env";
+import { Heading, Link, Text } from "react-email";
+import { EmailCta } from "@/emails/components/email-cta";
+import { EmailDetailBlock } from "@/emails/components/email-detail-block";
+import { EmailShell } from "@/emails/components/email-shell";
 
 interface SignInInstructionsEmailProps {
   firstName: string;
@@ -25,88 +13,40 @@ export const SignInInstructionsEmail = ({
   firstName,
   companyEmail,
   initialPassword,
-}: SignInInstructionsEmailProps) => {
-  return (
-    <Html>
-      <Head>
-        <Font
-          fontFamily="Avenir Next"
-          fallbackFontFamily="sans-serif"
-          webFont={{
-            url: `${env.NEXT_PUBLIC_COCKPIT_URL}/avenirnext-bold.otf`,
-            format: "opentype",
-          }}
-          fontWeight={700}
-          fontStyle="bold"
-        />
-        <Font
-          fontFamily="Avenir Next"
-          fallbackFontFamily="sans-serif"
-          webFont={{
-            url: `${env.NEXT_PUBLIC_COCKPIT_URL}/avenirnext-medium.otf`,
-            format: "opentype",
-          }}
-          fontWeight={400}
-          fontStyle="normal"
-        />
-      </Head>
-      <Tailwind config={{ presets: [pixelBasedPreset] }}>
-        <Body className="mx-auto my-auto bg-white px-2 font-sans">
-          <Preview>Your START Berlin Google account details</Preview>
-          <Container className="mx-auto my-[40px] max-w-[465px] border border-[#E7E5E4] border-solid p-[20px]">
-            <Section className="mt-[10px]">
-              <Img
-                src={`${env.NEXT_PUBLIC_COCKPIT_URL}/logo-black.png`}
-                width="72"
-                height="33"
-                alt="START Berlin"
-                className="my-0"
-              />
-            </Section>
-            <Heading className="mx-0 my-[30px] p-0 font-bold text-[24px] text-black uppercase">
-              Welcome to START Berlin
-            </Heading>
-            <Text className="text-[14px] text-black leading-[24px]">
-              Hello {firstName},
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
-              Your START Berlin Google account is ready. Here are your sign-in
-              details:
-            </Text>
-            <Container className="my-[20px] p-[16px] bg-[#F0F9FF] border border-[#0EA5E9] border-solid rounded-[4px]">
-              <Text className="text-[14px] text-black leading-[20px] mt-[8px] mb-0">
-                <strong>Email:</strong> {companyEmail}
-                <br />
-                <strong>Initial password:</strong> {initialPassword}
-                <br />
-                <strong>Sign in at:</strong>{" "}
-                <Link href="https://accounts.google.com">
-                  accounts.google.com
-                </Link>
-              </Text>
-            </Container>
-            <Text className="text-[14px] text-black leading-[24px]">
-              You will be asked to set a new password when you first sign in.
-              Choose something personal that you have not used anywhere else.
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
-              Once you are signed in, open your new inbox at{" "}
-              <Link href="https://mail.google.com">mail.google.com</Link>. You
-              will find your START Cockpit access instructions there.
-            </Text>
-            <Text className="text-[14px] text-black leading-[24px]">
-              If you run into any issues, contact the Operations &amp; Digital
-              department:{" "}
-              <Link href="mailto:operations@start-berlin.com">
-                operations@start-berlin.com
-              </Link>
-            </Text>
-          </Container>
-        </Body>
-      </Tailwind>
-    </Html>
-  );
-};
+}: SignInInstructionsEmailProps) => (
+  <EmailShell
+    preview="Your START Berlin sign-in details"
+    eyebrow="Your START Berlin account"
+  >
+    <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+      Sign in to your START Berlin account
+    </Heading>
+    <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+      Hi {firstName},
+    </Text>
+    <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
+      Your START Berlin Google account is ready. Use the details below to sign
+      in.
+    </Text>
+    <EmailDetailBlock
+      rows={[
+        { label: "Email", value: companyEmail },
+        { label: "Initial password", value: initialPassword },
+      ]}
+    />
+    <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+      You'll be asked to set a new password on first sign-in. Choose something
+      personal you haven't used elsewhere.
+    </Text>
+    <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+      Once you're signed in, open your new inbox at{" "}
+      <Link href="https://mail.google.com" className="text-[#1C1917]">
+        mail.google.com
+      </Link>
+      . Your START Cockpit access instructions are waiting there.
+    </Text>
+  </EmailShell>
+);
 
 SignInInstructionsEmail.PreviewProps = {
   firstName: "Sönke",

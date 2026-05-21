@@ -1,9 +1,9 @@
 import "server-only";
 
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { render } from "@react-email/render";
 import nodemailer from "nodemailer";
 import type { ReactElement } from "react";
+import { render } from "react-email";
 import db from "@/db";
 import { env } from "@/env";
 
