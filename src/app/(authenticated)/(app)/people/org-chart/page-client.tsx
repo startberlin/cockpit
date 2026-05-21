@@ -10,11 +10,9 @@ import {
   Position,
   ReactFlow,
 } from "@xyflow/react";
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { parseAsInteger, useQueryState } from "nuqs";
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { OrgChartUser } from "@/db/people";
-import type { Department } from "@/db/schema/auth";
 import {
   applyFilters,
   buildOrgChart,
@@ -32,40 +29,71 @@ import {
   type OrgNodeData,
 } from "@/lib/org-chart";
 
-// ─── Layout constants (must match org-chart.ts) ───────────────────────────────
-
-const DEPT_HEADER_H = 44;
-
 // ─── Custom node components ───────────────────────────────────────────────────
 
-function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData, "person">>) {
+function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
   const first = data.firstName ?? "";
   const last = data.lastName ?? "";
   const initials = `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+  const avatarSize = data.userId ? 40 : 32;
 
   return (
     <div
-      style={{ width: CARD_W, minHeight: CARD_H }}
-      className="rounded-lg border bg-card p-3 flex items-start gap-2.5 shadow-sm select-none"
+      style={{
+        width: CARD_W,
+        minHeight: CARD_H,
+        borderRadius: 4,
+        border: "1px solid var(--border)",
+        background: "var(--card)",
+        boxShadow: "var(--shadow-sm)",
+        padding: 14,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        userSelect: "none",
+      }}
     >
-      <Avatar size="default">
+      <Avatar style={{ width: avatarSize, height: avatarSize, flexShrink: 0 }}>
         <AvatarImage src={data.image ?? undefined} alt={`${first} ${last}`} />
-        <AvatarFallback>{initials}</AvatarFallback>
+        <AvatarFallback style={{ fontSize: avatarSize < 36 ? 11 : 13 }}>
+          {initials}
+        </AvatarFallback>
       </Avatar>
-      <div className="min-w-0 flex-1">
-        <p className="font-medium text-xs leading-tight line-clamp-2">
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.25,
+            overflowWrap: "anywhere",
+          }}
+        >
           {first} {last}
-        </p>
-        {data.batchNumber != null && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Batch #{data.batchNumber}
-          </p>
-        )}
+        </div>
         {data.roleLabel && (
-          <div className="mt-1.5">
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {data.roleLabel}
-            </Badge>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--muted-foreground)",
+              marginTop: 3,
+              lineHeight: 1.35,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {data.roleLabel}
+          </div>
+        )}
+        {!data.roleLabel && data.batchNumber != null && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--muted-foreground)",
+              marginTop: 3,
+              lineHeight: 1.35,
+            }}
+          >
+            Batch #{data.batchNumber}
+            {data.status === "onboarding" ? " · Onboarding" : ""}
           </div>
         )}
       </div>
@@ -73,66 +101,62 @@ function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData, "person">>) {
   );
 }
 
-function DeptHeaderFlowNode({
-  data,
-}: NodeProps<Node<OrgNodeData & { isCollapsed: boolean }, "deptHeader">>) {
+function DeptPlaceholderFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
+  const label = data.hasHead
+    ? `${data.departmentName} lead in another batch`
+    : `No ${data.departmentName} lead assigned`;
+
   return (
     <div
-      style={{ width: CARD_W, height: DEPT_HEADER_H }}
-      className="rounded-md border bg-muted/60 px-3 flex items-center justify-between gap-2 text-sm font-semibold cursor-pointer hover:bg-muted transition-colors select-none"
+      style={{
+        width: CARD_W,
+        minHeight: CARD_H,
+        borderRadius: 4,
+        border: "1px dashed var(--border)",
+        background: "var(--muted)",
+        padding: 14,
+        display: "flex",
+        alignItems: "center",
+        userSelect: "none",
+      }}
     >
-      <span className="truncate">{data.departmentName}</span>
-      {data.isCollapsed ? (
-        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
-      ) : (
-        <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-      )}
+      <div
+        style={{
+          fontSize: 13,
+          color: "var(--muted-foreground)",
+          lineHeight: 1.4,
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
 
-// Defined outside the component so React Flow gets a stable reference
+// Stable references so React Flow doesn't remount on every render
 const nodeTypes = {
-  person: PersonFlowNode,
-  deptHeader: DeptHeaderFlowNode,
+  officer: PersonFlowNode,
+  deptHead: PersonFlowNode,
+  member: PersonFlowNode,
+  deptPlaceholder: DeptPlaceholderFlowNode,
 };
 
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
 function toFlowNodes(
   orgNodes: ReturnType<typeof buildOrgChart>["nodes"],
-  collapsedDepts: ReadonlySet<Department>,
 ): Node[] {
-  return orgNodes.map((n) => {
-    const base = {
-      id: n.id,
-      position: n.position,
-      selectable: false,
-      draggable: false,
-      connectable: false,
-    };
-
-    if (n.type === "deptHeader") {
-      return {
-        ...base,
-        type: "deptHeader" as const,
-        data: {
-          ...n.data,
-          isCollapsed: n.data.departmentId
-            ? collapsedDepts.has(n.data.departmentId)
-            : false,
-        },
-      };
-    }
-
-    return {
-      ...base,
-      type: "person" as const,
-      data: n.data,
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-    };
-  });
+  return orgNodes.map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: n.position,
+    data: n.data,
+    selectable: false,
+    draggable: false,
+    connectable: false,
+    sourcePosition: Position.Bottom,
+    targetPosition: Position.Top,
+  }));
 }
 
 function toFlowEdges(
@@ -143,7 +167,7 @@ function toFlowEdges(
     source: e.source,
     target: e.target,
     type: "smoothstep",
-    style: { stroke: "hsl(var(--border))" },
+    style: { stroke: "var(--border)" },
   }));
 }
 
@@ -163,23 +187,19 @@ export default function OrgChartPageClient({
     parseAsInteger.withOptions({ shallow: true, clearOnDefault: true }),
   );
 
-  const [collapsedDepts, setCollapsedDepts] = React.useState<Set<Department>>(
-    () => new Set(),
-  );
-
   const { nodes: allNodes, edges: allEdges } = React.useMemo(
     () => buildOrgChart(users),
     [users],
   );
 
   const { nodes: filteredOrgNodes, edges: filteredOrgEdges } = React.useMemo(
-    () => applyFilters(allNodes, allEdges, { batchFilter, collapsedDepts }),
-    [allNodes, allEdges, batchFilter, collapsedDepts],
+    () => applyFilters(allNodes, allEdges, { batchFilter }),
+    [allNodes, allEdges, batchFilter],
   );
 
   const flowNodes = React.useMemo(
-    () => toFlowNodes(filteredOrgNodes, collapsedDepts),
-    [filteredOrgNodes, collapsedDepts],
+    () => toFlowNodes(filteredOrgNodes),
+    [filteredOrgNodes],
   );
 
   const flowEdges = React.useMemo(
@@ -187,32 +207,9 @@ export default function OrgChartPageClient({
     [filteredOrgEdges],
   );
 
-  const handleNodeClick = React.useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      if (node.type !== "deptHeader" && node.type !== "person") return;
-      const deptId = (node.data as OrgNodeData).departmentId;
-      if (!deptId) return;
-      // Only dept header nodes and dept head cards should toggle collapse
-      const orgNode = allNodes.find((n) => n.id === node.id);
-      if (orgNode?.type !== "deptHeader" && orgNode?.type !== "deptHead")
-        return;
-
-      setCollapsedDepts((prev) => {
-        const next = new Set(prev);
-        if (next.has(deptId)) {
-          next.delete(deptId);
-        } else {
-          next.add(deptId);
-        }
-        return next;
-      });
-    },
-    [allNodes],
-  );
-
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Filter bar */}
+      {/* Filter bar — same width as page content */}
       <div className="flex items-center gap-3">
         <Select
           value={batchFilter != null ? String(batchFilter) : "all"}
@@ -234,8 +231,15 @@ export default function OrgChartPageClient({
         </Select>
       </div>
 
-      {/* Canvas */}
-      <div className="flex-1 min-h-0 rounded-lg border overflow-hidden">
+      {/* Full-width canvas — breaks out of max-w-4xl container */}
+      <div
+        className="flex-1 min-h-0 border overflow-hidden"
+        style={{
+          marginLeft:
+            "calc(-1 * max(0rem, (100vw - var(--sidebar-width, 16rem) - 56rem) / 2) - 1.5rem)",
+          width: "calc(100vw - var(--sidebar-width, 16rem))",
+        }}
+      >
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -245,7 +249,6 @@ export default function OrgChartPageClient({
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          onNodeClick={handleNodeClick}
           proOptions={{ hideAttribution: false }}
         >
           <Background />

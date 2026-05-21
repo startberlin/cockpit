@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { OrgChartUser } from "@/db/people";
-import type { Department } from "@/db/schema/auth";
 import { applyFilters, buildOrgChart } from "@/lib/org-chart";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -110,9 +109,9 @@ describe("buildOrgChart", () => {
     assert.ok(officers.find((n) => n.id === "officer-head_of_finance"));
   });
 
-  it("produces one dept header node per department in DEPARTMENT_IDS", () => {
+  it("produces one deptPlaceholder node per department in DEPARTMENT_IDS", () => {
     const { nodes } = buildOrgChart([]);
-    const headers = nodes.filter((n) => n.type === "deptHeader");
+    const placeholders = nodes.filter((n) => n.type === "deptPlaceholder");
     const DEPARTMENT_IDS = [
       "partnerships",
       "operations",
@@ -120,22 +119,36 @@ describe("buildOrgChart", () => {
       "growth",
       "events",
     ] as const;
-    assert.equal(headers.length, DEPARTMENT_IDS.length);
+    assert.equal(placeholders.length, DEPARTMENT_IDS.length);
     for (const deptId of DEPARTMENT_IDS) {
       assert.ok(
-        headers.find((n) => n.id === `dept-header-${deptId}`),
-        `missing dept header for ${deptId}`,
+        placeholders.find((n) => n.id === `dept-placeholder-${deptId}`),
+        `missing placeholder for ${deptId}`,
       );
     }
   });
 
-  it("places dept head as deptHead node with role badge data", () => {
+  it("placeholder has hasHead=false when no head is assigned", () => {
+    const { nodes } = buildOrgChart([]);
+    const placeholder = nodes.find((n) => n.id === "dept-placeholder-events");
+    assert.ok(placeholder);
+    assert.equal(placeholder.data.hasHead, false);
+  });
+
+  it("placeholder has hasHead=true when a dept head is assigned", () => {
+    const { nodes } = buildOrgChart([eventsHead]);
+    const placeholder = nodes.find((n) => n.id === "dept-placeholder-events");
+    assert.ok(placeholder);
+    assert.equal(placeholder.data.hasHead, true);
+  });
+
+  it("places dept head as deptHead node with correct role label", () => {
     const { nodes } = buildOrgChart([eventsHead]);
     const head = nodes.find((n) => n.id === "dept-head-events");
     assert.ok(head);
     assert.equal(head.type, "deptHead");
     assert.equal(head.data.userId, "usr_events_head");
-    assert.equal(head.data.roleLabel, "Department Head");
+    assert.equal(head.data.roleLabel, "Head of Events");
     assert.equal(head.data.departmentId, "events");
   });
 
@@ -192,10 +205,10 @@ describe("buildOrgChart", () => {
     assert.equal(eventsHead, undefined);
   });
 
-  it("produces dept header but no edges when dept has a head but no members", () => {
+  it("produces placeholder node but no edges when dept has a head but no members", () => {
     const { nodes, edges } = buildOrgChart([eventsHead]);
-    const header = nodes.find((n) => n.id === "dept-header-events");
-    assert.ok(header);
+    const placeholder = nodes.find((n) => n.id === "dept-placeholder-events");
+    assert.ok(placeholder);
     const eventsEdges = edges.filter(
       (e) => e.source.includes("events") || e.target.includes("events"),
     );
@@ -215,7 +228,7 @@ describe("buildOrgChart", () => {
     assert.ok(!memberNodes.find((n) => n.data.userId === "usr_events_head"));
   });
 
-  it("attaches role badge to officer nodes", () => {
+  it("attaches role label to officer nodes", () => {
     const { nodes } = buildOrgChart([president, vp, hof]);
     const p = nodes.find((n) => n.id === "officer-president");
     const v = nodes.find((n) => n.id === "officer-vice_president");
@@ -225,10 +238,21 @@ describe("buildOrgChart", () => {
     assert.equal(h?.data.roleLabel, "Head of Finance");
   });
 
-  it("stores departmentId on member nodes for collapse filtering", () => {
+  it("stores departmentId on member nodes", () => {
     const { nodes } = buildOrgChart([eventsMember1]);
     const member = nodes.find((n) => n.data.userId === "usr_events_m1");
     assert.equal(member?.data.departmentId, "events");
+  });
+
+  it("stores status on member nodes", () => {
+    const onboardingMember = makeUser({
+      id: "usr_onboarding",
+      department: "events",
+      status: "onboarding",
+    });
+    const { nodes } = buildOrgChart([onboardingMember]);
+    const member = nodes.find((n) => n.data.userId === "usr_onboarding");
+    assert.equal(member?.data.status, "onboarding");
   });
 });
 
@@ -250,32 +274,34 @@ describe("applyFilters", () => {
     return buildOrgChart(allUsers);
   }
 
-  it("with no filters returns all nodes and edges", () => {
+  it("with no filters returns all person nodes and all edges", () => {
     const { nodes, edges } = chart();
     const { nodes: fn, edges: fe } = applyFilters(nodes, edges, {
       batchFilter: null,
-      collapsedDepts: new Set(),
     });
-    assert.equal(fn.length, nodes.length);
+    // Placeholder nodes for depts with a visible head are hidden; others visible
+    const personNodes = nodes.filter(
+      (n) =>
+        n.type === "officer" || n.type === "deptHead" || n.type === "member",
+    );
+    assert.ok(fn.length >= personNodes.length);
     assert.equal(fe.length, edges.length);
   });
 
-  it("dept header nodes are always visible regardless of batch filter", () => {
+  it("placeholder nodes are always visible regardless of batch filter", () => {
     const { nodes, edges } = chart();
     const { nodes: fn } = applyFilters(nodes, edges, {
       batchFilter: 99,
-      collapsedDepts: new Set(),
     });
-    const headers = fn.filter((n) => n.type === "deptHeader");
+    const placeholders = fn.filter((n) => n.type === "deptPlaceholder");
     const DEPT_COUNT = 5;
-    assert.equal(headers.length, DEPT_COUNT);
+    assert.equal(placeholders.length, DEPT_COUNT);
   });
 
   it("officer nodes are always visible regardless of batch filter", () => {
     const { nodes, edges } = chart();
     const { nodes: fn } = applyFilters(nodes, edges, {
       batchFilter: 99,
-      collapsedDepts: new Set(),
     });
     const officers = fn.filter((n) => n.type === "officer");
     assert.equal(officers.length, 3);
@@ -286,7 +312,6 @@ describe("applyFilters", () => {
     // eventsHead is batch 3, growthHead is batch 4
     const { nodes: fn } = applyFilters(nodes, edges, {
       batchFilter: 3,
-      collapsedDepts: new Set(),
     });
     const eventsHeadNode = fn.find((n) => n.id === "dept-head-events");
     const growthHeadNode = fn.find((n) => n.id === "dept-head-growth");
@@ -303,7 +328,6 @@ describe("applyFilters", () => {
     // eventsMember1 batch=3, eventsMember2 batch=5
     const { nodes: fn } = applyFilters(nodes, edges, {
       batchFilter: 3,
-      collapsedDepts: new Set(),
     });
     assert.ok(
       fn.find((n) => n.data.userId === "usr_events_m1"),
@@ -321,7 +345,6 @@ describe("applyFilters", () => {
     // growthHead is batch 4; filter to batch 3 removes growthHead → no growth edges
     const { edges: fe } = applyFilters(nodes, edges, {
       batchFilter: 3,
-      collapsedDepts: new Set(),
     });
     const growthEdges = fe.filter((e) => e.source === "dept-head-growth");
     assert.equal(growthEdges.length, 0);
@@ -332,67 +355,47 @@ describe("applyFilters", () => {
     // eventsMember2 is batch 5; filter to batch 3 → edge to member2 gone
     const { edges: fe } = applyFilters(nodes, edges, {
       batchFilter: 3,
-      collapsedDepts: new Set(),
     });
     const toMember2 = fe.find((e) => e.target === "member-usr_events_m2");
     assert.equal(toMember2, undefined);
   });
 
-  it("collapsedDepts hides member nodes for the collapsed dept", () => {
+  it("placeholder is visible when dept head is filtered out by batch", () => {
     const { nodes, edges } = chart();
-    const { nodes: fn } = applyFilters(nodes, edges, {
-      batchFilter: null,
-      collapsedDepts: new Set(["events"] as Department[]),
-    });
-    const eventsMembers = fn.filter(
-      (n) => n.type === "member" && n.data.departmentId === "events",
-    );
-    assert.equal(eventsMembers.length, 0);
-  });
-
-  it("collapsedDepts keeps dept header and dept head visible", () => {
-    const { nodes, edges } = chart();
-    const { nodes: fn } = applyFilters(nodes, edges, {
-      batchFilter: null,
-      collapsedDepts: new Set(["events"] as Department[]),
-    });
-    assert.ok(fn.find((n) => n.id === "dept-header-events"));
-    assert.ok(fn.find((n) => n.id === "dept-head-events"));
-  });
-
-  it("collapsedDepts removes edges to hidden member nodes", () => {
-    const { nodes, edges } = chart();
-    const { edges: fe } = applyFilters(nodes, edges, {
-      batchFilter: null,
-      collapsedDepts: new Set(["events"] as Department[]),
-    });
-    const eventsEdges = fe.filter((e) => e.source === "dept-head-events");
-    assert.equal(eventsEdges.length, 0);
-  });
-
-  it("combining batch filter and collapsed dept hides members if either condition applies", () => {
-    const { nodes, edges } = chart();
-    // batch 3 and events collapsed: eventsMember1 (batch 3) hidden by collapse, eventsMember2 (batch 5) hidden by batch
+    // growthHead is batch 4; filter to batch 3 hides it → placeholder visible
     const { nodes: fn } = applyFilters(nodes, edges, {
       batchFilter: 3,
-      collapsedDepts: new Set(["events"] as Department[]),
     });
-    const eventsMembers = fn.filter(
-      (n) => n.type === "member" && n.data.departmentId === "events",
+    const growthPlaceholder = fn.find(
+      (n) => n.id === "dept-placeholder-growth",
     );
-    assert.equal(eventsMembers.length, 0);
+    assert.ok(
+      growthPlaceholder,
+      "growth placeholder should be visible when head is filtered",
+    );
   });
 
-  it("uncollapsed dept in same run still shows its members", () => {
+  it("placeholder is hidden when dept head is visible", () => {
     const { nodes, edges } = chart();
-    // collapse events only; growth members should still appear
+    // eventsHead is batch 3; filter to batch 3 keeps it → placeholder hidden
     const { nodes: fn } = applyFilters(nodes, edges, {
-      batchFilter: null,
-      collapsedDepts: new Set(["events"] as Department[]),
+      batchFilter: 3,
     });
-    const growthMembers = fn.filter(
-      (n) => n.type === "member" && n.data.departmentId === "growth",
+    const eventsPlaceholder = fn.find(
+      (n) => n.id === "dept-placeholder-events",
     );
-    assert.equal(growthMembers.length, 1);
+    assert.equal(
+      eventsPlaceholder,
+      undefined,
+      "events placeholder should be hidden when head is visible",
+    );
+  });
+
+  it("placeholder is visible for dept with no head regardless of filter", () => {
+    const noHeadUsers = [eventsMember1];
+    const { nodes, edges } = buildOrgChart(noHeadUsers);
+    const { nodes: fn } = applyFilters(nodes, edges, { batchFilter: 3 });
+    const placeholder = fn.find((n) => n.id === "dept-placeholder-events");
+    assert.ok(placeholder, "placeholder always visible when dept has no head");
   });
 });

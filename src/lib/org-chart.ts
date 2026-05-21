@@ -5,15 +5,14 @@ import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
 export const CARD_W = 200;
-export const CARD_H = 88;
-const DEPT_HEADER_H = 44;
+export const CARD_H = 80;
 const H_GAP = 20;
 const V_GAP = 64;
 const DEPT_COL_GAP = 40;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type OrgNodeType = "officer" | "deptHeader" | "deptHead" | "member";
+export type OrgNodeType = "officer" | "deptPlaceholder" | "deptHead" | "member";
 
 export interface OrgNodeData {
   userId?: string;
@@ -24,6 +23,8 @@ export interface OrgNodeData {
   roleLabel?: string;
   departmentId?: Department;
   departmentName?: string;
+  status?: string;
+  hasHead?: boolean;
 }
 
 export interface OrgChartNode {
@@ -46,7 +47,6 @@ export interface OrgChartData {
 
 export interface FilterOptions {
   batchFilter: number | null;
-  collapsedDepts: ReadonlySet<Department>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -66,8 +66,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 // Row Y positions
 const OFFICER_ROW_Y = 0;
-const DEPT_HEADER_ROW_Y = CARD_H + V_GAP * 2;
-const DEPT_HEAD_ROW_Y = DEPT_HEADER_ROW_Y + DEPT_HEADER_H + V_GAP;
+const DEPT_HEAD_ROW_Y = CARD_H + V_GAP;
 const MEMBER_ROW_Y = DEPT_HEAD_ROW_Y + CARD_H + V_GAP;
 
 // ─── Build ────────────────────────────────────────────────────────────────────
@@ -151,22 +150,23 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       numMembers * CARD_W + Math.max(0, numMembers - 1) * H_GAP,
     );
     const centerX = colX + Math.floor((colWidth - CARD_W) / 2);
+    const deptName = DEPARTMENT_NAMES[deptId];
+    const deptHead = deptHeadByDept.get(deptId);
+    const deptHeadNodeId = `dept-head-${deptId}`;
 
-    // Dept header node (always visible)
+    // Placeholder node (shown when head is absent or batch-filtered)
     nodes.push({
-      id: `dept-header-${deptId}`,
-      type: "deptHeader",
-      position: { x: centerX, y: DEPT_HEADER_ROW_Y },
+      id: `dept-placeholder-${deptId}`,
+      type: "deptPlaceholder",
+      position: { x: centerX, y: DEPT_HEAD_ROW_Y },
       data: {
         departmentId: deptId,
-        departmentName: DEPARTMENT_NAMES[deptId],
+        departmentName: deptName,
+        hasHead: !!deptHead,
       },
     });
 
     // Dept head card (if assigned)
-    const deptHead = deptHeadByDept.get(deptId);
-    const deptHeadNodeId = `dept-head-${deptId}`;
-
     if (deptHead) {
       nodes.push({
         id: deptHeadNodeId,
@@ -178,7 +178,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
           lastName: deptHead.lastName,
           image: deptHead.image,
           batchNumber: deptHead.batchNumber,
-          roleLabel: ROLE_LABELS.department_head,
+          roleLabel: `Head of ${deptName}`,
           departmentId: deptId,
         },
       });
@@ -203,6 +203,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
           image: member.image,
           batchNumber: member.batchNumber,
           departmentId: deptId,
+          status: member.status,
         },
       });
 
@@ -228,21 +229,31 @@ export function applyFilters(
   edges: OrgChartEdge[],
   opts: FilterOptions,
 ): OrgChartData {
-  const { batchFilter, collapsedDepts } = opts;
+  const { batchFilter } = opts;
+
+  // Pre-compute which deptHead nodes pass the batch filter
+  const visibleDeptHeadIds = new Set(
+    nodes
+      .filter(
+        (n) =>
+          n.type === "deptHead" &&
+          (batchFilter === null || n.data.batchNumber === batchFilter),
+      )
+      .map((n) => n.id),
+  );
 
   const visibleNodes = nodes.filter((node) => {
     switch (node.type) {
       case "officer":
         return true;
-      case "deptHeader":
-        return true;
-      case "deptHead": {
-        if (batchFilter === null) return true;
-        return node.data.batchNumber === batchFilter;
+      case "deptHead":
+        return visibleDeptHeadIds.has(node.id);
+      case "deptPlaceholder": {
+        const headId = `dept-head-${node.data.departmentId}`;
+        // Show when there's no head at all, or the head is batch-filtered out
+        return !node.data.hasHead || !visibleDeptHeadIds.has(headId);
       }
       case "member": {
-        const deptId = node.data.departmentId;
-        if (deptId && collapsedDepts.has(deptId)) return false;
         if (batchFilter === null) return true;
         return node.data.batchNumber === batchFilter;
       }
