@@ -108,9 +108,15 @@ export function MembershipHeroCard({
   const router = useRouter();
   const pollingStartedAt = React.useRef(Date.now());
 
-  const { data: polledStatus } = useQuery({
+  useQuery({
     queryKey: ["legal-membership-status"],
-    queryFn: getLegalMembershipStatus,
+    queryFn: async () => {
+      const status = await getLegalMembershipStatus();
+      if (status && status !== "processing") {
+        router.refresh();
+      }
+      return status;
+    },
     refetchInterval: (query) => {
       const current = query.state.data;
       if (current && current !== "processing") return false;
@@ -118,19 +124,6 @@ export function MembershipHeroCard({
       return 3_000;
     },
     enabled: legalMembershipStatus === "processing",
-  });
-
-  useQuery({
-    queryKey: ["membership-page-refresh", polledStatus],
-    queryFn: () => {
-      router.refresh();
-      return null;
-    },
-    enabled:
-      !!polledStatus &&
-      polledStatus !== "processing" &&
-      polledStatus !== "active",
-    staleTime: Infinity,
   });
 
   const variant = deriveMembershipHeroVariant(
@@ -151,9 +144,9 @@ export function MembershipHeroCard({
             {badgeLabel}
           </span>
         )}
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-2">
+        <div className="flex items-start gap-2">
           {variant === "processing" && (
-            <Loader2Icon className="h-7 w-7 shrink-0 animate-spin text-muted-foreground sm:h-5 sm:w-5" />
+            <Loader2Icon className="mt-1 size-5 shrink-0 animate-spin text-muted-foreground" />
           )}
           <h2 className="text-3xl font-black uppercase tracking-tight leading-none">
             {headline}
