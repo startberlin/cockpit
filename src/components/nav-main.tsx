@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AppWindow,
   ChevronRight,
   CreditCard,
   IdCard,
@@ -62,6 +63,18 @@ export function NavMain() {
                 <Link href="/membership" onClick={closeMobile}>
                   <IdCard />
                   <span>My membership</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === "/tools"}
+                tooltip="Tools"
+              >
+                <Link href="/tools" onClick={closeMobile}>
+                  <AppWindow />
+                  <span>Tools</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

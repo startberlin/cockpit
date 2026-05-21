@@ -301,8 +301,6 @@ Event: membership/transition.requested
 - Four new actions:
   - `"membership.cancel_own"` — any active member (any status) can cancel their own membership; checked in self-cancellation server action
   - `"membership.cancel_member"` — legal officers only (president / VP / head of finance); checked in board-kick server action
-  - `"membership.transition.request"` — active members (member or supporting_alumni) can request a transition; checked in alumni request server action
-  - `"membership.transition.decide"` — legal officers AND department heads (for their own department's members) can decide on transition requests; checked in the approval/rejection server action
   - `"membership.cancellation.acknowledge"` — legal officers AND department heads; checked in the acknowledgement server action
 - All new evaluations follow the existing `isLegalOfficer(authority)` and `isActiveAuthorityStatus(authority.status)` guards.
 - `"membership.cancel_own"` must check `authority.userId === targetUserId` — a member can only cancel themselves.
@@ -586,7 +584,7 @@ DB queries (`src/db/membership-transitions.ts`):
 Server actions:
 - `requestCancellationAction`: validates `membership.cancel_own`, confirms `personalEmail` updated if provided, creates transition request row, fires `membership/cancellation.requested` with `{ requiresAcknowledgement: true, ... }`.
 - `retractCancellationAction`: validates ownership of request, calls `retractTransitionRequest`, fires `membership/cancellation.retracted` (triggers Inngest `cancelOn`).
-- `requestTransitionAction`: validates `membership.transition.request`, creates transition request (with `keepPersonalEmail`, `personalEmailForNotification`), updates `user.personalEmail` if provided, fires `membership/transition.requested`.
+- `requestTransitionAction`: creates transition request (with `keepPersonalEmail`, `personalEmailForNotification`), updates `user.personalEmail` if provided, fires `membership/transition.requested`.
 - `retractTransitionAction`: validates ownership, retracts, fires `membership/transition.retracted`.
 - `boardKickAction` (admin path): validates `membership.cancel_member`, **synchronously** revokes sessions via `db.delete(session).where(eq(session.userId, targetUserId))`, creates transition request with `reason = "removed_by_board"`, fires `membership/cancellation.requested` with `{ requiresAcknowledgement: false }`.
 - `acknowledgeCancellationAction` (admin path): validates `membership.cancellation.acknowledge`, updates transition request to `"acknowledged"`, fires `membership/cancellation.acknowledged`.
