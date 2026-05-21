@@ -123,7 +123,8 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
 
   for (let i = 0; i < presentOfficerPositions.length; i++) {
     const pos = presentOfficerPositions[i];
-    const user = officerByPosition.get(pos)!;
+    const user = officerByPosition.get(pos);
+    if (!user) continue;
     nodes.push({
       id: `officer-${pos}`,
       type: "officer",

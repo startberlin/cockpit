@@ -145,7 +145,8 @@ describe("buildOrgChart", () => {
     assert.equal(members.length, 2);
     assert.ok(members.find((n) => n.data.userId === "usr_events_m1"));
     assert.ok(members.find((n) => n.data.userId === "usr_events_m2"));
-    const deptHead = nodes.find((n) => n.id === "dept-head-events")!;
+    const deptHead = nodes.find((n) => n.id === "dept-head-events");
+    assert.ok(deptHead, "dept-head-events node should exist");
     for (const m of members) {
       assert.ok(m.position.y > deptHead.position.y);
     }
