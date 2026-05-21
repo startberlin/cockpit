@@ -35,6 +35,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     id: "membership-admission-workflow",
     name: "Membership Admission Workflow",
     triggers: [{ event: events.admissionWorkflowStarted }],
+    cancelOn: [
+      {
+        event: events.cancellationRequested.name,
+        if: "async.data.subjectUserId == event.data.userId",
+      },
+    ],
   },
   async ({ event, step, runId }) => {
     const { legalMembershipId, subjectUserId } = event.data;

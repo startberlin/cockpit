@@ -1,7 +1,9 @@
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
+import { membershipCancellationWorkflow } from "./membership-cancellation-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
+import { membershipTransitionWorkflow } from "./membership-transition-workflow";
 import { onboardNewUserWorkflow } from "./new-user-workflow";
 import {
   positionAssignmentCreatedNotification,
@@ -16,8 +18,10 @@ export const inngestFunctions = [
   gocardlessEventsCleanupCron,
   syncGroupsCron,
   membershipAdmissionWorkflow,
+  membershipCancellationWorkflow,
   membershipPaymentProposalsCron,
   membershipReconfirmationWorkflow,
+  membershipTransitionWorkflow,
   onboardNewUserWorkflow,
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,

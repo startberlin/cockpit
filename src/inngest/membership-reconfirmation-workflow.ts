@@ -25,6 +25,12 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     id: "membership-reconfirmation-workflow",
     name: "Membership Reconfirmation Workflow",
     triggers: [{ event: events.reconfirmationSubmitted }],
+    cancelOn: [
+      {
+        event: events.cancellationRequested.name,
+        if: "async.data.userId == event.data.userId",
+      },
+    ],
   },
   async ({ event, step }) => {
     const { legalMembershipId } = event.data;

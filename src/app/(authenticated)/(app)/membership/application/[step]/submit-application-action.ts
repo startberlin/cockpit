@@ -146,16 +146,24 @@ export const submitApplicationAction = actionClient
       return { success: true };
     }
 
-    const eventToSend =
-      preSubmissionStatus === "membership_reconfirmation_pending"
-        ? { name: events.reconfirmationSubmitted.name }
-        : { name: events.applicationSubmitted.name };
+    const isReconfirmation =
+      preSubmissionStatus === "membership_reconfirmation_pending";
 
     try {
-      await inngest.send({
-        ...eventToSend,
-        data: { legalMembershipId: parsedInput.legalMembershipId },
-      });
+      await inngest.send(
+        isReconfirmation
+          ? {
+              name: events.reconfirmationSubmitted.name,
+              data: {
+                legalMembershipId: parsedInput.legalMembershipId,
+                userId: user.id,
+              },
+            }
+          : {
+              name: events.applicationSubmitted.name,
+              data: { legalMembershipId: parsedInput.legalMembershipId },
+            },
+      );
     } catch {
       await db.transaction(async (tx) => {
         await tx
