@@ -6,7 +6,7 @@ import { PlaceholderCard } from "./placeholder-card";
 // height. The fixed 14px stub below extends the connector line to row 2.
 export function DeptHeadCell({ dept }: { dept: OrgChartDept }) {
   const { head, departmentName, members } = dept;
-  const hasMembers = !!head && members.length > 0;
+  const hasMembers = members.length > 0;
 
   return (
     <div style={{ display: "grid", gridTemplateRows: "1fr 14px" }}>

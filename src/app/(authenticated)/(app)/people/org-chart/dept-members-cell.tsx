@@ -5,9 +5,7 @@ import { TreeConnector } from "./tree-connector";
 // Rendered in grid row 2, directly below DeptHeadCell with no row gap,
 // so tree connectors flow from the stub.
 export function DeptMembersCell({ dept }: { dept: OrgChartDept }) {
-  const { head, members } = dept;
-
-  if (!head) return <div />;
+  const { members } = dept;
 
   if (members.length === 0) {
     return (
