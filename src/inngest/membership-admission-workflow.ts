@@ -99,6 +99,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-task-email-${participant.userId}`,
         async () => {
+          if (!participant.email) return;
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
@@ -659,6 +660,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-completion-email-${participant.userId}`,
         async () => {
+          if (!participant.email) return;
           const attachments = boardCompletionData.boardResolutionDriveFileId
             ? [
                 {

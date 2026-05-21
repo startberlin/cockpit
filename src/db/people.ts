@@ -22,7 +22,7 @@ export interface PublicUser {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
   image: string | null;
   department: Department | null;
   batchNumber: number | null;
@@ -34,8 +34,8 @@ export interface UserDetail {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  personalEmail: string;
+  email: string | null;
+  personalEmail: string | null;
   phone: string | null;
   street: string | null;
   city: string | null;
@@ -245,8 +245,8 @@ export interface UserDetails {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  personalEmail: string;
+  email: string | null;
+  personalEmail: string | null;
   phone: string | null;
   street: string | null;
   city: string | null;

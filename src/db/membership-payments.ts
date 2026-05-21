@@ -162,7 +162,7 @@ const userPaymentColumns = {
 
 export interface MembershipPaymentCycleWithUser extends MembershipPaymentCycle {
   userName: string;
-  userEmail: string;
+  userEmail: string | null;
   gocardlessMandateId: string | null;
   gocardlessCustomerId: string | null;
 }

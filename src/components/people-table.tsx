@@ -153,7 +153,9 @@ export function PeopleTable({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => navigator.clipboard.writeText(user.email)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(user.email ?? "")
+                    }
                   >
                     Copy email
                   </DropdownMenuItem>

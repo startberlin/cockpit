@@ -152,7 +152,7 @@ export interface PositionHolder {
   userId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
 }
 
 export interface PositionAssignments {

@@ -39,6 +39,10 @@ export const startMembershipPaymentAction = actionClient.action(
     const returnUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership/payment-return`;
     const exitUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`;
 
+    if (!ctx.user.email) {
+      throw new Error("Your account email is no longer active.");
+    }
+
     const flow = await createMembershipFlow({
       userId: ctx.user.id,
       email: ctx.user.email,

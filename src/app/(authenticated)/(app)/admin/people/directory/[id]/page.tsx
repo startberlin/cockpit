@@ -114,7 +114,10 @@ export default async function UserDetailPage({ params }: PageProps) {
           </div>
           <div className="flex items-center gap-2">
             {canImpersonate && (
-              <ImpersonateButton userId={user.id} userEmail={user.email} />
+              <ImpersonateButton
+                userId={user.id}
+                userEmail={user.email ?? ""}
+              />
             )}
             {canProposeMembership && (
               <ProposeMembershipButton

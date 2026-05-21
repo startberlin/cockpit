@@ -11,6 +11,10 @@ export const getSlackStatusAction = actionClient.action(async ({ ctx }) => {
 
   const email = ctx.user.email;
 
+  if (!email) {
+    return { exists: false };
+  }
+
   const res = await slack.users.lookupByEmail({
     email,
   });

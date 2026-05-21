@@ -31,8 +31,14 @@ export const syncGoogleWorkspaceUserNameWorkflow = inngest.createFunction(
       return { status: "local-user-not-found" };
     }
 
+    if (!localUser.email) {
+      return { status: "email-erased" };
+    }
+
+    const email = localUser.email;
+
     const workspaceUser = await step.run("load-workspace-user", async () => {
-      return await getWorkspaceUser(localUser.email);
+      return await getWorkspaceUser(email);
     });
 
     if (!workspaceUser) {
@@ -46,7 +52,7 @@ export const syncGoogleWorkspaceUserNameWorkflow = inngest.createFunction(
     }
 
     await step.run("update-workspace-name", async () => {
-      await updateWorkspaceUserName(localUser.email, nameUpdate);
+      await updateWorkspaceUserName(email, nameUpdate);
     });
 
     return { status: "workspace-name-updated" };

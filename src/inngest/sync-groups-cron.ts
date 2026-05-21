@@ -127,23 +127,29 @@ export const syncGroupsCron = inngest.createFunction(
             createGoogleGroup(g.googleEmailPrefix!, g.name),
           );
 
+          const activeMembersForPopulate = dbMembers.filter(
+            (m): m is { email: string; userId: string } => m.email !== null,
+          );
           await Promise.all(
-            dbMembers.map((m) =>
+            activeMembersForPopulate.map((m) =>
               step.run(`populate-${g.id}-${m.userId}`, () =>
                 addGroupMember(groupEmail, m.email),
               ),
             ),
           );
 
-          googleAdded += dbMembers.length;
+          googleAdded += activeMembersForPopulate.length;
         } else {
+          const activeMembers = dbMembers.filter(
+            (m): m is { email: string; userId: string } => m.email !== null,
+          );
           const googleSet = new Set(
             googleEmails.map((email) => email.toLowerCase()),
           );
           const dbEmailSet = new Set(
-            dbMembers.map((m) => m.email.toLowerCase()),
+            activeMembers.map((m) => m.email.toLowerCase()),
           );
-          const toAdd = dbMembers.filter(
+          const toAdd = activeMembers.filter(
             (m) => !googleSet.has(m.email.toLowerCase()),
           );
           const toRemove = googleEmails.filter(

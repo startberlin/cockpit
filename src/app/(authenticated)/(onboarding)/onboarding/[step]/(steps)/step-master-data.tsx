@@ -137,7 +137,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
               <FieldLabel htmlFor="email">Email</FieldLabel>
               <InputGroup>
                 <InputGroupInput
-                  value={user.email}
+                  value={user.email ?? ""}
                   disabled
                   className="w-full"
                 />

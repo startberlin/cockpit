@@ -42,10 +42,15 @@ export const reconcileGroupMembershipWorkflow = inngest.createFunction(
             .where(eq(usersToGroups.groupId, groupId)),
         ]);
 
+        const activeMembers = dbMembers.filter(
+          (m): m is { email: string } => m.email !== null,
+        );
         const googleSet = new Set(googleEmails);
-        const dbEmailSet = new Set(dbMembers.map((m) => m.email.toLowerCase()));
+        const dbEmailSet = new Set(
+          activeMembers.map((m) => m.email.toLowerCase()),
+        );
 
-        const toAdd = dbMembers.filter(
+        const toAdd = activeMembers.filter(
           (m) => !googleSet.has(m.email.toLowerCase()),
         );
         const toRemove = googleEmails.filter((e) => !dbEmailSet.has(e));
