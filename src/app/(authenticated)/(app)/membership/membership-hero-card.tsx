@@ -138,20 +138,20 @@ export function MembershipHeroCard({
   return (
     <Card className="gap-0">
       <CardHeader className="gap-0">
-        {badgeLabel && (
+        {variant === "processing" ? (
+          <span className="mb-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+            <Loader2Icon className="size-3 animate-spin" />
+            Processing
+          </span>
+        ) : badgeLabel ? (
           <span className="mb-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
             <span className="size-1.5 rounded-full bg-muted-foreground/50" />
             {badgeLabel}
           </span>
-        )}
-        <div className="flex items-start gap-2">
-          {variant === "processing" && (
-            <Loader2Icon className="mt-1 size-5 shrink-0 animate-spin text-muted-foreground" />
-          )}
-          <h2 className="text-3xl font-black uppercase tracking-tight leading-none">
-            {headline}
-          </h2>
-        </div>
+        ) : null}
+        <h2 className="text-3xl font-black uppercase tracking-tight leading-none">
+          {headline}
+        </h2>
         {body && (
           <CardDescription className="mt-3 text-sm leading-relaxed">
             {body}
