@@ -1,15 +1,5 @@
 "use client";
 
-import "@xyflow/react/dist/style.css";
-import {
-  Background,
-  Controls,
-  type Edge,
-  type Node,
-  type NodeProps,
-  Position,
-  ReactFlow,
-} from "@xyflow/react";
 import { parseAsInteger, useQueryState } from "nuqs";
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,26 +12,29 @@ import {
 } from "@/components/ui/select";
 import type { OrgChartUser } from "@/db/people";
 import {
-  applyFilters,
+  applyBatchFilter,
   buildOrgChart,
-  CARD_H,
-  CARD_W,
-  type OrgNodeData,
+  type OrgChartDept,
+  type OrgChartPerson,
 } from "@/lib/org-chart";
 
-// ─── Custom node components ───────────────────────────────────────────────────
+// ─── Card primitives ──────────────────────────────────────────────────────────
 
-function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
-  const first = data.firstName ?? "";
-  const last = data.lastName ?? "";
-  const initials = `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
-  const avatarSize = data.userId ? 40 : 32;
+function PersonCard({
+  person,
+  subtitle,
+  avatarSize = 40,
+}: {
+  person: OrgChartPerson;
+  subtitle?: string;
+  avatarSize?: number;
+}) {
+  const initials =
+    `${person.firstName[0] ?? ""}${person.lastName[0] ?? ""}`.toUpperCase();
 
   return (
     <div
       style={{
-        width: CARD_W,
-        minHeight: CARD_H,
         borderRadius: 4,
         border: "1px solid var(--border)",
         background: "var(--card)",
@@ -50,11 +43,13 @@ function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        userSelect: "none",
       }}
     >
       <Avatar style={{ width: avatarSize, height: avatarSize, flexShrink: 0 }}>
-        <AvatarImage src={data.image ?? undefined} alt={`${first} ${last}`} />
+        <AvatarImage
+          src={person.image ?? undefined}
+          alt={`${person.firstName} ${person.lastName}`}
+        />
         <AvatarFallback style={{ fontSize: avatarSize < 36 ? 11 : 13 }}>
           {initials}
         </AvatarFallback>
@@ -68,9 +63,9 @@ function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
             overflowWrap: "anywhere",
           }}
         >
-          {first} {last}
+          {person.firstName} {person.lastName}
         </div>
-        {data.roleLabel && (
+        {subtitle && (
           <div
             style={{
               fontSize: 12,
@@ -80,20 +75,7 @@ function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
               overflowWrap: "anywhere",
             }}
           >
-            {data.roleLabel}
-          </div>
-        )}
-        {!data.roleLabel && data.batchNumber != null && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--muted-foreground)",
-              marginTop: 3,
-              lineHeight: 1.35,
-            }}
-          >
-            Batch #{data.batchNumber}
-            {data.status === "onboarding" ? " · Onboarding" : ""}
+            {subtitle}
           </div>
         )}
       </div>
@@ -101,77 +83,160 @@ function PersonFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
   );
 }
 
-function DeptPlaceholderFlowNode({ data }: NodeProps<Node<OrgNodeData>>) {
-  const label = data.hasHead
-    ? `${data.departmentName} lead in another batch`
-    : `No ${data.departmentName} lead assigned`;
-
+function PlaceholderCard({ text }: { text: string }) {
   return (
     <div
       style={{
-        width: CARD_W,
-        minHeight: CARD_H,
+        minHeight: 68,
         borderRadius: 4,
         border: "1px dashed var(--border)",
         background: "var(--muted)",
         padding: 14,
         display: "flex",
         alignItems: "center",
-        userSelect: "none",
       }}
     >
-      <div
+      <span
         style={{
           fontSize: 13,
           color: "var(--muted-foreground)",
           lineHeight: 1.4,
         }}
       >
-        {label}
-      </div>
+        {text}
+      </span>
     </div>
   );
 }
 
-// Stable references so React Flow doesn't remount on every render
-const nodeTypes = {
-  officer: PersonFlowNode,
-  deptHead: PersonFlowNode,
-  member: PersonFlowNode,
-  deptPlaceholder: DeptPlaceholderFlowNode,
-};
+// ─── Tree connector ───────────────────────────────────────────────────────────
 
-// ─── Conversion helpers ───────────────────────────────────────────────────────
-
-function toFlowNodes(
-  orgNodes: ReturnType<typeof buildOrgChart>["nodes"],
-): Node[] {
-  return orgNodes.map((n) => ({
-    id: n.id,
-    type: n.type,
-    position: n.position,
-    data: n.data,
-    selectable: false,
-    draggable: false,
-    connectable: false,
-    sourcePosition: Position.Bottom,
-    targetPosition: Position.Top,
-  }));
+// L-shaped lines connecting a dept head to its members.
+function TreeConnector({ isLast }: { isLast: boolean }) {
+  return (
+    <div style={{ position: "relative", width: 26, flexShrink: 0 }}>
+      {/* Vertical segment — runs from the top down to the card midpoint (or to the bottom for non-last) */}
+      <div
+        style={{
+          position: "absolute",
+          left: 13,
+          top: 0,
+          bottom: isLast ? "50%" : 0,
+          width: 1,
+          background: "var(--border)",
+        }}
+      />
+      {/* Horizontal stub — enters the card at its vertical midpoint */}
+      <div
+        style={{
+          position: "absolute",
+          left: 13,
+          right: 0,
+          top: "50%",
+          height: 1,
+          background: "var(--border)",
+        }}
+      />
+    </div>
+  );
 }
 
-function toFlowEdges(
-  orgEdges: ReturnType<typeof buildOrgChart>["edges"],
-): Edge[] {
-  return orgEdges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: "smoothstep",
-    style: { stroke: "var(--border)" },
-  }));
+// ─── Department column ────────────────────────────────────────────────────────
+
+function DeptColumn({
+  dept,
+  batchFilter,
+}: {
+  dept: OrgChartDept;
+  batchFilter: number | null;
+}) {
+  const { head, headExists, members, departmentName } = dept;
+
+  const headCard = head ? (
+    <PersonCard person={head} subtitle={head.roleLabel} />
+  ) : headExists ? (
+    <PlaceholderCard text={`${departmentName} lead in another batch`} />
+  ) : (
+    <PlaceholderCard text={`No ${departmentName} lead assigned`} />
+  );
+
+  const emptyMessage =
+    batchFilter != null
+      ? `No Batch #${batchFilter} members`
+      : "No team members yet";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {headCard}
+
+      {head && members.length > 0 && (
+        <>
+          {/* Short vertical stub from head card down to the first connector */}
+          <div style={{ height: 14, position: "relative" }}>
+            <div
+              style={{
+                position: "absolute",
+                left: 13,
+                top: 0,
+                bottom: 0,
+                width: 1,
+                background: "var(--border)",
+              }}
+            />
+          </div>
+
+          <div>
+            {members.map((member, i) => (
+              <div
+                key={member.userId}
+                style={{ display: "flex", alignItems: "stretch" }}
+              >
+                <TreeConnector isLast={i === members.length - 1} />
+                <div style={{ flex: 1, minWidth: 0, padding: "6px 0" }}>
+                  <PersonCard
+                    person={member}
+                    subtitle={
+                      member.batchNumber != null
+                        ? `Batch #${member.batchNumber}${member.status === "onboarding" ? " · Onboarding" : ""}`
+                        : undefined
+                    }
+                    avatarSize={32}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {head && members.length === 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 14,
+            borderRadius: 4,
+            border: "1px dashed var(--border)",
+            background: "var(--muted)",
+            fontSize: 12,
+            color: "var(--muted-foreground)",
+            textAlign: "center",
+          }}
+        >
+          {emptyMessage}
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ─── Main client component ────────────────────────────────────────────────────
+// ─── Page client ──────────────────────────────────────────────────────────────
+
+// Column sizing constants
+const COLUMN_W = 200;
+const COL_GAP = 16;
+const DEPT_COUNT = 5;
+// Minimum inner content width so columns never shrink below COLUMN_W
+const MIN_CONTENT_W = DEPT_COUNT * COLUMN_W + (DEPT_COUNT - 1) * COL_GAP;
 
 interface OrgChartPageClientProps {
   users: OrgChartUser[];
@@ -187,35 +252,22 @@ export default function OrgChartPageClient({
     parseAsInteger.withOptions({ shallow: true, clearOnDefault: true }),
   );
 
-  const { nodes: allNodes, edges: allEdges } = React.useMemo(
-    () => buildOrgChart(users),
-    [users],
-  );
+  const data = React.useMemo(() => buildOrgChart(users), [users]);
 
-  const { nodes: filteredOrgNodes, edges: filteredOrgEdges } = React.useMemo(
-    () => applyFilters(allNodes, allEdges, { batchFilter }),
-    [allNodes, allEdges, batchFilter],
-  );
-
-  const flowNodes = React.useMemo(
-    () => toFlowNodes(filteredOrgNodes),
-    [filteredOrgNodes],
-  );
-
-  const flowEdges = React.useMemo(
-    () => toFlowEdges(filteredOrgEdges),
-    [filteredOrgEdges],
+  const { officers, departments } = React.useMemo(
+    () => applyBatchFilter(data, batchFilter),
+    [data, batchFilter],
   );
 
   return (
-    <div className="flex flex-col gap-4 h-full">
-      {/* Filter bar — same width as page content */}
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-6">
+      {/* Batch filter — stays within normal page content width */}
+      <div>
         <Select
           value={batchFilter != null ? String(batchFilter) : "all"}
-          onValueChange={(val) => {
-            setBatchFilter(val === "all" ? null : Number(val));
-          }}
+          onValueChange={(val) =>
+            setBatchFilter(val === "all" ? null : Number(val))
+          }
         >
           <SelectTrigger className="h-9 w-44">
             <SelectValue placeholder="All batches" />
@@ -231,29 +283,58 @@ export default function OrgChartPageClient({
         </Select>
       </div>
 
-      {/* Full-width canvas — breaks out of max-w-4xl container */}
+      {/* Full-width horizontally scrollable canvas */}
       <div
-        className="flex-1 min-h-0 border overflow-hidden"
         style={{
+          overflowX: "auto",
+          // Break out of max-w-4xl to use the full sidebar-inset width
           marginLeft:
             "calc(-1 * max(0rem, (100vw - var(--sidebar-width, 16rem) - 56rem) / 2) - 1.5rem)",
           width: "calc(100vw - var(--sidebar-width, 16rem))",
         }}
       >
-        <ReactFlow
-          nodes={flowNodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.15 }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          proOptions={{ hideAttribution: false }}
+        <div
+          style={{
+            minWidth: MIN_CONTENT_W + 48, // +48 for left+right padding
+            padding: "0 24px 32px",
+          }}
         >
-          <Background />
-          <Controls showInteractive={false} />
-        </ReactFlow>
+          {/* Officers — centered row, no edges to anything below */}
+          {officers.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: COL_GAP,
+                marginBottom: 32,
+              }}
+            >
+              {officers.map((officer) => (
+                <div key={officer.userId} style={{ width: COLUMN_W }}>
+                  <PersonCard person={officer} subtitle={officer.roleLabel} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Department columns */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${DEPT_COUNT}, 1fr)`,
+              gap: COL_GAP,
+              alignItems: "start",
+            }}
+          >
+            {departments.map((dept) => (
+              <DeptColumn
+                key={dept.departmentId}
+                dept={dept}
+                batchFilter={batchFilter}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

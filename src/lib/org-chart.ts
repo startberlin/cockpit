@@ -2,51 +2,41 @@ import type { OrgChartUser } from "@/db/people";
 import type { Department } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 
-// ─── Layout constants ─────────────────────────────────────────────────────────
-
-export const CARD_W = 200;
-export const CARD_H = 80;
-const H_GAP = 20;
-const V_GAP = 64;
-const DEPT_COL_GAP = 40;
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type OrgNodeType = "officer" | "deptPlaceholder" | "deptHead" | "member";
-
-export interface OrgNodeData {
-  userId?: string;
-  firstName?: string;
-  lastName?: string;
-  image?: string | null;
-  batchNumber?: number | null;
-  roleLabel?: string;
-  departmentId?: Department;
-  departmentName?: string;
-  status?: string;
-  hasHead?: boolean;
+export interface OrgChartPerson {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  image: string | null;
+  batchNumber: number | null;
 }
 
-export interface OrgChartNode {
-  id: string;
-  type: OrgNodeType;
-  position: { x: number; y: number };
-  data: OrgNodeData;
+export interface OrgChartOfficer extends OrgChartPerson {
+  roleLabel: string;
 }
 
-export interface OrgChartEdge {
-  id: string;
-  source: string;
-  target: string;
+export interface OrgChartDeptHead extends OrgChartPerson {
+  roleLabel: string;
+}
+
+export interface OrgChartMember extends OrgChartPerson {
+  status: string;
+}
+
+export interface OrgChartDept {
+  departmentId: Department;
+  departmentName: string;
+  /** Assigned head, null if none exists or head is filtered out by batch. */
+  head: OrgChartDeptHead | null;
+  /** True when a head is assigned (remains true even when filtered out). */
+  headExists: boolean;
+  members: OrgChartMember[];
 }
 
 export interface OrgChartData {
-  nodes: OrgChartNode[];
-  edges: OrgChartEdge[];
-}
-
-export interface FilterOptions {
-  batchFilter: number | null;
+  officers: OrgChartOfficer[];
+  departments: OrgChartDept[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -61,21 +51,11 @@ const ROLE_LABELS: Record<string, string> = {
   president: "President",
   vice_president: "Vice President",
   head_of_finance: "Head of Finance",
-  department_head: "Department Head",
 };
-
-// Row Y positions
-const OFFICER_ROW_Y = 0;
-const DEPT_HEAD_ROW_Y = CARD_H + V_GAP;
-const MEMBER_ROW_Y = DEPT_HEAD_ROW_Y + CARD_H + V_GAP;
 
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
-  const nodes: OrgChartNode[] = [];
-  const edges: OrgChartEdge[] = [];
-
-  // Step 1: classify users
   const officerByPosition = new Map<string, OrgChartUser>();
   const officerIds = new Set<string>();
   const deptHeadByDept = new Map<Department, OrgChartUser>();
@@ -103,6 +83,20 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
     Array.from(deptHeadByDept.values()).map((u) => u.id),
   );
 
+  const officers: OrgChartOfficer[] = GLOBAL_POSITION_ORDER.filter((p) =>
+    officerByPosition.has(p),
+  ).map((p) => {
+    const user = officerByPosition.get(p) as OrgChartUser;
+    return {
+      userId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      image: user.image,
+      batchNumber: user.batchNumber,
+      roleLabel: ROLE_LABELS[p],
+    };
+  });
+
   const membersByDept = new Map<Department, OrgChartUser[]>();
   for (const deptId of DEPARTMENT_IDS) {
     membersByDept.set(deptId, []);
@@ -115,158 +109,58 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
     membersByDept.get(user.department as Department)?.push(user);
   }
 
-  // Step 2: officer nodes (top row, no edges)
-  const presentOfficerPositions = GLOBAL_POSITION_ORDER.filter((p) =>
-    officerByPosition.has(p),
-  );
-
-  for (let i = 0; i < presentOfficerPositions.length; i++) {
-    const pos = presentOfficerPositions[i];
-    const user = officerByPosition.get(pos);
-    if (!user) continue;
-    nodes.push({
-      id: `officer-${pos}`,
-      type: "officer",
-      position: { x: i * (CARD_W + H_GAP), y: OFFICER_ROW_Y },
-      data: {
-        userId: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        image: user.image,
-        batchNumber: user.batchNumber,
-        roleLabel: ROLE_LABELS[pos],
-      },
-    });
-  }
-
-  // Step 3: department columns
-  let colX = 0;
-
-  for (const deptId of DEPARTMENT_IDS) {
-    const members = membersByDept.get(deptId) ?? [];
-    const numMembers = members.length;
-    const colWidth = Math.max(
-      CARD_W,
-      numMembers * CARD_W + Math.max(0, numMembers - 1) * H_GAP,
-    );
-    const centerX = colX + Math.floor((colWidth - CARD_W) / 2);
+  const departments: OrgChartDept[] = DEPARTMENT_IDS.map((deptId) => {
     const deptName = DEPARTMENT_NAMES[deptId];
-    const deptHead = deptHeadByDept.get(deptId);
-    const deptHeadNodeId = `dept-head-${deptId}`;
-
-    // Placeholder node (shown when head is absent or batch-filtered)
-    nodes.push({
-      id: `dept-placeholder-${deptId}`,
-      type: "deptPlaceholder",
-      position: { x: centerX, y: DEPT_HEAD_ROW_Y },
-      data: {
-        departmentId: deptId,
-        departmentName: deptName,
-        hasHead: !!deptHead,
-      },
-    });
-
-    // Dept head card (if assigned)
-    if (deptHead) {
-      nodes.push({
-        id: deptHeadNodeId,
-        type: "deptHead",
-        position: { x: centerX, y: DEPT_HEAD_ROW_Y },
-        data: {
-          userId: deptHead.id,
-          firstName: deptHead.firstName,
-          lastName: deptHead.lastName,
-          image: deptHead.image,
-          batchNumber: deptHead.batchNumber,
+    const headUser = deptHeadByDept.get(deptId);
+    const head: OrgChartDeptHead | null = headUser
+      ? {
+          userId: headUser.id,
+          firstName: headUser.firstName,
+          lastName: headUser.lastName,
+          image: headUser.image,
+          batchNumber: headUser.batchNumber,
           roleLabel: `Head of ${deptName}`,
-          departmentId: deptId,
-        },
-      });
-    }
+        }
+      : null;
 
-    // Member cards and edges
-    for (let i = 0; i < members.length; i++) {
-      const member = members[i];
-      const memberId = `member-${member.id}`;
+    const members: OrgChartMember[] = (membersByDept.get(deptId) ?? []).map(
+      (u) => ({
+        userId: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        image: u.image,
+        batchNumber: u.batchNumber,
+        status: u.status,
+      }),
+    );
 
-      nodes.push({
-        id: memberId,
-        type: "member",
-        position: {
-          x: colX + i * (CARD_W + H_GAP),
-          y: MEMBER_ROW_Y,
-        },
-        data: {
-          userId: member.id,
-          firstName: member.firstName,
-          lastName: member.lastName,
-          image: member.image,
-          batchNumber: member.batchNumber,
-          departmentId: deptId,
-          status: member.status,
-        },
-      });
+    return {
+      departmentId: deptId,
+      departmentName: deptName,
+      head,
+      headExists: !!head,
+      members,
+    };
+  });
 
-      if (deptHead) {
-        edges.push({
-          id: `edge-${deptId}-${member.id}`,
-          source: deptHeadNodeId,
-          target: memberId,
-        });
-      }
-    }
-
-    colX += colWidth + DEPT_COL_GAP;
-  }
-
-  return { nodes, edges };
+  return { officers, departments };
 }
 
 // ─── Filter ───────────────────────────────────────────────────────────────────
 
-export function applyFilters(
-  nodes: OrgChartNode[],
-  edges: OrgChartEdge[],
-  opts: FilterOptions,
+export function applyBatchFilter(
+  data: OrgChartData,
+  batchFilter: number | null,
 ): OrgChartData {
-  const { batchFilter } = opts;
+  if (batchFilter === null) return data;
 
-  // Pre-compute which deptHead nodes pass the batch filter
-  const visibleDeptHeadIds = new Set(
-    nodes
-      .filter(
-        (n) =>
-          n.type === "deptHead" &&
-          (batchFilter === null || n.data.batchNumber === batchFilter),
-      )
-      .map((n) => n.id),
-  );
-
-  const visibleNodes = nodes.filter((node) => {
-    switch (node.type) {
-      case "officer":
-        return true;
-      case "deptHead":
-        return visibleDeptHeadIds.has(node.id);
-      case "deptPlaceholder": {
-        const headId = `dept-head-${node.data.departmentId}`;
-        // Show when there's no head at all, or the head is batch-filtered out
-        return !node.data.hasHead || !visibleDeptHeadIds.has(headId);
-      }
-      case "member": {
-        if (batchFilter === null) return true;
-        return node.data.batchNumber === batchFilter;
-      }
-      default:
-        return true;
-    }
-  });
-
-  const visibleIds = new Set(visibleNodes.map((n) => n.id));
-
-  const visibleEdges = edges.filter(
-    (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
-  );
-
-  return { nodes: visibleNodes, edges: visibleEdges };
+  return {
+    officers: data.officers,
+    departments: data.departments.map((dept) => ({
+      ...dept,
+      // headExists stays true (reflects original assignment, not filter state)
+      head: dept.head?.batchNumber === batchFilter ? dept.head : null,
+      members: dept.members.filter((m) => m.batchNumber === batchFilter),
+    })),
+  };
 }
