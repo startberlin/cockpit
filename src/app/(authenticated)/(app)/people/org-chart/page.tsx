@@ -17,16 +17,16 @@ export default async function OrgChartPage() {
   ]);
 
   return (
-    <>
+    <div className="h-full flex flex-col">
       <div className="pb-6">
         <h1 className="text-xl font-semibold">Org Chart</h1>
         <p className="text-muted-foreground text-sm mt-1">
           START Berlin organisation structure.
         </p>
       </div>
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0">
         <OrgChartPageClient users={users} batches={batches} />
       </div>
-    </>
+    </div>
   );
 }
