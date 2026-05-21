@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { render } from "@react-email/render";
+import { render } from "react-email";
 
 process.env.DATABASE_URL ??= "postgres://user:password@localhost:5432/test";
 process.env.BETTER_AUTH_SECRET ??= "test-secret";

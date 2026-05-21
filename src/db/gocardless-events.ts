@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { advancePaymentStatus } from "@/db/membership-payments";
+import MandateCancelledEmail from "@/emails/mandate-cancelled";
+import MembershipPaymentUpcomingEmail from "@/emails/membership-payment-upcoming";
+import { env } from "@/env";
+import { sendEmail } from "@/lib/email";
 import { reconcileMembershipPaymentByBillingRequestId } from "@/lib/gocardless/membership-reconciliation";
 import type { GoCardlessEvent } from "@/lib/gocardless/webhook";
 import {
@@ -33,10 +37,35 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
   }
 
   if (isMandateInvalidatedEvent(event) && event.links.mandate) {
+    // Look up user before clearing the mandate ID — field will be null after the UPDATE.
+    const mandateUser = await db.query.user.findFirst({
+      where: (u, { eq: eqFn }) =>
+        eqFn(u.gocardlessMandateId, event.links.mandate as string),
+      columns: { id: true, email: true, firstName: true },
+    });
+
     await db
       .update(user)
       .set({ gocardlessMandateId: null, gocardlessSetupSessionId: null })
       .where(eq(user.gocardlessMandateId, event.links.mandate));
+
+    const reSetupActions = ["cancelled", "expired", "failed"];
+    if (mandateUser?.email && reSetupActions.includes(event.action)) {
+      try {
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: mandateUser.email,
+          subject: "Action required: set up your membership payment again",
+          react: MandateCancelledEmail({
+            firstName: mandateUser.firstName ?? "",
+            membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+          }),
+        });
+      } catch (err) {
+        console.error("[mandate-cancelled email] failed to send:", err);
+      }
+    }
+
     return { status: "mandate_cleared" as const };
   }
 
@@ -55,7 +84,7 @@ async function handlePaymentEvent(event: GoCardlessEvent & { action: string }) {
 
   const row = await db.query.membershipPayments.findFirst({
     where: eq(membershipPayments.gocardlessPaymentId, gcPaymentId),
-    columns: { id: true, status: true },
+    columns: { id: true, status: true, userId: true, amount: true },
   });
 
   if (!row) {
@@ -94,5 +123,28 @@ async function handlePaymentEvent(event: GoCardlessEvent & { action: string }) {
       `Unexpected payment state: payment ${row.id} is '${row.status}', cannot apply event '${event.action}'`,
     );
   }
+
+  if (event.action === "submitted" && row.userId) {
+    try {
+      const paymentUser = await db.query.user.findFirst({
+        where: (u, { eq: eqFn }) => eqFn(u.id, row.userId as string),
+        columns: { email: true, firstName: true },
+      });
+      if (paymentUser?.email) {
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: paymentUser.email,
+          subject: "Your START Berlin membership payment is coming up",
+          react: MembershipPaymentUpcomingEmail({
+            firstName: paymentUser.firstName ?? "",
+            amountEur: (row.amount ?? 4000) / 100,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("[payment-upcoming email] failed to send:", err);
+    }
+  }
+
   return { status: event.action };
 }
