@@ -1,4 +1,5 @@
 import {
+  ClockIcon,
   FileTextIcon,
   InfoIcon,
   LandmarkIcon,
@@ -8,6 +9,7 @@ import {
 import Link from "next/link";
 import type React from "react";
 import { Button } from "@/components/ui/button";
+import type { MembershipTransitionRequest } from "@/db/membership-transitions";
 import type { UserStatus } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import type { StructuredMembershipState } from "@/lib/membership-status";
@@ -24,6 +26,7 @@ interface MembershipNoticeBlockProps {
   membershipState: StructuredMembershipState;
   legalMembershipStatus: LegalMembershipStatus | null;
   userStatus: UserStatus;
+  pendingTransition?: MembershipTransitionRequest | null;
 }
 
 function NoticePanel({
@@ -61,11 +64,13 @@ export function MembershipNoticeBlock({
   membershipState,
   legalMembershipStatus,
   userStatus,
+  pendingTransition,
 }: MembershipNoticeBlockProps) {
   const notice = deriveMembershipNotice(
     membershipState,
     legalMembershipStatus,
     userStatus,
+    pendingTransition,
   );
 
   if (!notice) return null;
@@ -143,6 +148,37 @@ export function MembershipNoticeBlock({
         title="Update your direct debit"
         body="Your direct debit authorization has expired or been cancelled. Set up a new one to keep your membership running smoothly."
         action={<PaymentButton variant="update" />}
+      />
+    );
+  }
+
+  if (notice === "transition_pending") {
+    const TRANSITION_LABELS: Record<
+      MembershipTransitionRequest["type"],
+      { title: string; body: string }
+    > = {
+      cancellation: {
+        title: "Cancellation in progress",
+        body: "Your cancellation request has been submitted and is being processed by the board. You'll receive an email once it's confirmed.",
+      },
+      alumni_request: {
+        title: "Alumni transition in progress",
+        body: "Your request to transition to alumni status has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+      },
+      supporting_alumni_request: {
+        title: "Supporting alumni transition in progress",
+        body: "Your request to become a supporting alumni member has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+      },
+    };
+    const transitionType = pendingTransition?.type ?? "cancellation";
+    const label = TRANSITION_LABELS[transitionType];
+    return (
+      <NoticePanel
+        icon={<ClockIcon className="size-5" />}
+        title={label.title}
+        body={label.body}
+        className="bg-amber-50 border-amber-200"
+        iconClassName="text-amber-600"
       />
     );
   }
