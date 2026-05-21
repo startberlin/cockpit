@@ -464,3 +464,53 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     })),
   };
 }
+
+// ─── Org chart ────────────────────────────────────────────────────────────────
+
+export interface OrgChartUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  image: string | null;
+  department: Department | null;
+  batchNumber: number | null;
+  status: UserStatus;
+  positions: Array<{
+    position: OrganizationPosition;
+    scope: AuthorityScope;
+    department: Department | null;
+  }>;
+}
+
+const ORG_CHART_STATUSES: UserStatus[] = ["member", "onboarding"];
+
+export async function getOrgChartData(): Promise<OrgChartUser[]> {
+  const rows = await db.query.user.findMany({
+    where: (u, { inArray }) => inArray(u.status, ORG_CHART_STATUSES),
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      image: true,
+      department: true,
+      status: true,
+    },
+    with: {
+      batch: { columns: { number: true } },
+      organizationPositions: {
+        columns: { position: true, scope: true, department: true },
+      },
+    },
+  });
+
+  return rows.map((u) => ({
+    id: u.id,
+    firstName: u.firstName ?? "",
+    lastName: u.lastName ?? "",
+    image: u.image ?? null,
+    department: u.department ?? null,
+    batchNumber: u.batch?.number ?? null,
+    status: u.status,
+    positions: u.organizationPositions,
+  }));
+}
