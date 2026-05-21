@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
-import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
+import { proposeMembershipAction } from "@/app/(authenticated)/(app)/(default)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
