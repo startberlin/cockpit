@@ -150,6 +150,42 @@ export async function updateWorkspaceUserName(
   }
 }
 
+export async function suspendWorkspaceUser(email: string): Promise<void> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] suspendWorkspaceUser(${email}) — skipped`,
+    );
+    return;
+  }
+
+  const admin = getDirectoryClient();
+
+  await admin.users.update({
+    userKey: email,
+    requestBody: { suspended: true },
+  });
+}
+
+export async function deleteWorkspaceUser(email: string): Promise<void> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] deleteWorkspaceUser(${email}) — skipped`,
+    );
+    return;
+  }
+
+  const admin = getDirectoryClient();
+
+  try {
+    await admin.users.delete({ userKey: email });
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return;
+    }
+    throw error;
+  }
+}
+
 function getGroupClient() {
   return google.admin({
     auth: createGoogleAuth(GROUP_SCOPE),
