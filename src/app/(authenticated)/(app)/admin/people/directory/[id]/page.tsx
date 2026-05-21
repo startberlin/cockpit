@@ -17,6 +17,7 @@ import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import { AuthorityCard } from "./authority-card";
+import { BoardKickButton } from "./board-kick-button";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { ImpersonateButton } from "./impersonate-button";
@@ -76,6 +77,8 @@ export default async function UserDetailPage({ params }: PageProps) {
 
   const canManageAuthority = await can("users.manage_authority");
   const canImpersonate = await can("users.impersonate");
+  const canRemoveMember =
+    user.status !== "cancelled" && (await can("membership.cancel_member"));
 
   const isEligibleForMembershipProposal =
     user.profileOnboardingComplete &&
@@ -121,6 +124,13 @@ export default async function UserDetailPage({ params }: PageProps) {
             )}
             {canProposeMembership && (
               <ProposeMembershipButton
+                userId={user.id}
+                firstName={user.firstName}
+                lastName={user.lastName}
+              />
+            )}
+            {canRemoveMember && (
+              <BoardKickButton
                 userId={user.id}
                 firstName={user.firstName}
                 lastName={user.lastName}

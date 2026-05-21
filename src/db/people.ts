@@ -1,5 +1,6 @@
 import { and, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cache } from "react";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
   getStructuredMembershipState,
   type StructuredMembershipState,
@@ -17,6 +18,7 @@ import type {
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
+import { userOrganizationPosition } from "./schema/authority";
 
 export interface PublicUser {
   id: string;
@@ -27,6 +29,7 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  positionLabel?: string | null;
   isEligibleForMembershipProposal?: boolean;
 }
 
@@ -132,7 +135,7 @@ export async function getAllUserPublicData({
       : undefined,
   );
 
-  const [rows, [{ total }]] = await Promise.all([
+  const [rows, positionRows, [{ total }]] = await Promise.all([
     db
       .select({
         id: userTable.id,
@@ -149,8 +152,45 @@ export async function getAllUserPublicData({
       .orderBy(userTable.firstName, userTable.lastName)
       .limit(PEOPLE_PAGE_SIZE)
       .offset(offset),
+    db
+      .select({
+        userId: userOrganizationPosition.userId,
+        position: userOrganizationPosition.position,
+        department: userOrganizationPosition.department,
+      })
+      .from(userOrganizationPosition),
     db.select({ total: count() }).from(userTable).where(whereClause),
   ]);
+
+  const POSITION_PRIORITY: Record<OrganizationPosition, number> = {
+    president: 0,
+    vice_president: 1,
+    head_of_finance: 2,
+    department_head: 3,
+  };
+
+  const GLOBAL_POSITION_LABELS: Partial<Record<OrganizationPosition, string>> =
+    {
+      president: "President",
+      vice_president: "Vice President",
+      head_of_finance: "Head of Finance",
+    };
+
+  const posLabelMap = new Map<string, { label: string; priority: number }>();
+  for (const p of positionRows) {
+    const priority = POSITION_PRIORITY[p.position];
+    const label =
+      p.position === "department_head"
+        ? p.department
+          ? `Head of ${DEPARTMENT_NAMES[p.department]}`
+          : "Department Head"
+        : (GLOBAL_POSITION_LABELS[p.position] ?? p.position);
+
+    const existing = posLabelMap.get(p.userId);
+    if (!existing || priority < existing.priority) {
+      posLabelMap.set(p.userId, { label, priority });
+    }
+  }
 
   return {
     users: rows.map((u) => ({
@@ -162,6 +202,7 @@ export async function getAllUserPublicData({
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
+      positionLabel: posLabelMap.get(u.id)?.label ?? null,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
@@ -169,20 +210,32 @@ export async function getAllUserPublicData({
   };
 }
 
+const ADMIN_DEFAULT_STATUSES: UserStatus[] = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+  "alumni",
+];
+
 export async function getAllUsersForAdmin({
   page = 1,
   search = "",
   status,
   department,
   batchNumber,
+  includeFormer = false,
 }: {
   page?: number;
   search?: string;
   status?: UserStatus[];
   department?: Department;
   batchNumber?: number;
+  includeFormer?: boolean;
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
+
+  const effectiveStatus =
+    status ?? (includeFormer ? undefined : ADMIN_DEFAULT_STATUSES);
 
   const searchClause = search
     ? or(
@@ -197,7 +250,9 @@ export async function getAllUsersForAdmin({
 
   const whereClause = and(
     searchClause,
-    status !== undefined ? inArray(userTable.status, status) : undefined,
+    effectiveStatus !== undefined
+      ? inArray(userTable.status, effectiveStatus)
+      : undefined,
     department !== undefined ? eq(userTable.department, department) : undefined,
     batchNumber !== undefined
       ? eq(userTable.batchNumber, batchNumber)

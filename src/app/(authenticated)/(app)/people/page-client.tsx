@@ -198,7 +198,8 @@ function PersonCard({ user }: { user: PublicUser }) {
   )?.label;
 
   const subtitle = [
-    user.department ? DEPARTMENT_NAMES[user.department] : null,
+    user.positionLabel ??
+      (user.department ? DEPARTMENT_NAMES[user.department] : null),
     user.batchNumber != null ? `Batch #${user.batchNumber}` : null,
   ]
     .filter(Boolean)
