@@ -59,7 +59,10 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
 
   for (const user of users) {
     for (const pos of user.positions) {
-      if (pos.scope === "global") {
+      if (
+        pos.scope === "global" &&
+        (GLOBAL_POSITION_ORDER as readonly string[]).includes(pos.position)
+      ) {
         officerIds.add(user.id);
         if (!officerByPosition.has(pos.position)) {
           officerByPosition.set(pos.position, user);

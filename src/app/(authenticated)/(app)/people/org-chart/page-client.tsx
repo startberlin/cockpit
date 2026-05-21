@@ -62,6 +62,8 @@ export default function OrgChartPageClient({ users }: OrgChartPageClientProps) {
       <div className="mx-auto w-full max-w-4xl px-6 pb-4 flex justify-end">
         <button
           type="button"
+          aria-label="Center org chart"
+          title="Center org chart"
           onClick={() => transformRef.current?.centerView(1, 300)}
           className="h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs border-input text-muted-foreground hover:bg-accent hover:text-foreground"
         >
