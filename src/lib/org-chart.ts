@@ -27,10 +27,7 @@ export interface OrgChartMember extends OrgChartPerson {
 export interface OrgChartDept {
   departmentId: Department;
   departmentName: string;
-  /** Assigned head, null if none exists or head is filtered out by batch. */
   head: OrgChartDeptHead | null;
-  /** True when a head is assigned (remains true even when filtered out). */
-  headExists: boolean;
   members: OrgChartMember[];
 }
 
@@ -138,29 +135,10 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       departmentId: deptId,
       departmentName: deptName,
       head,
-      headExists: !!head,
+
       members,
     };
   });
 
   return { officers, departments };
-}
-
-// ─── Filter ───────────────────────────────────────────────────────────────────
-
-export function applyBatchFilter(
-  data: OrgChartData,
-  batchFilter: number | null,
-): OrgChartData {
-  if (batchFilter === null) return data;
-
-  return {
-    officers: data.officers,
-    departments: data.departments.map((dept) => ({
-      ...dept,
-      // headExists stays true (reflects original assignment, not filter state)
-      head: dept.head?.batchNumber === batchFilter ? dept.head : null,
-      members: dept.members.filter((m) => m.batchNumber === batchFilter),
-    })),
-  };
 }

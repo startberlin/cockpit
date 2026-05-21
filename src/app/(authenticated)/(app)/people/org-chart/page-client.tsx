@@ -1,18 +1,15 @@
 "use client";
 
-import { parseAsInteger, useQueryState } from "nuqs";
+import { Crosshair } from "lucide-react";
 import * as React from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  type ReactZoomPanPinchRef,
+  TransformComponent,
+  TransformWrapper,
+} from "react-zoom-pan-pinch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { OrgChartUser } from "@/db/people";
 import {
-  applyBatchFilter,
   buildOrgChart,
   type OrgChartDept,
   type OrgChartPerson,
@@ -141,78 +138,62 @@ function TreeConnector({ isLast }: { isLast: boolean }) {
   );
 }
 
-// ─── Department column ────────────────────────────────────────────────────────
+// ─── Department cells ─────────────────────────────────────────────────────────
 
-function DeptColumn({
-  dept,
-  batchFilter,
-}: {
-  dept: OrgChartDept;
-  batchFilter: number | null;
-}) {
-  const { head, headExists, members, departmentName } = dept;
-
-  const headCard = head ? (
-    <PersonCard person={head} subtitle={head.roleLabel} />
-  ) : headExists ? (
-    <PlaceholderCard text={`${departmentName} lead in another batch`} />
-  ) : (
-    <PlaceholderCard text={`No ${departmentName} lead assigned`} />
-  );
-
-  const emptyMessage =
-    batchFilter != null
-      ? `No Batch #${batchFilter} members`
-      : "No team members yet";
+// Renders the head card for a department. Rendered in grid row 1 so CSS grid
+// normalises all head cells to the same height. The flexible stub below the
+// card extends the connector line down to the members row.
+function DeptHeadCell({ dept }: { dept: OrgChartDept }) {
+  const { head, departmentName, members } = dept;
+  const hasMembers = !!head && members.length > 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      {headCard}
-
-      {head && members.length > 0 && (
-        <>
-          {/* Short vertical stub from head card down to the first connector */}
-          <div style={{ height: 14, position: "relative" }}>
-            <div
-              style={{
-                position: "absolute",
-                left: 13,
-                top: 0,
-                bottom: 0,
-                width: 1,
-                background: "var(--border)",
-              }}
-            />
-          </div>
-
-          <div>
-            {members.map((member, i) => (
-              <div
-                key={member.userId}
-                style={{ display: "flex", alignItems: "stretch" }}
-              >
-                <TreeConnector isLast={i === members.length - 1} />
-                <div style={{ flex: 1, minWidth: 0, padding: "6px 0" }}>
-                  <PersonCard
-                    person={member}
-                    subtitle={
-                      member.batchNumber != null
-                        ? `Batch #${member.batchNumber}${member.status === "onboarding" ? " · Onboarding" : ""}`
-                        : undefined
-                    }
-                    avatarSize={32}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
+    // Inner grid: card row gets 1fr (fills outer-grid-stretched height minus stub),
+    // stub row is fixed 14px. This forces the card div to the same height in every
+    // column once the outer grid equalises row 1 across all cells.
+    <div style={{ display: "grid", gridTemplateRows: "1fr 14px" }}>
+      {head ? (
+        <PersonCard person={head} subtitle={head.roleLabel} />
+      ) : (
+        <PlaceholderCard text={`No Head of ${departmentName} assigned`} />
       )}
+      <div style={{ position: "relative" }}>
+        {hasMembers && (
+          <div
+            style={{
+              position: "absolute",
+              left: 13,
+              top: 0,
+              bottom: 0,
+              width: 1,
+              background: "var(--border)",
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {head && members.length === 0 && (
+// Renders the member list for a department. Rendered in grid row 2, directly
+// below DeptHeadCell with no row gap, so tree connectors flow from the stub.
+function DeptMembersCell({ dept }: { dept: OrgChartDept }) {
+  const { head, members } = dept;
+
+  if (!head) return <div />;
+
+  const emptyMessage = "No team members yet";
+
+  if (members.length === 0) {
+    return (
+      <div
+        style={{
+          paddingTop: 12,
+          paddingBottom: 8,
+        }}
+      >
         <div
           style={{
-            marginTop: 12,
             padding: 14,
             borderRadius: 4,
             border: "1px dashed var(--border)",
@@ -224,117 +205,155 @@ function DeptColumn({
         >
           {emptyMessage}
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {members.map((member, i) => (
+        <div
+          key={member.userId}
+          style={{ display: "flex", alignItems: "stretch" }}
+        >
+          <TreeConnector isLast={i === members.length - 1} />
+          <div style={{ flex: 1, minWidth: 0, padding: "6px 0" }}>
+            <PersonCard
+              person={member}
+              subtitle={
+                member.batchNumber != null
+                  ? `Batch #${member.batchNumber}${member.status === "onboarding" ? " · Onboarding" : ""}`
+                  : undefined
+              }
+              avatarSize={32}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ─── Page client ──────────────────────────────────────────────────────────────
 
-// Column sizing constants
-const COLUMN_W = 200;
+const OFFICER_W = 240;
+const DEPT_COL_W = 240;
 const COL_GAP = 16;
 const DEPT_COUNT = 5;
-// Minimum inner content width so columns never shrink below COLUMN_W
-const MIN_CONTENT_W = DEPT_COUNT * COLUMN_W + (DEPT_COUNT - 1) * COL_GAP;
+const SIDE_PAD = 120; // padding inside canvas on each side — visible at pan extremes
+const TOP_PAD = 32;
+// Canvas is wider than most viewports so centering gives natural side breathing room.
+const CANVAS_W =
+  DEPT_COUNT * DEPT_COL_W + (DEPT_COUNT - 1) * COL_GAP + SIDE_PAD * 2;
 
 interface OrgChartPageClientProps {
   users: OrgChartUser[];
-  batches: { number: number }[];
 }
 
-export default function OrgChartPageClient({
-  users,
-  batches,
-}: OrgChartPageClientProps) {
-  const [batchFilter, setBatchFilter] = useQueryState(
-    "batch",
-    parseAsInteger.withOptions({ shallow: true, clearOnDefault: true }),
-  );
+export default function OrgChartPageClient({ users }: OrgChartPageClientProps) {
+  const transformRef = React.useRef<ReactZoomPanPinchRef>(null);
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
 
-  const data = React.useMemo(() => buildOrgChart(users), [users]);
+  // Mouse wheel → horizontal pan. Must be non-passive to allow preventDefault
+  // (which stops the page from scrolling while hovering the canvas).
+  React.useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const onWheel = (e: WheelEvent) => {
+      // Only intercept horizontal scroll (trackpad two-finger swipe left/right).
+      // Vertical scroll is left to the browser so the page scrolls normally.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const state = transformRef.current?.state;
+      if (!state) return;
+      transformRef.current?.setTransform(state.positionX - e.deltaX, 0, 1, 0);
+    };
+
+    wrapper.addEventListener("wheel", onWheel, { passive: false });
+    return () => wrapper.removeEventListener("wheel", onWheel);
+  }, []);
 
   const { officers, departments } = React.useMemo(
-    () => applyBatchFilter(data, batchFilter),
-    [data, batchFilter],
+    () => buildOrgChart(users),
+    [users],
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Batch filter — stays within normal page content width */}
-      <div>
-        <Select
-          value={batchFilter != null ? String(batchFilter) : "all"}
-          onValueChange={(val) =>
-            setBatchFilter(val === "all" ? null : Number(val))
-          }
+    <div>
+      {/* Controls bar — constrained to the same max-w-4xl as the title */}
+      <div className="mx-auto w-full max-w-4xl px-6 pb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => transformRef.current?.centerView(1, 300)}
+          className="h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs border-input text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <SelectTrigger className="h-9 w-44">
-            <SelectValue placeholder="All batches" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All batches</SelectItem>
-            {batches.map((b) => (
-              <SelectItem key={b.number} value={String(b.number)}>
-                Batch #{b.number}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Crosshair size={14} />
+        </button>
       </div>
 
-      {/* Full-width horizontally scrollable canvas */}
-      <div
-        style={{
-          overflowX: "auto",
-          // Break out of max-w-4xl to use the full sidebar-inset width
-          marginLeft:
-            "calc(-1 * max(0rem, (100vw - var(--sidebar-width, 16rem) - 56rem) / 2) - 1.5rem)",
-          width: "calc(100vw - var(--sidebar-width, 16rem))",
-        }}
-      >
-        <div
-          style={{
-            minWidth: MIN_CONTENT_W + 48, // +48 for left+right padding
-            padding: "0 24px 32px",
-          }}
+      {/* Full-width panning area — no breakout math needed because this page
+          has no max-w-4xl wrapper (it lives outside the (default) layout group). */}
+      <div ref={wrapperRef} style={{ width: "100%", overflowX: "hidden" }}>
+        {/* zoom off, pan only, free panning (no bounds enforced) */}
+        <TransformWrapper
+          ref={transformRef}
+          initialScale={1}
+          minScale={1}
+          maxScale={1}
+          wheel={{ disabled: true }}
+          pinch={{ disabled: true }}
+          doubleClick={{ disabled: true }}
+          limitToBounds={false}
+          panning={{ lockAxisY: true }}
         >
-          {/* Officers — centered row, no edges to anything below */}
-          {officers.length > 0 && (
+          <TransformComponent wrapperStyle={{ width: "100%", cursor: "grab" }}>
             <div
               style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: COL_GAP,
-                marginBottom: 32,
+                width: CANVAS_W,
+                padding: `${TOP_PAD}px ${SIDE_PAD}px 40px`,
               }}
             >
-              {officers.map((officer) => (
-                <div key={officer.userId} style={{ width: COLUMN_W }}>
-                  <PersonCard person={officer} subtitle={officer.roleLabel} />
+              {/* Officers — centered row, grid equalises card heights */}
+              {officers.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${officers.length}, ${OFFICER_W}px)`,
+                    justifyContent: "center",
+                    gap: COL_GAP,
+                    marginBottom: 32,
+                  }}
+                >
+                  {officers.map((officer) => (
+                    <PersonCard
+                      key={officer.userId}
+                      person={officer}
+                      subtitle={officer.roleLabel}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
 
-          {/* Department columns */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${DEPT_COUNT}, 1fr)`,
-              gap: COL_GAP,
-              alignItems: "start",
-            }}
-          >
-            {departments.map((dept) => (
-              <DeptColumn
-                key={dept.departmentId}
-                dept={dept}
-                batchFilter={batchFilter}
-              />
-            ))}
-          </div>
-        </div>
+              {/* Department grid: heads in row 1 (equalised height), members in row 2.
+                columnGap only — rowGap stays 0 so the stub connects to tree connectors. */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${DEPT_COUNT}, 1fr)`,
+                  columnGap: COL_GAP,
+                }}
+              >
+                {departments.map((dept) => (
+                  <DeptHeadCell key={dept.departmentId} dept={dept} />
+                ))}
+                {departments.map((dept) => (
+                  <DeptMembersCell key={`m-${dept.departmentId}`} dept={dept} />
+                ))}
+              </div>
+            </div>
+          </TransformComponent>
+        </TransformWrapper>
       </div>
     </div>
   );

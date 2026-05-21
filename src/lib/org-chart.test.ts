@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { OrgChartUser } from "@/db/people";
-import { applyBatchFilter, buildOrgChart } from "@/lib/org-chart";
+import { buildOrgChart } from "@/lib/org-chart";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -139,14 +139,6 @@ describe("buildOrgChart", () => {
     assert.equal(events.head?.roleLabel, "Head of Events");
   });
 
-  it("headExists is true when head assigned, false when none", () => {
-    const { departments } = buildOrgChart([eventsHead]);
-    const events = departments.find((d) => d.departmentId === "events");
-    const growth = departments.find((d) => d.departmentId === "growth");
-    assert.equal(events?.headExists, true);
-    assert.equal(growth?.headExists, false);
-  });
-
   it("dept head is not duplicated as a dept member", () => {
     const { departments } = buildOrgChart([eventsHead, eventsMember1]);
     const events = departments.find((d) => d.departmentId === "events");
@@ -183,69 +175,5 @@ describe("buildOrgChart", () => {
     const { departments } = buildOrgChart([onboarding]);
     const events = departments.find((d) => d.departmentId === "events");
     assert.equal(events?.members[0]?.status, "onboarding");
-  });
-});
-
-// ─── applyBatchFilter ─────────────────────────────────────────────────────────
-
-describe("applyBatchFilter", () => {
-  const allUsers = [
-    president,
-    vp,
-    hof,
-    eventsHead,
-    eventsMember1,
-    eventsMember2,
-    growthHead,
-    growthMember,
-  ];
-
-  function chart() {
-    return buildOrgChart(allUsers);
-  }
-
-  it("null filter returns data unchanged", () => {
-    const data = chart();
-    const filtered = applyBatchFilter(data, null);
-    assert.equal(filtered.officers.length, data.officers.length);
-    assert.equal(filtered.departments.length, data.departments.length);
-    const events = filtered.departments.find(
-      (d) => d.departmentId === "events",
-    );
-    assert.equal(events?.members.length, 2);
-  });
-
-  it("always includes all officers regardless of batch", () => {
-    const { officers } = applyBatchFilter(chart(), 99);
-    assert.equal(officers.length, 3);
-  });
-
-  it("hides dept head whose batch does not match", () => {
-    // eventsHead batch=3, growthHead batch=4
-    const { departments } = applyBatchFilter(chart(), 3);
-    const events = departments.find((d) => d.departmentId === "events");
-    const growth = departments.find((d) => d.departmentId === "growth");
-    assert.ok(events?.head, "events head (batch 3) should be visible");
-    assert.equal(growth?.head, null, "growth head (batch 4) should be null");
-  });
-
-  it("headExists stays true when head is filtered out", () => {
-    const { departments } = applyBatchFilter(chart(), 3);
-    const growth = departments.find((d) => d.departmentId === "growth");
-    assert.equal(growth?.head, null);
-    assert.equal(growth?.headExists, true);
-  });
-
-  it("filters members to matching batch only", () => {
-    // eventsMember1 batch=3, eventsMember2 batch=5
-    const { departments } = applyBatchFilter(chart(), 3);
-    const events = departments.find((d) => d.departmentId === "events");
-    assert.equal(events?.members.length, 1);
-    assert.equal(events?.members[0]?.userId, "usr_events_m1");
-  });
-
-  it("removes all members when no member matches the batch", () => {
-    const { departments } = applyBatchFilter(chart(), 99);
-    assert.ok(departments.every((d) => d.members.length === 0));
   });
 });
