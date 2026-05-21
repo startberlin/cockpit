@@ -29,7 +29,10 @@ export const PositionAssignedEmail = ({
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
       If this was unexpected or you have any questions, please reach out to the
       Operations &amp; Digital department at{" "}
-      <span style={{ color: "#1C1917" }}>operations@start-berlin.com</span>.
+      <a href="mailto:operations@start-berlin.com" style={{ color: "#1C1917" }}>
+        operations@start-berlin.com
+      </a>
+      .
     </Text>
   </EmailShell>
 );

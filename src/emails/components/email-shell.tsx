@@ -45,7 +45,7 @@ export function EmailShell({
             format: "opentype",
           }}
           fontWeight={700}
-          fontStyle="bold"
+          fontStyle="normal"
         />
         <Font
           fontFamily="Avenir Next"

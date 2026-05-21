@@ -25,7 +25,7 @@ export const SignInInstructionsEmail = ({
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-      Your START Berlin Google account is ready. Use the details below to sign
+      Your START Berlin Google Account is ready. Use the details below to sign
       in.
     </Text>
     <EmailDetailBlock
