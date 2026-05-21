@@ -21,4 +21,8 @@ export const USER_STATUS_INFO: Record<
     label: "Alumni",
     description: "Former members who are no longer part of START Berlin.",
   },
+  cancelled: {
+    label: "Cancelled",
+    description: "Members whose membership has been cancelled.",
+  },
 } as const;

@@ -37,8 +37,29 @@ import {
   membershipPayments,
   membershipPaymentsRelations,
 } from "./membership-payments";
+import {
+  membershipTransitionReason,
+  membershipTransitionRequest,
+  membershipTransitionStatus,
+  membershipTransitionType,
+} from "./membership-transition-request";
 
 // Define relations here to avoid circular dependencies between schema files
+
+export const membershipTransitionRequestRelations = relations(
+  membershipTransitionRequest,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [membershipTransitionRequest.userId],
+      references: [user.id],
+    }),
+    decidedByUser: one(user, {
+      fields: [membershipTransitionRequest.decidedByUserId],
+      references: [user.id],
+      relationName: "decidedByUser",
+    }),
+  }),
+);
 
 export const legalMembershipRelations = relations(
   legalMembership,
@@ -98,6 +119,11 @@ export const schema = {
   gocardlessProcessedEvents,
   emailSuppression,
   emailSuppressionReason,
+  membershipTransitionRequest,
+  membershipTransitionRequestRelations,
+  membershipTransitionType,
+  membershipTransitionStatus,
+  membershipTransitionReason,
 };
 
 export * from "./auth";
@@ -109,3 +135,4 @@ export * from "./group";
 export * from "./legal-membership";
 export * from "./membership-application";
 export * from "./membership-payments";
+export * from "./membership-transition-request";

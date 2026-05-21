@@ -26,6 +26,7 @@ export const userStatus = pgEnum("user_status", [
   "member",
   "supporting_alumni",
   "alumni",
+  "cancelled",
 ]);
 
 export type UserStatus = (typeof userStatus.enumValues)[number];
@@ -47,7 +48,7 @@ export const departmentSchema = createSelectSchema(department);
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -64,7 +65,7 @@ export const user = pgTable("user", {
   country: text("country"),
   birthDate: date("birth_date"),
   memberSinceDate: date("member_since_date"),
-  personalEmail: text("personal_email").notNull(),
+  personalEmail: text("personal_email"),
   batchNumber: integer("batch_number").references(() => batch.number, {
     onDelete: "set null",
   }),
