@@ -208,6 +208,26 @@ export async function getPositionAssignments(
   return result;
 }
 
+export function getApprovalRecipients(
+  positions: PositionAssignments,
+  userId: string,
+  department: Department | null | undefined,
+): PositionHolder[] {
+  const deptHead = department
+    ? (positions.departmentHeads[department] ?? null)
+    : null;
+
+  if (deptHead && deptHead.userId !== userId) {
+    return [deptHead];
+  }
+
+  return [
+    positions.president,
+    positions.vice_president,
+    positions.head_of_finance,
+  ].filter((p): p is PositionHolder => p !== null && p.userId !== userId);
+}
+
 export async function getEligibleUsersForPositions(): Promise<
   PositionHolder[]
 > {

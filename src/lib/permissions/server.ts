@@ -20,7 +20,7 @@ import {
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
   action: UserScopedAction,
-  user: { department: Department | null },
+  user: { department?: Department | null; id?: string },
 ): Promise<boolean>;
 export function can(
   action: GroupScopedAction,
@@ -46,6 +46,7 @@ export async function can(
   if (isUserScopedAction(action)) {
     return evaluateAuth(authority, action, {
       targetDepartment: resource?.department ?? null,
+      targetUserId: resource?.id,
     });
   }
 

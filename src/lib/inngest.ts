@@ -37,7 +37,7 @@ export const events = {
     schema: staticSchema<{ legalMembershipId: string }>(),
   }),
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
-    schema: staticSchema<{ legalMembershipId: string }>(),
+    schema: staticSchema<{ legalMembershipId: string; userId: string }>(),
   }),
   groupCriteriaChanged: eventType("group/criteria.changed", {
     schema: staticSchema<{ groupId: string }>(),
@@ -63,6 +63,45 @@ export const events = {
       email: string;
       firstName: string;
       positionLabel: string;
+    }>(),
+  }),
+  cancellationRequested: eventType("membership/cancellation.requested", {
+    schema: staticSchema<{
+      userId: string;
+      transitionRequestId: string;
+      requiresAcknowledgement: boolean;
+      reason: "resigned" | "removed_by_board";
+    }>(),
+  }),
+  cancellationRetracted: eventType("membership/cancellation.retracted", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+    }>(),
+  }),
+  cancellationAcknowledged: eventType("membership/cancellation.acknowledged", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      acknowledgedByUserId: string;
+    }>(),
+  }),
+  transitionRequested: eventType("membership/transition.requested", {
+    schema: staticSchema<{
+      userId: string;
+      transitionRequestId: string;
+      type: "alumni_request" | "supporting_alumni_request";
+      keepPersonalEmail: boolean;
+    }>(),
+  }),
+  transitionRetracted: eventType("membership/transition.retracted", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+    }>(),
+  }),
+  transitionDecided: eventType("membership/transition.decided", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      decision: "approved" | "rejected";
+      decidedByUserId: string;
     }>(),
   }),
 };

@@ -4,9 +4,20 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 
-export type UserScopedAction = "user.view" | "user.membership.propose";
+export type UserScopedAction =
+  | "user.view"
+  | "user.membership.propose"
+  | "membership.cancel_own"
+  | "membership.transition.decide"
+  | "membership.cancellation.acknowledge";
 
-const userScopedActions = ["user.view", "user.membership.propose"] as const;
+const userScopedActions = [
+  "user.view",
+  "user.membership.propose",
+  "membership.cancel_own",
+  "membership.transition.decide",
+  "membership.cancellation.acknowledge",
+] as const;
 
 export function isUserScopedAction(action: Action): action is UserScopedAction {
   return (userScopedActions as readonly Action[]).includes(action);
@@ -21,6 +32,7 @@ export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
 export type UserScope = {
   targetDepartment: Department | null;
+  targetUserId?: string;
 };
 
 export type GroupScope = {
@@ -34,6 +46,7 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.vote",
   "membership.resolution.view",
+  "membership.cancel_member",
   "groups.view_all",
   "groups.create",
   "batches.manage",
@@ -178,6 +191,8 @@ function evaluateGlobalAction(
       return isLegalOfficer(authority);
     case "membership.resolution.view":
       return hasAdminGrant(authority) || isLegalOfficer(authority);
+    case "membership.cancel_member":
+      return isLegalOfficer(authority);
     case "groups.view_all":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "users.view_all":
@@ -204,6 +219,17 @@ function evaluateUserScopedAction(
     case "user.membership.propose":
       return (
         hasAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority, scope.targetDepartment)
+      );
+    case "membership.cancel_own":
+      return (
+        scope.targetUserId !== undefined &&
+        authority.userId === scope.targetUserId
+      );
+    case "membership.transition.decide":
+    case "membership.cancellation.acknowledge":
+      return (
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
