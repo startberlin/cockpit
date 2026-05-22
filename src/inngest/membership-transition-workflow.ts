@@ -4,6 +4,7 @@ import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
 import MembershipCancelledEmail from "@/emails/membership-cancelled";
+import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership-supporting-alumni-confirmed";
 import MembershipTransitionRejectedEmail from "@/emails/membership-transition-rejected";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -146,6 +147,19 @@ export const membershipTransitionWorkflow = inngest.createFunction(
             .where(eq(membershipTransitionRequest.id, transitionRequestId));
         });
       });
+
+      if (requestData.startEmail) {
+        await step.run("send-supporting-alumni-confirmation", async () => {
+          await sendEmail({
+            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            to: requestData.startEmail!,
+            subject: "You're now a Supporting Alumni of START Berlin",
+            react: MembershipSupportingAlumniConfirmedEmail({
+              firstName: requestData.firstName,
+            }),
+          });
+        });
+      }
 
       await step.sendEvent("fire-group-reconciliation", {
         name: events.cockpitUserUpdated.name,
