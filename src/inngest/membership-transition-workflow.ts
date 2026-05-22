@@ -1,10 +1,12 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
+import { getApprovalRecipients, getPositionAssignments } from "@/db/authority";
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
 import MembershipCancelledEmail from "@/emails/membership-cancelled";
 import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership-supporting-alumni-confirmed";
+import MembershipTerminationFyiEmail from "@/emails/membership-termination-fyi";
 import MembershipTransitionRejectedEmail from "@/emails/membership-transition-rejected";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -41,6 +43,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           email: true,
           personalEmail: true,
           gocardlessMandateId: true,
+          department: true,
         },
       });
 
@@ -60,6 +63,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         startEmail: userRecord.email,
         personalEmail: userRecord.personalEmail,
         mandateId: userRecord.gocardlessMandateId,
+        department: userRecord.department,
         legalMembershipId: lm?.id ?? null,
       };
     });
@@ -262,13 +266,44 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       });
     }
 
-    // Step 10: Fire group reconciliation.
+    // Step 10: Notify board and department head of the alumni transition.
+    await step.run("send-internal-fyi", async () => {
+      const positions = await getPositionAssignments();
+      const recipients = getApprovalRecipients(
+        positions,
+        userId,
+        requestData.department,
+      );
+      const subjectName =
+        `${requestData.firstName} ${requestData.lastName}`.trim();
+      const terminatedOn = new Date().toISOString().substring(0, 10);
+
+      await Promise.all(
+        recipients
+          .filter((r) => r.email)
+          .map((recipient) =>
+            sendEmail({
+              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              to: recipient.email!,
+              subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
+              react: MembershipTerminationFyiEmail({
+                firstName: recipient.firstName,
+                subjectName,
+                terminatedOn,
+                context: "alumni",
+              }),
+            }),
+          ),
+      );
+    });
+
+    // Step 11: Fire group reconciliation.
     await step.sendEvent("fire-group-reconciliation-alumni", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
     });
 
-    // Step 11: Erase personal data (personal email optionally preserved).
+    // Step 12: Erase personal data (personal email optionally preserved).
     await step.run("erase-personal-data", async () => {
       await db
         .update(user)
@@ -292,17 +327,17 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         .where(eq(membershipTransitionRequest.id, transitionRequestId));
     });
 
-    // Step 12: Wait 7 days before hard-deleting workspace account.
+    // Step 13: Wait 7 days before hard-deleting workspace account.
     await step.sleep("wait-7d-before-deletion", "7d");
 
-    // Step 13: Hard-delete Google Workspace account.
+    // Step 14: Hard-delete Google Workspace account.
     if (requestData.startEmail) {
       await step.run("hard-delete-google-account", async () => {
         await deleteWorkspaceUser(requestData.startEmail!);
       });
     }
 
-    // Step 14: Null the start email.
+    // Step 15: Null the start email.
     await step.run("null-start-email", async () => {
       await db.update(user).set({ email: null }).where(eq(user.id, userId));
     });

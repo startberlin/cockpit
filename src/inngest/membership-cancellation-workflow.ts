@@ -6,6 +6,7 @@ import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
 import MembershipCancellationAcknowledgementNeededEmail from "@/emails/membership-cancellation-acknowledgement-needed";
 import MembershipCancelledEmail from "@/emails/membership-cancelled";
+import MembershipTerminationFyiEmail from "@/emails/membership-termination-fyi";
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -200,13 +201,43 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       });
     }
 
-    // Step 8: Fire group reconciliation to remove from all Google groups.
+    // Step 8: Notify board and department head that the membership has ended.
+    await step.run("send-internal-fyi", async () => {
+      const positions = await getPositionAssignments();
+      const recipients = getApprovalRecipients(
+        positions,
+        userId,
+        userData.department,
+      );
+      const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+      const terminatedOn = new Date().toISOString().substring(0, 10);
+
+      await Promise.all(
+        recipients
+          .filter((r) => r.email)
+          .map((recipient) =>
+            sendEmail({
+              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              to: recipient.email!,
+              subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
+              react: MembershipTerminationFyiEmail({
+                firstName: recipient.firstName,
+                subjectName,
+                terminatedOn,
+                context: reason,
+              }),
+            }),
+          ),
+      );
+    });
+
+    // Step 10: Fire group reconciliation to remove from all Google groups.
     await step.sendEvent("fire-group-reconciliation", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
     });
 
-    // Step 9: Erase personal data and mark request executed.
+    // Step 11: Erase personal data and mark request executed.
     await step.run("erase-personal-data", async () => {
       await db
         .update(user)
@@ -230,17 +261,17 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         .where(eq(membershipTransitionRequest.id, transitionRequestId));
     });
 
-    // Step 10: Wait 7 days before hard-deleting the workspace account.
+    // Step 12: Wait 7 days before hard-deleting the workspace account.
     await step.sleep("wait-7d-before-deletion", "7d");
 
-    // Step 11: Hard-delete Google Workspace account.
+    // Step 13: Hard-delete Google Workspace account.
     if (userData.startEmail) {
       await step.run("hard-delete-google-account", async () => {
         await deleteWorkspaceUser(userData.startEmail!);
       });
     }
 
-    // Step 12: Null the start (START Berlin) email.
+    // Step 14: Null the start (START Berlin) email.
     await step.run("null-start-email", async () => {
       await db.update(user).set({ email: null }).where(eq(user.id, userId));
     });
