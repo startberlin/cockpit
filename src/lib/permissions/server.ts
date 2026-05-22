@@ -46,7 +46,6 @@ export async function can(
   if (isUserScopedAction(action)) {
     return evaluateAuth(authority, action, {
       targetDepartment: resource?.department ?? null,
-      targetUserId: resource?.id,
     });
   }
 

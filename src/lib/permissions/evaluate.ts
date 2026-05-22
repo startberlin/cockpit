@@ -7,14 +7,12 @@ import {
 export type UserScopedAction =
   | "user.view"
   | "user.membership.propose"
-  | "membership.cancel_own"
   | "membership.transition.decide"
   | "membership.cancellation.acknowledge";
 
 const userScopedActions = [
   "user.view",
   "user.membership.propose",
-  "membership.cancel_own",
   "membership.transition.decide",
   "membership.cancellation.acknowledge",
 ] as const;
@@ -32,7 +30,6 @@ export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
 export type UserScope = {
   targetDepartment: Department | null;
-  targetUserId?: string;
 };
 
 export type GroupScope = {
@@ -221,11 +218,6 @@ function evaluateUserScopedAction(
         hasAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
-      );
-    case "membership.cancel_own":
-      return (
-        scope.targetUserId !== undefined &&
-        authority.userId === scope.targetUserId
       );
     case "membership.transition.decide":
     case "membership.cancellation.acknowledge":

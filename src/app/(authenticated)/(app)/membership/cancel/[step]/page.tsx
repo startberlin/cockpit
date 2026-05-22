@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { getActiveLegalMembership } from "@/db/membership";
 import { getActiveMembershipTransitionRequest } from "@/db/membership-transitions";
 import { getCurrentUser } from "@/db/user";
-import { can } from "@/lib/permissions/server";
 import { StepConfirm, StepDetails } from "./(steps)/index";
 
 export default async function CancelStepPage({
@@ -12,10 +11,6 @@ export default async function CancelStepPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/auth");
-
-  if (!(await can("membership.cancel_own", { id: user.id }))) {
-    redirect("/membership");
-  }
 
   const pendingTransition = await getActiveMembershipTransitionRequest(user.id);
   if (pendingTransition) redirect("/membership");

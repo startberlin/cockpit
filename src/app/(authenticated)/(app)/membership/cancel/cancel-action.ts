@@ -3,11 +3,11 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import db from "@/db";
+import { getActiveLegalMembership } from "@/db/membership";
 import { createTransitionRequest } from "@/db/membership-transitions";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
 import { events, inngest } from "@/lib/inngest";
-import { can } from "@/lib/permissions/server";
 
 const schema = z.object({
   personalEmail: z
@@ -20,8 +20,9 @@ export const cancelMembershipAction = actionClient
   .action(async ({ ctx, parsedInput }) => {
     const { user } = ctx;
 
-    if (!(await can("membership.cancel_own", { id: user.id }))) {
-      throw new Error("You are not authorized to cancel your membership.");
+    const activeLegalMembership = await getActiveLegalMembership(user.id);
+    if (!activeLegalMembership || activeLegalMembership.status !== "active") {
+      throw new Error("You don't have an active membership to cancel.");
     }
 
     if (parsedInput.personalEmail) {

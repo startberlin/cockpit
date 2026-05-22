@@ -677,34 +677,6 @@ describe("permissions", () => {
       );
     });
 
-    it("allows member to cancel own membership when targetUserId matches", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ userId: "usr_self" }),
-          "membership.cancel_own",
-          {
-            targetDepartment: null,
-            targetUserId: "usr_self",
-          },
-        ),
-        true,
-      );
-    });
-
-    it("denies member from cancelling a different user's membership", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ userId: "usr_self" }),
-          "membership.cancel_own",
-          {
-            targetDepartment: null,
-            targetUserId: "usr_other",
-          },
-        ),
-        false,
-      );
-    });
-
     it("allows legal officer to decide on a transition in any department", () => {
       assert.equal(
         evaluateAuth(
