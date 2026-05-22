@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   addGroupCriteriaAction,
   removeGroupCriteriaAction,
-} from "@/app/(authenticated)/(app)/groups/[id]/criteria-actions";
+} from "@/app/(authenticated)/(app)/(default)/groups/[id]/criteria-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";

@@ -41,15 +41,13 @@ export default async function AppLayout({ children }: AppLayoutProps) {
       <BreadcrumbProvider>
         <SidebarProvider>
           <AppSidebar user={user} />
-          <SidebarInset>
+          <SidebarInset className="overflow-x-hidden">
             <ImpersonationBanner />
             <header className="flex h-14 min-h-14 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger className="-ml-1" />
               <NavBreadcrumb />
             </header>
-            <div className="mx-auto w-full max-w-4xl flex-1 p-6">
-              {children}
-            </div>
+            {children}
           </SidebarInset>
         </SidebarProvider>
       </BreadcrumbProvider>

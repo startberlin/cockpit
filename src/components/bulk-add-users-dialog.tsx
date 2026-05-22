@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   bulkAddUsersAction,
   searchUsersByCriteriaAction,
-} from "@/app/(authenticated)/(app)/groups/[id]/bulk-actions";
+} from "@/app/(authenticated)/(app)/(default)/groups/[id]/bulk-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -18,8 +18,11 @@ export default function GroupsPageClient({
 }: GroupsPageClientProps) {
   return (
     <>
-      <div className="flex items-center justify-between pb-4">
+      <div className="pb-4">
         <h1 className="text-xl font-semibold">Groups</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Teams, batches, and project groups at START Berlin.
+        </p>
       </div>
       <GroupsTable
         data={groups}

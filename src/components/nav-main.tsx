@@ -6,6 +6,7 @@ import {
   CreditCard,
   IdCard,
   Layers,
+  Network,
   Settings,
   Users,
 } from "lucide-react";
@@ -96,6 +97,18 @@ export function NavMain() {
                 <Link href="/people" onClick={closeMobile}>
                   <Users />
                   <span>People</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === "/people/org-chart"}
+                tooltip="Org Chart"
+              >
+                <Link href="/people/org-chart" onClick={closeMobile}>
+                  <Network />
+                  <span>Org Chart</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

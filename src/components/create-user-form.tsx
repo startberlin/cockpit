@@ -7,12 +7,12 @@ import { AlertCircleIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import * as React from "react";
 import { Controller } from "react-hook-form";
 import { useDebounce } from "use-debounce";
-import { checkWorkspaceEmailAction } from "@/app/(authenticated)/(app)/people/check-workspace-email-action";
-import { createUserAction } from "@/app/(authenticated)/(app)/people/create-user-action";
+import { checkWorkspaceEmailAction } from "@/app/(authenticated)/(app)/(default)/people/check-workspace-email-action";
+import { createUserAction } from "@/app/(authenticated)/(app)/(default)/people/create-user-action";
 import {
   companyEmailSchema,
   createUserSchema,
-} from "@/app/(authenticated)/(app)/people/create-user-schema";
+} from "@/app/(authenticated)/(app)/(default)/people/create-user-schema";
 import { BatchSelect } from "@/components/batch-select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
