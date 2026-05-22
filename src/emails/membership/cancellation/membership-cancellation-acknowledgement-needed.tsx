@@ -1,7 +1,6 @@
 import { Heading, Text } from "react-email";
 import { EmailCta } from "@/emails/components/email-cta";
 import { EmailDetailBlock } from "@/emails/components/email-detail-block";
-import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
 interface MembershipCancellationAcknowledgementNeededEmailProps {
@@ -11,7 +10,6 @@ interface MembershipCancellationAcknowledgementNeededEmailProps {
   profileUrl: string;
   receivingReason?: string;
   isReminder?: boolean;
-  daysOpen?: number;
 }
 
 export const MembershipCancellationAcknowledgementNeededEmail = ({
@@ -21,7 +19,6 @@ export const MembershipCancellationAcknowledgementNeededEmail = ({
   profileUrl,
   receivingReason,
   isReminder,
-  daysOpen,
 }: MembershipCancellationAcknowledgementNeededEmailProps) => (
   <EmailShell
     preview={`Action required: acknowledge ${subjectName}'s membership cancellation`}
@@ -29,11 +26,9 @@ export const MembershipCancellationAcknowledgementNeededEmail = ({
     footerAudience="board"
     receivingReason={receivingReason}
   >
-    {isReminder && daysOpen !== undefined && (
-      <EmailReminderBanner daysOpen={daysOpen} />
-    )}
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Membership cancellation for {subjectName} requires your acknowledgement
+      {isReminder && "Reminder: "}Membership cancellation for {subjectName}{" "}
+      requires your acknowledgement
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},

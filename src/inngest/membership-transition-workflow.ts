@@ -83,7 +83,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     const requestedAt = new Date().toISOString().substring(0, 10);
 
     const sendApprovalEmails = async (
-      opts: { isReminder: boolean; daysOpen?: number } = { isReminder: false },
+      opts: { isReminder: boolean } = { isReminder: false },
     ) => {
       const positions = await getPositionAssignments();
       const recipients = getApprovalRecipients(
@@ -124,7 +124,6 @@ export const membershipTransitionWorkflow = inngest.createFunction(
                   ? "You're receiving this because you're a board member of START Berlin."
                   : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
                 isReminder: opts.isReminder,
-                daysOpen: opts.daysOpen,
               }),
             }),
           ),
@@ -147,9 +146,8 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       if (decisionEvent) break;
       elapsed += wait;
       if (elapsed < totalDays) {
-        const daysOpen = elapsed;
         await step.run(`send-approval-reminder-${elapsed}d`, async () => {
-          await sendApprovalEmails({ isReminder: true, daysOpen });
+          await sendApprovalEmails({ isReminder: true });
         });
       }
     }

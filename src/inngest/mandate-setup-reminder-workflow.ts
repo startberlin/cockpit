@@ -7,10 +7,10 @@ import { events, inngest } from "@/lib/inngest";
 const TOTAL_DAYS = 90;
 const INTERVAL_DAYS = 3;
 
-// Sends a "set up your direct debit" reminder every 3 days while a newly-active
-// member still lacks a mandate. Idempotent on `userId` so back-to-back
-// activations (e.g. reconfirmation after admission) collapse to a single
-// outstanding loop.
+// Sends the initial "set up your direct debit" email immediately, then nudges
+// every 3 days while a newly-active member still lacks a mandate. Idempotent
+// on `userId` so back-to-back activations (e.g. reconfirmation after
+// admission) collapse to a single outstanding loop.
 export const mandateSetupReminderWorkflow = inngest.createFunction(
   {
     id: "mandate-setup-reminder-workflow",
@@ -30,6 +30,40 @@ export const mandateSetupReminderWorkflow = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { userId } = event.data;
+
+    const initial = await step.run("send-initial-email", async () => {
+      const u = await db.query.user.findFirst({
+        where: (uu, { eq }) => eq(uu.id, userId),
+        columns: {
+          email: true,
+          firstName: true,
+          gocardlessMandateId: true,
+          status: true,
+        },
+      });
+      if (!u?.email) return { sent: false };
+      if (u.gocardlessMandateId) return { sent: false };
+      if (
+        u.status === "alumni" ||
+        u.status === "supporting_alumni" ||
+        u.status === "cancelled"
+      ) {
+        return { sent: false };
+      }
+
+      await sendEmail({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: u.email,
+        subject: "Set up your direct debit for START Berlin membership",
+        react: MandateSetupNeededEmail({
+          firstName: u.firstName ?? "",
+          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+        }),
+      });
+      return { sent: true };
+    });
+
+    if (!initial.sent) return { outcome: "skipped" as const };
 
     let elapsed = 0;
     while (elapsed < TOTAL_DAYS) {
@@ -68,7 +102,6 @@ export const mandateSetupReminderWorkflow = inngest.createFunction(
       }
 
       if (!checkpoint.email) continue;
-      const daysOpen = elapsed;
       await step.run(`send-reminder-${elapsed}d`, async () => {
         await sendEmail({
           from: "START Berlin <notifications@cockpit.start-berlin.com>",
@@ -78,7 +111,6 @@ export const mandateSetupReminderWorkflow = inngest.createFunction(
             firstName: checkpoint.firstName ?? "",
             membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
             isReminder: true,
-            daysOpen,
           }),
         });
       });

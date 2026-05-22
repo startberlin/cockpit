@@ -88,9 +88,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       const requestedAt = new Date().toISOString().substring(0, 10);
 
       const sendAckEmails = async (
-        opts: { isReminder: boolean; daysOpen?: number } = {
-          isReminder: false,
-        },
+        opts: { isReminder: boolean } = { isReminder: false },
       ) => {
         const positions = await getPositionAssignments();
         const recipients = getApprovalRecipients(
@@ -129,7 +127,6 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                     ? "You're receiving this because you're a board member of START Berlin."
                     : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
                   isReminder: opts.isReminder,
-                  daysOpen: opts.daysOpen,
                 }),
               }),
             ),
@@ -162,11 +159,10 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         }
         elapsed += wait;
         if (elapsed < totalDays) {
-          const daysOpen = elapsed;
           await step.run(
             `send-acknowledgement-reminder-${elapsed}d`,
             async () => {
-              await sendAckEmails({ isReminder: true, daysOpen });
+              await sendAckEmails({ isReminder: true });
             },
           );
         }

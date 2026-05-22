@@ -1,30 +1,24 @@
 import { Heading, Text } from "react-email";
 import { EmailCta } from "@/emails/components/email-cta";
-import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
 interface MandateCancelledEmailProps {
   firstName: string;
   membershipUrl: string;
   isReminder?: boolean;
-  daysOpen?: number;
 }
 
 export const MandateCancelledEmail = ({
   firstName,
   membershipUrl,
   isReminder,
-  daysOpen,
 }: MandateCancelledEmailProps) => (
   <EmailShell
     preview="Action needed: set up your direct debit for START Berlin membership"
     eyebrow="Membership payment"
   >
-    {isReminder && daysOpen !== undefined && (
-      <EmailReminderBanner daysOpen={daysOpen} />
-    )}
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Your direct debit needs to be set up again
+      {isReminder && "Reminder: "}Your direct debit needs to be set up again
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},

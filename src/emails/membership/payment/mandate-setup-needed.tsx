@@ -1,30 +1,24 @@
 import { Heading, Text } from "react-email";
 import { EmailCta } from "@/emails/components/email-cta";
-import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
 interface MandateSetupNeededEmailProps {
   firstName: string;
   membershipUrl: string;
   isReminder?: boolean;
-  daysOpen?: number;
 }
 
 export const MandateSetupNeededEmail = ({
   firstName,
   membershipUrl,
   isReminder,
-  daysOpen,
 }: MandateSetupNeededEmailProps) => (
   <EmailShell
     preview="Set up your direct debit for START Berlin membership"
     eyebrow="Membership payment"
   >
-    {isReminder && daysOpen !== undefined && (
-      <EmailReminderBanner daysOpen={daysOpen} />
-    )}
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Set up your direct debit
+      {isReminder && "Reminder: "}Set up your direct debit
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},
@@ -54,7 +48,6 @@ MandateSetupNeededEmail.PreviewProps = {
   firstName: "Sönke",
   membershipUrl: "https://cockpit.start-berlin.com/membership",
   isReminder: true,
-  daysOpen: 6,
 } as MandateSetupNeededEmailProps;
 
 export default MandateSetupNeededEmail;

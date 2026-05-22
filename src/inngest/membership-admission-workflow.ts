@@ -152,7 +152,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         if (voteEvent) break;
         elapsed += wait;
         if (elapsed < VOTE_TOTAL_DAYS) {
-          const daysOpen = elapsed;
           await step.run(
             `send-vote-reminder-r${voteRound}-${elapsed}d`,
             async () => {
@@ -185,7 +184,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
                         subjectName,
                         resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
                         isReminder: true,
-                        daysOpen,
                       }),
                     }),
                   ),
@@ -281,7 +279,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       if (applicationEvent) break;
       applicationElapsed += wait;
       if (applicationElapsed < APPLICATION_TOTAL_DAYS) {
-        const daysOpen = applicationElapsed;
         await step.run(
           `send-application-reminder-${applicationElapsed}d`,
           async () => {
@@ -295,7 +292,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
                 firstName: subject.firstName,
                 applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
                 isReminder: true,
-                daysOpen,
               }),
             });
           },
@@ -698,14 +694,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         throw new Error(`Missing email for subject user ${subjectUserId}`);
       }
 
-      const freshUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { status: true, gocardlessMandateId: true },
-      });
-
-      const includesPaymentCta =
-        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
-
       const attachments = confirmationFileDriveId
         ? [
             {
@@ -719,13 +707,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
-        subject: includesPaymentCta
-          ? "Finalize your START Berlin membership"
-          : "Your START Berlin membership is active",
+        subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subject.firstName,
-          includesPaymentCta,
-          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
         attachments,
       });

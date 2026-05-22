@@ -104,6 +104,7 @@ export const importGoogleWorkspaceUserAction = actionClient
           ),
         columns: { id: true },
       });
+
       if (existingLm) {
         await inngest.send({
           name: events.reconfirmationPending.name,
@@ -113,6 +114,7 @@ export const importGoogleWorkspaceUserAction = actionClient
           },
         });
       }
+
       try {
         await sendEmail(
           buildImportedUserNotificationEmail({

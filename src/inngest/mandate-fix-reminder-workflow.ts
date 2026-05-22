@@ -35,7 +35,9 @@ export const mandateFixReminderWorkflow = inngest.createFunction(
         where: (uu, { eq }) => eq(uu.id, userId),
         columns: { email: true, firstName: true, status: true },
       });
-      if (!u || !u.email) return { sent: false };
+
+      if (!u?.email) return { sent: false };
+
       if (
         u.status === "alumni" ||
         u.status === "supporting_alumni" ||
@@ -43,6 +45,7 @@ export const mandateFixReminderWorkflow = inngest.createFunction(
       ) {
         return { sent: false };
       }
+
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: u.email,
@@ -53,6 +56,7 @@ export const mandateFixReminderWorkflow = inngest.createFunction(
           membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
       });
+
       return { sent: true };
     });
 
@@ -95,7 +99,6 @@ export const mandateFixReminderWorkflow = inngest.createFunction(
       }
 
       if (!checkpoint.email) continue;
-      const daysOpen = elapsed;
       await step.run(`send-reminder-${elapsed}d`, async () => {
         await sendEmail({
           from: "START Berlin <notifications@cockpit.start-berlin.com>",
@@ -105,7 +108,6 @@ export const mandateFixReminderWorkflow = inngest.createFunction(
             firstName: checkpoint.firstName ?? "",
             membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
             isReminder: true,
-            daysOpen,
           }),
         });
       });

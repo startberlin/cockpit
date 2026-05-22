@@ -15,60 +15,39 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64 ??= "test-credentials";
 process.env.NEXT_PUBLIC_COCKPIT_URL ??= "https://cockpit.example.com";
 process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID ??= "test-folder-id";
 
-type MembershipAdmissionConfirmedEmailProps = {
-  firstName: string;
-  includesPaymentCta: boolean;
-  membershipUrl: string;
-};
-
-async function renderEmail(props: MembershipAdmissionConfirmedEmailProps) {
-  const { default: MembershipAdmissionConfirmedEmail } = await import(
-    "./membership-admission-confirmed"
-  );
-  return await render(<MembershipAdmissionConfirmedEmail {...props} />);
-}
-
 describe("MembershipAdmissionConfirmedEmail", () => {
-  it("renders payment CTA when includesPaymentCta is true", async () => {
-    const html = await renderEmail({
-      firstName: "Ada",
-      includesPaymentCta: true,
-      membershipUrl: "https://cockpit.example.com/membership",
-    });
+  it("renders the active membership confirmation", async () => {
+    const { default: MembershipAdmissionConfirmedEmail } = await import(
+      "./membership-admission-confirmed"
+    );
+    const html = await render(
+      <MembershipAdmissionConfirmedEmail firstName="Ada" />,
+    );
 
-    assert.match(html, /Set up membership payment/);
-    assert.match(html, /40 EUR/);
-  });
-
-  it("does not render payment CTA when includesPaymentCta is false", async () => {
-    const html = await renderEmail({
-      firstName: "Ada",
-      includesPaymentCta: false,
-      membershipUrl: "https://cockpit.example.com/membership",
-    });
-
+    assert.match(html, /Your membership is active/);
     assert.doesNotMatch(html, /Set up membership payment/);
     assert.doesNotMatch(html, /40 EUR/);
-    assert.match(html, /Your membership is active/);
   });
 
   it("does not include individual board vote details", async () => {
-    const html = await renderEmail({
-      firstName: "Ada",
-      includesPaymentCta: false,
-      membershipUrl: "https://cockpit.example.com/membership",
-    });
+    const { default: MembershipAdmissionConfirmedEmail } = await import(
+      "./membership-admission-confirmed"
+    );
+    const html = await render(
+      <MembershipAdmissionConfirmedEmail firstName="Ada" />,
+    );
 
     assert.doesNotMatch(html, /voted yes|voted no/i);
     assert.doesNotMatch(html, /cast.*vote/i);
   });
 
   it("addresses the member by first name", async () => {
-    const html = await renderEmail({
-      firstName: "Farrukh",
-      includesPaymentCta: true,
-      membershipUrl: "https://cockpit.example.com/membership",
-    });
+    const { default: MembershipAdmissionConfirmedEmail } = await import(
+      "./membership-admission-confirmed"
+    );
+    const html = await render(
+      <MembershipAdmissionConfirmedEmail firstName="Farrukh" />,
+    );
 
     assert.match(html, /Farrukh/);
   });
