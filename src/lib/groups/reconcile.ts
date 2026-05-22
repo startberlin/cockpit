@@ -19,8 +19,8 @@ export interface GroupForReconcile {
 export interface ReconcileResult {
   groupId: string;
   group: GroupForReconcile;
-  addedUsers: { id: string; email: string }[];
-  removedUsers: { id: string; email: string }[];
+  addedUsers: { id: string; email: string | null }[];
+  removedUsers: { id: string; email: string | null }[];
 }
 
 function buildGroupWhereClause(

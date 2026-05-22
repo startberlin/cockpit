@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import db from "@/db";
 import { getActiveLegalMembership } from "@/db/membership";
 import { membershipApplication } from "@/db/schema/membership-application";
@@ -120,5 +120,5 @@ export default async function ApplicationStepPage({
     );
   }
 
-  redirect("/membership/application/personal-information");
+  notFound();
 }

@@ -45,7 +45,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
             icon="mail"
             label="START Email"
             value={user.email}
-            copyValue={user.email}
+            copyValue={user.email ?? undefined}
             copyLabel="Copy email"
           />
 
@@ -55,7 +55,7 @@ export async function ContactCard({ userId }: ContactCardProps) {
             icon="mail"
             label="Personal Email"
             value={user.personalEmail}
-            copyValue={user.personalEmail}
+            copyValue={user.personalEmail ?? undefined}
             copyLabel="Copy email"
           />
 

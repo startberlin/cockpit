@@ -18,7 +18,7 @@ export const MembershipPaymentUpcomingEmail = ({
 
   return (
     <EmailShell
-      preview={`${formattedAmount} will be collected soon. No action needed.`}
+      preview="Your START Berlin membership payment is coming up"
       eyebrow="Membership payment"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { getActiveLegalMembership } from "@/db/membership";
+import { getActiveMembershipTransitionRequest } from "@/db/membership-transitions";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import { MembershipPageContent } from "./onboarding";
+import { MembershipPageContent } from "./membership-page-content";
 
 export const metadata = createMetadata({
   title: "Cockpit",
@@ -15,5 +17,16 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  return <MembershipPageContent user={user} />;
+  const [activeLegalMembership, pendingTransition] = await Promise.all([
+    getActiveLegalMembership(user.id),
+    getActiveMembershipTransitionRequest(user.id),
+  ]);
+
+  return (
+    <MembershipPageContent
+      user={user}
+      activeLegalMembership={activeLegalMembership}
+      pendingTransition={pendingTransition}
+    />
+  );
 }

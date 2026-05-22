@@ -102,4 +102,42 @@ describe("deriveMembershipNotice", () => {
   it("null legalMembership → null", () => {
     assert.equal(deriveMembershipNotice(state(), null, "member"), null);
   });
+
+  it("pending transition → transition_pending notice overrides payment notices", () => {
+    const pendingTransition = {
+      id: "mtr_test",
+      userId: "usr_test",
+      type: "cancellation" as const,
+      status: "pending" as const,
+      reason: null,
+      keepPersonalEmail: null,
+      personalEmailForNotification: null,
+      requestedAt: new Date(),
+      decidedAt: null,
+      decidedByUserId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    assert.equal(
+      deriveMembershipNotice(
+        state({ payment: "not_started", mandateCancelled: false }),
+        "active",
+        "member",
+        pendingTransition,
+      ),
+      "transition_pending",
+    );
+  });
+
+  it("no pending transition → still derives payment notice", () => {
+    assert.equal(
+      deriveMembershipNotice(
+        state({ payment: "not_started", mandateCancelled: false }),
+        "active",
+        "member",
+        null,
+      ),
+      "payment_not_started",
+    );
+  });
 });

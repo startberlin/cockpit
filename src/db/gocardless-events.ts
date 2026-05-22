@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { advancePaymentStatus } from "@/db/membership-payments";
-import MandateCancelledEmail from "@/emails/mandate-cancelled";
-import MembershipPaymentUpcomingEmail from "@/emails/membership-payment-upcoming";
+import MandateCancelledEmail from "@/emails/membership/payment/mandate-cancelled";
+import MembershipPaymentUpcomingEmail from "@/emails/membership/payment/membership-payment-upcoming";
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { reconcileMembershipPaymentByBillingRequestId } from "@/lib/gocardless/membership-reconciliation";
@@ -55,7 +55,8 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
         await sendEmail({
           from: "START Berlin <notifications@cockpit.start-berlin.com>",
           to: mandateUser.email,
-          subject: "Action required: set up your membership payment again",
+          subject:
+            "Action needed: set up your direct debit for START Berlin membership",
           react: MandateCancelledEmail({
             firstName: mandateUser.firstName ?? "",
             membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,

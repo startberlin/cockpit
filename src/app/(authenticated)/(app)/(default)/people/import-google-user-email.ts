@@ -1,4 +1,4 @@
-import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
+import StartCockpitEnabledEmail from "@/emails/auth/start-cockpit-enabled";
 import type { ImportableUserStatus } from "./import-google-user-schema";
 
 export function buildImportedUserNotificationEmail({
@@ -13,7 +13,7 @@ export function buildImportedUserNotificationEmail({
   return {
     from: "START Berlin <notifications@cockpit.start-berlin.com>",
     to: email,
-    subject: "You can now use START Cockpit",
+    subject: "Your START Cockpit access is ready",
     react: StartCockpitEnabledEmail({
       firstName,
       statusContext: status,

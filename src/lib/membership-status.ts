@@ -48,6 +48,7 @@ export function getStructuredMembershipState(
   const hasGoCardlessCustomer = !!user.gocardlessCustomerId;
   const isActiveLegalMember = user.legalMembershipState === "active_member";
   const isNotAlumni = user.status !== "alumni";
+  const isNotCancelled = user.status !== "cancelled";
   const canContinueBilling =
     user.status === "member" || user.status === "supporting_alumni";
 
@@ -67,7 +68,8 @@ export function getStructuredMembershipState(
     isActiveLegalMember &&
     (profileOnboardingComplete || canContinueBilling) &&
     !hasMandate &&
-    isNotAlumni;
+    isNotAlumni &&
+    isNotCancelled;
 
   const mandateCancelled = isNotAlumni && hasGoCardlessCustomer && !hasMandate;
 
@@ -93,7 +95,7 @@ function getPaymentViewState(
     return "active";
   }
 
-  if (user.status === "alumni") {
+  if (user.status === "alumni" || user.status === "cancelled") {
     return "not_required";
   }
 

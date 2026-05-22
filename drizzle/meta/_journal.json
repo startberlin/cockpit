@@ -253,6 +253,27 @@
       "when": 1779215542442,
       "tag": "0035_confused_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779377004615,
+      "tag": "0036_open_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779392854772,
+      "tag": "0037_ordinary_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779403274728,
+      "tag": "0038_moaning_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

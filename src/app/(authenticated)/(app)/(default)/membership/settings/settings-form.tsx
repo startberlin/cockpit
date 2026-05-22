@@ -83,7 +83,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <Field>
             <FieldLabel>START Berlin email</FieldLabel>
             <InputGroup>
-              <InputGroupInput value={user.email} disabled className="w-full" />
+              <InputGroupInput
+                value={user.email ?? ""}
+                disabled
+                className="w-full"
+              />
               <InputGroupAddon align="inline-end">
                 <Tooltip>
                   <TooltipTrigger asChild>

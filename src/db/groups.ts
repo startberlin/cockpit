@@ -43,7 +43,7 @@ export interface PublicGroup {
 
 export interface GroupMember extends PublicUser {
   source: GroupMembershipSource;
-  personalEmail: string;
+  personalEmail: string | null;
   eventEmailPreference: "personal_email" | "start_email" | null;
 }
 
@@ -273,7 +273,7 @@ export async function getAllGroupMembersForExport(id: string): Promise<
   {
     firstName: string | null;
     lastName: string | null;
-    email: string;
+    email: string | null;
     personalEmail: string | null;
     eventEmailPreference: "personal_email" | "start_email" | null;
   }[]

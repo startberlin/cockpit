@@ -152,7 +152,7 @@ export interface PositionHolder {
   userId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
 }
 
 export interface PositionAssignments {
@@ -206,6 +206,70 @@ export async function getPositionAssignments(
   }
 
   return result;
+}
+
+export function getApprovalRecipients(
+  positions: PositionAssignments,
+  userId: string,
+  department: Department | null | undefined,
+): PositionHolder[] {
+  const deptHead = department
+    ? (positions.departmentHeads[department] ?? null)
+    : null;
+
+  if (deptHead && deptHead.userId !== userId) {
+    return [deptHead];
+  }
+
+  return [
+    positions.president,
+    positions.vice_president,
+    positions.head_of_finance,
+  ].filter((p): p is PositionHolder => p !== null && p.userId !== userId);
+}
+
+export function getFyiRecipients(
+  positions: PositionAssignments,
+  userId: string,
+  department: Department | null | undefined,
+): PositionHolder[] {
+  const boardByUserId = new Map<string, PositionHolder>();
+  for (const p of [
+    positions.president,
+    positions.vice_president,
+    positions.head_of_finance,
+  ]) {
+    if (p && p.userId !== userId && !boardByUserId.has(p.userId)) {
+      boardByUserId.set(p.userId, p);
+    }
+  }
+  const boardMembers = [...boardByUserId.values()];
+
+  const deptHead = department
+    ? (positions.departmentHeads[department] ?? null)
+    : null;
+
+  const deptHeadToInclude =
+    deptHead && deptHead.userId !== userId ? deptHead : null;
+
+  if (!deptHeadToInclude) return boardMembers;
+
+  const alreadyInBoard = boardByUserId.has(deptHeadToInclude.userId);
+
+  return alreadyInBoard ? boardMembers : [...boardMembers, deptHeadToInclude];
+}
+
+export async function getFinanceAdminUsers(): Promise<PositionHolder[]> {
+  return db
+    .select({
+      userId: userTable.id,
+      firstName: userTable.firstName,
+      lastName: userTable.lastName,
+      email: userTable.email,
+    })
+    .from(userAccessGrant)
+    .innerJoin(userTable, eq(userTable.id, userAccessGrant.userId))
+    .where(eq(userAccessGrant.grant, "finance_admin"));
 }
 
 export async function getEligibleUsersForPositions(): Promise<

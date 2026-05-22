@@ -20,7 +20,7 @@ import {
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
   action: UserScopedAction,
-  user: { department: Department | null },
+  user: { department?: Department | null; id?: string },
 ): Promise<boolean>;
 export function can(
   action: GroupScopedAction,

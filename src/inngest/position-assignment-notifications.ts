@@ -1,6 +1,6 @@
 import React from "react";
-import { PositionAssignedEmail } from "@/emails/position-assigned";
-import { PositionRemovedEmail } from "@/emails/position-removed";
+import { PositionAssignedEmail } from "@/emails/positions/position-assigned";
+import { PositionRemovedEmail } from "@/emails/positions/position-removed";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 

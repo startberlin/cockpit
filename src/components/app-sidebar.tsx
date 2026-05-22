@@ -15,7 +15,7 @@ import {
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
     name: string;
-    email: string;
+    email: string | null;
     image?: string | null;
     firstName: string;
     lastName: string;

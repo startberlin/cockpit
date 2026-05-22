@@ -7,6 +7,7 @@ interface MembershipAdmissionCompletedBoardEmailProps {
   subjectName: string;
   legalMembershipId: string;
   admissionDate?: string;
+  receivingReason?: string;
 }
 
 export const MembershipAdmissionCompletedBoardEmail = ({
@@ -14,6 +15,7 @@ export const MembershipAdmissionCompletedBoardEmail = ({
   subjectName,
   legalMembershipId,
   admissionDate,
+  receivingReason,
 }: MembershipAdmissionCompletedBoardEmailProps) => {
   const rows = admissionDate
     ? [
@@ -27,6 +29,7 @@ export const MembershipAdmissionCompletedBoardEmail = ({
       preview={`Admission complete: ${subjectName} is now a member`}
       eyebrow="Admission complete"
       footerAudience="board"
+      receivingReason={receivingReason}
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         {subjectName} is now a member

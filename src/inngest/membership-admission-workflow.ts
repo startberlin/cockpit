@@ -1,18 +1,20 @@
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
+import { getFyiRecipients, getPositionAssignments } from "@/db/authority";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution-task-assigned";
-import MembershipAdmissionCompletedBoardEmail from "@/emails/membership-admission-completed-board";
-import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
-import MembershipApplicationReadyEmail from "@/emails/membership-application-ready";
-import MembershipApplicationSubmittedEmail from "@/emails/membership-application-submitted";
+import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution/board-resolution-task-assigned";
+import MembershipAdmissionCompletedBoardEmail from "@/emails/membership/admission/membership-admission-completed-board";
+import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/membership-admission-confirmed";
+import MembershipApplicationReadyEmail from "@/emails/membership/admission/membership-application-ready";
+import MembershipApplicationSubmittedEmail from "@/emails/membership/admission/membership-application-submitted";
 import { env } from "@/env";
 import {
   computeResolutionRoles,
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
@@ -35,6 +37,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     id: "membership-admission-workflow",
     name: "Membership Admission Workflow",
     triggers: [{ event: events.admissionWorkflowStarted }],
+    cancelOn: [
+      {
+        event: events.cancellationRequested.name,
+        if: "async.data.subjectUserId == event.data.userId",
+      },
+    ],
   },
   async ({ event, step, runId }) => {
     const { legalMembershipId, subjectUserId } = event.data;
@@ -99,6 +107,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-task-email-${participant.userId}`,
         async () => {
+          if (!participant.email) return;
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
@@ -186,7 +195,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
-        subject: "Complete your membership application",
+        subject: "Complete your START Berlin membership application",
         react: MembershipApplicationReadyEmail({
           firstName: subject.firstName,
           applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
@@ -612,7 +621,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
-        subject: "Welcome to START Berlin",
+        subject: includesPaymentCta
+          ? "Finalize your START Berlin membership"
+          : "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subject.firstName,
           includesPaymentCta,
@@ -626,28 +637,43 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const boardCompletionData = await step.run(
       "load-board-completion-data",
       async () => {
-        const lm = await db.query.legalMembership.findFirst({
-          where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
-          columns: { boardParticipants: true },
-        });
+        const [positions, subjectUser] = await Promise.all([
+          getPositionAssignments(),
+          db.query.user.findFirst({
+            where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+            columns: { department: true },
+          }),
+        ]);
 
-        const participants = lm?.boardParticipants ?? [];
-        const participantIds = participants.map((p) => p.userId);
+        const recipients = getFyiRecipients(
+          positions,
+          subjectUserId,
+          subjectUser?.department,
+        );
 
-        const participantUsers =
-          participantIds.length > 0
-            ? await db.query.user.findMany({
-                where: (u, { inArray }) => inArray(u.id, participantIds),
-                columns: { id: true, email: true, firstName: true },
-              })
-            : [];
+        const boardMemberIds = new Set(
+          [
+            positions.president,
+            positions.vice_president,
+            positions.head_of_finance,
+          ].flatMap((p) => (p ? [p.userId] : [])),
+        );
+
+        // Non-board recipients can only be the dept head of the subject's
+        // department (per getFyiRecipients), so department is non-null here.
+        const subjectDepartmentLabel = subjectUser?.department
+          ? DEPARTMENT_NAMES[subjectUser.department]
+          : null;
 
         return {
           subjectName,
-          participants: participantUsers.map((u) => ({
-            userId: u.id,
-            email: u.email,
-            firstName: u.firstName,
+          participants: recipients.map((r) => ({
+            userId: r.userId,
+            email: r.email,
+            firstName: r.firstName,
+            receivingReason: boardMemberIds.has(r.userId)
+              ? "You're receiving this because you're a board member of START Berlin."
+              : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
           })),
           boardResolutionDriveFileId: boardResolutionFileDriveId,
         };
@@ -659,6 +685,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-completion-email-${participant.userId}`,
         async () => {
+          if (!participant.email) return;
           const attachments = boardCompletionData.boardResolutionDriveFileId
             ? [
                 {
@@ -674,11 +701,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
-            subject: `Admission complete: ${boardCompletionData.subjectName}`,
+            subject: `Admission complete: ${boardCompletionData.subjectName} is now a member`,
             react: MembershipAdmissionCompletedBoardEmail({
               firstName: participant.firstName ?? "",
               subjectName: boardCompletionData.subjectName,
               legalMembershipId,
+              receivingReason: participant.receivingReason,
             }),
             attachments,
           });

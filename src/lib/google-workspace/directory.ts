@@ -117,36 +117,39 @@ export async function findWorkspaceUserByEmail(email: string) {
   return await getWorkspaceUser(email.toLowerCase());
 }
 
-export async function updateWorkspaceUserName(
-  userKey: string,
-  {
-    givenName,
-    familyName,
-  }: {
-    givenName: string;
-    familyName: string;
-  },
-) {
+export async function suspendWorkspaceUser(email: string): Promise<void> {
   if (env.DISABLE_GOOGLE_WORKSPACE) {
     console.warn(
-      `[google-workspace disabled] updateWorkspaceUserName(${userKey}, ${givenName} ${familyName}) — skipped`,
+      `[google-workspace disabled] suspendWorkspaceUser(${email}) — skipped`,
     );
     return;
   }
 
   const admin = getDirectoryClient();
 
-  const res = await admin.users.update({
-    userKey,
-    requestBody: {
-      name: { givenName, familyName },
-    },
+  await admin.users.update({
+    userKey: email,
+    requestBody: { suspended: true },
   });
+}
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to update Workspace name for ${userKey}: ${res.statusText}`,
+export async function deleteWorkspaceUser(email: string): Promise<void> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] deleteWorkspaceUser(${email}) — skipped`,
     );
+    return;
+  }
+
+  const admin = getDirectoryClient();
+
+  try {
+    await admin.users.delete({ userKey: email });
+  } catch (error) {
+    if (error instanceof Common.GaxiosError && error.response?.status === 404) {
+      return;
+    }
+    throw error;
   }
 }
 

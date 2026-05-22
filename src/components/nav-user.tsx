@@ -22,7 +22,7 @@ import { authClient } from "@/lib/auth-client";
 interface NavUserProps {
   user: {
     name: string;
-    email: string;
+    email: string | null;
     image?: string | null;
     firstName: string;
     lastName: string;

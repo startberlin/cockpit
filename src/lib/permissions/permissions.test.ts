@@ -656,4 +656,164 @@ describe("permissions", () => {
       );
     });
   });
+
+  describe("membership cancellation and transitions", () => {
+    it("allows president to cancel any member", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.cancel_member",
+        ),
+        true,
+      );
+    });
+
+    it("denies regular member from cancelling another member", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.cancel_member"),
+        false,
+      );
+    });
+
+    it("allows legal officer to decide on a transition in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("allows department head to decide on a transition in their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head from deciding on a transition in a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "growth" },
+        ),
+        false,
+      );
+    });
+
+    it("denies department head from deciding on a transition for a member with no department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: null },
+        ),
+        false,
+      );
+    });
+
+    it("denies regular member from deciding on a transition", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.transition.decide", {
+          targetDepartment: "events",
+        }),
+        false,
+      );
+    });
+
+    it("allows legal officer to acknowledge a cancellation in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("allows department head to acknowledge a cancellation in their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head from acknowledging a cancellation in a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "growth" },
+        ),
+        false,
+      );
+    });
+
+    it("denies regular member from acknowledging a cancellation", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.cancellation.acknowledge", {
+          targetDepartment: "events",
+        }),
+        false,
+      );
+    });
+  });
 });
