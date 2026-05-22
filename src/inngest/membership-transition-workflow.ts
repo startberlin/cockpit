@@ -3,12 +3,16 @@ import db from "@/db";
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
+import MembershipCancelledEmail from "@/emails/membership-cancelled";
+import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
   deleteWorkspaceUser,
   suspendWorkspaceUser,
 } from "@/lib/google-workspace/directory";
 import { events, inngest } from "@/lib/inngest";
+import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
+import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
 
 export const membershipTransitionWorkflow = inngest.createFunction(
   {
@@ -33,6 +37,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           firstName: true,
           lastName: true,
           email: true,
+          personalEmail: true,
           gocardlessMandateId: true,
         },
       });
@@ -51,6 +56,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         firstName: userRecord.firstName,
         lastName: userRecord.lastName,
         startEmail: userRecord.email,
+        personalEmail: userRecord.personalEmail,
         mandateId: userRecord.gocardlessMandateId,
         legalMembershipId: lm?.id ?? null,
       };
@@ -171,13 +177,55 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       });
     }
 
-    // Step 8: Fire group reconciliation.
+    // Step 8: Generate and archive cancellation PDF.
+    await step.run("generate-and-archive-pdf", async () => {
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const pdfBuffer = await renderToBuffer(
+        renderMembershipTransitionTemplate({
+          legalMembershipId: requestData.legalMembershipId ?? "unknown",
+          firstName: requestData.firstName,
+          lastName: requestData.lastName,
+          transitionType: "cancelled",
+          transitionDate: new Date(),
+          reason: "resigned",
+          renderedAt: new Date(),
+        }),
+      );
+
+      if (requestData.legalMembershipId) {
+        await archiveLegalDocument({
+          legalMembershipId: requestData.legalMembershipId,
+          buffer: Buffer.from(pdfBuffer),
+          fileName: `membership-cancellation-${requestData.legalMembershipId}.pdf`,
+          firstName: requestData.firstName,
+          lastName: requestData.lastName,
+        });
+      }
+    });
+
+    // Step 9: Send confirmation email using cached personal email.
+    if (requestData.personalEmail) {
+      await step.run("send-cancellation-email", async () => {
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: requestData.personalEmail!,
+          subject: "Your START Berlin membership has ended",
+          react: MembershipCancelledEmail({
+            firstName: requestData.firstName,
+            keepInTouch: keepPersonalEmail,
+            reason: "resigned",
+          }),
+        });
+      });
+    }
+
+    // Step 10: Fire group reconciliation.
     await step.sendEvent("fire-group-reconciliation-alumni", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
     });
 
-    // Step 10: Erase personal data (personal email optionally preserved).
+    // Step 11: Erase personal data (personal email optionally preserved).
     await step.run("erase-personal-data", async () => {
       await db
         .update(user)
@@ -201,17 +249,17 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         .where(eq(membershipTransitionRequest.id, transitionRequestId));
     });
 
-    // Step 11: Wait 7 days before hard-deleting workspace account.
+    // Step 12: Wait 7 days before hard-deleting workspace account.
     await step.sleep("wait-7d-before-deletion", "7d");
 
-    // Step 12: Hard-delete Google Workspace account.
+    // Step 13: Hard-delete Google Workspace account.
     if (requestData.startEmail) {
       await step.run("hard-delete-google-account", async () => {
         await deleteWorkspaceUser(requestData.startEmail!);
       });
     }
 
-    // Step 13: Null the start email.
+    // Step 14: Null the start email.
     await step.run("null-start-email", async () => {
       await db.update(user).set({ email: null }).where(eq(user.id, userId));
     });

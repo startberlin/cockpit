@@ -187,10 +187,14 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         await sendEmail({
           from: "START Berlin <notifications@cockpit.start-berlin.com>",
           to: userData.personalEmail!,
-          subject: "Your START Berlin membership has ended",
+          subject:
+            reason === "removed_by_board"
+              ? "Your START Berlin membership has been terminated"
+              : "Your START Berlin membership has ended",
           react: MembershipCancelledEmail({
             firstName: userData.firstName,
             keepInTouch: false,
+            reason,
           }),
         });
       });
