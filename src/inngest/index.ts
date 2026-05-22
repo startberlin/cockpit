@@ -1,5 +1,6 @@
 import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
+import { memberActionRemindersCron } from "./member-action-reminders";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
 import { membershipCancellationWorkflow } from "./membership-cancellation-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
@@ -17,6 +18,7 @@ import { syncGroupsCron } from "./sync-groups-cron";
 export const inngestFunctions = [
   financePaymentProposalsDigest,
   gocardlessEventsCleanupCron,
+  memberActionRemindersCron,
   syncGroupsCron,
   membershipAdmissionWorkflow,
   membershipCancellationWorkflow,

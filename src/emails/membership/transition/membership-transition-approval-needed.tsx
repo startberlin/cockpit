@@ -1,6 +1,7 @@
 import { Heading, Text } from "react-email";
 import { EmailCta } from "@/emails/components/email-cta";
 import { EmailDetailBlock } from "@/emails/components/email-detail-block";
+import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
 type TransitionType = "alumni_request" | "supporting_alumni_request";
@@ -16,6 +17,9 @@ interface MembershipTransitionApprovalNeededEmailProps {
   transitionType: TransitionType;
   requestedAt: string;
   profileUrl: string;
+  receivingReason?: string;
+  isReminder?: boolean;
+  daysOpen?: number;
 }
 
 export const MembershipTransitionApprovalNeededEmail = ({
@@ -24,6 +28,9 @@ export const MembershipTransitionApprovalNeededEmail = ({
   transitionType,
   requestedAt,
   profileUrl,
+  receivingReason,
+  isReminder,
+  daysOpen,
 }: MembershipTransitionApprovalNeededEmailProps) => {
   const label = TRANSITION_LABELS[transitionType];
 
@@ -32,7 +39,11 @@ export const MembershipTransitionApprovalNeededEmail = ({
       preview={`Action required: review ${subjectName}'s transition to ${label}`}
       eyebrow="Membership"
       footerAudience="board"
+      receivingReason={receivingReason}
     >
+      {isReminder && daysOpen !== undefined && (
+        <EmailReminderBanner daysOpen={daysOpen} />
+      )}
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         {subjectName} wants to become {label} and requires your approval
       </Heading>

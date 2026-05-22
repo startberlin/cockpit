@@ -1,20 +1,28 @@
 import { Heading, Text } from "react-email";
 import { EmailCta } from "@/emails/components/email-cta";
+import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
 interface MembershipApplicationReadyEmailProps {
   firstName: string;
   applicationUrl: string;
+  isReminder?: boolean;
+  daysOpen?: number;
 }
 
 export const MembershipApplicationReadyEmail = ({
   firstName,
   applicationUrl,
+  isReminder,
+  daysOpen,
 }: MembershipApplicationReadyEmailProps) => (
   <EmailShell
     preview="Complete your membership application"
     eyebrow="Membership application"
   >
+    {isReminder && daysOpen !== undefined && (
+      <EmailReminderBanner daysOpen={daysOpen} />
+    )}
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       Complete your membership application
     </Heading>

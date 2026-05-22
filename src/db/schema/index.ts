@@ -28,6 +28,10 @@ import {
 } from "./group";
 import { legalMembership, legalMembershipStatus } from "./legal-membership";
 import {
+  memberActionReminder,
+  memberActionType,
+} from "./member-action-reminder";
+import {
   membershipApplication,
   membershipApplicationRelations,
   membershipApplicationStatus,
@@ -124,6 +128,8 @@ export const schema = {
   membershipTransitionType,
   membershipTransitionStatus,
   membershipTransitionReason,
+  memberActionReminder,
+  memberActionType,
 };
 
 export * from "./auth";
@@ -133,6 +139,7 @@ export * from "./email-suppression";
 export * from "./gocardless-processed-events";
 export * from "./group";
 export * from "./legal-membership";
+export * from "./member-action-reminder";
 export * from "./membership-application";
 export * from "./membership-payments";
 export * from "./membership-transition-request";

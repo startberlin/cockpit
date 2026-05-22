@@ -3,43 +3,41 @@ import { EmailCta } from "@/emails/components/email-cta";
 import { EmailReminderBanner } from "@/emails/components/email-reminder-banner";
 import { EmailShell } from "@/emails/components/email-shell";
 
-interface MandateCancelledEmailProps {
+interface MandateSetupNeededEmailProps {
   firstName: string;
   membershipUrl: string;
   isReminder?: boolean;
   daysOpen?: number;
 }
 
-export const MandateCancelledEmail = ({
+export const MandateSetupNeededEmail = ({
   firstName,
   membershipUrl,
   isReminder,
   daysOpen,
-}: MandateCancelledEmailProps) => (
+}: MandateSetupNeededEmailProps) => (
   <EmailShell
-    preview="Action needed: set up your direct debit for START Berlin membership"
+    preview="Set up your direct debit for START Berlin membership"
     eyebrow="Membership payment"
   >
     {isReminder && daysOpen !== undefined && (
       <EmailReminderBanner daysOpen={daysOpen} />
     )}
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Your direct debit needs to be set up again
+      Set up your direct debit
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-      Your direct debit authorization for the yearly START Berlin membership
-      payment was cancelled. This can happen when your bank deactivates it or
-      details change on their end. It is not an issue with your account.
+      Your START Berlin membership is active, but your annual membership payment
+      has not been authorized yet. Setting up the direct debit only takes a
+      minute and is needed so we can collect your{" "}
+      <strong style={{ color: "#1C1917" }}>40 EUR yearly membership fee</strong>{" "}
+      automatically.
     </Text>
     <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-      Setting it up again only takes a minute. You will not be charged twice or
-      outside the regular yearly schedule. Your payment continues at{" "}
-      <strong style={{ color: "#1C1917" }}>40 EUR per year</strong>, same as
-      before. You will be guided through a short bank authorization step to
-      confirm the direct debit.
+      You will be guided through a short bank authorization step.
     </Text>
     <EmailCta href={membershipUrl} label="Set up direct debit" />
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
@@ -52,9 +50,11 @@ export const MandateCancelledEmail = ({
   </EmailShell>
 );
 
-MandateCancelledEmail.PreviewProps = {
+MandateSetupNeededEmail.PreviewProps = {
   firstName: "Sönke",
   membershipUrl: "https://cockpit.start-berlin.com/membership",
-} as MandateCancelledEmailProps;
+  isReminder: true,
+  daysOpen: 6,
+} as MandateSetupNeededEmailProps;
 
-export default MandateCancelledEmail;
+export default MandateSetupNeededEmail;
