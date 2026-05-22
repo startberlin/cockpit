@@ -3,7 +3,7 @@ import db from "@/db";
 import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
-import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
+import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/membership-admission-confirmed";
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
@@ -315,7 +315,9 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subjectData.email,
-        subject: "Your START Berlin membership is now officially documented",
+        subject: includesPaymentCta
+          ? "Finalize your START Berlin membership"
+          : "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subjectData.firstName,
           includesPaymentCta,

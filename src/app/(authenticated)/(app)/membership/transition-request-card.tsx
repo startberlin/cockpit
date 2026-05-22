@@ -29,14 +29,13 @@ const LABELS: Record<
   },
   alumni_request: {
     title: "Alumni transition pending",
-    description:
-      "Your request to transition to alumni status is awaiting board approval.",
+    description: "Your request to become an alumni is awaiting board approval.",
     retractLabel: "Withdraw request",
   },
   supporting_alumni_request: {
     title: "Supporting alumni request pending",
     description:
-      "Your request to become a supporting alumni member is awaiting board approval.",
+      "Your request to become a Supporting Alumni is awaiting board approval.",
     retractLabel: "Withdraw request",
   },
 };

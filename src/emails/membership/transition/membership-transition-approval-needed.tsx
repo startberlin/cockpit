@@ -34,21 +34,24 @@ export const MembershipTransitionApprovalNeededEmail = ({
       footerAudience="board"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-        Transition request — review required
+        {subjectName} wants to become {label} and requires your approval
       </Heading>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
         Hi {firstName},
       </Text>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
         <strong style={{ color: "#1C1917" }}>{subjectName}</strong> has
-        requested to become a{" "}
+        requested to become{" "}
         <strong style={{ color: "#1C1917" }}>{label}</strong> of START Berlin.
         Please review and approve or decline the request in START Cockpit.
       </Text>
       <EmailDetailBlock
         rows={[
           { label: "Member", value: subjectName },
-          { label: "Transition type", value: label },
+          {
+            label: "Transition type",
+            value: label.charAt(0).toUpperCase() + label.slice(1),
+          },
           { label: "Requested on", value: requestedAt },
         ]}
       />

@@ -8,6 +8,7 @@ interface MembershipCancellationAcknowledgementNeededEmailProps {
   subjectName: string;
   requestedAt: string;
   profileUrl: string;
+  receivingReason?: string;
 }
 
 export const MembershipCancellationAcknowledgementNeededEmail = ({
@@ -15,14 +16,16 @@ export const MembershipCancellationAcknowledgementNeededEmail = ({
   subjectName,
   requestedAt,
   profileUrl,
+  receivingReason,
 }: MembershipCancellationAcknowledgementNeededEmailProps) => (
   <EmailShell
     preview={`Action required: acknowledge ${subjectName}'s membership cancellation`}
     eyebrow="Membership"
     footerAudience="board"
+    receivingReason={receivingReason}
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Membership cancellation — acknowledgement required
+      Membership cancellation for {subjectName} requires your acknowledgement
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},

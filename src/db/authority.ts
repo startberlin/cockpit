@@ -255,6 +255,19 @@ export function getFyiRecipients(
   return alreadyInBoard ? boardMembers : [...boardMembers, deptHeadToInclude];
 }
 
+export async function getFinanceAdminUsers(): Promise<PositionHolder[]> {
+  return db
+    .select({
+      userId: userTable.id,
+      firstName: userTable.firstName,
+      lastName: userTable.lastName,
+      email: userTable.email,
+    })
+    .from(userAccessGrant)
+    .innerJoin(userTable, eq(userTable.id, userAccessGrant.userId))
+    .where(eq(userAccessGrant.grant, "finance_admin"));
+}
+
 export async function getEligibleUsersForPositions(): Promise<
   PositionHolder[]
 > {

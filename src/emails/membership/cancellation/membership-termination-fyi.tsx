@@ -18,6 +18,7 @@ interface MembershipTerminationFyiEmailProps {
   subjectName: string;
   terminatedOn: string;
   context: TerminationContext;
+  receivingReason?: string;
 }
 
 export const MembershipTerminationFyiEmail = ({
@@ -25,14 +26,16 @@ export const MembershipTerminationFyiEmail = ({
   subjectName,
   terminatedOn,
   context,
+  receivingReason,
 }: MembershipTerminationFyiEmailProps) => (
   <EmailShell
     preview={`FYI: ${subjectName}'s START Berlin membership has ended`}
     eyebrow="Membership · FYI"
     footerAudience="board"
+    receivingReason={receivingReason}
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Membership terminated — for your information
+      Membership terminated for {subjectName}
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},

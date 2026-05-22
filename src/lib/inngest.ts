@@ -104,6 +104,9 @@ export const events = {
       decidedByUserId: string;
     }>(),
   }),
+  paymentProposalCreated: eventType("membership/payment-proposal.created", {
+    schema: staticSchema<{ count: number }>(),
+  }),
 };
 
 export const inngest = new Inngest({

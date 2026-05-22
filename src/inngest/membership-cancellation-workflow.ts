@@ -8,9 +8,9 @@ import {
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
-import MembershipCancellationAcknowledgementNeededEmail from "@/emails/membership-cancellation-acknowledgement-needed";
-import MembershipCancelledEmail from "@/emails/membership-cancelled";
-import MembershipTerminationFyiEmail from "@/emails/membership-termination-fyi";
+import MembershipCancellationAcknowledgementNeededEmail from "@/emails/membership/cancellation/membership-cancellation-acknowledgement-needed";
+import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
+import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -92,6 +92,13 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         );
 
         const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+        const boardMemberIds = new Set(
+          [
+            positions.president,
+            positions.vice_president,
+            positions.head_of_finance,
+          ].flatMap((p) => (p ? [p.userId] : [])),
+        );
 
         await Promise.all(
           recipients
@@ -106,6 +113,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                   subjectName,
                   requestedAt: new Date().toISOString().substring(0, 10),
                   profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
+                  receivingReason: boardMemberIds.has(recipient.userId)
+                    ? "You're receiving this because you're a board member of START Berlin."
+                    : `You're receiving this because you're the department head of ${subjectName}.`,
                 }),
               }),
             ),
@@ -215,6 +225,13 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       );
       const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      const boardMemberIds = new Set(
+        [
+          positions.president,
+          positions.vice_president,
+          positions.head_of_finance,
+        ].flatMap((p) => (p ? [p.userId] : [])),
+      );
 
       await Promise.all(
         recipients
@@ -229,6 +246,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                 subjectName,
                 terminatedOn,
                 context: reason,
+                receivingReason: boardMemberIds.has(recipient.userId)
+                  ? "You're receiving this because you're a board member of START Berlin."
+                  : `You're receiving this because you're the department head of ${subjectName}.`,
               }),
             }),
           ),

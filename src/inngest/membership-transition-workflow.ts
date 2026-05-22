@@ -8,10 +8,10 @@ import {
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
-import MembershipCancelledEmail from "@/emails/membership-cancelled";
-import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership-supporting-alumni-confirmed";
-import MembershipTerminationFyiEmail from "@/emails/membership-termination-fyi";
-import MembershipTransitionRejectedEmail from "@/emails/membership-transition-rejected";
+import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
+import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
+import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership/transition/membership-supporting-alumni-confirmed";
+import MembershipTransitionRejectedEmail from "@/emails/membership/transition/membership-transition-rejected";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
@@ -93,7 +93,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: requestData.startEmail!,
-            subject: "Your transition request has expired",
+            subject: "Your transition request was not approved at this time",
             react: MembershipTransitionRejectedEmail({
               firstName: requestData.firstName,
               transitionType: type,
@@ -123,7 +123,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: requestData.startEmail!,
-            subject: "Your transition request was not approved",
+            subject: "Your transition request was not approved at this time",
             react: MembershipTransitionRejectedEmail({
               firstName: requestData.firstName,
               transitionType: type,
@@ -281,6 +281,13 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       const subjectName =
         `${requestData.firstName} ${requestData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      const boardMemberIds = new Set(
+        [
+          positions.president,
+          positions.vice_president,
+          positions.head_of_finance,
+        ].flatMap((p) => (p ? [p.userId] : [])),
+      );
 
       await Promise.all(
         recipients
@@ -295,6 +302,9 @@ export const membershipTransitionWorkflow = inngest.createFunction(
                 subjectName,
                 terminatedOn,
                 context: "alumni",
+                receivingReason: boardMemberIds.has(recipient.userId)
+                  ? "You're receiving this because you're a board member of START Berlin."
+                  : `You're receiving this because you're the department head of ${subjectName}.`,
               }),
             }),
           ),

@@ -20,6 +20,7 @@ interface EmailShellProps {
   preview: string;
   eyebrow?: string;
   footerAudience?: "member" | "board";
+  receivingReason?: string;
   children: ReactNode;
 }
 
@@ -27,12 +28,14 @@ export function EmailShell({
   preview,
   eyebrow,
   footerAudience = "member",
+  receivingReason,
   children,
 }: EmailShellProps) {
-  const receivingReason =
+  const defaultReason =
     footerAudience === "board"
       ? "You're receiving this because you're a board member of START Berlin."
       : "You're receiving this because you're a member of START Berlin.";
+  const resolvedReason = receivingReason ?? defaultReason;
 
   return (
     <Html>
@@ -105,7 +108,7 @@ export function EmailShell({
                 }}
               >
                 <Text className="mt-0 mb-[12px] text-[12px] text-[#78716C] leading-[20px]">
-                  {receivingReason}
+                  {resolvedReason}
                 </Text>
                 <Text className="mt-0 mb-0 text-[11px] text-[#78716C] leading-[18px]">
                   START Berlin e.V. · Luisenstraße 53 · c/o HU-Gründerhaus ·

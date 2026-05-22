@@ -12,7 +12,7 @@ export const MembershipApplicationReadyEmail = ({
   applicationUrl,
 }: MembershipApplicationReadyEmailProps) => (
   <EmailShell
-    preview="Complete your START Berlin membership application"
+    preview="Complete your membership application"
     eyebrow="Membership application"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
@@ -30,6 +30,13 @@ export const MembershipApplicationReadyEmail = ({
       confirmed.
     </Text>
     <EmailCta href={applicationUrl} label="Complete application" />
+    <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+      If you have any questions, reach out to{" "}
+      <a href="mailto:people@start-berlin.com" style={{ color: "#1C1917" }}>
+        people@start-berlin.com
+      </a>
+      .
+    </Text>
   </EmailShell>
 );
 

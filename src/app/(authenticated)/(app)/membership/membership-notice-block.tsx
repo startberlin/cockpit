@@ -163,11 +163,11 @@ export function MembershipNoticeBlock({
       },
       alumni_request: {
         title: "Alumni transition in progress",
-        body: "Your request to transition to alumni status has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+        body: "Your request to become an alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
       },
       supporting_alumni_request: {
         title: "Supporting alumni transition in progress",
-        body: "Your request to become a supporting alumni member has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+        body: "Your request to become a Supporting Alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
       },
     };
     const transitionType = pendingTransition?.type ?? "cancellation";

@@ -38,6 +38,16 @@ export const MembershipAdmissionConfirmedEmail = ({
             funds events, operations, and member benefits throughout the year.
           </Text>
           <EmailCta href={membershipUrl} label="Set up membership payment" />
+          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+            If you have any questions, reach out to{" "}
+            <a
+              href="mailto:people@start-berlin.com"
+              style={{ color: "#1C1917" }}
+            >
+              people@start-berlin.com
+            </a>
+            .
+          </Text>
         </>
       ) : (
         <>
@@ -48,9 +58,19 @@ export const MembershipAdmissionConfirmedEmail = ({
           <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
             Hi {firstName},
           </Text>
-          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
             Your membership in START Berlin e.V. is confirmed and active. Thanks
             for being part of START Berlin.
+          </Text>
+          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+            If you have any questions, reach out to{" "}
+            <a
+              href="mailto:people@start-berlin.com"
+              style={{ color: "#1C1917" }}
+            >
+              people@start-berlin.com
+            </a>
+            .
           </Text>
         </>
       )}

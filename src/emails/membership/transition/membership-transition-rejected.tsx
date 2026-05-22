@@ -31,13 +31,21 @@ export const MembershipTransitionRejectedEmail = ({
         Hi {firstName},
       </Text>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-        Your request to become a{" "}
+        Your request to become{" "}
         <strong style={{ color: "#1C1917" }}>{label}</strong> of START Berlin
         was not approved at this time.
       </Text>
-      <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+      <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
         Your membership remains active. You're welcome to submit a new request
         when you're ready.
+      </Text>
+      <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+        If you have questions about this decision, reach out to your department
+        head or{" "}
+        <a href="mailto:people@start-berlin.com" style={{ color: "#1C1917" }}>
+          vorstand@start-berlin.com
+        </a>
+        .
       </Text>
     </EmailShell>
   );

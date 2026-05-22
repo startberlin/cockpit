@@ -3,7 +3,7 @@ import {
   getMembersNeedingProposal,
 } from "@/db/membership-payments";
 import { env } from "@/env";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 
 export const membershipPaymentProposalsCron = inngest.createFunction(
   {
@@ -17,6 +17,13 @@ export const membershipPaymentProposalsCron = inngest.createFunction(
       const proposed = await batchCreateProposedPayments(members);
       return { proposed, eligible: members.length };
     });
+
+    if (result.proposed > 0) {
+      await step.sendEvent("fire-finance-digest", {
+        name: events.paymentProposalCreated.name,
+        data: { count: result.proposed },
+      });
+    }
 
     if (env.BETTERSTACK_HEARTBEAT_URL) {
       await step.run("send-heartbeat", async () => {

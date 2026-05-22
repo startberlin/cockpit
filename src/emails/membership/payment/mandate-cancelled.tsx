@@ -34,6 +34,13 @@ export const MandateCancelledEmail = ({
       confirm the direct debit.
     </Text>
     <EmailCta href={membershipUrl} label="Set up direct debit" />
+    <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+      If you run into any issues or have questions, reach out to{" "}
+      <a href="mailto:operations@start-berlin.com" style={{ color: "#1C1917" }}>
+        operations@start-berlin.com
+      </a>
+      .
+    </Text>
   </EmailShell>
 );
 

@@ -28,11 +28,20 @@ export const MembershipCancelledEmail = ({
         <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
           Hi {firstName},
         </Text>
+        <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+          Your membership in START Berlin e.V. has been terminated by the board
+          in accordance with the association's bylaws (Satzung). Your account
+          and all associated memberships have been closed.
+        </Text>
         <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-          Your membership in START Berlin e.V. has been terminated by resolution
-          of the board in accordance with the association's statutes. Your
-          account and all associated memberships have been closed. If you have
-          questions regarding this decision, please contact the board directly.
+          If you have questions regarding this decision, reach out to{" "}
+          <a
+            href="mailto:vorstand@start-berlin.com"
+            style={{ color: "#1C1917" }}
+          >
+            vorstand@start-berlin.com
+          </a>
+          .
         </Text>
       </>
     ) : (
@@ -49,8 +58,8 @@ export const MembershipCancelledEmail = ({
         </Text>
         {keepInTouch ? (
           <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-            You chose to stay in touch — we'll keep you in the loop on START
-            Berlin events and news at this address.
+            You chose to stay in touch as an alumni. We'll use this email
+            address to contact you in the future.
           </Text>
         ) : (
           <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">

@@ -1,3 +1,4 @@
+import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
 import { membershipCancellationWorkflow } from "./membership-cancellation-workflow";
@@ -14,6 +15,7 @@ import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-mem
 import { syncGroupsCron } from "./sync-groups-cron";
 
 export const inngestFunctions = [
+  financePaymentProposalsDigest,
   gocardlessEventsCleanupCron,
   syncGroupsCron,
   membershipAdmissionWorkflow,

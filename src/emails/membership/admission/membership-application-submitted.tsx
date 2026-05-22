@@ -21,9 +21,16 @@ export const MembershipApplicationSubmittedEmail = ({
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       We've received your membership application for START Berlin e.V.
     </Text>
-    <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+    <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       A copy of your application documents is attached to this email for your
       records.
+    </Text>
+    <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+      If you have any questions, reach out to{" "}
+      <a href="mailto:people@start-berlin.com" style={{ color: "#1C1917" }}>
+        people@start-berlin.com
+      </a>
+      .
     </Text>
   </EmailShell>
 );
