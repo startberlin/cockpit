@@ -228,6 +228,33 @@ export function getApprovalRecipients(
   ].filter((p): p is PositionHolder => p !== null && p.userId !== userId);
 }
 
+export function getFyiRecipients(
+  positions: PositionAssignments,
+  userId: string,
+  department: Department | null | undefined,
+): PositionHolder[] {
+  const boardMembers = [
+    positions.president,
+    positions.vice_president,
+    positions.head_of_finance,
+  ].filter((p): p is PositionHolder => p !== null && p.userId !== userId);
+
+  const deptHead = department
+    ? (positions.departmentHeads[department] ?? null)
+    : null;
+
+  const deptHeadToInclude =
+    deptHead && deptHead.userId !== userId ? deptHead : null;
+
+  if (!deptHeadToInclude) return boardMembers;
+
+  const alreadyInBoard = boardMembers.some(
+    (p) => p.userId === deptHeadToInclude.userId,
+  );
+
+  return alreadyInBoard ? boardMembers : [...boardMembers, deptHeadToInclude];
+}
+
 export async function getEligibleUsersForPositions(): Promise<
   PositionHolder[]
 > {

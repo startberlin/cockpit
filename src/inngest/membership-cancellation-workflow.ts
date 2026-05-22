@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { getApprovalRecipients, getPositionAssignments } from "@/db/authority";
+import {
+  getApprovalRecipients,
+  getFyiRecipients,
+  getPositionAssignments,
+} from "@/db/authority";
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
@@ -204,7 +208,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     // Step 8: Notify board and department head that the membership has ended.
     await step.run("send-internal-fyi", async () => {
       const positions = await getPositionAssignments();
-      const recipients = getApprovalRecipients(
+      const recipients = getFyiRecipients(
         positions,
         userId,
         userData.department,
