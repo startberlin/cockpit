@@ -11,7 +11,6 @@ import {
 } from "./position-assignment-notifications";
 import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
 import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
-import { syncGoogleWorkspaceUserNameWorkflow } from "./sync-google-workspace-user-name";
 import { syncGroupsCron } from "./sync-groups-cron";
 
 export const inngestFunctions = [
@@ -27,5 +26,4 @@ export const inngestFunctions = [
   positionAssignmentDeletedNotification,
   reconcileGroupMembershipWorkflow,
   reconcileUserGroupMembershipWorkflow,
-  syncGoogleWorkspaceUserNameWorkflow,
 ];
