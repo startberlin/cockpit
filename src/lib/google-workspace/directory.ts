@@ -117,39 +117,6 @@ export async function findWorkspaceUserByEmail(email: string) {
   return await getWorkspaceUser(email.toLowerCase());
 }
 
-export async function updateWorkspaceUserName(
-  userKey: string,
-  {
-    givenName,
-    familyName,
-  }: {
-    givenName: string;
-    familyName: string;
-  },
-) {
-  if (env.DISABLE_GOOGLE_WORKSPACE) {
-    console.warn(
-      `[google-workspace disabled] updateWorkspaceUserName(${userKey}, ${givenName} ${familyName}) — skipped`,
-    );
-    return;
-  }
-
-  const admin = getDirectoryClient();
-
-  const res = await admin.users.update({
-    userKey,
-    requestBody: {
-      name: { givenName, familyName },
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(
-      `Failed to update Workspace name for ${userKey}: ${res.statusText}`,
-    );
-  }
-}
-
 export async function suspendWorkspaceUser(email: string): Promise<void> {
   if (env.DISABLE_GOOGLE_WORKSPACE) {
     console.warn(
