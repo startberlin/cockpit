@@ -50,6 +50,7 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
           where: (l, { eq }) => eq(l.id, legalMembershipId),
           columns: { status: true },
         });
+
         if (!lm || lm.status !== "membership_reconfirmation_pending") return;
 
         const u = await db.query.user.findFirst({
@@ -64,10 +65,12 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
             eventEmailPreference: true,
           },
         });
+
         if (!u?.email) return;
         if (u.status && INACTIVE_STATUSES.includes(u.status)) return;
 
         const onboarded = getOnboardingProgress(u) === "completed";
+
         if (onboarded) {
           await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",

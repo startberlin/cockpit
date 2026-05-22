@@ -30,6 +30,12 @@ export async function notifyUntil(
     send: (index: number) => Promise<void>;
   },
 ): Promise<unknown> {
+  if (opts.timeoutDays <= 0 || opts.remindEveryDays <= 0) {
+    throw new Error(
+      `notifyUntil: timeoutDays and remindEveryDays must be positive (got ${opts.timeoutDays}, ${opts.remindEveryDays})`,
+    );
+  }
+
   const eventIf = `async.data.${opts.terminateOn.match} == event.data.${opts.terminateOn.match}`;
   let elapsed = 0;
   let sendIndex = 0;

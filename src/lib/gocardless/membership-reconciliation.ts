@@ -36,6 +36,16 @@ export async function reconcileMembershipPaymentByBillingRequestId(
   }
 
   if (member.gocardlessMandateId) {
+    // Re-emit as an idempotent recovery step: if the DB write succeeded but
+    // the original send failed, reminder workflows would otherwise run forever.
+    try {
+      await inngest.send({
+        name: events.mandateActivated.name,
+        data: { userId: member.id },
+      });
+    } catch {
+      // Non-fatal — reconciliation result is correct; reminders time out naturally.
+    }
     return { status: "already_active", hostedRedirect: "/membership" };
   }
 
