@@ -1,23 +1,14 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
-import { getApprovalRecipients, getPositionAssignments } from "@/db/authority";
 import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
-import MembershipAlumniConfirmedEmail from "@/emails/membership-alumni-confirmed";
-import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership-supporting-alumni-confirmed";
-import MembershipTransitionApprovalNeededEmail from "@/emails/membership-transition-approval-needed";
-import MembershipTransitionRejectedEmail from "@/emails/membership-transition-rejected";
-import { env } from "@/env";
-import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
   deleteWorkspaceUser,
   suspendWorkspaceUser,
 } from "@/lib/google-workspace/directory";
 import { events, inngest } from "@/lib/inngest";
-import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
-import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
 
 export const membershipTransitionWorkflow = inngest.createFunction(
   {
@@ -34,7 +25,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { userId, transitionRequestId, type, keepPersonalEmail } = event.data;
 
-    // Step 1: Read transition request and user data, determine approvers.
+    // Step 1: Read user data needed for execution.
     const requestData = await step.run("read-request-data", async () => {
       const userRecord = await db.query.user.findFirst({
         where: (u, { eq: eqFn }) => eqFn(u.id, userId),
@@ -42,9 +33,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           firstName: true,
           lastName: true,
           email: true,
-          personalEmail: true,
           gocardlessMandateId: true,
-          department: true,
         },
       });
 
@@ -58,61 +47,23 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         columns: { id: true },
       });
 
-      const positions = await getPositionAssignments();
-      const approvers = getApprovalRecipients(
-        positions,
-        userId,
-        userRecord.department,
-      );
-
       return {
         firstName: userRecord.firstName,
         lastName: userRecord.lastName,
-        personalEmail: userRecord.personalEmail,
         startEmail: userRecord.email,
         mandateId: userRecord.gocardlessMandateId,
         legalMembershipId: lm?.id ?? null,
-        approvers,
       };
     });
 
-    // Step 2: Send approval request to dept head / board.
-    await step.run("send-approval-request", async () => {
-      const subjectName =
-        `${requestData.firstName} ${requestData.lastName}`.trim();
-      const transitionLabel =
-        type === "alumni_request"
-          ? "alumni_request"
-          : "supporting_alumni_request";
-
-      await Promise.all(
-        requestData.approvers
-          .filter((r) => r.email)
-          .map((recipient) =>
-            sendEmail({
-              from: "START Berlin <notifications@cockpit.start-berlin.com>",
-              to: recipient.email!,
-              subject: `Action required: review ${subjectName}'s transition request`,
-              react: MembershipTransitionApprovalNeededEmail({
-                firstName: recipient.firstName,
-                subjectName,
-                transitionType: transitionLabel,
-                requestedAt: new Date().toISOString().substring(0, 10),
-                profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
-              }),
-            }),
-          ),
-      );
-    });
-
-    // Step 3: Wait for decision (30-day timeout).
+    // Step 2: Wait for decision (30-day timeout).
     const decisionEvent = await step.waitForEvent("wait-for-decision", {
       event: events.transitionDecided.name,
       timeout: "30d",
       if: "async.data.transitionRequestId == event.data.transitionRequestId",
     });
 
-    // Step 4a: Timeout — mark expired and notify member.
+    // Step 3a: Timeout — mark expired.
     if (decisionEvent === null) {
       await step.run("mark-request-expired", async () => {
         await db
@@ -121,27 +72,10 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .where(eq(membershipTransitionRequest.id, transitionRequestId));
       });
 
-      if (requestData.personalEmail) {
-        await step.run("send-expiry-notification", async () => {
-          await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: requestData.personalEmail!,
-            subject: "Your transition request has expired",
-            react: MembershipTransitionRejectedEmail({
-              firstName: requestData.firstName,
-              transitionType:
-                type === "alumni_request"
-                  ? "alumni_request"
-                  : "supporting_alumni_request",
-            }),
-          });
-        });
-      }
-
       return { outcome: "expired", transitionRequestId };
     }
 
-    // Step 4b: Rejected — notify member.
+    // Step 3b: Rejected — mark and exit.
     if (decisionEvent.data.decision === "rejected") {
       await step.run("mark-request-rejected", async () => {
         await db
@@ -154,27 +88,10 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .where(eq(membershipTransitionRequest.id, transitionRequestId));
       });
 
-      if (requestData.personalEmail) {
-        await step.run("send-rejection-email", async () => {
-          await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: requestData.personalEmail!,
-            subject: "Your transition request was not approved",
-            react: MembershipTransitionRejectedEmail({
-              firstName: requestData.firstName,
-              transitionType:
-                type === "alumni_request"
-                  ? "alumni_request"
-                  : "supporting_alumni_request",
-            }),
-          });
-        });
-      }
-
       return { outcome: "rejected", transitionRequestId };
     }
 
-    // Step 5: Approved — execute based on type.
+    // Step 4: Approved — execute based on type.
     if (type === "supporting_alumni_request") {
       // Supporting alumni: status change only, Google + mandate unchanged.
       await step.run("execute-supporting-alumni-transition", async () => {
@@ -195,19 +112,6 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         });
       });
 
-      if (requestData.personalEmail) {
-        await step.run("send-supporting-alumni-email", async () => {
-          await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: requestData.personalEmail!,
-            subject: "You're now a Supporting Alumni of START Berlin",
-            react: MembershipSupportingAlumniConfirmedEmail({
-              firstName: requestData.firstName,
-            }),
-          });
-        });
-      }
-
       await step.sendEvent("fire-group-reconciliation", {
         name: events.cockpitUserUpdated.name,
         data: { id: userId },
@@ -216,9 +120,9 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       return { outcome: "supporting_alumni", transitionRequestId };
     }
 
-    // Alumni request: full exit sequence (mirrors cancellation workflow).
+    // Alumni request: full exit sequence.
 
-    // Step 6: Atomic alumni transition transaction.
+    // Step 5: Atomic alumni transition transaction.
     await step.run("execute-alumni-transition", async () => {
       await db.transaction(async (tx) => {
         if (requestData.legalMembershipId) {
@@ -245,14 +149,14 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 7: Suspend Google account.
+    // Step 6: Suspend Google account.
     if (requestData.startEmail) {
       await step.run("suspend-google-account", async () => {
         await suspendWorkspaceUser(requestData.startEmail!);
       });
     }
 
-    // Step 8: Cancel GoCardless mandate.
+    // Step 7: Cancel GoCardless mandate.
     if (requestData.mandateId) {
       await step.run("cancel-gocardless-mandate", async () => {
         await cancelMembershipMandate(requestData.mandateId!);
@@ -267,53 +171,13 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       });
     }
 
-    // Step 9: Generate and archive alumni transition PDF.
-    await step.run("generate-and-archive-pdf", async () => {
-      const { renderToBuffer } = await import("@react-pdf/renderer");
-      const pdfBuffer = await renderToBuffer(
-        renderMembershipTransitionTemplate({
-          legalMembershipId: requestData.legalMembershipId ?? "unknown",
-          firstName: requestData.firstName,
-          lastName: requestData.lastName,
-          transitionType: "alumni",
-          transitionDate: new Date(),
-          renderedAt: new Date(),
-        }),
-      );
-
-      if (requestData.legalMembershipId) {
-        await archiveLegalDocument({
-          legalMembershipId: requestData.legalMembershipId,
-          buffer: Buffer.from(pdfBuffer),
-          fileName: `membership-alumni-transition-${requestData.legalMembershipId}.pdf`,
-          firstName: requestData.firstName,
-          lastName: requestData.lastName,
-        });
-      }
-    });
-
-    // Step 10: Send alumni confirmation email using cached personal email.
-    if (requestData.personalEmail) {
-      await step.run("send-alumni-confirmed-email", async () => {
-        await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: requestData.personalEmail!,
-          subject: "Your START Berlin membership has transitioned to alumni",
-          react: MembershipAlumniConfirmedEmail({
-            firstName: requestData.firstName,
-            keepInTouch: keepPersonalEmail,
-          }),
-        });
-      });
-    }
-
-    // Step 11: Fire group reconciliation.
+    // Step 8: Fire group reconciliation.
     await step.sendEvent("fire-group-reconciliation-alumni", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
     });
 
-    // Step 12: Erase personal data (personal email optionally preserved).
+    // Step 10: Erase personal data (personal email optionally preserved).
     await step.run("erase-personal-data", async () => {
       await db
         .update(user)
@@ -337,17 +201,17 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         .where(eq(membershipTransitionRequest.id, transitionRequestId));
     });
 
-    // Step 13: Wait 7 days before hard-deleting workspace account.
+    // Step 11: Wait 7 days before hard-deleting workspace account.
     await step.sleep("wait-7d-before-deletion", "7d");
 
-    // Step 14: Hard-delete Google Workspace account.
+    // Step 12: Hard-delete Google Workspace account.
     if (requestData.startEmail) {
       await step.run("hard-delete-google-account", async () => {
         await deleteWorkspaceUser(requestData.startEmail!);
       });
     }
 
-    // Step 15: Null the start email.
+    // Step 13: Null the start email.
     await step.run("null-start-email", async () => {
       await db.update(user).set({ email: null }).where(eq(user.id, userId));
     });
