@@ -14,6 +14,7 @@ import {
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
@@ -658,6 +659,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           ].flatMap((p) => (p ? [p.userId] : [])),
         );
 
+        const subjectDepartmentLabel = subjectUser?.department
+          ? DEPARTMENT_NAMES[subjectUser.department]
+          : null;
+
         return {
           subjectName,
           participants: recipients.map((r) => ({
@@ -666,7 +671,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             firstName: r.firstName,
             receivingReason: boardMemberIds.has(r.userId)
               ? "You're receiving this because you're a board member of START Berlin."
-              : `You're receiving this because you're the department head of ${subjectName}.`,
+              : subjectDepartmentLabel
+                ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
+                : `You're receiving this because you're a department head at START Berlin.`,
           })),
           boardResolutionDriveFileId: boardResolutionFileDriveId,
         };

@@ -59,22 +59,22 @@ export const financePaymentProposalsDigest = inngest.createFunction(
       return { outcome: "no_recipients" };
     }
 
-    await step.run("send-digest-emails", async () => {
-      await Promise.all(
-        recipients.map((r) =>
-          sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: r.email!,
-            subject: `${proposals.length} membership payment proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
-            react: PaymentProposalsDigestEmail({
-              firstName: r.firstName,
-              proposals,
-              receivingReason: r.receivingReason,
-            }),
+    // One step per recipient so retries only re-send to the recipient that
+    // failed, not to recipients who already received the digest.
+    for (const r of recipients) {
+      await step.run(`send-digest-email-${r.userId}`, async () => {
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: r.email!,
+          subject: `${proposals.length} membership payment proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
+          react: PaymentProposalsDigestEmail({
+            firstName: r.firstName,
+            proposals,
+            receivingReason: r.receivingReason,
           }),
-        ),
-      );
-    });
+        });
+      });
+    }
 
     return {
       outcome: "sent",

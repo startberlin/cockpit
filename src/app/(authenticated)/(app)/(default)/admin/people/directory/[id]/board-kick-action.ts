@@ -20,12 +20,6 @@ export const boardKickAction = actionClient
       throw new Error("You are not authorized to remove members.");
     }
 
-    // Synchronously revoke all sessions before firing the event — board kick
-    // requires immediate access cutoff, unlike self-service cancellation.
-    await db
-      .delete(session)
-      .where(eq(session.userId, parsedInput.targetUserId));
-
     const request = await createTransitionRequest({
       userId: parsedInput.targetUserId,
       type: "cancellation",
@@ -41,6 +35,13 @@ export const boardKickAction = actionClient
         reason: "removed_by_board",
       },
     });
+
+    // Revoke sessions synchronously after the workflow is queued — board kick
+    // requires immediate access cutoff. Even if this throws, the workflow's
+    // own transaction will revoke sessions when it runs.
+    await db
+      .delete(session)
+      .where(eq(session.userId, parsedInput.targetUserId));
 
     return { requestId: request.id };
   });

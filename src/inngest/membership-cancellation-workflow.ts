@@ -12,6 +12,7 @@ import MembershipCancellationAcknowledgementNeededEmail from "@/emails/membershi
 import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
 import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import { env } from "@/env";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
@@ -92,6 +93,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         );
 
         const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+        const subjectDepartmentLabel = userData.department
+          ? DEPARTMENT_NAMES[userData.department]
+          : null;
         const boardMemberIds = new Set(
           [
             positions.president,
@@ -115,7 +119,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                   profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
-                    : `You're receiving this because you're the department head of ${subjectName}.`,
+                    : subjectDepartmentLabel
+                      ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
+                      : `You're receiving this because you're a department head at START Berlin.`,
                 }),
               }),
             ),
@@ -216,6 +222,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     }
 
     // Step 8: Notify board and department head that the membership has ended.
+    // Per-recipient failures must not block downstream cleanup steps.
     await step.run("send-internal-fyi", async () => {
       const positions = await getPositionAssignments();
       const recipients = getFyiRecipients(
@@ -225,6 +232,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       );
       const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      const subjectDepartmentLabel = userData.department
+        ? DEPARTMENT_NAMES[userData.department]
+        : null;
       const boardMemberIds = new Set(
         [
           positions.president,
@@ -233,7 +243,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         ].flatMap((p) => (p ? [p.userId] : [])),
       );
 
-      await Promise.all(
+      const results = await Promise.allSettled(
         recipients
           .filter((r) => r.email)
           .map((recipient) =>
@@ -248,11 +258,19 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                 context: reason,
                 receivingReason: boardMemberIds.has(recipient.userId)
                   ? "You're receiving this because you're a board member of START Berlin."
-                  : `You're receiving this because you're the department head of ${subjectName}.`,
+                  : subjectDepartmentLabel
+                    ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
+                    : `You're receiving this because you're a department head at START Berlin.`,
               }),
             }),
           ),
       );
+
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.error("[send-internal-fyi] email send failed", r.reason);
+        }
+      }
     });
 
     // Step 10: Fire group reconciliation to remove from all Google groups.

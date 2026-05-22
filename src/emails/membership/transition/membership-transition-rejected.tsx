@@ -42,7 +42,7 @@ export const MembershipTransitionRejectedEmail = ({
       <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
         If you have questions about this decision, reach out to your department
         head or{" "}
-        <a href="mailto:people@start-berlin.com" style={{ color: "#1C1917" }}>
+        <a href="mailto:vorstand@start-berlin.com" style={{ color: "#1C1917" }}>
           vorstand@start-berlin.com
         </a>
         .

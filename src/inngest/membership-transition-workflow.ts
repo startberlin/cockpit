@@ -12,6 +12,7 @@ import MembershipCancelledEmail from "@/emails/membership/cancellation/membershi
 import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership/transition/membership-supporting-alumni-confirmed";
 import MembershipTransitionRejectedEmail from "@/emails/membership/transition/membership-transition-rejected";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
@@ -27,6 +28,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     id: "membership-transition-workflow",
     name: "Membership Transition Workflow",
     triggers: [{ event: events.transitionRequested }],
+    idempotency: "event.data.transitionRequestId",
     cancelOn: [
       {
         event: events.transitionRetracted.name,
@@ -271,6 +273,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     }
 
     // Step 10: Notify board and department head of the alumni transition.
+    // Per-recipient failures must not block downstream cleanup steps.
     await step.run("send-internal-fyi", async () => {
       const positions = await getPositionAssignments();
       const recipients = getFyiRecipients(
@@ -281,6 +284,9 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       const subjectName =
         `${requestData.firstName} ${requestData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      const subjectDepartmentLabel = requestData.department
+        ? DEPARTMENT_NAMES[requestData.department]
+        : null;
       const boardMemberIds = new Set(
         [
           positions.president,
@@ -289,7 +295,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         ].flatMap((p) => (p ? [p.userId] : [])),
       );
 
-      await Promise.all(
+      const results = await Promise.allSettled(
         recipients
           .filter((r) => r.email)
           .map((recipient) =>
@@ -304,11 +310,19 @@ export const membershipTransitionWorkflow = inngest.createFunction(
                 context: "alumni",
                 receivingReason: boardMemberIds.has(recipient.userId)
                   ? "You're receiving this because you're a board member of START Berlin."
-                  : `You're receiving this because you're the department head of ${subjectName}.`,
+                  : subjectDepartmentLabel
+                    ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
+                    : `You're receiving this because you're a department head at START Berlin.`,
               }),
             }),
           ),
       );
+
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.error("[send-internal-fyi] email send failed", r.reason);
+        }
+      }
     });
 
     // Step 11: Fire group reconciliation.

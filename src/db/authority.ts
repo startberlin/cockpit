@@ -233,11 +233,17 @@ export function getFyiRecipients(
   userId: string,
   department: Department | null | undefined,
 ): PositionHolder[] {
-  const boardMembers = [
+  const boardByUserId = new Map<string, PositionHolder>();
+  for (const p of [
     positions.president,
     positions.vice_president,
     positions.head_of_finance,
-  ].filter((p): p is PositionHolder => p !== null && p.userId !== userId);
+  ]) {
+    if (p && p.userId !== userId && !boardByUserId.has(p.userId)) {
+      boardByUserId.set(p.userId, p);
+    }
+  }
+  const boardMembers = [...boardByUserId.values()];
 
   const deptHead = department
     ? (positions.departmentHeads[department] ?? null)
@@ -248,9 +254,7 @@ export function getFyiRecipients(
 
   if (!deptHeadToInclude) return boardMembers;
 
-  const alreadyInBoard = boardMembers.some(
-    (p) => p.userId === deptHeadToInclude.userId,
-  );
+  const alreadyInBoard = boardByUserId.has(deptHeadToInclude.userId);
 
   return alreadyInBoard ? boardMembers : [...boardMembers, deptHeadToInclude];
 }
