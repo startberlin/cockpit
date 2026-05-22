@@ -659,6 +659,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           ].flatMap((p) => (p ? [p.userId] : [])),
         );
 
+        // Non-board recipients can only be the dept head of the subject's
+        // department (per getFyiRecipients), so department is non-null here.
         const subjectDepartmentLabel = subjectUser?.department
           ? DEPARTMENT_NAMES[subjectUser.department]
           : null;
@@ -671,9 +673,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             firstName: r.firstName,
             receivingReason: boardMemberIds.has(r.userId)
               ? "You're receiving this because you're a board member of START Berlin."
-              : subjectDepartmentLabel
-                ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
-                : `You're receiving this because you're a department head at START Berlin.`,
+              : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
           })),
           boardResolutionDriveFileId: boardResolutionFileDriveId,
         };

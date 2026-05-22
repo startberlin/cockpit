@@ -284,6 +284,8 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       const subjectName =
         `${requestData.firstName} ${requestData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      // Non-board recipients can only be the dept head of the subject's
+      // department (per getFyiRecipients), so department is non-null here.
       const subjectDepartmentLabel = requestData.department
         ? DEPARTMENT_NAMES[requestData.department]
         : null;
@@ -310,9 +312,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
                 context: "alumni",
                 receivingReason: boardMemberIds.has(recipient.userId)
                   ? "You're receiving this because you're a board member of START Berlin."
-                  : subjectDepartmentLabel
-                    ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
-                    : `You're receiving this because you're a department head at START Berlin.`,
+                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
               }),
             }),
           ),

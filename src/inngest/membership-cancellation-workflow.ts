@@ -93,6 +93,8 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         );
 
         const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+        // Non-board recipients can only be the dept head of the subject's
+        // department (per getFyiRecipients), so department is non-null here.
         const subjectDepartmentLabel = userData.department
           ? DEPARTMENT_NAMES[userData.department]
           : null;
@@ -119,9 +121,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                   profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
-                    : subjectDepartmentLabel
-                      ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
-                      : `You're receiving this because you're a department head at START Berlin.`,
+                    : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
                 }),
               }),
             ),
@@ -232,6 +232,8 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       );
       const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      // Non-board recipients can only be the dept head of the subject's
+      // department (per getFyiRecipients), so department is non-null here.
       const subjectDepartmentLabel = userData.department
         ? DEPARTMENT_NAMES[userData.department]
         : null;
@@ -258,9 +260,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                 context: reason,
                 receivingReason: boardMemberIds.has(recipient.userId)
                   ? "You're receiving this because you're a board member of START Berlin."
-                  : subjectDepartmentLabel
-                    ? `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`
-                    : `You're receiving this because you're a department head at START Berlin.`,
+                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
               }),
             }),
           ),

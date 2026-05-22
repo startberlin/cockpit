@@ -6,11 +6,11 @@ type TerminationContext = "resigned" | "removed_by_board" | "alumni";
 
 const BODY_COPY: Record<TerminationContext, (subjectName: string) => string> = {
   resigned: (name) =>
-    `${name} has cancelled their START Berlin e.V. membership. Their member access is being wound down and their associated data will be removed.`,
+    `${name} has cancelled their START Berlin e.V. membership. Their account has been closed and their associated data will be removed shortly.`,
   removed_by_board: (name) =>
-    `${name}'s membership in START Berlin e.V. has been terminated by board resolution. Their member access is being wound down and their associated data will be removed.`,
+    `${name}'s membership in START Berlin e.V. has been terminated by board resolution. Their account has been closed and their associated data will be removed shortly.`,
   alumni: (name) =>
-    `${name} has cancelled their START Berlin e.V. membership and transitioned to alumni status. Their active access is being wound down; alumni access (if any) remains in place.`,
+    `${name} has cancelled their START Berlin e.V. membership and transitioned to alumni status. Their active access has ended; alumni access (if any) remains in place.`,
 };
 
 interface MembershipTerminationFyiEmailProps {
