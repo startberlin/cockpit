@@ -22,6 +22,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
+import { notifyUntil } from "./lib/step-loops";
 
 export const membershipCancellationWorkflow = inngest.createFunction(
   {
@@ -84,15 +85,18 @@ export const membershipCancellationWorkflow = inngest.createFunction(
 
     // Step 2: Acknowledgement step (self-service cancellations only).
     if (requiresAcknowledgement) {
-      await step.run("send-acknowledgement-notification", async () => {
+      const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+      const requestedAt = new Date().toISOString().substring(0, 10);
+
+      const sendAckEmails = async (
+        opts: { isReminder: boolean } = { isReminder: false },
+      ) => {
         const positions = await getPositionAssignments();
         const recipients = getApprovalRecipients(
           positions,
           userId,
           userData.department,
         );
-
-        const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
         // Non-board recipients can only be the dept head of the subject's
         // department (per getFyiRecipients), so department is non-null here.
         const subjectDepartmentLabel = userData.department
@@ -106,6 +110,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
           ].flatMap((p) => (p ? [p.userId] : [])),
         );
 
+        const subjectPrefix = opts.isReminder ? "Reminder: " : "";
         await Promise.all(
           recipients
             .filter((r) => r.email)
@@ -113,25 +118,31 @@ export const membershipCancellationWorkflow = inngest.createFunction(
               sendEmail({
                 from: "START Berlin <notifications@cockpit.start-berlin.com>",
                 to: recipient.email!,
-                subject: `Action required: acknowledge ${subjectName}'s membership cancellation`,
+                subject: `${subjectPrefix}Action required: acknowledge ${subjectName}'s membership cancellation`,
                 react: MembershipCancellationAcknowledgementNeededEmail({
                   firstName: recipient.firstName,
                   subjectName,
-                  requestedAt: new Date().toISOString().substring(0, 10),
+                  requestedAt,
                   profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
                     : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
+                  isReminder: opts.isReminder,
                 }),
               }),
             ),
         );
-      });
+      };
 
-      await step.waitForEvent("wait-for-acknowledgement", {
-        event: events.cancellationAcknowledged.name,
-        timeout: "7d",
-        if: "async.data.transitionRequestId == event.data.transitionRequestId",
+      await notifyUntil(step, {
+        id: "acknowledgement",
+        terminateOn: {
+          eventName: events.cancellationAcknowledged.name,
+          match: "transitionRequestId",
+        },
+        timeoutDays: 7,
+        remindEveryDays: 3,
+        send: (index) => sendAckEmails({ isReminder: index > 0 }),
       });
     }
 

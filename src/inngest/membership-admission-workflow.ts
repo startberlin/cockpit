@@ -21,16 +21,11 @@ import {
   archiveLegalDocument,
   downloadArchivedDocument,
 } from "@/lib/legal-documents/drive-archive";
-import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
-import {
-  readFinanzordnungBuffer,
-  readSatzungBuffer,
-} from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
-import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
-import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
+import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
+import { notifyUntil } from "./lib/step-loops";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
@@ -72,74 +67,68 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         ? `${subject.firstName} ${subject.lastName}`.trim()
         : subjectUserId;
 
-    // Step 1b: Load board notification data from legalMembership JSON.
-    const boardTaskData = await step.run("load-board-task-data", async () => {
-      const lm = await db.query.legalMembership.findFirst({
-        where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
-        columns: { boardParticipants: true },
-      });
+    // Steps 1b–4: Vote loop. Up to 3 rounds; each round polls for a vote with
+    // 3-day inner waits and re-emails still-pending participants until a vote
+    // arrives or the 90-day budget for that round expires.
+    const VOTE_TOTAL_DAYS = 90;
+    const VOTE_INTERVAL_DAYS = 3;
 
-      const participantIds = (lm?.boardParticipants ?? []).map((p) => p.userId);
-
-      const participantUsers =
-        participantIds.length > 0
-          ? await db.query.user.findMany({
-              where: (u, { inArray }) => inArray(u.id, participantIds),
-              columns: { id: true, email: true, firstName: true },
-            })
-          : [];
-
-      const participants = participantUsers.map((u) => ({
-        userId: u.id,
-        email: u.email,
-        firstName: u.firstName,
-      }));
-
-      return {
-        subjectName,
-        resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
-        participants,
-      };
-    });
-
-    // Step 1c: Send one email per board participant.
-    for (const participant of boardTaskData.participants) {
-      await step.run(
-        `send-board-task-email-${participant.userId}`,
-        async () => {
-          if (!participant.email) return;
-          await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: participant.email,
-            subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
-            react: BoardResolutionTaskAssignedEmail({
-              firstName: participant.firstName ?? "",
-              subjectName: boardTaskData.subjectName,
-              resolutionUrl: boardTaskData.resolutionUrl,
-            }),
-          });
-        },
-      );
-    }
-
-    // Steps 2–4: Vote loop.
     let voteRound = 0;
     let resolution: VoteOutcome = "pending";
 
     while (voteRound < 3 && resolution === "pending") {
       voteRound++;
 
-      const voteEvent = await step.waitForEvent(
-        `wait-for-board-vote-${voteRound}`,
-        {
-          event: events.boardVoteCast,
-          timeout: "90d",
-          if: "async.data.legalMembershipId == event.data.legalMembershipId",
+      const sendVoteNotifications = async (index: number) => {
+        const lm = await db.query.legalMembership.findFirst({
+          where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+          columns: { boardParticipants: true, boardVotes: true },
+        });
+        const voted = new Set((lm?.boardVotes ?? []).map((v) => v.voterUserId));
+        const pendingIds = (lm?.boardParticipants ?? [])
+          .map((p) => p.userId)
+          .filter((id) => !voted.has(id));
+        if (pendingIds.length === 0) return;
+
+        const pendingUsers = await db.query.user.findMany({
+          where: (u, { inArray }) => inArray(u.id, pendingIds),
+          columns: { id: true, email: true, firstName: true },
+        });
+        const isReminder = index > 0;
+        await Promise.all(
+          pendingUsers
+            .filter((u) => u.email)
+            .map((u) =>
+              sendEmail({
+                from: "START Berlin <notifications@cockpit.start-berlin.com>",
+                to: u.email!,
+                subject: isReminder
+                  ? `Reminder: vote on ${subjectName}'s membership`
+                  : `Action required: vote on ${subjectName}'s membership`,
+                react: BoardResolutionTaskAssignedEmail({
+                  firstName: u.firstName ?? "",
+                  subjectName,
+                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
+                  isReminder,
+                }),
+              }),
+            ),
+        );
+      };
+
+      const voteEvent = await notifyUntil(step, {
+        id: `board-vote-r${voteRound}`,
+        terminateOn: {
+          eventName: events.boardVoteCast.name,
+          match: "legalMembershipId",
         },
-      );
+        timeoutDays: VOTE_TOTAL_DAYS,
+        remindEveryDays: VOTE_INTERVAL_DAYS,
+        send: sendVoteNotifications,
+      });
 
       if (voteEvent === null) {
-        await step.run("timeout-to-manual-followup", async () => {
+        await step.run(`timeout-to-manual-followup-r${voteRound}`, async () => {
           await db
             .update(legalMembership)
             .set({ status: "manual_followup" })
@@ -188,29 +177,33 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(legalMembership.id, legalMembershipId));
     });
 
-    await step.run("notify-applicant-board-approved", async () => {
-      if (!subject.email) {
-        throw new Error(`Missing email for subject user ${subjectUserId}`);
-      }
-      await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: subject.email,
-        subject: "Complete your START Berlin membership application",
-        react: MembershipApplicationReadyEmail({
-          firstName: subject.firstName,
-          applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
-        }),
-      });
-    });
-
-    const applicationEvent = await step.waitForEvent(
-      "wait-for-application-submitted",
-      {
-        event: events.applicationSubmitted,
-        timeout: "90d",
-        if: "async.data.legalMembershipId == event.data.legalMembershipId",
+    // Wait for the applicant to submit, sending a reminder every 3 days until
+    // submission or the 90-day budget expires.
+    const applicationEvent = await notifyUntil(step, {
+      id: "application",
+      terminateOn: {
+        eventName: events.applicationSubmitted.name,
+        match: "legalMembershipId",
       },
-    );
+      timeoutDays: 90,
+      remindEveryDays: 3,
+      send: async (index) => {
+        if (!subject.email) return;
+        const isReminder = index > 0;
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: subject.email,
+          subject: isReminder
+            ? "Reminder: complete your START Berlin membership application"
+            : "Complete your START Berlin membership application",
+          react: MembershipApplicationReadyEmail({
+            firstName: subject.firstName,
+            applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+            isReminder,
+          }),
+        });
+      },
+    });
 
     if (applicationEvent === null) {
       await step.run("application-timeout-to-manual-followup", async () => {
@@ -390,12 +383,12 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           );
         }
 
-        const renderedAt = new Date();
-        const { renderToBuffer } = await import("@react-pdf/renderer");
-        const element = renderMembershipApplicationTemplate({
+        return archiveMembershipApplicationPdf({
           legalMembershipId,
           applicationId: application.id,
           subjectName,
+          firstName: subject.firstName,
+          lastName: subject.lastName,
           email: application.personalEmail ?? undefined,
           birthDate: application.birthDate,
           address: {
@@ -409,58 +402,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           feeTextVersion: application.feeTextVersion,
           applicationVersion: application.applicationVersion,
           submittedAt: application.submittedAt,
-          renderedAt,
-        });
-
-        const [
-          mainBuffer,
-          appendixABuffer,
-          appendixBBuffer,
-          satzungBuffer,
-          finanzordnungBuffer,
-        ] = await Promise.all([
-          renderToBuffer(element).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "A",
-              title: "Bylaws (Satzung)",
-              docId: "ANX-A",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "B",
-              title: "Financial Regulations (Finanzordnung)",
-              docId: "ANX-B",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          readSatzungBuffer(),
-          readFinanzordnungBuffer(),
-        ]);
-
-        const buffer = await mergePdfsWithAttachments(mainBuffer, [
-          {
-            title: "Appendix A: Bylaws",
-            buffer: satzungBuffer,
-            dividerBuffer: appendixABuffer,
-          },
-          {
-            title: "Appendix B: Financial Regulations",
-            buffer: finanzordnungBuffer,
-            dividerBuffer: appendixBBuffer,
-          },
-        ]);
-
-        return archiveLegalDocument({
-          legalMembershipId,
-          buffer,
-          fileName: `membership-application-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-          firstName: subject.firstName,
-          lastName: subject.lastName,
         });
       },
     );
@@ -521,6 +462,13 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     await step.sendEvent("user-status-changed", {
       name: events.cockpitUserUpdated.name,
       data: { id: subjectUserId },
+    });
+
+    // Kick off the mandate-setup reminder workflow; it self-checks current
+    // mandate state at each tick so it's a no-op if the user already has one.
+    await step.sendEvent("kick-mandate-setup-reminder", {
+      name: events.mandateSetupNeeded.name,
+      data: { userId: subjectUserId },
     });
 
     // Step 9c: Render and archive admission confirmation PDF.
@@ -600,14 +548,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         throw new Error(`Missing email for subject user ${subjectUserId}`);
       }
 
-      const freshUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-        columns: { status: true, gocardlessMandateId: true },
-      });
-
-      const includesPaymentCta =
-        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
-
       const attachments = confirmationFileDriveId
         ? [
             {
@@ -621,13 +561,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
-        subject: includesPaymentCta
-          ? "Finalize your START Berlin membership"
-          : "Your START Berlin membership is active",
+        subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subject.firstName,
-          includesPaymentCta,
-          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
         attachments,
       });

@@ -5,18 +5,20 @@ import { EmailShell } from "@/emails/components/email-shell";
 interface MembershipApplicationReadyEmailProps {
   firstName: string;
   applicationUrl: string;
+  isReminder?: boolean;
 }
 
 export const MembershipApplicationReadyEmail = ({
   firstName,
   applicationUrl,
+  isReminder,
 }: MembershipApplicationReadyEmailProps) => (
   <EmailShell
     preview="Complete your membership application"
     eyebrow="Membership application"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Complete your membership application
+      {isReminder && "Reminder: "}Complete your membership application
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},
@@ -43,6 +45,7 @@ export const MembershipApplicationReadyEmail = ({
 MembershipApplicationReadyEmail.PreviewProps = {
   firstName: "Sönke",
   applicationUrl: "https://cockpit.start-berlin.com/membership",
+  isReminder: true,
 } as MembershipApplicationReadyEmailProps;
 
 export default MembershipApplicationReadyEmail;

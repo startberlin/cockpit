@@ -16,6 +16,8 @@ interface MembershipTransitionApprovalNeededEmailProps {
   transitionType: TransitionType;
   requestedAt: string;
   profileUrl: string;
+  receivingReason?: string;
+  isReminder?: boolean;
 }
 
 export const MembershipTransitionApprovalNeededEmail = ({
@@ -24,6 +26,8 @@ export const MembershipTransitionApprovalNeededEmail = ({
   transitionType,
   requestedAt,
   profileUrl,
+  receivingReason,
+  isReminder,
 }: MembershipTransitionApprovalNeededEmailProps) => {
   const label = TRANSITION_LABELS[transitionType];
 
@@ -32,8 +36,10 @@ export const MembershipTransitionApprovalNeededEmail = ({
       preview={`Action required: review ${subjectName}'s transition to ${label}`}
       eyebrow="Membership"
       footerAudience="board"
+      receivingReason={receivingReason}
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+        {isReminder && "Reminder: "}
         {subjectName} wants to become {label} and requires your approval
       </Heading>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">

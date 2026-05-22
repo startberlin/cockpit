@@ -96,6 +96,25 @@ export const importGoogleWorkspaceUserAction = actionClient
         name: events.cockpitUserUpdated.name,
         data: { id: existingUser.id },
       });
+      const existingLm = await db.query.legalMembership.findFirst({
+        where: (lm, { and, eq, inArray }) =>
+          and(
+            eq(lm.userId, existingUser.id),
+            inArray(lm.status, ["membership_reconfirmation_pending"]),
+          ),
+        columns: { id: true },
+      });
+
+      if (existingLm) {
+        await inngest.send({
+          name: events.reconfirmationPending.name,
+          data: {
+            userId: existingUser.id,
+            legalMembershipId: existingLm.id,
+          },
+        });
+      }
+
       try {
         await sendEmail(
           buildImportedUserNotificationEmail({
@@ -179,6 +198,20 @@ export const importGoogleWorkspaceUserAction = actionClient
       name: events.cockpitUserUpdated.name,
       data: { id: createdUser.id },
     });
+
+    if (createdUser.createdLegalMembershipId) {
+      // Kicks the reconfirmation reminder workflow, which sends the initial
+      // "complete your membership application" email immediately. The import
+      // notification email below ("Your START Cockpit access is ready") is a
+      // separate email — both are intentional on import.
+      await inngest.send({
+        name: events.reconfirmationPending.name,
+        data: {
+          userId: createdUser.id,
+          legalMembershipId: createdUser.createdLegalMembershipId,
+        },
+      });
+    }
 
     // Non-fatal: notification email failure must not block import success.
     try {

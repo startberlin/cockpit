@@ -6,12 +6,14 @@ interface BoardResolutionTaskAssignedEmailProps {
   firstName: string;
   subjectName: string;
   resolutionUrl: string;
+  isReminder?: boolean;
 }
 
 export const BoardResolutionTaskAssignedEmail = ({
   firstName,
   subjectName,
   resolutionUrl,
+  isReminder,
 }: BoardResolutionTaskAssignedEmailProps) => (
   <EmailShell
     preview={`Action required: vote on ${subjectName}'s membership`}
@@ -19,7 +21,7 @@ export const BoardResolutionTaskAssignedEmail = ({
     footerAudience="board"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Membership vote required
+      {isReminder && "Reminder: "}Membership vote required
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},

@@ -4,21 +4,14 @@ import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/membership-admission-confirmed";
-import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
   downloadArchivedDocument,
 } from "@/lib/legal-documents/drive-archive";
-import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
-import {
-  readFinanzordnungBuffer,
-  readSatzungBuffer,
-} from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
-import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
-import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
+import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
 
 export const membershipReconfirmationWorkflow = inngest.createFunction(
   {
@@ -125,14 +118,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     // Step 2: Archive the membership application PDF.
     const { driveFileId: applicationFileDriveId } = await step.run(
       "archive-membership-application",
-      async () => {
-        const renderedAt = new Date();
-        const { renderToBuffer } = await import("@react-pdf/renderer");
-
-        const element = renderMembershipApplicationTemplate({
+      () =>
+        archiveMembershipApplicationPdf({
           legalMembershipId,
           applicationId: subjectData.applicationId,
           subjectName,
+          firstName: subjectData.firstName,
+          lastName: subjectData.lastName,
           email: subjectData.personalEmail ?? undefined,
           birthDate: subjectData.birthDate,
           address: {
@@ -146,60 +138,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
           feeTextVersion: subjectData.feeTextVersion,
           applicationVersion: subjectData.applicationVersion,
           submittedAt: new Date(subjectData.submittedAt),
-          renderedAt,
-        });
-
-        const [
-          mainBuffer,
-          appendixABuffer,
-          appendixBBuffer,
-          satzungBuffer,
-          finanzordnungBuffer,
-        ] = await Promise.all([
-          renderToBuffer(element).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "A",
-              title: "Bylaws (Satzung)",
-              docId: "ANX-A",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "B",
-              title: "Financial Regulations (Finanzordnung)",
-              docId: "ANX-B",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          readSatzungBuffer(),
-          readFinanzordnungBuffer(),
-        ]);
-
-        const buffer = await mergePdfsWithAttachments(mainBuffer, [
-          {
-            title: "Appendix A: Bylaws",
-            buffer: satzungBuffer,
-            dividerBuffer: appendixABuffer,
-          },
-          {
-            title: "Appendix B: Financial Regulations",
-            buffer: finanzordnungBuffer,
-            dividerBuffer: appendixBBuffer,
-          },
-        ]);
-
-        return archiveLegalDocument({
-          legalMembershipId,
-          buffer,
-          fileName: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-          firstName: subjectData.firstName,
-          lastName: subjectData.lastName,
-        });
-      },
+        }),
     );
 
     // Step 3: Activate the legal membership and insert the payment row.
@@ -227,6 +166,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     await step.sendEvent("user-status-changed", {
       name: events.cockpitUserUpdated.name,
       data: { id: subjectData.userId },
+    });
+
+    // Kick off the mandate-setup reminder workflow; it self-checks current
+    // mandate state at each tick so it's a no-op if the user already has one.
+    await step.sendEvent("kick-mandate-setup-reminder", {
+      name: events.mandateSetupNeeded.name,
+      data: { userId: subjectData.userId },
     });
 
     // Step 4: Create the first proposed membership payment.
@@ -286,11 +232,6 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         throw new Error(`Missing email for user ${subjectData.userId}`);
       }
 
-      const freshUser = await db.query.user.findFirst({
-        where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
-        columns: { status: true, gocardlessMandateId: true },
-      });
-
       const attachments = [];
 
       if (applicationFileDriveId) {
@@ -309,19 +250,12 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         });
       }
 
-      const includesPaymentCta =
-        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
-
       await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subjectData.email,
-        subject: includesPaymentCta
-          ? "Finalize your START Berlin membership"
-          : "Your START Berlin membership is active",
+        subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subjectData.firstName,
-          includesPaymentCta,
-          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
         attachments: attachments.length > 0 ? attachments : undefined,
       });

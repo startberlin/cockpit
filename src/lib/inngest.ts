@@ -107,6 +107,18 @@ export const events = {
   paymentProposalCreated: eventType("membership/payment-proposal.created", {
     schema: staticSchema<{ count: number }>(),
   }),
+  mandateSetupNeeded: eventType("membership/mandate.setup-needed", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  mandateActivated: eventType("membership/mandate.activated", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  mandateInvalidated: eventType("membership/mandate.invalidated", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  reconfirmationPending: eventType("membership/reconfirmation.pending", {
+    schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
+  }),
 };
 
 export const inngest = new Inngest({
