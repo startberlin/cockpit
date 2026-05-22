@@ -4,6 +4,7 @@ import { session, user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
 import MembershipCancelledEmail from "@/emails/membership-cancelled";
+import MembershipTransitionRejectedEmail from "@/emails/membership-transition-rejected";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
 import {
@@ -69,7 +70,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       if: "async.data.transitionRequestId == event.data.transitionRequestId",
     });
 
-    // Step 3a: Timeout — mark expired.
+    // Step 3a: Timeout — mark expired and notify via START Berlin email.
     if (decisionEvent === null) {
       await step.run("mark-request-expired", async () => {
         await db
@@ -78,10 +79,24 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .where(eq(membershipTransitionRequest.id, transitionRequestId));
       });
 
+      if (requestData.startEmail) {
+        await step.run("send-expiry-notification", async () => {
+          await sendEmail({
+            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            to: requestData.startEmail!,
+            subject: "Your transition request has expired",
+            react: MembershipTransitionRejectedEmail({
+              firstName: requestData.firstName,
+              transitionType: type,
+            }),
+          });
+        });
+      }
+
       return { outcome: "expired", transitionRequestId };
     }
 
-    // Step 3b: Rejected — mark and exit.
+    // Step 3b: Rejected — mark and notify via START Berlin email.
     if (decisionEvent.data.decision === "rejected") {
       await step.run("mark-request-rejected", async () => {
         await db
@@ -93,6 +108,20 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           })
           .where(eq(membershipTransitionRequest.id, transitionRequestId));
       });
+
+      if (requestData.startEmail) {
+        await step.run("send-rejection-notification", async () => {
+          await sendEmail({
+            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            to: requestData.startEmail!,
+            subject: "Your transition request was not approved",
+            react: MembershipTransitionRejectedEmail({
+              firstName: requestData.firstName,
+              transitionType: type,
+            }),
+          });
+        });
+      }
 
       return { outcome: "rejected", transitionRequestId };
     }
