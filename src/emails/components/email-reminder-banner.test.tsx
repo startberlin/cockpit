@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { render } from "react-email";
 
-const stripComments = (s: string) => s.replace(/<!--.*?-->/g, "");
+const stripComments = (s: string) => s.replace(/<!--[\s\S]*?-->/g, "");
 
 process.env.DATABASE_URL ??= "postgres://user:password@localhost:5432/test";
 process.env.BETTER_AUTH_SECRET ??= "test-secret";

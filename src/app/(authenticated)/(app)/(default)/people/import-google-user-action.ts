@@ -96,6 +96,23 @@ export const importGoogleWorkspaceUserAction = actionClient
         name: events.cockpitUserUpdated.name,
         data: { id: existingUser.id },
       });
+      const existingLm = await db.query.legalMembership.findFirst({
+        where: (lm, { and, eq, inArray }) =>
+          and(
+            eq(lm.userId, existingUser.id),
+            inArray(lm.status, ["membership_reconfirmation_pending"]),
+          ),
+        columns: { id: true },
+      });
+      if (existingLm) {
+        await inngest.send({
+          name: events.reconfirmationPending.name,
+          data: {
+            userId: existingUser.id,
+            legalMembershipId: existingLm.id,
+          },
+        });
+      }
       try {
         await sendEmail(
           buildImportedUserNotificationEmail({
