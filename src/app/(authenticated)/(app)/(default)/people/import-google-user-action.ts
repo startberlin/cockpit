@@ -200,8 +200,10 @@ export const importGoogleWorkspaceUserAction = actionClient
     });
 
     if (createdUser.createdLegalMembershipId) {
-      // Kicks the reconfirmation reminder workflow; it sends nothing for 3
-      // days so we don't double up with the import notification email below.
+      // Kicks the reconfirmation reminder workflow, which sends the initial
+      // "complete your membership application" email immediately. The import
+      // notification email below ("Your START Cockpit access is ready") is a
+      // separate email — both are intentional on import.
       await inngest.send({
         name: events.reconfirmationPending.name,
         data: {

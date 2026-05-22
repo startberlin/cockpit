@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserByCustomerId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
+import { events, inngest } from "@/lib/inngest";
 import { getBillingRequest } from "./membership-flow";
 
 export type MembershipReconciliationResult =
@@ -75,6 +76,11 @@ async function reconcileMembershipPayment(
       gocardlessSetupSessionId: null,
     })
     .where(eq(user.id, member.id));
+
+  await inngest.send({
+    name: events.mandateActivated.name,
+    data: { userId: member.id },
+  });
 
   return { status: "activated", hostedRedirect: "/membership" };
 }

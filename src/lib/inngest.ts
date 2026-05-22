@@ -110,6 +110,9 @@ export const events = {
   mandateSetupNeeded: eventType("membership/mandate.setup-needed", {
     schema: staticSchema<{ userId: string }>(),
   }),
+  mandateActivated: eventType("membership/mandate.activated", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
   mandateInvalidated: eventType("membership/mandate.invalidated", {
     schema: staticSchema<{ userId: string }>(),
   }),

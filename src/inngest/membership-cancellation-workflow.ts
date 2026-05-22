@@ -22,6 +22,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
+import { notifyUntil } from "./lib/step-loops";
 
 export const membershipCancellationWorkflow = inngest.createFunction(
   {
@@ -133,43 +134,16 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         );
       };
 
-      await step.run("send-acknowledgement-notification", () =>
-        sendAckEmails(),
-      );
-
-      // Reminder loop: poll for ack with 3-day inner waits, sending a reminder
-      // after each silent interval until ack arrives or the 7-day budget expires.
-      const totalDays = 7;
-      const intervalDays = 3;
-      let elapsed = 0;
-      let acknowledged = false;
-      while (elapsed < totalDays) {
-        const wait = Math.min(intervalDays, totalDays - elapsed);
-        const ev = await step.waitForEvent(
-          `wait-for-acknowledgement-${elapsed}d`,
-          {
-            event: events.cancellationAcknowledged.name,
-            timeout: `${wait}d`,
-            if: "async.data.transitionRequestId == event.data.transitionRequestId",
-          },
-        );
-        if (ev) {
-          acknowledged = true;
-          break;
-        }
-        elapsed += wait;
-        if (elapsed < totalDays) {
-          await step.run(
-            `send-acknowledgement-reminder-${elapsed}d`,
-            async () => {
-              await sendAckEmails({ isReminder: true });
-            },
-          );
-        }
-      }
-      // Workflow proceeds whether acknowledged or 7-day budget expired,
-      // matching the original (timeout-tolerant) behaviour.
-      void acknowledged;
+      await notifyUntil(step, {
+        id: "acknowledgement",
+        terminateOn: {
+          eventName: events.cancellationAcknowledged.name,
+          match: "transitionRequestId",
+        },
+        timeoutDays: 7,
+        remindEveryDays: 3,
+        send: (index) => sendAckEmails({ isReminder: index > 0 }),
+      });
     }
 
     // Step 3: Atomic cancellation transaction.

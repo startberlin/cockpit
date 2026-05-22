@@ -10,14 +10,8 @@ import {
   archiveLegalDocument,
   downloadArchivedDocument,
 } from "@/lib/legal-documents/drive-archive";
-import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
-import {
-  readFinanzordnungBuffer,
-  readSatzungBuffer,
-} from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
-import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
-import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
+import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
 
 export const membershipReconfirmationWorkflow = inngest.createFunction(
   {
@@ -124,14 +118,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     // Step 2: Archive the membership application PDF.
     const { driveFileId: applicationFileDriveId } = await step.run(
       "archive-membership-application",
-      async () => {
-        const renderedAt = new Date();
-        const { renderToBuffer } = await import("@react-pdf/renderer");
-
-        const element = renderMembershipApplicationTemplate({
+      () =>
+        archiveMembershipApplicationPdf({
           legalMembershipId,
           applicationId: subjectData.applicationId,
           subjectName,
+          firstName: subjectData.firstName,
+          lastName: subjectData.lastName,
           email: subjectData.personalEmail ?? undefined,
           birthDate: subjectData.birthDate,
           address: {
@@ -145,60 +138,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
           feeTextVersion: subjectData.feeTextVersion,
           applicationVersion: subjectData.applicationVersion,
           submittedAt: new Date(subjectData.submittedAt),
-          renderedAt,
-        });
-
-        const [
-          mainBuffer,
-          appendixABuffer,
-          appendixBBuffer,
-          satzungBuffer,
-          finanzordnungBuffer,
-        ] = await Promise.all([
-          renderToBuffer(element).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "A",
-              title: "Bylaws (Satzung)",
-              docId: "ANX-A",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          renderToBuffer(
-            renderAppendixPage({
-              letter: "B",
-              title: "Financial Regulations (Finanzordnung)",
-              docId: "ANX-B",
-              legalMembershipId,
-              renderedAt,
-            }),
-          ).then((b) => Buffer.from(b)),
-          readSatzungBuffer(),
-          readFinanzordnungBuffer(),
-        ]);
-
-        const buffer = await mergePdfsWithAttachments(mainBuffer, [
-          {
-            title: "Appendix A: Bylaws",
-            buffer: satzungBuffer,
-            dividerBuffer: appendixABuffer,
-          },
-          {
-            title: "Appendix B: Financial Regulations",
-            buffer: finanzordnungBuffer,
-            dividerBuffer: appendixBBuffer,
-          },
-        ]);
-
-        return archiveLegalDocument({
-          legalMembershipId,
-          buffer,
-          fileName: `membership-application-${subjectData.firstName}-${subjectData.lastName}-${legalMembershipId}.pdf`,
-          firstName: subjectData.firstName,
-          lastName: subjectData.lastName,
-        });
-      },
+        }),
     );
 
     // Step 3: Activate the legal membership and insert the payment row.

@@ -24,6 +24,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
+import { notifyUntil } from "./lib/step-loops";
 
 export const membershipTransitionWorkflow = inngest.createFunction(
   {
@@ -130,27 +131,16 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       );
     };
 
-    await step.run("send-approval-notification", () => sendApprovalEmails());
-
-    const totalDays = 30;
-    const intervalDays = 3;
-    let elapsed = 0;
-    let decisionEvent: Awaited<ReturnType<typeof step.waitForEvent>> = null;
-    while (elapsed < totalDays) {
-      const wait = Math.min(intervalDays, totalDays - elapsed);
-      decisionEvent = await step.waitForEvent(`wait-for-decision-${elapsed}d`, {
-        event: events.transitionDecided.name,
-        timeout: `${wait}d`,
-        if: "async.data.transitionRequestId == event.data.transitionRequestId",
-      });
-      if (decisionEvent) break;
-      elapsed += wait;
-      if (elapsed < totalDays) {
-        await step.run(`send-approval-reminder-${elapsed}d`, async () => {
-          await sendApprovalEmails({ isReminder: true });
-        });
-      }
-    }
+    const decisionEvent = (await notifyUntil(step, {
+      id: "decision",
+      terminateOn: {
+        eventName: events.transitionDecided.name,
+        match: "transitionRequestId",
+      },
+      timeoutDays: 30,
+      remindEveryDays: 3,
+      send: (index) => sendApprovalEmails({ isReminder: index > 0 }),
+    })) as Awaited<ReturnType<typeof step.waitForEvent>> | null;
 
     // Step 3a: Timeout — mark expired and notify via START Berlin email.
     if (decisionEvent === null) {
