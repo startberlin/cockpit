@@ -122,24 +122,81 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       );
     }
 
-    // Steps 2–4: Vote loop.
+    // Steps 2–4: Vote loop. Inside each round, poll for a vote with 3-day inner
+    // waits and re-email the still-pending participants until a vote arrives
+    // or the 90-day budget for that round expires.
     let voteRound = 0;
     let resolution: VoteOutcome = "pending";
+
+    const VOTE_TOTAL_DAYS = 90;
+    const REMINDER_INTERVAL_DAYS = 3;
 
     while (voteRound < 3 && resolution === "pending") {
       voteRound++;
 
-      const voteEvent = await step.waitForEvent(
-        `wait-for-board-vote-${voteRound}`,
-        {
-          event: events.boardVoteCast,
-          timeout: "90d",
-          if: "async.data.legalMembershipId == event.data.legalMembershipId",
-        },
-      );
+      let elapsed = 0;
+      let voteEvent: Awaited<ReturnType<typeof step.waitForEvent>> = null;
+      while (elapsed < VOTE_TOTAL_DAYS) {
+        const wait = Math.min(
+          REMINDER_INTERVAL_DAYS,
+          VOTE_TOTAL_DAYS - elapsed,
+        );
+        voteEvent = await step.waitForEvent(
+          `wait-for-board-vote-r${voteRound}-${elapsed}d`,
+          {
+            event: events.boardVoteCast,
+            timeout: `${wait}d`,
+            if: "async.data.legalMembershipId == event.data.legalMembershipId",
+          },
+        );
+        if (voteEvent) break;
+        elapsed += wait;
+        if (elapsed < VOTE_TOTAL_DAYS) {
+          const daysOpen = elapsed;
+          await step.run(
+            `send-vote-reminder-r${voteRound}-${elapsed}d`,
+            async () => {
+              const lm = await db.query.legalMembership.findFirst({
+                where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+                columns: { boardParticipants: true, boardVotes: true },
+              });
+              const voted = new Set(
+                (lm?.boardVotes ?? []).map((v) => v.voterUserId),
+              );
+              const pendingIds = (lm?.boardParticipants ?? [])
+                .map((p) => p.userId)
+                .filter((id) => !voted.has(id));
+              if (pendingIds.length === 0) return;
+
+              const pendingUsers = await db.query.user.findMany({
+                where: (u, { inArray }) => inArray(u.id, pendingIds),
+                columns: { id: true, email: true, firstName: true },
+              });
+              await Promise.all(
+                pendingUsers
+                  .filter((u) => u.email)
+                  .map((u) =>
+                    sendEmail({
+                      from: "START Berlin <notifications@cockpit.start-berlin.com>",
+                      to: u.email!,
+                      subject: `Reminder: vote on ${subjectName}'s membership`,
+                      react: BoardResolutionTaskAssignedEmail({
+                        firstName: u.firstName ?? "",
+                        subjectName,
+                        resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
+                        isReminder: true,
+                        daysOpen,
+                      }),
+                    }),
+                  ),
+              );
+            },
+          );
+        }
+      }
 
       if (voteEvent === null) {
-        await step.run("timeout-to-manual-followup", async () => {
+        await step.run(`timeout-to-manual-followup-r${voteRound}`, async () => {
           await db
             .update(legalMembership)
             .set({ status: "manual_followup" })
@@ -203,14 +260,48 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
-    const applicationEvent = await step.waitForEvent(
-      "wait-for-application-submitted",
-      {
-        event: events.applicationSubmitted,
-        timeout: "90d",
-        if: "async.data.legalMembershipId == event.data.legalMembershipId",
-      },
-    );
+    // Wait for the applicant to submit, sending a reminder every 3 days until
+    // submission or the 90-day budget expires.
+    const APPLICATION_TOTAL_DAYS = 90;
+    let applicationElapsed = 0;
+    let applicationEvent: Awaited<ReturnType<typeof step.waitForEvent>> = null;
+    while (applicationElapsed < APPLICATION_TOTAL_DAYS) {
+      const wait = Math.min(
+        REMINDER_INTERVAL_DAYS,
+        APPLICATION_TOTAL_DAYS - applicationElapsed,
+      );
+      applicationEvent = await step.waitForEvent(
+        `wait-for-application-submitted-${applicationElapsed}d`,
+        {
+          event: events.applicationSubmitted,
+          timeout: `${wait}d`,
+          if: "async.data.legalMembershipId == event.data.legalMembershipId",
+        },
+      );
+      if (applicationEvent) break;
+      applicationElapsed += wait;
+      if (applicationElapsed < APPLICATION_TOTAL_DAYS) {
+        const daysOpen = applicationElapsed;
+        await step.run(
+          `send-application-reminder-${applicationElapsed}d`,
+          async () => {
+            if (!subject.email) return;
+            await sendEmail({
+              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              to: subject.email,
+              subject:
+                "Reminder: complete your START Berlin membership application",
+              react: MembershipApplicationReadyEmail({
+                firstName: subject.firstName,
+                applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+                isReminder: true,
+                daysOpen,
+              }),
+            });
+          },
+        );
+      }
+    }
 
     if (applicationEvent === null) {
       await step.run("application-timeout-to-manual-followup", async () => {
@@ -521,6 +612,13 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     await step.sendEvent("user-status-changed", {
       name: events.cockpitUserUpdated.name,
       data: { id: subjectUserId },
+    });
+
+    // Kick off the mandate-setup reminder workflow; it self-checks current
+    // mandate state at each tick so it's a no-op if the user already has one.
+    await step.sendEvent("kick-mandate-setup-reminder", {
+      name: events.mandateSetupNeeded.name,
+      data: { userId: subjectUserId },
     });
 
     // Step 9c: Render and archive admission confirmation PDF.

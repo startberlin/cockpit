@@ -1,9 +1,7 @@
 import { eq } from "drizzle-orm";
 import db from "@/db";
 import { advancePaymentStatus } from "@/db/membership-payments";
-import MandateCancelledEmail from "@/emails/membership/payment/mandate-cancelled";
 import MembershipPaymentUpcomingEmail from "@/emails/membership/payment/membership-payment-upcoming";
-import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { reconcileMembershipPaymentByBillingRequestId } from "@/lib/gocardless/membership-reconciliation";
 import type { GoCardlessEvent } from "@/lib/gocardless/webhook";
@@ -14,6 +12,7 @@ import {
   isMembershipMandateReadyEvent,
   isPaymentLifecycleEvent,
 } from "@/lib/gocardless/webhook";
+import { events, inngest } from "@/lib/inngest";
 import { user } from "./schema/auth";
 import { gocardlessProcessedEvents } from "./schema/gocardless-processed-events";
 import { membershipPayments } from "./schema/membership-payments";
@@ -50,21 +49,14 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
       .where(eq(user.gocardlessMandateId, event.links.mandate));
 
     const reSetupActions = ["cancelled", "expired", "failed"];
-    if (mandateUser?.email && reSetupActions.includes(event.action)) {
-      try {
-        await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
-          to: mandateUser.email,
-          subject:
-            "Action needed: set up your direct debit for START Berlin membership",
-          react: MandateCancelledEmail({
-            firstName: mandateUser.firstName ?? "",
-            membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
-          }),
-        });
-      } catch (err) {
-        console.error("[mandate-cancelled email] failed to send:", err);
-      }
+    if (mandateUser && reSetupActions.includes(event.action)) {
+      // Defer the initial email and the 3-day reminder cadence to the
+      // mandate-fix-reminder workflow — that keeps email state out of the
+      // webhook handler and gives us cancel-on semantics for free.
+      await inngest.send({
+        name: events.mandateInvalidated.name,
+        data: { userId: mandateUser.id },
+      });
     }
 
     return { status: "mandate_cleared" as const };

@@ -11,7 +11,9 @@ import { membershipTransitionRequest } from "@/db/schema/membership-transition-r
 import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
 import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership/transition/membership-supporting-alumni-confirmed";
+import MembershipTransitionApprovalNeededEmail from "@/emails/membership/transition/membership-transition-approval-needed";
 import MembershipTransitionRejectedEmail from "@/emails/membership/transition/membership-transition-rejected";
+import { env } from "@/env";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -74,12 +76,83 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       };
     });
 
-    // Step 2: Wait for decision (30-day timeout).
-    const decisionEvent = await step.waitForEvent("wait-for-decision", {
-      event: events.transitionDecided.name,
-      timeout: "30d",
-      if: "async.data.transitionRequestId == event.data.transitionRequestId",
-    });
+    // Step 2: Notify board / department head that approval is required, then
+    // wait for the decision with a 3-day reminder cadence (30-day total budget).
+    const subjectName =
+      `${requestData.firstName} ${requestData.lastName}`.trim() || userId;
+    const requestedAt = new Date().toISOString().substring(0, 10);
+
+    const sendApprovalEmails = async (
+      opts: { isReminder: boolean; daysOpen?: number } = { isReminder: false },
+    ) => {
+      const positions = await getPositionAssignments();
+      const recipients = getApprovalRecipients(
+        positions,
+        userId,
+        requestData.department,
+      );
+      // Non-board recipients can only be the dept head of the subject's
+      // department (per getApprovalRecipients), so department is non-null here.
+      const subjectDepartmentLabel = requestData.department
+        ? DEPARTMENT_NAMES[requestData.department]
+        : null;
+      const boardMemberIds = new Set(
+        [
+          positions.president,
+          positions.vice_president,
+          positions.head_of_finance,
+        ].flatMap((p) => (p ? [p.userId] : [])),
+      );
+      const label = type === "alumni_request" ? "alumni" : "supporting alumni";
+      const subjectPrefix = opts.isReminder ? "Reminder: " : "";
+
+      await Promise.all(
+        recipients
+          .filter((r) => r.email)
+          .map((recipient) =>
+            sendEmail({
+              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              to: recipient.email!,
+              subject: `${subjectPrefix}Action required: review ${subjectName}'s transition to ${label}`,
+              react: MembershipTransitionApprovalNeededEmail({
+                firstName: recipient.firstName,
+                subjectName,
+                transitionType: type,
+                requestedAt,
+                profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
+                receivingReason: boardMemberIds.has(recipient.userId)
+                  ? "You're receiving this because you're a board member of START Berlin."
+                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
+                isReminder: opts.isReminder,
+                daysOpen: opts.daysOpen,
+              }),
+            }),
+          ),
+      );
+    };
+
+    await step.run("send-approval-notification", () => sendApprovalEmails());
+
+    const totalDays = 30;
+    const intervalDays = 3;
+    let elapsed = 0;
+    let decisionEvent: Awaited<ReturnType<typeof step.waitForEvent>> = null;
+    while (elapsed < totalDays) {
+      const wait = Math.min(intervalDays, totalDays - elapsed);
+      decisionEvent = await step.waitForEvent(`wait-for-decision-${elapsed}d`, {
+        event: events.transitionDecided.name,
+        timeout: `${wait}d`,
+        if: "async.data.transitionRequestId == event.data.transitionRequestId",
+      });
+      if (decisionEvent) break;
+      elapsed += wait;
+      if (elapsed < totalDays) {
+        const daysOpen = elapsed;
+        await step.run(`send-approval-reminder-${elapsed}d`, async () => {
+          await sendApprovalEmails({ isReminder: true, daysOpen });
+        });
+      }
+    }
 
     // Step 3a: Timeout — mark expired and notify via START Berlin email.
     if (decisionEvent === null) {

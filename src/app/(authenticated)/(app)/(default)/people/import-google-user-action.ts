@@ -180,6 +180,18 @@ export const importGoogleWorkspaceUserAction = actionClient
       data: { id: createdUser.id },
     });
 
+    if (createdUser.createdLegalMembershipId) {
+      // Kicks the reconfirmation reminder workflow; it sends nothing for 3
+      // days so we don't double up with the import notification email below.
+      await inngest.send({
+        name: events.reconfirmationPending.name,
+        data: {
+          userId: createdUser.id,
+          legalMembershipId: createdUser.createdLegalMembershipId,
+        },
+      });
+    }
+
     // Non-fatal: notification email failure must not block import success.
     try {
       await sendEmail(

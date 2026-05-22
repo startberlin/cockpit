@@ -229,6 +229,13 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       data: { id: subjectData.userId },
     });
 
+    // Kick off the mandate-setup reminder workflow; it self-checks current
+    // mandate state at each tick so it's a no-op if the user already has one.
+    await step.sendEvent("kick-mandate-setup-reminder", {
+      name: events.mandateSetupNeeded.name,
+      data: { userId: subjectData.userId },
+    });
+
     // Step 4: Create the first proposed membership payment.
     await step.run("create-proposed-payment", async () => {
       const today = new Date().toISOString().slice(0, 10);

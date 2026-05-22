@@ -84,15 +84,20 @@ export const membershipCancellationWorkflow = inngest.createFunction(
 
     // Step 2: Acknowledgement step (self-service cancellations only).
     if (requiresAcknowledgement) {
-      await step.run("send-acknowledgement-notification", async () => {
+      const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
+      const requestedAt = new Date().toISOString().substring(0, 10);
+
+      const sendAckEmails = async (
+        opts: { isReminder: boolean; daysOpen?: number } = {
+          isReminder: false,
+        },
+      ) => {
         const positions = await getPositionAssignments();
         const recipients = getApprovalRecipients(
           positions,
           userId,
           userData.department,
         );
-
-        const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
         // Non-board recipients can only be the dept head of the subject's
         // department (per getFyiRecipients), so department is non-null here.
         const subjectDepartmentLabel = userData.department
@@ -106,6 +111,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
           ].flatMap((p) => (p ? [p.userId] : [])),
         );
 
+        const subjectPrefix = opts.isReminder ? "Reminder: " : "";
         await Promise.all(
           recipients
             .filter((r) => r.email)
@@ -113,26 +119,61 @@ export const membershipCancellationWorkflow = inngest.createFunction(
               sendEmail({
                 from: "START Berlin <notifications@cockpit.start-berlin.com>",
                 to: recipient.email!,
-                subject: `Action required: acknowledge ${subjectName}'s membership cancellation`,
+                subject: `${subjectPrefix}Action required: acknowledge ${subjectName}'s membership cancellation`,
                 react: MembershipCancellationAcknowledgementNeededEmail({
                   firstName: recipient.firstName,
                   subjectName,
-                  requestedAt: new Date().toISOString().substring(0, 10),
+                  requestedAt,
                   profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/directory/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
                     : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
+                  isReminder: opts.isReminder,
+                  daysOpen: opts.daysOpen,
                 }),
               }),
             ),
         );
-      });
+      };
 
-      await step.waitForEvent("wait-for-acknowledgement", {
-        event: events.cancellationAcknowledged.name,
-        timeout: "7d",
-        if: "async.data.transitionRequestId == event.data.transitionRequestId",
-      });
+      await step.run("send-acknowledgement-notification", () =>
+        sendAckEmails(),
+      );
+
+      // Reminder loop: poll for ack with 3-day inner waits, sending a reminder
+      // after each silent interval until ack arrives or the 7-day budget expires.
+      const totalDays = 7;
+      const intervalDays = 3;
+      let elapsed = 0;
+      let acknowledged = false;
+      while (elapsed < totalDays) {
+        const wait = Math.min(intervalDays, totalDays - elapsed);
+        const ev = await step.waitForEvent(
+          `wait-for-acknowledgement-${elapsed}d`,
+          {
+            event: events.cancellationAcknowledged.name,
+            timeout: `${wait}d`,
+            if: "async.data.transitionRequestId == event.data.transitionRequestId",
+          },
+        );
+        if (ev) {
+          acknowledged = true;
+          break;
+        }
+        elapsed += wait;
+        if (elapsed < totalDays) {
+          const daysOpen = elapsed;
+          await step.run(
+            `send-acknowledgement-reminder-${elapsed}d`,
+            async () => {
+              await sendAckEmails({ isReminder: true, daysOpen });
+            },
+          );
+        }
+      }
+      // Workflow proceeds whether acknowledged or 7-day budget expired,
+      // matching the original (timeout-tolerant) behaviour.
+      void acknowledged;
     }
 
     // Step 3: Atomic cancellation transaction.
