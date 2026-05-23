@@ -25,6 +25,7 @@ describe("Better Auth user fields", () => {
       "gocardlessCustomerId",
       "gocardlessSetupSessionId",
       "eventEmailPreference",
+      "eventInviteEmail",
     ]);
   });
 

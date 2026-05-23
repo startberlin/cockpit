@@ -34,7 +34,7 @@ describe("buildImportedUserNotificationEmail", () => {
     const email = await buildEmail("member");
 
     assert.equal(email.to, "ada@start-berlin.com");
-    assert.equal(email.subject, "You can now use START Cockpit");
+    assert.equal(email.subject, "Your START Cockpit access is ready");
   });
 
   it("renders supporting alumni status context", async () => {
