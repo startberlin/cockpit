@@ -239,6 +239,15 @@ function evaluateUserScopedAction(
   }
 }
 
+export function evaluateUnscopedViewDetails(authority: UserAuthority): boolean {
+  if (!isActiveAuthorityStatus(authority.status)) return false;
+  return (
+    hasAdminGrant(authority) ||
+    hasPeopleAdminGrant(authority) ||
+    isDepartmentHead(authority)
+  );
+}
+
 export function evaluateAuth(
   authority: UserAuthority,
   action: GlobalAction,
@@ -253,15 +262,6 @@ export function evaluateAuth(
   action: GroupScopedAction,
   scope: GroupScope,
 ): boolean;
-export function evaluateUnscopedViewDetails(authority: UserAuthority): boolean {
-  if (!isActiveAuthorityStatus(authority.status)) return false;
-  return (
-    hasAdminGrant(authority) ||
-    hasPeopleAdminGrant(authority) ||
-    isDepartmentHead(authority)
-  );
-}
-
 export function evaluateAuth(
   authority: UserAuthority,
   action: Action,
