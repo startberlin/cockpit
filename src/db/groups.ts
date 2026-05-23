@@ -44,7 +44,7 @@ export interface PublicGroup {
 export interface GroupMember extends PublicUser {
   source: GroupMembershipSource;
   personalEmail: string | null;
-  eventEmailPreference: "personal_email" | "start_email" | null;
+  eventEmailPreference: "personal_email" | "start_email" | "custom" | null;
 }
 
 export interface GroupDetail {
@@ -275,7 +275,8 @@ export async function getAllGroupMembersForExport(id: string): Promise<
     lastName: string | null;
     email: string | null;
     personalEmail: string | null;
-    eventEmailPreference: "personal_email" | "start_email" | null;
+    eventEmailPreference: "personal_email" | "start_email" | "custom" | null;
+    eventInviteEmail: string | null;
   }[]
 > {
   return db
@@ -285,6 +286,7 @@ export async function getAllGroupMembersForExport(id: string): Promise<
       email: user.email,
       personalEmail: user.personalEmail,
       eventEmailPreference: user.eventEmailPreference,
+      eventInviteEmail: user.eventInviteEmail,
     })
     .from(usersToGroups)
     .innerJoin(user, eq(usersToGroups.userId, user.id))

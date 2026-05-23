@@ -36,6 +36,7 @@ export const department = pgEnum("department", DEPARTMENT_IDS);
 export const eventEmailPreference = pgEnum("event_email_preference", [
   "personal_email",
   "start_email",
+  "custom",
 ]);
 
 export type EventEmailPreference =
@@ -79,6 +80,7 @@ export const user = pgTable("user", {
   gocardlessCustomerId: text("gocardless_customer_id"),
   gocardlessSetupSessionId: text("gocardless_setup_session_id"),
   eventEmailPreference: eventEmailPreference("event_email_preference"),
+  eventInviteEmail: text("event_invite_email"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

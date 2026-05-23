@@ -65,6 +65,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           zip: user.zip ?? "",
           country: user.country ?? "",
           eventEmailPreference: user.eventEmailPreference ?? undefined,
+          eventInviteEmail: user.eventInviteEmail ?? "",
         },
       },
     },
@@ -203,6 +204,42 @@ export function SettingsForm({ user }: SettingsFormProps) {
                         START Berlin email
                       </span>
                     </Label>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem
+                      value="custom"
+                      id="pref-custom"
+                      className="-mt-0.5"
+                    />
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label
+                        htmlFor="pref-custom"
+                        className="flex items-start flex-col gap-0.5 cursor-pointer"
+                      >
+                        <span className="font-medium">
+                          Enter a custom email address
+                        </span>
+                      </Label>
+                      <Controller
+                        name="eventInviteEmail"
+                        control={form.control}
+                        render={({ field: emailField, fieldState }) => (
+                          <Field data-invalid={fieldState.invalid}>
+                            <Input
+                              {...emailField}
+                              type="email"
+                              placeholder="you@example.com"
+                              aria-invalid={fieldState.invalid}
+                              disabled={action.isPending}
+                              onFocus={() => field.onChange("custom")}
+                            />
+                            {fieldState.invalid && (
+                              <FieldError errors={[fieldState.error]} />
+                            )}
+                          </Field>
+                        )}
+                      />
+                    </div>
                   </div>
                 </RadioGroup>
               )}

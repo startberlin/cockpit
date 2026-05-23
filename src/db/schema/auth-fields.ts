@@ -18,4 +18,5 @@ export const betterAuthUserAdditionalFields = {
   gocardlessCustomerId: { type: "string", input: false },
   gocardlessSetupSessionId: { type: "string", input: false },
   eventEmailPreference: { type: "string", input: false },
+  eventInviteEmail: { type: "string", input: false },
 } as const;
