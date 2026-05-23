@@ -36,10 +36,10 @@ export function ToolsSection({
 }: ToolsSectionProps) {
   return (
     <div className="flex flex-col gap-6">
-      <span className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
-      </span>
+      </div>
 
       <div className="flex flex-col gap-10">
         <div className="flex flex-col gap-4">

@@ -14,14 +14,23 @@ export const getTallyStatusAction = actionClient.action(async ({ ctx }) => {
     return { isMember: false };
   }
 
-  const res = await fetch(
-    `https://api.tally.so/organizations/${env.TALLY_ORGANIZATION_ID}/users`,
-    {
-      headers: {
-        Authorization: `Bearer ${env.TALLY_API_KEY}`,
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.tally.so/organizations/${env.TALLY_ORGANIZATION_ID}/users`,
+      {
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${env.TALLY_API_KEY}`,
+        },
       },
-    },
-  );
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
@@ -35,7 +44,11 @@ export const getTallyStatusAction = actionClient.action(async ({ ctx }) => {
     ? data
     : (data.users ?? data.data ?? []);
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   return {
-    isMember: users.some((u) => u.email === email),
+    isMember: users.some(
+      (u) => u.email.trim().toLowerCase() === normalizedEmail,
+    ),
   };
 });
