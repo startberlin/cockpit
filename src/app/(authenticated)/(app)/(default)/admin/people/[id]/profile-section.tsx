@@ -150,6 +150,21 @@ export async function ProfileSection({ userId }: ProfileSectionProps) {
               {user.batchNumber != null ? `#${user.batchNumber}` : "—"}
             </p>
           </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Profile onboarding</FieldLabel>
+            {user.profileOnboardingComplete ? (
+              <Badge
+                variant="outline"
+                className="border-green-600 text-green-700"
+              >
+                Complete
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">
+                Not yet complete
+              </Badge>
+            )}
+          </div>
         </div>
 
         {user.department && (

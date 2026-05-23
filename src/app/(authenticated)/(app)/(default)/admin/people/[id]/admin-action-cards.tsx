@@ -77,7 +77,7 @@ export function AdminActionCards({
           </CardHeader>
           <CardContent>
             <Button asChild size="sm">
-              <Link href={`/admin/people/directory/${userId}/propose`}>
+              <Link href={`/admin/people/${userId}/propose`}>
                 Propose for membership
               </Link>
             </Button>
@@ -99,9 +99,7 @@ export function AdminActionCards({
           </CardHeader>
           <CardContent>
             <Button asChild variant="destructive" size="sm">
-              <Link href={`/admin/people/directory/${userId}/remove`}>
-                Remove member
-              </Link>
+              <Link href={`/admin/people/${userId}/remove`}>Remove member</Link>
             </Button>
           </CardContent>
         </Card>
@@ -120,7 +118,7 @@ export function AdminActionCards({
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline" size="sm">
-              <Link href={`/admin/people/directory/${userId}/permissions`}>
+              <Link href={`/admin/people/${userId}/permissions`}>
                 Manage permissions
               </Link>
             </Button>

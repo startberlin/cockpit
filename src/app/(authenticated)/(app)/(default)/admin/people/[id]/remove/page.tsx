@@ -22,35 +22,35 @@ export default async function RemoveMemberPage({ params }: PageProps) {
   const user = await getUserDetails(id);
 
   if (!user) {
-    redirect(`/admin/people/directory`);
+    redirect(`/admin/people`);
   }
 
   if (user.status === "cancelled") {
-    redirect(`/admin/people/directory/${id}`);
+    redirect(`/admin/people/${id}`);
   }
 
   const canRemove = await can("membership.cancel_member");
 
   if (!canRemove) {
-    redirect(`/admin/people/directory/${id}`);
+    redirect(`/admin/people/${id}`);
   }
 
   return (
     <div className="w-full max-w-2xl space-y-6">
       <BreadcrumbCrumb
         crumbs={[
-          { label: "Admin", href: "/admin/people/directory" },
-          { label: "Members", href: "/admin/people/directory" },
+          { label: "Admin", href: "/admin/people" },
+          { label: "Members", href: "/admin/people" },
           {
             label: `${user.firstName} ${user.lastName}`,
-            href: `/admin/people/directory/${id}`,
+            href: `/admin/people/${id}`,
           },
           { label: "Remove member" },
         ]}
       />
 
       <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link href={`/admin/people/directory/${id}`}>
+        <Link href={`/admin/people/${id}`}>
           <ArrowLeft />
           Back to profile
         </Link>
@@ -70,7 +70,7 @@ export default async function RemoveMemberPage({ params }: PageProps) {
         firstName={user.firstName}
         lastName={user.lastName}
         userEmail={user.email ?? ""}
-        backHref={`/admin/people/directory/${id}`}
+        backHref={`/admin/people/${id}`}
       />
     </div>
   );

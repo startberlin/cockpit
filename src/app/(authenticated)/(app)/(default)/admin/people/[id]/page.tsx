@@ -16,11 +16,11 @@ import { getUserDetails } from "@/db/people";
 import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
+import { ActiveSessionsCard } from "./active-sessions-card";
 import { AdminActionCards } from "./admin-action-cards";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { MemberHeader } from "./member-header";
-import { OnboardingSection } from "./onboarding-section";
 import { PaymentSection } from "./payment-section";
 import { ProfileSection } from "./profile-section";
 
@@ -81,7 +81,7 @@ export default async function UserDetailPage({ params }: PageProps) {
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" asChild>
-          <Link href="/admin/people/directory">Back to people</Link>
+          <Link href="/admin/people">Back to people</Link>
         </Button>
       </Empty>
     );
@@ -103,14 +103,14 @@ export default async function UserDetailPage({ params }: PageProps) {
     <div className="w-full space-y-6">
       <BreadcrumbCrumb
         crumbs={[
-          { label: "Admin", href: "/admin/people/directory" },
-          { label: "Members", href: "/admin/people/directory" },
+          { label: "Admin", href: "/admin/people" },
+          { label: "Members", href: "/admin/people" },
           { label: `${user.firstName} ${user.lastName}` },
         ]}
       />
 
       <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link href="/admin/people/directory">
+        <Link href="/admin/people">
           <ArrowLeft />
           Back to members
         </Link>
@@ -145,7 +145,7 @@ export default async function UserDetailPage({ params }: PageProps) {
       )}
 
       <Suspense fallback={<Skeleton className="h-24 w-full rounded-xl" />}>
-        <OnboardingSection userId={id} />
+        <ActiveSessionsCard userId={id} />
       </Suspense>
 
       <Suspense fallback={<Skeleton className="h-32 w-full rounded-xl" />}>

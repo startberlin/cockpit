@@ -52,7 +52,7 @@ MembershipCancellationAcknowledgementNeededEmail.PreviewProps = {
   firstName: "Marie",
   subjectName: "Sönke Peters",
   requestedAt: "2026-05-21",
-  profileUrl: "https://cockpit.start-berlin.com/admin/people/directory/usr_123",
+  profileUrl: "https://cockpit.start-berlin.com/admin/people/usr_123",
 } as MembershipCancellationAcknowledgementNeededEmailProps;
 
 export default MembershipCancellationAcknowledgementNeededEmail;

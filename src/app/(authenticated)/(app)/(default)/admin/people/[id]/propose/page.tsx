@@ -23,7 +23,7 @@ export default async function ProposeMembershipPage({ params }: PageProps) {
   const user = await getUserDetails(id);
 
   if (!user) {
-    redirect(`/admin/people/directory`);
+    redirect(`/admin/people`);
   }
 
   const canPropose = await can("user.membership.propose", {
@@ -37,25 +37,25 @@ export default async function ProposeMembershipPage({ params }: PageProps) {
     );
 
   if (!canPropose || !isEligible) {
-    redirect(`/admin/people/directory/${id}`);
+    redirect(`/admin/people/${id}`);
   }
 
   return (
     <div className="w-full max-w-2xl space-y-6">
       <BreadcrumbCrumb
         crumbs={[
-          { label: "Admin", href: "/admin/people/directory" },
-          { label: "Members", href: "/admin/people/directory" },
+          { label: "Admin", href: "/admin/people" },
+          { label: "Members", href: "/admin/people" },
           {
             label: `${user.firstName} ${user.lastName}`,
-            href: `/admin/people/directory/${id}`,
+            href: `/admin/people/${id}`,
           },
           { label: "Propose for membership" },
         ]}
       />
 
       <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link href={`/admin/people/directory/${id}`}>
+        <Link href={`/admin/people/${id}`}>
           <ArrowLeft />
           Back to profile
         </Link>
@@ -89,10 +89,7 @@ export default async function ProposeMembershipPage({ params }: PageProps) {
         </ul>
       </div>
 
-      <ProposeMembershipForm
-        userId={id}
-        backHref={`/admin/people/directory/${id}`}
-      />
+      <ProposeMembershipForm userId={id} backHref={`/admin/people/${id}`} />
     </div>
   );
 }

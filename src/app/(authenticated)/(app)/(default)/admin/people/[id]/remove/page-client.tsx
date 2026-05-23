@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
-import { boardKickAction } from "@/app/(authenticated)/(app)/(default)/admin/people/directory/[id]/board-kick-action";
+import { boardKickAction } from "@/app/(authenticated)/(app)/(default)/admin/people/[id]/board-kick-action";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
@@ -36,7 +36,7 @@ export function RemovePageClient({
       toast.success(`${firstName} ${lastName} has been removed.`, {
         description: "Their account access has been revoked immediately.",
       });
-      router.push("/admin/people/directory");
+      router.push("/admin/people");
     },
     onError: () => {
       toast.error(

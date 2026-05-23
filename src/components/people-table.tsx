@@ -300,9 +300,7 @@ export function PeopleTable({
                       onClick={
                         canOpenProfile
                           ? () =>
-                              router.push(
-                                `/admin/people/directory/${row.original.id}`,
-                              )
+                              router.push(`/admin/people/${row.original.id}`)
                           : undefined
                       }
                     >
