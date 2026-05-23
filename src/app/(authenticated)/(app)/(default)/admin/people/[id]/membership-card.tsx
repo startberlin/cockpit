@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getActiveLegalMembership, getMemberSinceDate } from "@/db/membership";
+import { getMemberSinceDate } from "@/db/membership";
 import { getDepartmentHeadForDepartment, getUserDetails } from "@/db/people";
 import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
@@ -98,9 +98,8 @@ export async function MembershipCard({
 
   if (!user) return null;
 
-  const [memberSince, , departmentHead] = await Promise.all([
+  const [memberSince, departmentHead] = await Promise.all([
     getMemberSinceDate(userId),
-    getActiveLegalMembership(userId),
     user.department
       ? getDepartmentHeadForDepartment(user.department)
       : Promise.resolve(null),
