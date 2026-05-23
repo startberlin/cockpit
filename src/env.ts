@@ -25,6 +25,8 @@ export const env = createEnv({
     DISABLE_EMAIL: z.stringbool().optional().default(false),
     DISABLE_GOOGLE_WORKSPACE: z.stringbool().optional().default(false),
     DISABLE_SLACK: z.stringbool().optional().default(false),
+    TALLY_API_KEY: z.string().min(1).optional(),
+    TALLY_ORGANIZATION_ID: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -52,5 +54,7 @@ export const env = createEnv({
     DISABLE_EMAIL: process.env.DISABLE_EMAIL,
     DISABLE_GOOGLE_WORKSPACE: process.env.DISABLE_GOOGLE_WORKSPACE,
     DISABLE_SLACK: process.env.DISABLE_SLACK,
+    TALLY_API_KEY: process.env.TALLY_API_KEY,
+    TALLY_ORGANIZATION_ID: process.env.TALLY_ORGANIZATION_ID,
   },
 });
