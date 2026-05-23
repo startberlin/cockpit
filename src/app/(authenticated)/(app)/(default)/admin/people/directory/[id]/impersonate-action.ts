@@ -8,6 +8,7 @@ import db from "@/db";
 import { session as sessionTable, user as userTable } from "@/db/schema";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { auth } from "@/lib/auth";
 import { signCookieValue } from "@/lib/auth-cookies";
 import { can } from "@/lib/permissions/server";
@@ -24,7 +25,7 @@ const COOKIE_OPTS = {
 
 export const impersonateAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("users.impersonate"))) {
       throw new Error("You are not authorized to impersonate users.");
     }
@@ -71,5 +72,12 @@ export const impersonateAction = actionClient
     cookieStore.set(SESSION_COOKIE, await signCookieValue(token, secret), {
       ...COOKIE_OPTS,
       maxAge: 24 * 60 * 60,
+    });
+
+    await writeAuditLog({
+      category: "user",
+      eventType: "user.impersonated",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: { id: targetUser.id, name: targetUser.name },
     });
   });

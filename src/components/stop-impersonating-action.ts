@@ -4,8 +4,9 @@ import { eq } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { createSafeActionClient } from "next-safe-action";
 import db from "@/db";
-import { session as sessionTable } from "@/db/schema";
+import { session as sessionTable, user as userTable } from "@/db/schema";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 import { auth } from "@/lib/auth";
 import { signCookieValue, verifySignedCookie } from "@/lib/auth-cookies";
 
@@ -70,4 +71,19 @@ export const stopImpersonatingAction = baseClient.action(async () => {
   );
 
   cookieStore.set(ADMIN_SESSION_COOKIE, "", { ...COOKIE_OPTS, maxAge: 0 });
+
+  const [adminUser] = await db
+    .select({ id: userTable.id, name: userTable.name })
+    .from(userTable)
+    .where(eq(userTable.id, originalSession.userId))
+    .limit(1);
+
+  await writeAuditLog({
+    category: "user",
+    eventType: "user.impersonation_stopped",
+    actor: adminUser ? { id: adminUser.id, name: adminUser.name } : "system",
+    subject: currentSession.user.id
+      ? { id: currentSession.user.id, name: currentSession.user.name }
+      : null,
+  });
 });

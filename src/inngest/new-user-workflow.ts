@@ -6,6 +6,7 @@ import { user as userTable } from "@/db/schema/auth";
 import SignInInstructionsEmail from "@/emails/auth/signin-instructions";
 import StartCockpitEnabledEmail from "@/emails/auth/start-cockpit-enabled";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 import { sendEmail } from "@/lib/email";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
@@ -153,6 +154,19 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     await step.sendEvent("trigger-group-reconciliation", {
       name: events.cockpitUserUpdated.name,
       data: { id: dbUser.id },
+    });
+
+    await step.run("write-audit-log-onboarded", async () => {
+      await writeAuditLog({
+        category: "user",
+        eventType: "user.onboarded",
+        subject: {
+          id: dbUser.id,
+          name: `${firstName} ${lastName}`.trim(),
+        },
+        metadata: { companyEmail, department: department?.trim() || null },
+        description: companyEmail,
+      });
     });
 
     await step.run("send-cockpit-access-email", async () => {

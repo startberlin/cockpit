@@ -10,6 +10,7 @@ import {
   legalMembership,
 } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
@@ -18,7 +19,7 @@ import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 export const proposeMembershipAction = actionClient
   .inputSchema(z.object({ userId: z.string().min(1) }))
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
     });
@@ -58,6 +59,18 @@ export const proposeMembershipAction = actionClient
             subjectUserId: targetUser.id,
           },
         });
+
+        await writeAuditLog({
+          category: "membership",
+          eventType: "membership.proposed",
+          actor: { id: ctx.user.id, name: ctx.user.name },
+          subject: {
+            id: targetUser.id,
+            name: `${targetUser.firstName ?? ""} ${targetUser.lastName ?? ""}`.trim(),
+          },
+          metadata: { legalMembershipId: existingTenure.id },
+        });
+
         return { legalMembershipId: existingTenure.id };
       }
       throw new Error(
@@ -113,6 +126,17 @@ export const proposeMembershipAction = actionClient
     await inngest.send({
       name: events.admissionWorkflowStarted.name,
       data: { legalMembershipId: lm.id, subjectUserId: targetUser.id },
+    });
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: "membership.proposed",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: {
+        id: targetUser.id,
+        name: `${targetUser.firstName ?? ""} ${targetUser.lastName ?? ""}`.trim(),
+      },
+      metadata: { legalMembershipId: lm.id },
     });
 
     return { legalMembershipId: lm.id };

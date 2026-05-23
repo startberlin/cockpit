@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addUsersToGroup, findUsersNotInGroupByCriteria } from "@/db/groups";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { normalizedGroupCriteriaSchema } from "@/lib/groups/criteria";
 import { can } from "@/lib/permissions/server";
 
@@ -35,7 +36,7 @@ const bulkAddUsersSchema = z.object({
 
 export const bulkAddUsersAction = actionClient
   .inputSchema(bulkAddUsersSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("group.members.manage", { id: parsedInput.groupId }))) {
       throw new Error("You are not authorized to manage group members.");
     }
@@ -44,5 +45,14 @@ export const bulkAddUsersAction = actionClient
     await addUsersToGroup({ groupId, userIds });
 
     revalidatePath(`/groups/${groupId}`);
+
+    await writeAuditLog({
+      category: "group",
+      eventType: "group.members_bulk_added",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      metadata: { groupId, count: userIds.length, userIds },
+      description: `${userIds.length} member${userIds.length === 1 ? "" : "s"}`,
+    });
+
     return { added: userIds.length };
   });

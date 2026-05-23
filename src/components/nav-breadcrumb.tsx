@@ -23,6 +23,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   alumni: "Alumni",
   "supporting-alumni": "Supporting Alumni",
   "org-chart": "Org Chart",
+  "audit-log": "Audit log",
 };
 
 /**

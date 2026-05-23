@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+import { auditLog } from "./audit-log";
 import {
   account,
   legalMembershipState,
@@ -90,6 +91,7 @@ export const schema = {
   session,
   account,
   verification,
+  auditLog,
   organizationPosition,
   accessGrant,
   authorityScope,
@@ -126,6 +128,7 @@ export const schema = {
   membershipTransitionReason,
 };
 
+export * from "./audit-log";
 export * from "./auth";
 export * from "./authority";
 export * from "./batch";

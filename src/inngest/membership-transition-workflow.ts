@@ -14,6 +14,7 @@ import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership/transi
 import MembershipTransitionApprovalNeededEmail from "@/emails/membership/transition/membership-transition-approval-needed";
 import MembershipTransitionRejectedEmail from "@/emails/membership/transition/membership-transition-rejected";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -195,6 +196,19 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         });
       }
 
+      await step.run("write-audit-log-transition-rejected", async () => {
+        await writeAuditLog({
+          category: "membership",
+          eventType: "membership.transition_rejected",
+          subject: { id: userId, name: subjectName },
+          metadata: { type, transitionRequestId },
+          description:
+            type === "alumni_request"
+              ? "Alumni request"
+              : "Supporting alumni request",
+        });
+      });
+
       return { outcome: "rejected", transitionRequestId };
     }
 
@@ -235,6 +249,16 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       await step.sendEvent("fire-group-reconciliation", {
         name: events.cockpitUserUpdated.name,
         data: { id: userId },
+      });
+
+      await step.run("write-audit-log-supporting-alumni", async () => {
+        await writeAuditLog({
+          category: "membership",
+          eventType: "membership.transition_completed",
+          subject: { id: userId, name: subjectName },
+          metadata: { type: "supporting_alumni_request", transitionRequestId },
+          description: "To supporting alumni",
+        });
       });
 
       return { outcome: "supporting_alumni", transitionRequestId };
@@ -390,6 +414,16 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     await step.sendEvent("fire-group-reconciliation-alumni", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
+    });
+
+    await step.run("write-audit-log-alumni", async () => {
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.transition_completed",
+        subject: { id: userId, name: subjectName },
+        metadata: { type: "alumni_request", transitionRequestId },
+        description: "To alumni",
+      });
     });
 
     // Step 12: Erase personal data (personal email optionally preserved).

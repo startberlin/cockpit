@@ -5,6 +5,7 @@ import db from "@/db";
 import { checkSlugAvailability } from "@/db/groups";
 import { group, usersToGroups } from "@/db/schema/group";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createGoogleGroup } from "@/lib/google-workspace/directory";
 import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { newId } from "@/lib/id";
@@ -75,6 +76,14 @@ export const createGroupAction = actionClient
         );
       }
     }
+
+    await writeAuditLog({
+      category: "group",
+      eventType: "group.created",
+      actor: { id: currentUser.id, name: currentUser.name },
+      metadata: { groupId, name: parsedInput.name, slug: parsedInput.slug },
+      description: parsedInput.name,
+    });
 
     return { id: groupId };
   });
