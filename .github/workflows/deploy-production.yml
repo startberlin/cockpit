@@ -8,16 +8,19 @@ concurrency:
   group: production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-stage:
+  build:
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.deploy.outputs.url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: npm
@@ -26,16 +29,16 @@ jobs:
 
       - run: npm test
 
-      - name: Create staged Vercel production deployment
+      - name: Create Vercel production deployment (skip-domain)
         id: deploy
         run: |
-          output=$(npx vercel deploy \
+          output=$(npx vercel@54.0.0 deploy \
             --prod \
             --skip-domain \
             --yes \
-            --scope=start-berlin 2>&1)
-
+            --scope=start-berlin 2>&1); vercel_exit=$?
           echo "$output"
+          [ $vercel_exit -ne 0 ] && exit $vercel_exit
           deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
@@ -43,18 +46,18 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test staged production deployment
+      - name: Smoke test staged deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
 
-  promote-and-migrate:
-    needs: build-and-stage
+  migrate:
+    needs: build
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: npm
@@ -66,10 +69,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
+  promote:
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
       - name: Promote production deployment
         run: |
-          npx vercel promote \
-            "${{ needs.build-and-stage.outputs.url }}" \
+          npx vercel@54.0.0 promote \
+            "${{ needs.build.outputs.url }}" \
             --yes \
             --timeout=5m \
             --scope start-berlin
@@ -81,6 +93,12 @@ jobs:
       - name: Smoke test production domain
         run: curl --fail "https://cockpit.start-berlin.com/api/health"
 
+  sync-inngest:
+    needs: promote
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
       - name: Sync Inngest production
         run: |
           curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \

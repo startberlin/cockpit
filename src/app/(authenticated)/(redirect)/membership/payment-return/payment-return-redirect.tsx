@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { checkMandateReadyAction } from "./check-mandate-action";
 
-const POLL_INTERVAL_MS = 2500;
+const POLL_INTERVAL_MS = 3_000;
 const TIMEOUT_MS = 60_000;
 
 export function PaymentReturnRedirect() {

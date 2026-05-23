@@ -6,7 +6,9 @@ import { BreadcrumbView, type Crumb } from "@/components/breadcrumb-view";
 import { isPrefixedId } from "@/lib/id";
 
 const SEGMENT_LABELS: Record<string, string> = {
+  admin: "Admin",
   membership: "My membership",
+  tools: "Tools",
   application: "Application",
   "payment-return": "Payment",
   people: "People",
@@ -16,6 +18,12 @@ const SEGMENT_LABELS: Record<string, string> = {
   groups: "Groups",
   payments: "Payments",
   settings: "Settings",
+  cancel: "Cancel membership",
+  "become-alumni": "Choose alumni status",
+  alumni: "Alumni",
+  "supporting-alumni": "Supporting Alumni",
+  "org-chart": "Org Chart",
+  "audit-log": "Audit log",
 };
 
 /**
@@ -26,6 +34,24 @@ const PATH_PREFIX_CRUMBS: [prefix: string, crumbs: Crumb[]][] = [
   [
     "/membership/application/",
     [{ label: "My membership", href: "/membership" }, { label: "Application" }],
+  ],
+  [
+    "/membership/cancel/",
+    [
+      { label: "My membership", href: "/membership" },
+      { label: "Cancel membership" },
+    ],
+  ],
+  [
+    "/membership/become-alumni/alumni-",
+    [
+      {
+        label: "My membership",
+        href: "/membership",
+      },
+      { label: "Choose alumni status", href: "/membership/become-alumni" },
+      { label: "Alumni" },
+    ],
   ],
 ];
 

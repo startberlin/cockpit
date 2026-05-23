@@ -1,0 +1,81 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import {
+  addUserToGroup,
+  pinGroupMember,
+  removeUserFromGroup,
+  searchUsersNotInGroup,
+} from "@/db/groups";
+import type { PublicUser } from "@/db/people";
+import { getCurrentUser } from "@/db/user";
+import { writeAuditLog } from "@/lib/audit-log";
+import { triggerGoogleSync } from "@/lib/groups/google-sync";
+import { can } from "@/lib/permissions/server";
+
+export async function searchUsersNotInGroupAction(
+  groupId: string,
+  query?: string,
+): Promise<PublicUser[]> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  return await searchUsersNotInGroup(groupId, query);
+}
+
+export async function addUserToGroupAction(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await addUserToGroup(userId, groupId);
+  await triggerGoogleSync(groupId);
+  revalidatePath(`/groups/${groupId}`);
+
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_added",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
+}
+
+export async function removeUserFromGroupAction(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await removeUserFromGroup(userId, groupId);
+  await triggerGoogleSync(groupId);
+  revalidatePath(`/groups/${groupId}`);
+
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_removed",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
+}
+
+export async function pinGroupMemberAction(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+
+  await pinGroupMember(userId, groupId);
+  revalidatePath(`/groups/${groupId}`);
+}

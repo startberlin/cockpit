@@ -47,8 +47,8 @@ export default function OnboardingBreadcrumbs({
   currentStep,
 }: OnboardingBreadcrumbsProps) {
   const atWelcome = currentStep === ONBOARDING_STEPS.WELCOME;
-
   const atAccountSetup = currentStep === ONBOARDING_STEPS.MASTER_DATA;
+  const atEventEmail = currentStep === ONBOARDING_STEPS.EVENT_EMAIL;
 
   return (
     <Breadcrumb>
@@ -58,12 +58,18 @@ export default function OnboardingBreadcrumbs({
         <OnboardingBreadcrumbStep
           title="Welcome"
           isActive={atWelcome}
-          isCompleted={atAccountSetup}
+          isCompleted={atAccountSetup || atEventEmail}
         />
         <BreadcrumbSeparator />
         <OnboardingBreadcrumbStep
           title="Your account"
           isActive={atAccountSetup}
+          isCompleted={atEventEmail}
+        />
+        <BreadcrumbSeparator />
+        <OnboardingBreadcrumbStep
+          title="Event invites"
+          isActive={atEventEmail}
           isCompleted={false}
         />
       </BreadcrumbList>

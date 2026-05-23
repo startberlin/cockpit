@@ -53,7 +53,6 @@ const TooltipTrigger = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>
 >((props, ref) => {
-  const canHover = useHasHover();
   const { setOpen } = React.useContext(TooltipTriggerContext);
 
   return (
@@ -61,8 +60,7 @@ const TooltipTrigger = React.forwardRef<
       ref={ref}
       data-slot="tooltip-trigger"
       {...props}
-      onClick={(e) => {
-        canHover && e.preventDefault();
+      onClick={() => {
         setOpen(true);
       }}
     />

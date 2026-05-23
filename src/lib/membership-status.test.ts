@@ -31,6 +31,8 @@ function user(overrides: Partial<User> = {}): User {
     legalMembershipState: "not_member",
     gocardlessMandateId: null,
     gocardlessCustomerId: null,
+    gocardlessSetupSessionId: null,
+    eventEmailPreference: "personal_email",
     ...overrides,
   };
 }

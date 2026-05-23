@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import db from "@/db";
 import { getUserByCustomerId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
+import { events, inngest } from "@/lib/inngest";
 import { getBillingRequest } from "./membership-flow";
 
 export type MembershipReconciliationResult =
@@ -35,6 +36,16 @@ export async function reconcileMembershipPaymentByBillingRequestId(
   }
 
   if (member.gocardlessMandateId) {
+    // Re-emit as an idempotent recovery step: if the DB write succeeded but
+    // the original send failed, reminder workflows would otherwise run forever.
+    try {
+      await inngest.send({
+        name: events.mandateActivated.name,
+        data: { userId: member.id },
+      });
+    } catch {
+      // Non-fatal — reconciliation result is correct; reminders time out naturally.
+    }
     return { status: "already_active", hostedRedirect: "/membership" };
   }
 
@@ -72,8 +83,14 @@ async function reconcileMembershipPayment(
     .set({
       gocardlessMandateId: mandateId,
       gocardlessCustomerId: customerId,
+      gocardlessSetupSessionId: null,
     })
     .where(eq(user.id, member.id));
+
+  await inngest.send({
+    name: events.mandateActivated.name,
+    data: { userId: member.id },
+  });
 
   return { status: "activated", hostedRedirect: "/membership" };
 }

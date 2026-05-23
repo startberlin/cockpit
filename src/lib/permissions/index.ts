@@ -9,9 +9,14 @@ export type {
 } from "@/lib/authority/model";
 export {
   type Action,
-  type DepartmentScope,
-  type DepartmentScopedAction,
   evaluateAuth,
+  evaluateUnscopedViewDetails,
   type GlobalAction,
+  type GroupScope,
+  type GroupScopedAction,
   isGlobalAction,
+  isGroupScopedAction,
+  isUserScopedAction,
+  type UserScope,
+  type UserScopedAction,
 } from "./evaluate";

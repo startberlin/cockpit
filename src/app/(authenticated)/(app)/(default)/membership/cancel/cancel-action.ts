@@ -1,0 +1,65 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import db from "@/db";
+import { getActiveLegalMembership } from "@/db/membership";
+import { createTransitionRequest } from "@/db/membership-transitions";
+import { user as userTable } from "@/db/schema/auth";
+import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
+import { events, inngest } from "@/lib/inngest";
+
+const schema = z.object({
+  personalEmail: z
+    .union([z.email("Please enter a valid email address."), z.literal("")])
+    .optional(),
+});
+
+export const cancelMembershipAction = actionClient
+  .inputSchema(schema)
+  .action(async ({ ctx, parsedInput }) => {
+    const { user } = ctx;
+
+    const activeLegalMembership = await getActiveLegalMembership(user.id);
+    if (!activeLegalMembership || activeLegalMembership.status !== "active") {
+      throw new Error("You don't have an active membership to cancel.");
+    }
+
+    if (parsedInput.personalEmail) {
+      await db
+        .update(userTable)
+        .set({ personalEmail: parsedInput.personalEmail })
+        .where(eq(userTable.id, user.id));
+    }
+
+    const personalEmailForNotification =
+      parsedInput.personalEmail ?? user.personalEmail ?? undefined;
+
+    const transitionRequest = await createTransitionRequest({
+      userId: user.id,
+      type: "cancellation",
+      reason: "resigned",
+      personalEmailForNotification,
+    });
+
+    await inngest.send({
+      name: events.cancellationRequested.name,
+      data: {
+        userId: user.id,
+        transitionRequestId: transitionRequest.id,
+        requiresAcknowledgement: true,
+        reason: "resigned",
+      },
+    });
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: "membership.cancellation_requested",
+      actor: { id: user.id, name: user.name },
+      subject: { id: user.id, name: user.name },
+      description: "Self-requested",
+    });
+
+    return { requestId: transitionRequest.id };
+  });

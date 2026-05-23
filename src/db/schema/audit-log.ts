@@ -1,27 +1,36 @@
-import { relations } from "drizzle-orm";
-import { jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
-export const auditLog = pgTable("audit_log", {
-  id: text("id").primaryKey(),
-  action: text("action").notNull(),
-  actorUserId: text("actor_user_id").references(() => user.id),
-  targetUserId: text("target_user_id").references(() => user.id),
-  entityType: text("entity_type").notNull(),
-  entityId: text("entity_id").notNull(),
-  payload: jsonb("payload").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    category: text("category").notNull(),
+    eventType: text("event_type").notNull(),
+    actorId: text("actor_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    actorName: text("actor_name"),
+    subjectId: text("subject_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    subjectName: text("subject_name"),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    description: text("description"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_log_created_at_idx").on(table.createdAt),
+    index("audit_log_category_created_at_idx").on(
+      table.category,
+      table.createdAt,
+    ),
+    index("audit_log_actor_id_idx").on(table.actorId),
+    index("audit_log_subject_id_idx").on(table.subjectId),
+  ],
+);
 
-export const auditLogRelations = relations(auditLog, ({ one }) => ({
-  actorUser: one(user, {
-    fields: [auditLog.actorUserId],
-    references: [user.id],
-    relationName: "auditLogActor",
-  }),
-  targetUser: one(user, {
-    fields: [auditLog.targetUserId],
-    references: [user.id],
-    relationName: "auditLogTarget",
-  }),
-}));
+export type AuditLogEntry = typeof auditLog.$inferSelect;

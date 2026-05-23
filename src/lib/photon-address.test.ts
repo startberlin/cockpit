@@ -80,4 +80,42 @@ describe("photon address normalization", () => {
     assert.equal(suggestions.length, 1);
     assert.equal(suggestions[0]?.street, "Hauptstraße");
   });
+
+  it("deduplicates suggestions with the same label", () => {
+    const suggestions = normalizePhotonResponse({
+      features: [
+        {
+          properties: {
+            street: "Hauptstraße",
+            housenumber: "42",
+            postcode: "10115",
+            city: "Berlin",
+            country: "Germany",
+          },
+        },
+        {
+          properties: {
+            street: "Hauptstraße",
+            housenumber: "42",
+            postcode: "10115",
+            city: "Berlin",
+            country: "Germany",
+          },
+        },
+        {
+          properties: {
+            street: "Nebenstraße",
+            housenumber: "1",
+            postcode: "10116",
+            city: "Berlin",
+            country: "Germany",
+          },
+        },
+      ],
+    });
+
+    assert.equal(suggestions.length, 2);
+    assert.equal(suggestions[0]?.street, "Hauptstraße 42");
+    assert.equal(suggestions[1]?.street, "Nebenstraße 1");
+  });
 });

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."access_grant" ADD VALUE 'people_admin';

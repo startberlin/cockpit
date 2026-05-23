@@ -1,12 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import db from ".";
 import type { UserStatus } from "./schema/auth";
-import { user } from "./schema/auth";
-import {
-  admissionParticipant,
-  boardResolution,
-  boardVote,
-} from "./schema/board-admission";
+import type { BoardVote } from "./schema/legal-membership";
 import { legalMembership } from "./schema/legal-membership";
 
 export interface PendingBoardAction {
@@ -14,67 +9,54 @@ export interface PendingBoardAction {
   subjectUserId: string;
   subjectName: string;
   subjectOperationalStatus: UserStatus;
-  resolutionId: string;
 }
 
 export async function getPendingBoardActionsForUser(
   userId: string,
 ): Promise<PendingBoardAction[]> {
-  // Find legalMembership IDs where current user is an admission participant
-  const participantTenures = await db
-    .select({ legalMembershipId: admissionParticipant.legalMembershipId })
-    .from(admissionParticipant)
-    .where(eq(admissionParticipant.userId, userId));
-
-  if (participantTenures.length === 0) return [];
-
-  const tenureIds = participantTenures.map((p) => p.legalMembershipId);
-
-  // Find which tenures the user has already voted on
-  const votedTenures = await db
-    .select({ legalMembershipId: boardVote.legalMembershipId })
-    .from(boardVote)
-    .where(
-      and(
-        eq(boardVote.voterUserId, userId),
-        inArray(boardVote.legalMembershipId, tenureIds),
-      ),
-    );
-
-  const votedTenureIds = new Set(votedTenures.map((v) => v.legalMembershipId));
-  const pendingTenureIds = tenureIds.filter((id) => !votedTenureIds.has(id));
-
-  if (pendingTenureIds.length === 0) return [];
-
-  // Load pending tenures that are in admission_pending status
-  // with the subject user and board resolution
-  const rows = await db
+  // Find legalMemberships where the user is in boardParticipants JSON array
+  // and the status is admission_pending.
+  const tenures = await db
     .select({
-      legalMembershipId: legalMembership.id,
-      subjectUserId: user.id,
-      subjectFirstName: user.firstName,
-      subjectLastName: user.lastName,
-      subjectOperationalStatus: user.status,
-      resolutionId: boardResolution.id,
+      id: legalMembership.id,
+      userId: legalMembership.userId,
+      boardVotes: legalMembership.boardVotes,
     })
     .from(legalMembership)
-    .innerJoin(user, eq(user.id, legalMembership.userId))
-    .innerJoin(
-      boardResolution,
-      eq(boardResolution.legalMembershipId, legalMembership.id),
-    )
     .where(
       and(
         eq(legalMembership.status, "admission_pending"),
-        inArray(legalMembership.id, pendingTenureIds),
+        sql`${legalMembership.boardParticipants} @> ${JSON.stringify([{ userId }])}::jsonb`,
       ),
     );
 
-  return rows.map((row) => ({
-    legalMembershipId: row.legalMembershipId,
-    subjectUserId: row.subjectUserId,
-    subjectName: `${row.subjectFirstName} ${row.subjectLastName}`,
-    subjectOperationalStatus: row.subjectOperationalStatus,
-    resolutionId: row.resolutionId,
-  }));
+  if (tenures.length === 0) return [];
+
+  // Filter out tenures where the user has already voted.
+  const pendingTenures = tenures.filter((t) => {
+    const votes: BoardVote[] = t.boardVotes ?? [];
+    return !votes.some((v) => v.voterUserId === userId);
+  });
+
+  if (pendingTenures.length === 0) return [];
+
+  const subjectUserIds = pendingTenures.map((t) => t.userId);
+  const subjectUsers = await db.query.user.findMany({
+    where: (u, { inArray: inArrayFn }) => inArrayFn(u.id, subjectUserIds),
+    columns: { id: true, firstName: true, lastName: true, status: true },
+  });
+
+  const userById = new Map(subjectUsers.map((u) => [u.id, u]));
+
+  return pendingTenures.map((tenure) => {
+    const subjectUser = userById.get(tenure.userId);
+    return {
+      legalMembershipId: tenure.id,
+      subjectUserId: tenure.userId,
+      subjectName: subjectUser
+        ? `${subjectUser.firstName} ${subjectUser.lastName}`.trim()
+        : tenure.userId,
+      subjectOperationalStatus: subjectUser?.status ?? "onboarding",
+    };
+  });
 }

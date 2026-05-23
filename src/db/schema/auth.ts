@@ -9,6 +9,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { createSelectSchema } from "drizzle-zod";
+import { DEPARTMENT_IDS } from "@/lib/departments";
 import { batch } from "./batch";
 
 export const legalMembershipState = pgEnum("legal_membership_state", [
@@ -25,17 +26,21 @@ export const userStatus = pgEnum("user_status", [
   "member",
   "supporting_alumni",
   "alumni",
+  "cancelled",
 ]);
 
 export type UserStatus = (typeof userStatus.enumValues)[number];
 
-export const department = pgEnum("department", [
-  "partnerships",
-  "operations",
-  "community",
-  "growth",
-  "events",
+export const department = pgEnum("department", DEPARTMENT_IDS);
+
+export const eventEmailPreference = pgEnum("event_email_preference", [
+  "personal_email",
+  "start_email",
+  "custom",
 ]);
+
+export type EventEmailPreference =
+  (typeof eventEmailPreference.enumValues)[number];
 
 export type Department = (typeof department.enumValues)[number];
 
@@ -44,7 +49,7 @@ export const departmentSchema = createSelectSchema(department);
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -61,7 +66,7 @@ export const user = pgTable("user", {
   country: text("country"),
   birthDate: date("birth_date"),
   memberSinceDate: date("member_since_date"),
-  personalEmail: text("personal_email").notNull(),
+  personalEmail: text("personal_email"),
   batchNumber: integer("batch_number").references(() => batch.number, {
     onDelete: "set null",
   }),
@@ -73,6 +78,9 @@ export const user = pgTable("user", {
     .default("not_member"),
   gocardlessMandateId: text("gocardless_mandate_id"),
   gocardlessCustomerId: text("gocardless_customer_id"),
+  gocardlessSetupSessionId: text("gocardless_setup_session_id"),
+  eventEmailPreference: eventEmailPreference("event_email_preference"),
+  eventInviteEmail: text("event_invite_email"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({
@@ -93,6 +101,9 @@ export const session = pgTable("session", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  impersonatedBy: text("impersonated_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const account = pgTable("account", {

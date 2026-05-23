@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { canViewGroup, getGroupCriteria } from "@/db/groups";
+import { getGroupCriteria } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
+import { can } from "@/lib/permissions/server";
 
 export async function GET(
   _request: Request,
@@ -16,9 +17,9 @@ export async function GET(
     );
   }
 
-  if (!(await canViewGroup(id))) {
+  if (!(await can("group.members.manage", { id }))) {
     return NextResponse.json(
-      { error: "You are not authorized to view this group." },
+      { error: "You are not authorized to manage this group." },
       { status: 403 },
     );
   }

@@ -2,18 +2,12 @@
 
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  type SortingState,
   useReactTable,
-  type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
-import { useState } from "react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,6 +30,9 @@ import { Badge } from "./ui/badge";
 
 interface GroupsTableProps {
   data: PublicGroup[];
+  total: number;
+  pageCount: number;
+  initialSearch: string;
   onCreateGroupClick?: () => void;
 }
 
@@ -44,7 +41,7 @@ const columns: ColumnDef<PublicGroup>[] = [
     accessorKey: "name",
     header: "Name",
     cell: ({ row }) => (
-      <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
         <span className="font-medium">{row.original.name}</span>
         {row.original.isMember && (
           <Badge variant="secondary" className="w-fit">
@@ -52,15 +49,6 @@ const columns: ColumnDef<PublicGroup>[] = [
           </Badge>
         )}
       </div>
-    ),
-  },
-  {
-    id: "slackChannel",
-    header: "Slack Channel",
-    cell: ({ row }) => (
-      <span className="font-mono text-muted-foreground">
-        #{row.original.slug}
-      </span>
     ),
   },
   {
@@ -76,11 +64,6 @@ const columns: ColumnDef<PublicGroup>[] = [
     accessorKey: "memberCount",
     header: "Members",
     cell: ({ row }) => <div>{row.original.memberCount}</div>,
-  },
-  {
-    accessorKey: "adminCount",
-    header: "Admins",
-    cell: ({ row }) => <div>{row.original.adminCount}</div>,
   },
   {
     id: "actions",
@@ -115,52 +98,58 @@ const columns: ColumnDef<PublicGroup>[] = [
   },
 ];
 
-export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
+export function GroupsTable({
+  data,
+  total,
+  pageCount,
+  initialSearch,
+  onCreateGroupClick,
+}: GroupsTableProps) {
+  const [page, setPage] = useQueryState(
+    "page",
+    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+  );
+  const [search, setSearch] = useQueryState(
+    "q",
+    parseAsString
+      .withDefault(initialSearch)
+      .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
+  );
 
   const table = useReactTable({
     data,
     columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-    },
+    manualPagination: true,
+    pageCount,
   });
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4 gap-2">
+      <div className="flex items-center pb-4 gap-2">
         <Input
           placeholder="Find groups..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="max-w-sm"
         />
-        <Can permission="groups.create">
-          <Button
-            variant="outline"
-            className="ml-auto"
-            onClick={onCreateGroupClick}
-          >
-            <Plus />
-            Create group
-          </Button>
-        </Can>
+        {onCreateGroupClick && (
+          <Can permission="groups.create">
+            <Button
+              variant="outline"
+              className="ml-auto"
+              onClick={onCreateGroupClick}
+            >
+              <Plus />
+              Create group
+            </Button>
+          </Can>
+        )}
       </div>
       <div className="overflow-hidden rounded-md border">
         <Table>
@@ -185,12 +174,9 @@ export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => {
-                    // Navigate to group detail page when clicking on the row
-                    const groupId = row.original.id;
-                    window.location.href = `/groups/${groupId}`;
+                    window.location.href = `/groups/${row.original.id}`;
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -216,6 +202,34 @@ export function GroupsTable({ data, onCreateGroupClick }: GroupsTableProps) {
           </TableBody>
         </Table>
       </div>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between py-3">
+          <span className="text-sm text-muted-foreground">
+            {total} group{total === 1 ? "" : "s"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page >= pageCount}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

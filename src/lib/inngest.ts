@@ -1,8 +1,8 @@
 import "server-only";
 
 import { eventType, Inngest, staticSchema } from "inngest";
+import { endpointAdapter } from "inngest/next";
 import type { Department, UserStatus } from "@/db/schema/auth";
-import type { BoardVoteValue } from "@/db/schema/board-admission";
 
 export const events = {
   userCreated: eventType("user.created", {
@@ -16,19 +16,8 @@ export const events = {
       status: UserStatus;
     }>(),
   }),
-  slackUserJoined: eventType("slack/user.joined", {
-    schema: staticSchema<{ id: string }>(),
-  }),
   cockpitUserUpdated: eventType("cockpit/user.updated", {
     schema: staticSchema<{ id: string }>(),
-  }),
-  groupCreated: eventType("group.created", {
-    schema: staticSchema<{
-      id: string;
-      name: string;
-      slug: string;
-      integrations: { slack: boolean; email: boolean };
-    }>(),
   }),
   admissionWorkflowStarted: eventType("membership/admission-workflow.started", {
     schema: staticSchema<{
@@ -40,7 +29,7 @@ export const events = {
     schema: staticSchema<{
       legalMembershipId: string;
       voterId: string;
-      value: BoardVoteValue;
+      value: "yes" | "no";
       castAt: string;
     }>(),
   }),
@@ -48,7 +37,10 @@ export const events = {
     schema: staticSchema<{ legalMembershipId: string }>(),
   }),
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
-    schema: staticSchema<{ legalMembershipId: string }>(),
+    schema: staticSchema<{ legalMembershipId: string; userId: string }>(),
+  }),
+  groupCriteriaChanged: eventType("group/criteria.changed", {
+    schema: staticSchema<{ groupId: string }>(),
   }),
   existingMemberDocumentationRequested: eventType(
     "membership/existing-member-documentation.requested",
@@ -59,10 +51,79 @@ export const events = {
       }>(),
     },
   ),
+  positionAssignmentCreated: eventType("settings/position-assignment.created", {
+    schema: staticSchema<{
+      email: string;
+      firstName: string;
+      positionLabel: string;
+    }>(),
+  }),
+  positionAssignmentDeleted: eventType("settings/position-assignment.deleted", {
+    schema: staticSchema<{
+      email: string;
+      firstName: string;
+      positionLabel: string;
+    }>(),
+  }),
+  cancellationRequested: eventType("membership/cancellation.requested", {
+    schema: staticSchema<{
+      userId: string;
+      transitionRequestId: string;
+      requiresAcknowledgement: boolean;
+      reason: "resigned" | "removed_by_board";
+    }>(),
+  }),
+  cancellationRetracted: eventType("membership/cancellation.retracted", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+    }>(),
+  }),
+  cancellationAcknowledged: eventType("membership/cancellation.acknowledged", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      acknowledgedByUserId: string;
+    }>(),
+  }),
+  transitionRequested: eventType("membership/transition.requested", {
+    schema: staticSchema<{
+      userId: string;
+      transitionRequestId: string;
+      type: "alumni_request" | "supporting_alumni_request";
+      keepPersonalEmail: boolean;
+    }>(),
+  }),
+  transitionRetracted: eventType("membership/transition.retracted", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+    }>(),
+  }),
+  transitionDecided: eventType("membership/transition.decided", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      decision: "approved" | "rejected";
+      decidedByUserId: string;
+    }>(),
+  }),
+  paymentProposalCreated: eventType("membership/payment-proposal.created", {
+    schema: staticSchema<{ count: number }>(),
+  }),
+  mandateSetupNeeded: eventType("membership/mandate.setup-needed", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  mandateActivated: eventType("membership/mandate.activated", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  mandateInvalidated: eventType("membership/mandate.invalidated", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  reconfirmationPending: eventType("membership/reconfirmation.pending", {
+    schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
+  }),
 };
 
 export const inngest = new Inngest({
   id: "start-cockpit",
+  endpointAdapter,
   checkpointing: {
     maxRuntime: 240, // 4 minutes
   },

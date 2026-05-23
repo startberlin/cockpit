@@ -1,5 +1,6 @@
-import { sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cache } from "react";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
   getStructuredMembershipState,
   type StructuredMembershipState,
@@ -17,30 +18,30 @@ import type {
   AuthorityScope,
   OrganizationPosition,
 } from "./schema/authority";
-import {
-  LIVE_TENURE_STATUSES,
-  legalMembership,
-} from "./schema/legal-membership";
+import { userOrganizationPosition } from "./schema/authority";
+import { group as groupTable, usersToGroups } from "./schema/group";
 
 export interface PublicUser {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
+  image: string | null;
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
-  profileOnboardingComplete?: boolean;
-  hasMembershipPayment?: boolean;
-  hasActiveTenure?: boolean;
+  legalMembershipState?: LegalMembershipState | null;
+  memberSinceDate?: string | null;
+  positionLabel?: string | null;
+  isEligibleForMembershipProposal?: boolean;
 }
 
 export interface UserDetail {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  personalEmail: string;
+  email: string | null;
+  personalEmail: string | null;
   phone: string | null;
   street: string | null;
   city: string | null;
@@ -55,22 +56,17 @@ export interface UserDetail {
   profileOnboardingComplete: boolean;
   hasMembershipPayment: boolean;
   organizationPositions: Array<{
-    id: string;
     position: OrganizationPosition;
     scope: AuthorityScope;
     department: Department | null;
   }>;
   accessGrants: Array<{
-    id: string;
     grant: AccessGrant;
-    scope: AuthorityScope;
-    department: Department | null;
   }>;
   createdAt: Date;
   groups: Array<{
     id: string;
     name: string;
-    role: string;
   }>;
 }
 
@@ -91,52 +87,238 @@ export async function getDepartmentHeadForDepartment(
   return row?.user ?? null;
 }
 
-export async function getAllUserPublicData(): Promise<PublicUser[]> {
-  const allUsers = await db.query.user.findMany({
-    columns: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      personalEmail: true,
-      phone: true,
-      birthDate: true,
-      batchNumber: true,
-      status: true,
-      department: true,
-      gocardlessMandateId: true,
-    },
-    extras: {
-      hasActiveTenure: sql<boolean>`EXISTS (
-        SELECT 1 FROM ${legalMembership}
-        WHERE ${legalMembership.userId} = ${userTable.id}
-        AND ${legalMembership.status} = ANY(${sql.raw(`ARRAY[${LIVE_TENURE_STATUSES.map((s) => `'${s}'`).join(", ")}]::legal_membership_status[]`)})
-      )`.as("has_active_tenure"),
-    },
-  });
+const PEOPLE_PAGE_SIZE = 100;
 
-  return allUsers.map(
-    (u): PublicUser => ({
+export interface PaginatedUsers {
+  users: PublicUser[];
+  total: number;
+  pageCount: number;
+  offset: number;
+}
+
+const DEFAULT_COMMUNITY_STATUSES: UserStatus[] = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+];
+
+export async function getAllUserPublicData({
+  page = 1,
+  search = "",
+  status,
+  department,
+  batchNumber,
+}: {
+  page?: number;
+  search?: string;
+  status?: UserStatus[];
+  department?: Department[];
+  batchNumber?: number[];
+} = {}): Promise<PaginatedUsers> {
+  const offset = (page - 1) * PEOPLE_PAGE_SIZE;
+  const effectiveStatus = status ?? DEFAULT_COMMUNITY_STATUSES;
+
+  const searchClause = search
+    ? or(
+        ilike(userTable.firstName, `%${search}%`),
+        ilike(userTable.lastName, `%${search}%`),
+        ilike(
+          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
+          `%${search}%`,
+        ),
+      )
+    : undefined;
+
+  const whereClause = and(
+    searchClause,
+    inArray(userTable.status, effectiveStatus),
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
+      : undefined,
+  );
+
+  const [rows, positionRows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        firstName: userTable.firstName,
+        lastName: userTable.lastName,
+        email: userTable.email,
+        image: userTable.image,
+        department: userTable.department,
+        batchNumber: sql<number | null>`${userTable.batchNumber}`,
+        status: userTable.status,
+      })
+      .from(userTable)
+      .where(whereClause)
+      .orderBy(userTable.firstName, userTable.lastName)
+      .limit(PEOPLE_PAGE_SIZE)
+      .offset(offset),
+    db
+      .select({
+        userId: userOrganizationPosition.userId,
+        position: userOrganizationPosition.position,
+        department: userOrganizationPosition.department,
+      })
+      .from(userOrganizationPosition),
+    db.select({ total: count() }).from(userTable).where(whereClause),
+  ]);
+
+  const POSITION_PRIORITY: Record<OrganizationPosition, number> = {
+    president: 0,
+    vice_president: 1,
+    head_of_finance: 2,
+    department_head: 3,
+  };
+
+  const GLOBAL_POSITION_LABELS: Partial<Record<OrganizationPosition, string>> =
+    {
+      president: "President",
+      vice_president: "Vice President",
+      head_of_finance: "Head of Finance",
+    };
+
+  const posLabelMap = new Map<string, { label: string; priority: number }>();
+  for (const p of positionRows) {
+    const priority = POSITION_PRIORITY[p.position];
+    const label =
+      p.position === "department_head"
+        ? p.department
+          ? `Head of ${DEPARTMENT_NAMES[p.department]}`
+          : "Department Head"
+        : (GLOBAL_POSITION_LABELS[p.position] ?? p.position);
+
+    const existing = posLabelMap.get(p.userId);
+    if (!existing || priority < existing.priority) {
+      posLabelMap.set(p.userId, { label, priority });
+    }
+  }
+
+  return {
+    users: rows.map((u) => ({
       id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      email: u.email ?? "",
+      image: u.image ?? null,
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
-      profileOnboardingComplete: getOnboardingProgress(u) === "completed",
-      hasMembershipPayment: !!u.gocardlessMandateId,
-      hasActiveTenure: u.hasActiveTenure,
-    }),
+      positionLabel: posLabelMap.get(u.id)?.label ?? null,
+    })),
+    pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
+    total,
+    offset,
+  };
+}
+
+const ADMIN_ACTIVE_STATUSES: UserStatus[] = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+];
+
+export async function getAllUsersForAdmin({
+  page = 1,
+  search = "",
+  status,
+  department,
+  batchNumber,
+  legalMembershipState,
+  sortBy = "name",
+}: {
+  page?: number;
+  search?: string;
+  status?: UserStatus[];
+  department?: Department[];
+  batchNumber?: number[];
+  legalMembershipState?: LegalMembershipState;
+  sortBy?: "name" | "joinDate";
+} = {}): Promise<PaginatedUsers> {
+  const offset = (page - 1) * PEOPLE_PAGE_SIZE;
+
+  const effectiveStatus = status ?? ADMIN_ACTIVE_STATUSES;
+
+  const searchClause = search
+    ? or(
+        ilike(userTable.firstName, `%${search}%`),
+        ilike(userTable.lastName, `%${search}%`),
+        ilike(
+          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
+          `%${search}%`,
+        ),
+      )
+    : undefined;
+
+  const whereClause = and(
+    searchClause,
+    inArray(userTable.status, effectiveStatus),
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
+      : undefined,
+    legalMembershipState !== undefined
+      ? eq(userTable.legalMembershipState, legalMembershipState)
+      : undefined,
   );
+
+  const orderBy =
+    sortBy === "joinDate"
+      ? [
+          asc(sql`${userTable.memberSinceDate} NULLS LAST`),
+          asc(userTable.createdAt),
+        ]
+      : [asc(userTable.firstName), asc(userTable.lastName)];
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        firstName: userTable.firstName,
+        lastName: userTable.lastName,
+        email: userTable.email,
+        image: userTable.image,
+        department: userTable.department,
+        batchNumber: sql<number | null>`${userTable.batchNumber}`,
+        status: userTable.status,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
+      })
+      .from(userTable)
+      .where(whereClause)
+      .orderBy(...orderBy)
+      .limit(PEOPLE_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(userTable).where(whereClause),
+  ]);
+
+  return {
+    users: rows.map((u) => ({
+      id: u.id,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      email: u.email ?? "",
+      image: u.image ?? null,
+      department: u.department ?? null,
+      batchNumber: u.batchNumber ?? null,
+      status: u.status,
+      legalMembershipState: u.legalMembershipState,
+      memberSinceDate: u.memberSinceDate,
+    })),
+    pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
+    total,
+    offset,
+  };
 }
 
 export interface UserDetails {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  personalEmail: string;
+  email: string | null;
+  image: string | null;
+  personalEmail: string | null;
   phone: string | null;
   street: string | null;
   city: string | null;
@@ -148,6 +330,9 @@ export interface UserDetails {
   status: UserStatus;
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
+  profileOnboardingComplete: boolean;
+  gocardlessMandateId: string | null;
+  gocardlessCustomerId: string | null;
   createdAt: Date;
 }
 
@@ -155,22 +340,26 @@ export interface UserGroupMembership {
   id: string;
   name: string;
   slug: string;
-  role: string;
+}
+
+export interface UserGroupMembershipDetail {
+  id: string;
+  name: string;
+  slug: string;
+  source: "criteria" | "manual";
+  joinedAt: Date;
+  memberCount: number;
 }
 
 export interface UserAuthorityData {
   id: string;
   organizationPositions: Array<{
-    id: string;
     position: OrganizationPosition;
     scope: AuthorityScope;
     department: Department | null;
   }>;
   accessGrants: Array<{
-    id: string;
     grant: AccessGrant;
-    scope: AuthorityScope;
-    department: Department | null;
   }>;
 }
 
@@ -184,6 +373,7 @@ export const getUserDetails = cache(
         firstName: true,
         lastName: true,
         email: true,
+        image: true,
         personalEmail: true,
         phone: true,
         birthDate: true,
@@ -198,6 +388,7 @@ export const getUserDetails = cache(
         gocardlessMandateId: true,
         gocardlessCustomerId: true,
         createdAt: true,
+        eventEmailPreference: true,
       },
       with: {
         batch: { columns: { number: true } },
@@ -213,6 +404,7 @@ export const getUserDetails = cache(
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image ?? null,
       personalEmail: user.personalEmail,
       phone: user.phone,
       street: user.street,
@@ -225,6 +417,9 @@ export const getUserDetails = cache(
       status: user.status,
       legalMembershipState: user.legalMembershipState,
       membershipState: getStructuredMembershipState(user),
+      profileOnboardingComplete: getOnboardingProgress(user) === "completed",
+      gocardlessMandateId: user.gocardlessMandateId ?? null,
+      gocardlessCustomerId: user.gocardlessCustomerId ?? null,
       createdAt: user.createdAt,
     };
   },
@@ -244,7 +439,43 @@ export const getUserGroupMemberships = cache(
       id: row.group.id,
       name: row.group.name,
       slug: row.group.slug,
-      role: row.role,
+    }));
+  },
+);
+
+// Per-request deduplication only — not a persistent cache
+export const getUserGroupMembershipsWithDetails = cache(
+  async (id: string): Promise<UserGroupMembershipDetail[]> => {
+    const memberCountSubquery = db
+      .select({ groupId: usersToGroups.groupId, total: count().as("total") })
+      .from(usersToGroups)
+      .groupBy(usersToGroups.groupId)
+      .as("member_counts");
+
+    const rows = await db
+      .select({
+        id: groupTable.id,
+        name: groupTable.name,
+        slug: groupTable.slug,
+        source: usersToGroups.source,
+        joinedAt: usersToGroups.joinedAt,
+        memberCount: memberCountSubquery.total,
+      })
+      .from(usersToGroups)
+      .innerJoin(groupTable, eq(usersToGroups.groupId, groupTable.id))
+      .innerJoin(
+        memberCountSubquery,
+        eq(usersToGroups.groupId, memberCountSubquery.groupId),
+      )
+      .where(eq(usersToGroups.userId, id));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      source: row.source,
+      joinedAt: row.joinedAt,
+      memberCount: row.memberCount,
     }));
   },
 );
@@ -257,10 +488,10 @@ export const getUserAuthorityData = cache(
       columns: { id: true },
       with: {
         organizationPositions: {
-          columns: { id: true, position: true, scope: true, department: true },
+          columns: { position: true, scope: true, department: true },
         },
         accessGrants: {
-          columns: { id: true, grant: true, scope: true, department: true },
+          columns: { grant: true },
         },
       },
     });
@@ -272,16 +503,12 @@ export const getUserAuthorityData = cache(
     return {
       id: user.id,
       organizationPositions: user.organizationPositions.map((p) => ({
-        id: p.id,
         position: p.position,
         scope: p.scope,
         department: p.department,
       })),
       accessGrants: user.accessGrants.map((g) => ({
-        id: g.id,
         grant: g.grant,
-        scope: g.scope,
-        department: g.department,
       })),
     };
   },
@@ -309,6 +536,7 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
       gocardlessMandateId: true,
       gocardlessCustomerId: true,
       createdAt: true,
+      eventEmailPreference: true,
     },
     with: {
       batch: true,
@@ -346,22 +574,67 @@ export async function getUserById(id: string): Promise<UserDetail | null> {
     profileOnboardingComplete: getOnboardingProgress(user) === "completed",
     hasMembershipPayment: !!user.gocardlessMandateId,
     organizationPositions: user.organizationPositions.map((assignment) => ({
-      id: assignment.id,
       position: assignment.position,
       scope: assignment.scope,
       department: assignment.department,
     })),
     accessGrants: user.accessGrants.map((assignment) => ({
-      id: assignment.id,
       grant: assignment.grant,
-      scope: assignment.scope,
-      department: assignment.department,
     })),
     createdAt: user.createdAt,
     groups: user.usersToGroups.map((utg) => ({
       id: utg.group.id,
       name: utg.group.name,
-      role: utg.role,
     })),
   };
+}
+
+// ─── Org chart ────────────────────────────────────────────────────────────────
+
+export interface OrgChartUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  image: string | null;
+  department: Department | null;
+  batchNumber: number | null;
+  status: UserStatus;
+  positions: Array<{
+    position: OrganizationPosition;
+    scope: AuthorityScope;
+    department: Department | null;
+  }>;
+}
+
+const ORG_CHART_STATUSES: UserStatus[] = ["member", "onboarding"];
+
+export async function getOrgChartData(): Promise<OrgChartUser[]> {
+  const rows = await db.query.user.findMany({
+    where: (u, { inArray }) => inArray(u.status, ORG_CHART_STATUSES),
+    columns: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      image: true,
+      department: true,
+      status: true,
+    },
+    with: {
+      batch: { columns: { number: true } },
+      organizationPositions: {
+        columns: { position: true, scope: true, department: true },
+      },
+    },
+  });
+
+  return rows.map((u) => ({
+    id: u.id,
+    firstName: u.firstName ?? "",
+    lastName: u.lastName ?? "",
+    image: u.image ?? null,
+    department: u.department ?? null,
+    batchNumber: u.batch?.number ?? null,
+    status: u.status,
+    positions: u.organizationPositions,
+  }));
 }

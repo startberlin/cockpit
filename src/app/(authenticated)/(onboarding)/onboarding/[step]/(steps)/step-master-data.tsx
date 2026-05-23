@@ -36,6 +36,12 @@ import { handleError } from "@/lib/utils";
 import { stepMasterDataSchema } from "../onboarding-validation";
 import { completeOnboardingMasterDataStep } from "./step-master-data-action";
 
+const EVENT_EMAIL_PREF_STATUSES = [
+  "onboarding",
+  "member",
+  "supporting_alumni",
+] as const satisfies readonly User["status"][];
+
 interface StepMasterDataProps {
   user: User;
 }
@@ -49,8 +55,11 @@ export function StepMasterData({ user }: StepMasterDataProps) {
       console.error("User not loaded/signed in. Can't refresh page.");
       return;
     }
-    router.push("/");
-  }, [router, session]);
+    const needsEventEmailStep = (
+      EVENT_EMAIL_PREF_STATUSES as readonly string[]
+    ).includes(user.status);
+    router.push(needsEventEmailStep ? "/onboarding/event-invites" : "/");
+  }, [router, session, user.status]);
 
   const { form, handleSubmitWithAction, action } = useHookFormAction(
     completeOnboardingMasterDataStep,
@@ -62,7 +71,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
       },
       formProps: {
         defaultValues: {
-          personalEmail: "",
+          personalEmail: user.personalEmail ?? "",
           phone: user.phone ?? "",
           birthDate: user.birthDate ?? "",
         },
@@ -128,7 +137,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
               <FieldLabel htmlFor="email">Email</FieldLabel>
               <InputGroup>
                 <InputGroupInput
-                  value={user.email}
+                  value={user.email ?? ""}
                   disabled
                   className="w-full"
                 />
@@ -144,7 +153,6 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                 </InputGroupAddon>
               </InputGroup>
             </Field>
-            {/* Editable fields using Controller */}
             <Controller
               name="personalEmail"
               control={form.control}
@@ -161,7 +169,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                   />
                   <FieldDescription className="flex flex-row gap-1.5 pt-0.5 text-xs">
                     <InfoIcon className="h-3.5 w-3.5 shrink-0" />
-                    Use a personal email address you’ll keep long-term. Avoid
+                    Use a personal email address you'll keep long-term. Avoid
                     school or work addresses that you might lose access to
                     later.
                   </FieldDescription>
@@ -203,6 +211,7 @@ export function StepMasterData({ user }: StepMasterDataProps) {
                     type="date"
                     aria-invalid={fieldState.invalid}
                     disabled={action.isPending}
+                    className="max-w-full"
                   />
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />

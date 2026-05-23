@@ -12,7 +12,6 @@ export const positionAssignmentSchema = z.union([
   z.object({
     position: z.enum(globalOrganizationPositions),
     scope: z.literal("global"),
-    department: z.null().optional(),
   }),
   z.object({
     position: z.literal(departmentHeadPosition),
@@ -24,8 +23,6 @@ export const positionAssignmentSchema = z.union([
 export const grantAssignmentSchema = z.union([
   z.object({
     grant: z.enum(globalAccessGrants),
-    scope: z.literal("global"),
-    department: z.null().optional(),
   }),
 ]);
 
@@ -58,7 +55,7 @@ const rawAuthorityUpdateInputSchema = z
     }
 
     for (const [index, assignment] of input.grants.entries()) {
-      const key = [assignment.grant, assignment.scope, "global"].join(":");
+      const key = assignment.grant;
 
       if (seenGrants.has(key)) {
         ctx.addIssue({
@@ -80,10 +77,7 @@ export const authorityUpdateInputSchema =
       department:
         assignment.scope === "department" ? assignment.department : null,
     })),
-    grants: input.grants.map((assignment) => ({
-      ...assignment,
-      department: null,
-    })),
+    grants: input.grants,
   }));
 
 export type AuthorityUpdateInput = z.infer<typeof authorityUpdateInputSchema>;
