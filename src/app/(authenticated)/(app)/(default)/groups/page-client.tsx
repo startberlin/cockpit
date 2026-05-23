@@ -1,7 +1,9 @@
 "use client";
 
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { GroupsTable } from "@/components/groups-table";
 import type { PublicGroup } from "@/db/groups";
+import { CreateGroupDialog } from "./create-group-dialog";
 
 interface GroupsPageClientProps {
   groups: PublicGroup[];
@@ -16,6 +18,11 @@ export default function GroupsPageClient({
   pageCount,
   initialSearch,
 }: GroupsPageClientProps) {
+  const [, setCreateOpen] = useQueryState(
+    "create",
+    parseAsBoolean.withDefault(false),
+  );
+
   return (
     <>
       <div className="pb-4">
@@ -24,11 +31,13 @@ export default function GroupsPageClient({
           Teams, batches, and project groups at START Berlin.
         </p>
       </div>
+      <CreateGroupDialog />
       <GroupsTable
         data={groups}
         total={total}
         pageCount={pageCount}
         initialSearch={initialSearch}
+        onCreateGroupClick={() => setCreateOpen(true)}
       />
     </>
   );
