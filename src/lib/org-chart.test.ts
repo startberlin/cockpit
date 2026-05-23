@@ -118,7 +118,7 @@ describe("buildOrgChart", () => {
     const DEPARTMENT_IDS = [
       "partnerships",
       "operations",
-      "community",
+      "people",
       "growth",
       "events",
     ] as const;
