@@ -10,4 +10,8 @@ if (token) {
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
   });
+} else {
+  console.warn(
+    "PostHog disabled: NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is not set",
+  );
 }
