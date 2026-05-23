@@ -47,7 +47,7 @@ export const updateGrantsAction = actionClient
     }
 
     await replaceUserGrants(parsedInput.userId, grants);
-    revalidatePath(`/admin/people/directory/${parsedInput.userId}`);
+    revalidatePath(`/admin/people/${parsedInput.userId}`);
 
     const [targetUser] = await db
       .select({ id: userTable.id, name: userTable.name })

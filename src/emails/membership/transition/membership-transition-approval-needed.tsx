@@ -71,7 +71,7 @@ MembershipTransitionApprovalNeededEmail.PreviewProps = {
   subjectName: "Sönke Peters",
   transitionType: "alumni_request",
   requestedAt: "2026-05-21",
-  profileUrl: "https://cockpit.start-berlin.com/admin/people/directory/usr_123",
+  profileUrl: "https://cockpit.start-berlin.com/admin/people/usr_123",
 } as MembershipTransitionApprovalNeededEmailProps;
 
 export default MembershipTransitionApprovalNeededEmail;

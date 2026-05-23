@@ -33,7 +33,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "user.view",
+        "user.view_details",
         { targetDepartment: "events" },
       ),
       true,
@@ -52,7 +52,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "user.view",
+        "user.view_details",
         { targetDepartment: "growth" },
       ),
       false,
@@ -71,7 +71,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "user.view",
+        "user.view_details",
         undefined as unknown as {
           targetDepartment: null;
         },
@@ -86,7 +86,7 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "user.view",
+        "user.view_details",
         { targetDepartment: "events" },
       ),
       false,
@@ -513,12 +513,12 @@ describe("permissions", () => {
     );
   });
 
-  describe("users.view_all", () => {
+  describe("users.view_inactive", () => {
     it("allows admin grant", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
-          "users.view_all",
+          "users.view_inactive",
         ),
         true,
       );
@@ -528,23 +528,61 @@ describe("permissions", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "super_admin" }] }),
-          "users.view_all",
+          "users.view_inactive",
         ),
         true,
       );
     });
 
-    it("allows people_admin grant", () => {
+    it("allows finance_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "finance_admin" }] }),
+          "users.view_inactive",
+        ),
+        true,
+      );
+    });
+
+    it("allows president position (legal officer)", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "users.view_inactive",
+        ),
+        true,
+      );
+    });
+
+    it("allows head_of_finance position (legal officer)", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "head_of_finance", scope: "global" }],
+          }),
+          "users.view_inactive",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain member", () => {
+      assert.equal(evaluateAuth(authority(), "users.view_inactive"), false);
+    });
+
+    it("denies people_admin grant", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
-          "users.view_all",
+          "users.view_inactive",
         ),
-        true,
+        false,
       );
     });
 
-    it("allows any department_head position", () => {
+    it("denies department_head position", () => {
       assert.equal(
         evaluateAuth(
           authority({
@@ -556,45 +594,7 @@ describe("permissions", () => {
               },
             ],
           }),
-          "users.view_all",
-        ),
-        true,
-      );
-    });
-
-    it("denies plain member", () => {
-      assert.equal(evaluateAuth(authority(), "users.view_all"), false);
-    });
-
-    it("denies finance_admin grant only", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ grants: [{ grant: "finance_admin" }] }),
-          "users.view_all",
-        ),
-        false,
-      );
-    });
-
-    it("denies head_of_finance position only", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            positions: [{ position: "head_of_finance", scope: "global" }],
-          }),
-          "users.view_all",
-        ),
-        false,
-      );
-    });
-
-    it("denies president position only", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            positions: [{ position: "president", scope: "global" }],
-          }),
-          "users.view_all",
+          "users.view_inactive",
         ),
         false,
       );
@@ -602,14 +602,19 @@ describe("permissions", () => {
   });
 
   describe("isUserScopedAction", () => {
-    it('returns true for "user.view"', () => {
+    it('returns true for "user.view_details"', () => {
       const { isUserScopedAction } = require("./evaluate");
-      assert.equal(isUserScopedAction("user.view"), true);
+      assert.equal(isUserScopedAction("user.view_details"), true);
     });
 
-    it('returns false for "users.view_all"', () => {
+    it('returns true for "user.payment.view"', () => {
       const { isUserScopedAction } = require("./evaluate");
-      assert.equal(isUserScopedAction("users.view_all"), false);
+      assert.equal(isUserScopedAction("user.payment.view"), true);
+    });
+
+    it('returns false for "users.view_inactive"', () => {
+      const { isUserScopedAction } = require("./evaluate");
+      assert.equal(isUserScopedAction("users.view_inactive"), false);
     });
   });
 
@@ -625,24 +630,24 @@ describe("permissions", () => {
       );
     });
 
-    it("allows user.view for any department", () => {
+    it("allows user.view_details for any department", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
-          "user.view",
+          "user.view_details",
           { targetDepartment: "growth" },
         ),
         true,
       );
     });
 
-    it("allows users.view_all", () => {
+    it("denies users.view_inactive", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
-          "users.view_all",
+          "users.view_inactive",
         ),
-        true,
+        false,
       );
     });
 

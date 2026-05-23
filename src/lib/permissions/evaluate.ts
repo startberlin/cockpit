@@ -5,13 +5,15 @@ import {
 } from "@/lib/authority/model";
 
 export type UserScopedAction =
-  | "user.view"
+  | "user.view_details"
+  | "user.payment.view"
   | "user.membership.propose"
   | "membership.transition.decide"
   | "membership.cancellation.acknowledge";
 
 const userScopedActions = [
-  "user.view",
+  "user.view_details",
+  "user.payment.view",
   "user.membership.propose",
   "membership.transition.decide",
   "membership.cancellation.acknowledge",
@@ -49,7 +51,7 @@ const globalActions = [
   "batches.manage",
   "payments.manage",
   "settings.positions.manage",
-  "users.view_all",
+  "users.view_inactive",
   "audit_log.read",
 ] as const;
 
@@ -190,14 +192,14 @@ function evaluateGlobalAction(
     case "membership.resolution.view":
       return hasAdminGrant(authority) || isLegalOfficer(authority);
     case "membership.cancel_member":
-      return isLegalOfficer(authority);
+      return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
     case "groups.view_all":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
-    case "users.view_all":
+    case "users.view_inactive":
       return (
         hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        isDepartmentHead(authority)
+        isLegalOfficer(authority) ||
+        hasFinanceAdminGrant(authority)
       );
     case "audit_log.read":
       return hasAdminGrant(authority);
@@ -210,11 +212,17 @@ function evaluateUserScopedAction(
   scope: UserScope,
 ): boolean {
   switch (action) {
-    case "user.view":
+    case "user.view_details":
       return (
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
+      );
+    case "user.payment.view":
+      return (
+        hasAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        hasFinanceAdminGrant(authority)
       );
     case "user.membership.propose":
       return (
@@ -245,6 +253,15 @@ export function evaluateAuth(
   action: GroupScopedAction,
   scope: GroupScope,
 ): boolean;
+export function evaluateUnscopedViewDetails(authority: UserAuthority): boolean {
+  if (!isActiveAuthorityStatus(authority.status)) return false;
+  return (
+    hasAdminGrant(authority) ||
+    hasPeopleAdminGrant(authority) ||
+    isDepartmentHead(authority)
+  );
+}
+
 export function evaluateAuth(
   authority: UserAuthority,
   action: Action,

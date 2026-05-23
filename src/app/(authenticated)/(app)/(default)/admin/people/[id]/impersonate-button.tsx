@@ -1,10 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { UserCog } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
-import { proposeMembershipAction } from "@/app/(authenticated)/(app)/(default)/people/propose-membership-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,51 +13,43 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { impersonateAction } from "./impersonate-action";
 
-interface ProposeMembershipButtonProps {
+interface ImpersonateButtonProps {
   userId: string;
-  firstName: string;
-  lastName: string;
+  userEmail: string;
 }
 
-export function ProposeMembershipButton({
+export function ImpersonateButton({
   userId,
-  firstName,
-  lastName,
-}: ProposeMembershipButtonProps) {
-  const router = useRouter();
+  userEmail,
+}: ImpersonateButtonProps) {
   const [open, setOpen] = useState(false);
 
-  const { execute, isPending } = useAction(proposeMembershipAction, {
+  const { execute, isPending } = useAction(impersonateAction, {
     onSuccess: () => {
-      setOpen(false);
-      router.refresh();
-      toast.success("Membership proposed", {
-        description:
-          "The board admission workflow has been started for this member.",
-      });
+      toast.success(`Now impersonating ${userEmail}`);
+      window.location.href = "/membership";
     },
-    onError: () => {
-      toast.error(
-        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
+    onError: ({ error }) => {
+      toast.error(error.serverError ?? "Failed to impersonate");
     },
   });
 
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Propose for membership
+        <UserCog />
+        Impersonate
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Propose {firstName} {lastName} for membership?
-            </DialogTitle>
+            <DialogTitle>Impersonate {userEmail}?</DialogTitle>
             <DialogDescription>
-              This starts the board admission workflow for this member. The
-              board will be asked to vote on their admission.
+              You will be signed in as this member and redirected to the
+              membership page. Your own session will be suspended until you sign
+              out of the impersonated account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -75,7 +66,7 @@ export function ProposeMembershipButton({
               disabled={isPending}
               onClick={() => execute({ userId })}
             >
-              {isPending ? "Proposing..." : "Propose for membership"}
+              {isPending ? "Starting…" : "Impersonate"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -141,17 +141,18 @@ export function NavMain() {
             isParentActive={pathname.startsWith("/admin/people/")}
             tooltip="People"
           >
-            <Can permission="users.view_all">
+            <Can permission="user.view_details">
               <SidebarMenuSubItem>
                 <SidebarMenuSubButton
                   asChild
                   isActive={
-                    pathname === "/admin/people/directory" ||
-                    pathname.startsWith("/admin/people/directory/")
+                    pathname === "/admin/people" ||
+                    (pathname.startsWith("/admin/people/") &&
+                      !pathname.startsWith("/admin/people/batches"))
                   }
                 >
-                  <Link href="/admin/people/directory" onClick={closeMobile}>
-                    <span>Directory</span>
+                  <Link href="/admin/people" onClick={closeMobile}>
+                    <span>Members</span>
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

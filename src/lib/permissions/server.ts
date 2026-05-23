@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/db/user";
 import {
   type Action,
   evaluateAuth,
+  evaluateUnscopedViewDetails,
   type GlobalAction,
   type GroupScopedAction,
   isGlobalAction,
@@ -17,6 +18,7 @@ import {
   type UserScopedAction,
 } from ".";
 
+export function can(action: "user.view_details"): Promise<boolean>;
 export function can(action: GlobalAction): Promise<boolean>;
 export function can(
   action: UserScopedAction,
@@ -38,6 +40,10 @@ export async function can(
 
   const authority = await getUserAuthority(currentUser.id);
   if (!authority) return false;
+
+  if (action === "user.view_details" && !resource) {
+    return evaluateUnscopedViewDetails(authority);
+  }
 
   if (isGlobalAction(action)) {
     return evaluateAuth(authority, action);

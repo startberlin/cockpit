@@ -4,7 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { updateGrantsAction } from "@/app/(authenticated)/(app)/(default)/admin/people/directory/[id]/update-grants-action";
+import { updateGrantsAction } from "@/app/(authenticated)/(app)/(default)/admin/people/[id]/update-grants-action";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {

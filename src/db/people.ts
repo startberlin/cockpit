@@ -1,4 +1,4 @@
-import { and, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
@@ -19,6 +19,7 @@ import type {
   OrganizationPosition,
 } from "./schema/authority";
 import { userOrganizationPosition } from "./schema/authority";
+import { group as groupTable, usersToGroups } from "./schema/group";
 
 export interface PublicUser {
   id: string;
@@ -29,6 +30,8 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  legalMembershipState?: LegalMembershipState | null;
+  memberSinceDate?: string | null;
   positionLabel?: string | null;
   isEligibleForMembershipProposal?: boolean;
 }
@@ -210,11 +213,10 @@ export async function getAllUserPublicData({
   };
 }
 
-const ADMIN_DEFAULT_STATUSES: UserStatus[] = [
+const ADMIN_ACTIVE_STATUSES: UserStatus[] = [
   "onboarding",
   "member",
   "supporting_alumni",
-  "alumni",
 ];
 
 export async function getAllUsersForAdmin({
@@ -223,19 +225,20 @@ export async function getAllUsersForAdmin({
   status,
   department,
   batchNumber,
-  includeFormer = false,
+  legalMembershipState,
+  sortBy = "name",
 }: {
   page?: number;
   search?: string;
   status?: UserStatus[];
-  department?: Department;
-  batchNumber?: number;
-  includeFormer?: boolean;
+  department?: Department[];
+  batchNumber?: number[];
+  legalMembershipState?: LegalMembershipState;
+  sortBy?: "name" | "joinDate";
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
 
-  const effectiveStatus =
-    status ?? (includeFormer ? undefined : ADMIN_DEFAULT_STATUSES);
+  const effectiveStatus = status ?? ADMIN_ACTIVE_STATUSES;
 
   const searchClause = search
     ? or(
@@ -250,14 +253,23 @@ export async function getAllUsersForAdmin({
 
   const whereClause = and(
     searchClause,
-    effectiveStatus !== undefined
-      ? inArray(userTable.status, effectiveStatus)
+    inArray(userTable.status, effectiveStatus),
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
       : undefined,
-    department !== undefined ? eq(userTable.department, department) : undefined,
-    batchNumber !== undefined
-      ? eq(userTable.batchNumber, batchNumber)
+    legalMembershipState !== undefined
+      ? eq(userTable.legalMembershipState, legalMembershipState)
       : undefined,
   );
+
+  const orderBy =
+    sortBy === "joinDate"
+      ? [
+          asc(sql`${userTable.memberSinceDate} NULLS LAST`),
+          asc(userTable.createdAt),
+        ]
+      : [asc(userTable.firstName), asc(userTable.lastName)];
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -270,10 +282,12 @@ export async function getAllUsersForAdmin({
         department: userTable.department,
         batchNumber: sql<number | null>`${userTable.batchNumber}`,
         status: userTable.status,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
       })
       .from(userTable)
       .where(whereClause)
-      .orderBy(userTable.firstName, userTable.lastName)
+      .orderBy(...orderBy)
       .limit(PEOPLE_PAGE_SIZE)
       .offset(offset),
     db.select({ total: count() }).from(userTable).where(whereClause),
@@ -289,6 +303,8 @@ export async function getAllUsersForAdmin({
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
+      legalMembershipState: u.legalMembershipState,
+      memberSinceDate: u.memberSinceDate,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
@@ -301,6 +317,7 @@ export interface UserDetails {
   firstName: string;
   lastName: string;
   email: string | null;
+  image: string | null;
   personalEmail: string | null;
   phone: string | null;
   street: string | null;
@@ -314,6 +331,8 @@ export interface UserDetails {
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
+  gocardlessMandateId: string | null;
+  gocardlessCustomerId: string | null;
   createdAt: Date;
 }
 
@@ -321,6 +340,15 @@ export interface UserGroupMembership {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface UserGroupMembershipDetail {
+  id: string;
+  name: string;
+  slug: string;
+  source: "criteria" | "manual";
+  joinedAt: Date;
+  memberCount: number;
 }
 
 export interface UserAuthorityData {
@@ -345,6 +373,7 @@ export const getUserDetails = cache(
         firstName: true,
         lastName: true,
         email: true,
+        image: true,
         personalEmail: true,
         phone: true,
         birthDate: true,
@@ -375,6 +404,7 @@ export const getUserDetails = cache(
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image ?? null,
       personalEmail: user.personalEmail,
       phone: user.phone,
       street: user.street,
@@ -388,6 +418,8 @@ export const getUserDetails = cache(
       legalMembershipState: user.legalMembershipState,
       membershipState: getStructuredMembershipState(user),
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
+      gocardlessMandateId: user.gocardlessMandateId ?? null,
+      gocardlessCustomerId: user.gocardlessCustomerId ?? null,
       createdAt: user.createdAt,
     };
   },
@@ -407,6 +439,43 @@ export const getUserGroupMemberships = cache(
       id: row.group.id,
       name: row.group.name,
       slug: row.group.slug,
+    }));
+  },
+);
+
+// Per-request deduplication only — not a persistent cache
+export const getUserGroupMembershipsWithDetails = cache(
+  async (id: string): Promise<UserGroupMembershipDetail[]> => {
+    const memberCountSubquery = db
+      .select({ groupId: usersToGroups.groupId, total: count().as("total") })
+      .from(usersToGroups)
+      .groupBy(usersToGroups.groupId)
+      .as("member_counts");
+
+    const rows = await db
+      .select({
+        id: groupTable.id,
+        name: groupTable.name,
+        slug: groupTable.slug,
+        source: usersToGroups.source,
+        joinedAt: usersToGroups.joinedAt,
+        memberCount: memberCountSubquery.total,
+      })
+      .from(usersToGroups)
+      .innerJoin(groupTable, eq(usersToGroups.groupId, groupTable.id))
+      .innerJoin(
+        memberCountSubquery,
+        eq(usersToGroups.groupId, memberCountSubquery.groupId),
+      )
+      .where(eq(usersToGroups.userId, id));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      source: row.source,
+      joinedAt: row.joinedAt,
+      memberCount: row.memberCount,
     }));
   },
 );

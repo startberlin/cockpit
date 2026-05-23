@@ -189,7 +189,7 @@ export const updatePositionsAction = actionClient
     );
 
     revalidatePath("/admin/settings/positions");
-    revalidatePath("/admin/people/directory", "layout");
+    revalidatePath("/admin/people", "layout");
 
     if (notificationEvents.length > 0) {
       await inngest.send(notificationEvents);

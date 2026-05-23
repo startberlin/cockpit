@@ -185,7 +185,7 @@ export default function GroupDetailClient({
   const canManageMembers = can("group.members.manage", groupScope);
   const canExport = can("group.export", groupScope);
   const canViewMemberProfile = (member: GroupMember) =>
-    can("user.view", member);
+    can("user.view_details", member);
 
   return (
     <div className="w-full space-y-6">
@@ -395,7 +395,7 @@ export default function GroupDetailClient({
                             <div className="font-medium text-sm">
                               {canViewProfile ? (
                                 <Link
-                                  href={`/admin/people/directory/${member.id}`}
+                                  href={`/admin/people/${member.id}`}
                                   className="hover:underline"
                                 >
                                   {member.firstName} {member.lastName}
