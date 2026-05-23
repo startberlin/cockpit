@@ -101,7 +101,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             .filter((u) => u.email)
             .map((u) =>
               sendEmail({
-                from: "START Berlin <notifications@cockpit.start-berlin.com>",
+                from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
                 to: u.email!,
                 subject: isReminder
                   ? `Reminder: vote on ${subjectName}'s membership`
@@ -192,7 +192,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         if (!subject.email) return;
         const isReminder = index > 0;
         await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: subject.email,
           subject: isReminder
             ? "Reminder: complete your START Berlin membership application"
@@ -424,7 +424,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         : undefined;
 
       await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Your membership application has been received",
         react: MembershipApplicationSubmittedEmail({
@@ -569,7 +569,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         : undefined;
 
       await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
@@ -645,7 +645,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             : undefined;
 
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: participant.email,
             subject: `Admission complete: ${boardCompletionData.subjectName} is now a member`,
             react: MembershipAdmissionCompletedBoardEmail({

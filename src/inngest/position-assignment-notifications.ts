@@ -12,7 +12,7 @@ export const positionAssignmentCreatedNotification = inngest.createFunction(
   async ({ event, step }) => {
     await step.run("send-email", () =>
       sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: event.data.email,
         subject: `You've been assigned as ${event.data.positionLabel} at START Berlin`,
         react: React.createElement(PositionAssignedEmail, {
@@ -32,7 +32,7 @@ export const positionAssignmentDeletedNotification = inngest.createFunction(
   async ({ event, step }) => {
     await step.run("send-email", () =>
       sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: event.data.email,
         subject: `You've been removed as ${event.data.positionLabel} at START Berlin`,
         react: React.createElement(PositionRemovedEmail, {

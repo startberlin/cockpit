@@ -64,7 +64,7 @@ export const financePaymentProposalsDigest = inngest.createFunction(
     for (const r of recipients) {
       await step.run(`send-digest-email-${r.userId}`, async () => {
         await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: r.email!,
           subject: `${proposals.length} membership payment proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
           react: PaymentProposalsDigestEmail({

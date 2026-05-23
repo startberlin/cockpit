@@ -73,7 +73,7 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
 
         if (onboarded) {
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: u.email,
             subject:
               index === 0
@@ -87,7 +87,7 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
           });
         } else {
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: u.email,
             subject:
               index === 0

@@ -11,7 +11,7 @@ export function buildImportedUserNotificationEmail({
   status: ImportableUserStatus;
 }) {
   return {
-    from: "START Berlin <notifications@cockpit.start-berlin.com>",
+    from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
     to: email,
     subject: "Your START Cockpit access is ready",
     react: StartCockpitEnabledEmail({

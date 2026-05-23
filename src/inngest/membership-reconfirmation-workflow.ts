@@ -261,7 +261,7 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       }
 
       await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: subjectData.email,
         subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({

@@ -113,7 +113,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .filter((r) => r.email)
           .map((recipient) =>
             sendEmail({
-              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
               to: recipient.email!,
               subject: `${subjectPrefix}Action required: review ${subjectName}'s transition to ${label}`,
               react: MembershipTransitionApprovalNeededEmail({
@@ -155,7 +155,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       if (requestData.startEmail) {
         await step.run("send-expiry-notification", async () => {
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: requestData.startEmail!,
             subject: "Your transition request was not approved at this time",
             react: MembershipTransitionRejectedEmail({
@@ -185,7 +185,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       if (requestData.startEmail) {
         await step.run("send-rejection-notification", async () => {
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: requestData.startEmail!,
             subject: "Your transition request was not approved at this time",
             react: MembershipTransitionRejectedEmail({
@@ -236,7 +236,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       if (requestData.startEmail) {
         await step.run("send-supporting-alumni-confirmation", async () => {
           await sendEmail({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
             to: requestData.startEmail!,
             subject: "You're now a Supporting Alumni of START Berlin",
             react: MembershipSupportingAlumniConfirmedEmail({
@@ -345,7 +345,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     if (requestData.personalEmail) {
       await step.run("send-cancellation-email", async () => {
         await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: requestData.personalEmail!,
           subject: "Your START Berlin membership has ended",
           react: MembershipCancelledEmail({
@@ -387,7 +387,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .filter((r) => r.email)
           .map((recipient) =>
             sendEmail({
-              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
               to: recipient.email!,
               subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
               react: MembershipTerminationFyiEmail({

@@ -105,7 +105,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       }
 
       await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: personalEmail,
         subject: "Welcome to START Berlin — your sign-in details",
         react: SignInInstructionsEmail({
@@ -171,7 +171,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
 
     await step.run("send-cockpit-access-email", async () => {
       await sendEmail({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: user.companyEmail,
         subject: "Your START Cockpit access is ready",
         react: StartCockpitEnabledEmail({ firstName }),

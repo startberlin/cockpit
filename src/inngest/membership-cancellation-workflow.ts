@@ -117,7 +117,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
             .filter((r) => r.email)
             .map((recipient) =>
               sendEmail({
-                from: "START Berlin <notifications@cockpit.start-berlin.com>",
+                from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
                 to: recipient.email!,
                 subject: `${subjectPrefix}Action required: acknowledge ${subjectName}'s membership cancellation`,
                 react: MembershipCancellationAcknowledgementNeededEmail({
@@ -234,7 +234,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     if (userData.personalEmail) {
       await step.run("send-cancellation-email", async () => {
         await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: userData.personalEmail!,
           subject:
             reason === "removed_by_board"
@@ -278,7 +278,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
           .filter((r) => r.email)
           .map((recipient) =>
             sendEmail({
-              from: "START Berlin <notifications@cockpit.start-berlin.com>",
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
               to: recipient.email!,
               subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
               react: MembershipTerminationFyiEmail({

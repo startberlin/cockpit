@@ -125,7 +125,7 @@ async function handlePaymentEvent(event: GoCardlessEvent & { action: string }) {
       });
       if (paymentUser?.email) {
         await sendEmail({
-          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: paymentUser.email,
           subject: "Your START Berlin membership payment is coming up",
           react: MembershipPaymentUpcomingEmail({
