@@ -194,7 +194,11 @@ function evaluateGlobalAction(
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
     case "groups.view_all":
-      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority)
+      );
     case "users.view_inactive":
       return (
         hasAdminGrant(authority) ||
@@ -216,6 +220,7 @@ function evaluateUserScopedAction(
       return (
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
     case "user.payment.view":
@@ -244,6 +249,7 @@ export function evaluateUnscopedViewDetails(authority: UserAuthority): boolean {
   return (
     hasAdminGrant(authority) ||
     hasPeopleAdminGrant(authority) ||
+    isLegalOfficer(authority) ||
     isDepartmentHead(authority)
   );
 }

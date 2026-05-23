@@ -80,7 +80,7 @@ describe("permissions", () => {
     );
   });
 
-  it("does not grant user management from legal officer position alone", () => {
+  it("allows legal officers to view member details in any department", () => {
     assert.equal(
       evaluateAuth(
         authority({
@@ -89,7 +89,19 @@ describe("permissions", () => {
         "user.view_details",
         { targetDepartment: "events" },
       ),
-      false,
+      true,
+    );
+  });
+
+  it("allows legal officers to view all groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "vice_president", scope: "global" }],
+        }),
+        "groups.view_all",
+      ),
+      true,
     );
   });
 
