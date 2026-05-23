@@ -123,8 +123,11 @@ export function useCan(
     return check(permission);
   }
 
-  if (permission === "user.view_details" && !resource) {
-    return check("user.view_details");
+  if (permission === "user.view_details") {
+    return check(
+      "user.view_details",
+      resource as { department: Department | null } | undefined,
+    );
   }
 
   if (isUserScopedAction(permission)) {
@@ -146,8 +149,11 @@ export function Can(props: CanProps) {
   let granted: boolean;
   if (isGlobalAction(props.permission)) {
     granted = check(props.permission);
-  } else if (props.permission === "user.view_details" && !props.context) {
-    granted = check("user.view_details");
+  } else if (props.permission === "user.view_details") {
+    granted = check(
+      "user.view_details",
+      props.context as { department: Department | null } | undefined,
+    );
   } else if (isUserScopedAction(props.permission)) {
     granted = check(
       props.permission,
