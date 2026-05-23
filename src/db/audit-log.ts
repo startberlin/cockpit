@@ -1,6 +1,6 @@
 import { and, count, desc, eq, ilike, or } from "drizzle-orm";
-import db from ".";
-import { auditLog } from "./schema/audit-log";
+import db from "@/db";
+import { auditLog } from "@/db/schema";
 
 export type { AuditLogEntry } from "./schema/audit-log";
 
@@ -10,6 +10,8 @@ export async function getAuditLogPage(
   search?: string,
   category?: string,
 ): Promise<{ rows: (typeof auditLog.$inferSelect)[]; total: number }> {
+  page = Math.max(1, page);
+  pageSize = Math.max(1, pageSize);
   const conditions = [];
 
   if (category) {

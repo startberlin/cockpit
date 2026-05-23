@@ -1,5 +1,6 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
@@ -35,6 +36,12 @@ export const createUserAction = actionClient
       );
     }
 
+    const [existingDbUser] = await db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.email, companyEmail))
+      .limit(1);
+
     await db
       .insert(userTable)
       .values({
@@ -67,7 +74,7 @@ export const createUserAction = actionClient
 
     await writeAuditLog({
       category: "user",
-      eventType: "user.created",
+      eventType: existingDbUser ? "user.updated" : "user.created",
       actor: { id: ctx.user.id, name: ctx.user.name },
       metadata: {
         firstName,

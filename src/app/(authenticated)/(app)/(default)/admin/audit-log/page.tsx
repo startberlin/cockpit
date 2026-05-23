@@ -14,13 +14,18 @@ const PAGE_SIZE = 25;
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string; category?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!(await can("audit_log.read"))) {
     redirect("/membership");
   }
 
-  const { page: pageParam, q, category } = await searchParams;
+  const params = await searchParams;
+  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
+  const q = Array.isArray(params.q) ? params.q[0] : params.q;
+  const category = Array.isArray(params.category)
+    ? params.category[0]
+    : params.category;
   const rawPage = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const search = q?.trim() || undefined;
   const categoryFilter = category?.trim() || undefined;

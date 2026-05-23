@@ -10,7 +10,7 @@ export const prefixes = {
   membershipApplication: "ma",
   membershipPaymentCycle: "mc",
   membershipTransitionRequest: "mtr",
-  auditLog: "ale",
+  auditLog: "aud",
 } as const;
 
 export function isPrefixedId(value: string): boolean {

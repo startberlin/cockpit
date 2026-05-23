@@ -164,7 +164,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           id: dbUser.id,
           name: `${firstName} ${lastName}`.trim(),
         },
-        metadata: { companyEmail, department: department ?? null },
+        metadata: { companyEmail, department: department?.trim() || null },
         description: companyEmail,
       });
     });

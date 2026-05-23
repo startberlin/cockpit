@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
@@ -53,12 +54,14 @@ export const submitAlumniAction = actionClient
       },
     });
 
-    await writeAuditLog({
-      category: "membership",
-      eventType: "membership.alumni_requested",
-      actor: { id: user.id, name: user.name },
-      subject: { id: user.id, name: user.name },
-    });
+    after(() =>
+      writeAuditLog({
+        category: "membership",
+        eventType: "membership.alumni_requested",
+        actor: { id: user.id, name: user.name },
+        subject: { id: user.id, name: user.name },
+      }),
+    );
 
     return { requestId: transitionRequest.id };
   });

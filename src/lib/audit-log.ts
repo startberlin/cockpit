@@ -1,7 +1,7 @@
 import "server-only";
 
 import db from "@/db";
-import { auditLog } from "@/db/schema/audit-log";
+import { auditLog } from "@/db/schema";
 import { newId } from "@/lib/id";
 
 export type AuditActor = { id: string; name: string } | "system";

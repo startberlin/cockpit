@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
-import { session, user as userTable } from "@/db/schema/auth";
+import { session, user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";

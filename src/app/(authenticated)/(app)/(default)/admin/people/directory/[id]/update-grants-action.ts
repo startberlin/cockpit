@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import db from "@/db";
 import { getUserAuthority, replaceUserGrants } from "@/db/authority";
-import { user as userTable } from "@/db/schema/auth";
+import { user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
