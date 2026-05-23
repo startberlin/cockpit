@@ -150,7 +150,7 @@ export function NavMain() {
                   }
                 >
                   <Link href="/admin/people/directory" onClick={closeMobile}>
-                    <span>Directory</span>
+                    <span>Members</span>
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

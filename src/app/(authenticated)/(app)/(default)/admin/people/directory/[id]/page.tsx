@@ -104,8 +104,7 @@ export default async function UserDetailPage({ params }: PageProps) {
       <BreadcrumbCrumb
         crumbs={[
           { label: "Admin", href: "/admin/people/directory" },
-          { label: "People", href: "/admin/people/directory" },
-          { label: "Directory", href: "/admin/people/directory" },
+          { label: "Members", href: "/admin/people/directory" },
           { label: `${user.firstName} ${user.lastName}` },
         ]}
       />
@@ -113,7 +112,7 @@ export default async function UserDetailPage({ params }: PageProps) {
       <Button variant="ghost" size="sm" asChild className="-ml-2">
         <Link href="/admin/people/directory">
           <ArrowLeft />
-          Back to directory
+          Back to members
         </Link>
       </Button>
 

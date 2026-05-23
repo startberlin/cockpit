@@ -43,7 +43,7 @@ export default async function PermissionsPage({ params }: PageProps) {
       <BreadcrumbCrumb
         crumbs={[
           { label: "Admin", href: "/admin/people/directory" },
-          { label: "Directory", href: "/admin/people/directory" },
+          { label: "Members", href: "/admin/people/directory" },
           {
             label: `${user.firstName} ${user.lastName}`,
             href: `/admin/people/directory/${id}`,
