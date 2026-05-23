@@ -21,18 +21,16 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-export function NotionDialog({
-  actionLabel = "Join",
+export function BubblesDialog({
+  actionLabel = "Open",
 }: {
   actionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
-  const title = `${actionLabel} Notion`;
+  const title = `${actionLabel} Bubbles`;
   const description =
-    actionLabel === "Join"
-      ? "Join Notion to access START Berlin resources, project docs, and internal information."
-      : "Open Notion to access START Berlin resources, project docs, and internal information.";
+    "Access Bubbles for meeting recordings and async video clips.";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -53,16 +51,16 @@ export function NotionDialog({
             </EmptyMedia>
             <EmptyTitle className="text-sm">Sign in with Google</EmptyTitle>
             <EmptyDescription>
-              Create a Notion account by signing in with Google. Use your START
+              Create a Bubbles account by signing in with Google. Use your START
               Berlin Google account to be automatically added to the START
-              Berlin Notion workspace.
+              Berlin Bubbles workspace.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" size="sm" asChild>
-              <Link href="https://www.notion.so/start-berlin" target="_blank">
+              <Link href="https://app.usebubbles.com/" target="_blank">
                 <ExternalLink />
-                Open Notion
+                Open Bubbles
               </Link>
             </Button>
           </EmptyContent>

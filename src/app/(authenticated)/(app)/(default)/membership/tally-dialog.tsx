@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, UserPlus } from "lucide-react";
+import { ExternalLink, Mail } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -25,20 +25,24 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { handleError } from "@/lib/utils";
-import { getSlackStatusAction } from "./get-slack-status-action";
+import { getTallyStatusAction } from "./get-tally-status-action";
+import { requestTallyInviteAction } from "./request-tally-invite-action";
 
-interface SlackDialogContentProps {
-  exists: boolean;
+interface TallyDialogContentProps {
+  isMember: boolean;
+  inviteRequested: boolean;
   isLoading: boolean;
-  isError: boolean;
-  actionLabel: string;
+  onRequestInvite: () => void;
+  isRequestingInvite: boolean;
 }
 
-function SlackDialogContent({
-  exists,
+function TallyDialogContent({
+  isMember,
+  inviteRequested,
   isLoading,
-  actionLabel,
-}: SlackDialogContentProps) {
+  onRequestInvite,
+  isRequestingInvite,
+}: TallyDialogContentProps) {
   if (isLoading) {
     return (
       <div className="flex flex-col w-full items-center">
@@ -47,7 +51,7 @@ function SlackDialogContent({
             <Skeleton className="h-5 w-5 rounded-full" />
             <Skeleton className="h-5 w-[250px]" />
           </div>
-          <Skeleton className="h-60 w-full" />
+          <Skeleton className="h-48 w-full" />
         </div>
         <div className="flex flex-col p-4 border w-full">
           <div className="py-4 flex gap-2">
@@ -59,63 +63,60 @@ function SlackDialogContent({
     );
   }
 
+  const step1Done = isMember || inviteRequested;
+
   return (
     <MultiStepAccordion
       className="max-w-lg my-4"
       steps={[
         {
-          title: "Create a Slack account",
-          status: exists ? "complete" : "current",
+          title: "Request an invite",
+          status: step1Done ? "complete" : "current",
           content: (
             <Empty className="h-full bg-gray-50 ring-1 ring-inset ring-gray-200">
               <EmptyHeader>
                 <EmptyMedia variant="default">
-                  <UserPlus />
+                  <Mail />
                 </EmptyMedia>
-                <EmptyTitle className="text-sm">Sign in with Google</EmptyTitle>
+                <EmptyTitle className="text-sm">Get access to Tally</EmptyTitle>
                 <EmptyDescription>
-                  Create a Slack account by signing in with Google. Use your
-                  START Berlin Google account.
+                  Request an invite to the START Berlin Tally workspace. The
+                  invite will be sent to your START Berlin email address.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href="https://start-berlin-e-v.slack.com/signup#/domain-signup"
-                    target="_blank"
-                  >
-                    <ExternalLink />
-                    Open Slack
-                  </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRequestInvite}
+                  disabled={isRequestingInvite}
+                >
+                  <Mail />
+                  {isRequestingInvite ? "Sending invite…" : "Request invite"}
                 </Button>
               </EmptyContent>
             </Empty>
           ),
         },
         {
-          title: "Open Slack",
-          status: exists ? "current" : "upcoming",
+          title: "Sign in to Tally",
+          status: step1Done ? "current" : "upcoming",
           content: (
             <Empty className="h-full bg-gray-50 ring-1 ring-inset ring-gray-200">
               <EmptyHeader>
                 <EmptyMedia variant="default">
                   <ExternalLink />
                 </EmptyMedia>
-                <EmptyTitle className="text-sm">Open Slack</EmptyTitle>
+                <EmptyTitle className="text-sm">Sign in with Google</EmptyTitle>
                 <EmptyDescription>
-                  {actionLabel === "Join"
-                    ? "Join Slack for START Berlin communication, updates, and day-to-day coordination."
-                    : "Open Slack for START Berlin communication, updates, and day-to-day coordination."}
+                  Open Tally and sign in with your START Berlin Google account.
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href="https://start-berlin-e-v.slack.com"
-                    target="_blank"
-                  >
+                  <Link href="https://tally.so/login" target="_blank">
                     <ExternalLink />
-                    Open Slack
+                    Open Tally
                   </Link>
                 </Button>
               </EmptyContent>
@@ -127,42 +128,56 @@ function SlackDialogContent({
   );
 }
 
-export function SlackDialog({
-  actionLabel = "Join",
+export function TallyDialog({
+  actionLabel = "Open",
 }: {
   actionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [inviteRequested, setInviteRequested] = useState(false);
 
-  const { execute, result, status, reset } = useAction(getSlackStatusAction, {
+  const {
+    execute: checkStatus,
+    result,
+    status,
+    reset,
+  } = useAction(getTallyStatusAction, {
     onError: handleError,
   });
 
+  const { execute: requestInvite, status: inviteStatus } = useAction(
+    requestTallyInviteAction,
+    {
+      onSuccess: () => setInviteRequested(true),
+      onError: handleError,
+    },
+  );
+
   useEventListener("focus", () => {
     if (!open) return;
-    execute();
+    checkStatus();
   });
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
 
     if (next && result.data === undefined) {
-      execute();
+      checkStatus();
     }
 
     if (!next) {
       reset();
+      setInviteRequested(false);
     }
   };
 
-  const exists = result.data?.exists ?? false;
+  const isMember = result.data?.isMember ?? false;
   const isLoading = status === "executing" || status === "idle";
-  const isError = !!result.serverError;
-  const title = `${actionLabel} Slack`;
+  const isRequestingInvite = inviteStatus === "executing";
+
+  const title = `${actionLabel} Tally`;
   const description =
-    actionLabel === "Join"
-      ? "Join Slack for START Berlin communication, updates, and day-to-day coordination."
-      : "Open Slack for START Berlin communication, updates, and day-to-day coordination.";
+    "Access START Berlin's Tally workspace for forms and surveys.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,11 +191,12 @@ export function SlackDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <SlackDialogContent
-          exists={exists}
+        <TallyDialogContent
+          isMember={isMember}
+          inviteRequested={inviteRequested}
           isLoading={isLoading}
-          isError={isError}
-          actionLabel={actionLabel}
+          onRequestInvite={() => requestInvite()}
+          isRequestingInvite={isRequestingInvite}
         />
       </DialogContent>
     </Dialog>

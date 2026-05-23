@@ -2,6 +2,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { PostHogIdentify } from "@/components/posthog-identify";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,6 +49,7 @@ export default function RootLayout({
             <TooltipProvider>{children}</TooltipProvider>
           </QueryProvider>
         </NuqsAdapter>
+        <PostHogIdentify />
         <Toaster theme="light" />
         <SpeedInsights />
       </body>

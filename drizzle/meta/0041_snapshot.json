@@ -1,6 +1,6 @@
 {
-  "id": "6c8a5b1d-1a68-41a6-bc15-9b3aa99ca4a9",
-  "prevId": "877e811e-7dbd-44e4-a5a3-908ccdd0ad4a",
+  "id": "d7e0188f-9ab6-412c-a4e4-cf5129adb92e",
+  "prevId": "0b5ad60d-60f9-484e-ad8e-8ed1cddce7f5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -365,6 +365,12 @@
           "name": "event_email_preference",
           "type": "event_email_preference",
           "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_invite_email": {
+          "name": "event_invite_email",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
@@ -883,6 +889,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'manual'"
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -1436,7 +1449,7 @@
     "public.event_email_preference": {
       "name": "event_email_preference",
       "schema": "public",
-      "values": ["personal_email", "start_email"]
+      "values": ["personal_email", "start_email", "custom"]
     },
     "public.legal_membership_state": {
       "name": "legal_membership_state",

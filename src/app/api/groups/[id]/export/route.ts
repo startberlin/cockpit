@@ -32,9 +32,11 @@ export async function GET(
     ...members.map((m) => {
       const name = `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
       const email =
-        m.eventEmailPreference === "personal_email" && m.personalEmail
-          ? m.personalEmail
-          : m.email;
+        m.eventEmailPreference === "custom" && m.eventInviteEmail
+          ? m.eventInviteEmail
+          : m.eventEmailPreference === "personal_email" && m.personalEmail
+            ? m.personalEmail
+            : m.email;
       return `"${name}",${email}`;
     }),
   ];
