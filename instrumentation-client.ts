@@ -1,6 +1,7 @@
 import posthog from "posthog-js";
+import { env } from "@/env";
 
-const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const token = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 if (token) {
   posthog.init(token, {
     api_host: "/ingest",
