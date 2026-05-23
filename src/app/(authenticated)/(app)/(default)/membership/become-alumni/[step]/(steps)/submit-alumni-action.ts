@@ -6,6 +6,7 @@ import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 
 const schema = z.object({
@@ -50,6 +51,13 @@ export const submitAlumniAction = actionClient
         type: "alumni_request",
         keepPersonalEmail: false,
       },
+    });
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: "membership.alumni_requested",
+      actor: { id: user.id, name: user.name },
+      subject: { id: user.id, name: user.name },
     });
 
     return { requestId: transitionRequest.id };

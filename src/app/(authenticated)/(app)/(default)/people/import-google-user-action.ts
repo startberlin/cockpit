@@ -4,6 +4,7 @@ import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { sendEmail } from "@/lib/email";
 import {
   fetchWorkspaceUsersPage,
@@ -67,7 +68,7 @@ export const fetchWorkspaceUsersPageAction = actionClient
 
 export const importGoogleWorkspaceUserAction = actionClient
   .inputSchema(importGoogleWorkspaceUserSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("users.import"))) {
       throw new Error("You are not authorized to import Workspace users.");
     }
@@ -126,6 +127,22 @@ export const importGoogleWorkspaceUserAction = actionClient
       } catch (emailError) {
         console.error("Failed to send import notification email:", emailError);
       }
+
+      await writeAuditLog({
+        category: "user",
+        eventType: "user.imported",
+        actor: { id: ctx.user.id, name: ctx.user.name },
+        subject: {
+          id: existingUser.id,
+          name: `${parsedInput.firstName} ${parsedInput.lastName}`.trim(),
+        },
+        metadata: {
+          email: workspaceUser.primaryEmail,
+          status: parsedInput.status,
+        },
+        description: `${parsedInput.status} · ${workspaceUser.primaryEmail}`,
+      });
+
       return { id: existingUser.id };
     }
 
@@ -225,6 +242,20 @@ export const importGoogleWorkspaceUserAction = actionClient
     } catch (emailError) {
       console.error("Failed to send import notification email:", emailError);
     }
+
+    await writeAuditLog({
+      category: "user",
+      eventType: "user.imported",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: {
+        id: createdUser.id,
+        name: `${parsedInput.firstName} ${parsedInput.lastName}`.trim(),
+      },
+      metadata: {
+        email: workspaceUser.primaryEmail,
+        status: parsedInput.status,
+      },
+    });
 
     return { id: createdUser.id };
   });

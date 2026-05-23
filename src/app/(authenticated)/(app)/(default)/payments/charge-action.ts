@@ -8,12 +8,13 @@ import { advancePaymentStatus, getPaymentById } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { membershipPayments } from "@/db/schema/membership-payments";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createOneTimePayment } from "@/lib/gocardless/payments";
 import { can } from "@/lib/permissions/server";
 
 export const chargeAction = actionClient
   .inputSchema(z.object({ id: z.string() }))
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("payments.manage"))) {
       throw new Error("Not authorized.");
     }
@@ -32,7 +33,7 @@ export const chargeAction = actionClient
 
     const member = await db.query.user.findFirst({
       where: eq(user.id, row.userId),
-      columns: { gocardlessMandateId: true },
+      columns: { gocardlessMandateId: true, name: true },
     });
 
     if (!member?.gocardlessMandateId) {
@@ -58,6 +59,15 @@ export const chargeAction = actionClient
     }
 
     revalidatePath("/payments");
+
+    await writeAuditLog({
+      category: "payment",
+      eventType: "payment.charged",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: member?.name ? { id: row.userId, name: member.name } : null,
+      metadata: { paymentId: row.id, amount: row.amount },
+      description: `€${(row.amount / 100).toFixed(2)}`,
+    });
 
     return { alreadyProcessed: false };
   });

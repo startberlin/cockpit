@@ -7,6 +7,7 @@ import db from "@/db";
 import type { BoardVote } from "@/db/schema/legal-membership";
 import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 
@@ -107,6 +108,14 @@ export const castVoteAction = actionClient
         value,
         castAt: now.toISOString(),
       },
+    });
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: "membership.vote_cast",
+      actor: { id: currentUser.id, name: currentUser.name },
+      metadata: { legalMembershipId, value },
+      description: value === "yes" ? "Voted yes" : "Voted no",
     });
 
     return { success: true };

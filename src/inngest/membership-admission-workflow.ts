@@ -9,6 +9,7 @@ import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/mem
 import MembershipApplicationReadyEmail from "@/emails/membership/admission/membership-application-ready";
 import MembershipApplicationSubmittedEmail from "@/emails/membership/admission/membership-application-submitted";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 import {
   computeResolutionRoles,
   computeVoteOutcome,
@@ -469,6 +470,15 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     await step.sendEvent("kick-mandate-setup-reminder", {
       name: events.mandateSetupNeeded.name,
       data: { userId: subjectUserId },
+    });
+
+    await step.run("write-audit-log-activated", async () => {
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.activated",
+        subject: { id: subjectUserId, name: subjectName },
+        metadata: { legalMembershipId },
+      });
     });
 
     // Step 9c: Render and archive admission confirmation PDF.

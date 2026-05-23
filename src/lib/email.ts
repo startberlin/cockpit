@@ -1,11 +1,13 @@
 import "server-only";
 
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { after } from "next/server";
 import nodemailer from "nodemailer";
 import type { ReactElement } from "react";
 import { render } from "react-email";
 import db from "@/db";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const ses = new SESv2Client({
   region: env.AWS_REGION,
@@ -53,6 +55,19 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
 
   if (activeRecipients.length === 0) return;
 
+  const logEmail = () => {
+    after(() =>
+      writeAuditLog({
+        category: "email",
+        eventType: "email.sent",
+        metadata: { to: activeRecipients, subject: options.subject },
+        description: options.subject,
+      }).catch((err) => {
+        console.error("[email] audit log write failed", err);
+      }),
+    );
+  };
+
   const [html, text] = await Promise.all([
     render(options.react),
     render(options.react, { plainText: true }),
@@ -83,6 +98,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         Content: { Raw: { Data: rawEmail } },
       }),
     );
+    logEmail();
   } else {
     await ses.send(
       new SendEmailCommand({
@@ -99,5 +115,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         },
       }),
     );
+    logEmail();
   }
 }

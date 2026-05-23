@@ -10,6 +10,7 @@ import {
   membershipApplication,
 } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 import { sha256Hex } from "@/lib/legal-documents/document-hash";
 import {
@@ -186,6 +187,16 @@ export const submitApplicationAction = actionClient
         },
       });
     }
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: isReconfirmation
+        ? "membership.reconfirmation_submitted"
+        : "membership.application_submitted",
+      actor: { id: user.id, name: user.name },
+      subject: { id: user.id, name: user.name },
+      metadata: { legalMembershipId: parsedInput.legalMembershipId },
+    });
 
     return { success: true };
   });

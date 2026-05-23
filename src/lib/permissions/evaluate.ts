@@ -50,6 +50,7 @@ const globalActions = [
   "payments.manage",
   "settings.positions.manage",
   "users.view_all",
+  "audit_log.read",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -198,6 +199,8 @@ function evaluateGlobalAction(
         hasPeopleAdminGrant(authority) ||
         isDepartmentHead(authority)
       );
+    case "audit_log.read":
+      return hasAdminGrant(authority);
   }
 }
 

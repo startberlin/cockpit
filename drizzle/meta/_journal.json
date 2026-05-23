@@ -288,6 +288,20 @@
       "when": 1779495168108,
       "tag": "0040_pink_carlie_cooper",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1779529657711,
+      "tag": "0041_absurd_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779532394089,
+      "tag": "0042_fuzzy_mindworm",
+      "breakpoints": true
     }
   ]
 }
