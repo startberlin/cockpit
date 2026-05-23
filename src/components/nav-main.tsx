@@ -83,9 +83,9 @@ export function NavMain() {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      {/* People */}
+      {/* Community */}
       <SidebarGroup>
-        <SidebarGroupLabel>People</SidebarGroupLabel>
+        <SidebarGroupLabel>Community</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem>
