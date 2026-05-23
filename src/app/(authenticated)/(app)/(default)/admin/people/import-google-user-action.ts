@@ -117,7 +117,9 @@ export const importGoogleWorkspaceUserAction = actionClient
       } else {
         // No pending legal membership → reconfirmation workflow won't fire, so
         // send the "Cockpit access is ready" email directly. When a pending LM
-        // exists, the workflow's first run delivers the same email.
+        // exists, the workflow's first run delivers this same email for
+        // not-yet-onboarded users; already-onboarded users instead receive
+        // "Complete your START Berlin membership application".
         try {
           await sendEmail(
             buildImportedUserNotificationEmail({
@@ -127,9 +129,12 @@ export const importGoogleWorkspaceUserAction = actionClient
             }),
           );
         } catch (emailError) {
+          const message =
+            emailError instanceof Error
+              ? emailError.message
+              : String(emailError);
           console.error(
-            "Failed to send import notification email:",
-            emailError,
+            `Failed to send import notification email (userId=${existingUser.id}): ${message}`,
           );
         }
       }
@@ -246,7 +251,11 @@ export const importGoogleWorkspaceUserAction = actionClient
           }),
         );
       } catch (emailError) {
-        console.error("Failed to send import notification email:", emailError);
+        const message =
+          emailError instanceof Error ? emailError.message : String(emailError);
+        console.error(
+          `Failed to send import notification email (userId=${createdUser.id}): ${message}`,
+        );
       }
     }
 
