@@ -114,18 +114,24 @@ export const importGoogleWorkspaceUserAction = actionClient
             legalMembershipId: existingLm.id,
           },
         });
-      }
-
-      try {
-        await sendEmail(
-          buildImportedUserNotificationEmail({
-            email: workspaceUser.primaryEmail,
-            firstName: parsedInput.firstName,
-            status: parsedInput.status,
-          }),
-        );
-      } catch (emailError) {
-        console.error("Failed to send import notification email:", emailError);
+      } else {
+        // No pending legal membership → reconfirmation workflow won't fire, so
+        // send the "Cockpit access is ready" email directly. When a pending LM
+        // exists, the workflow's first run delivers the same email.
+        try {
+          await sendEmail(
+            buildImportedUserNotificationEmail({
+              email: workspaceUser.primaryEmail,
+              firstName: parsedInput.firstName,
+              status: parsedInput.status,
+            }),
+          );
+        } catch (emailError) {
+          console.error(
+            "Failed to send import notification email:",
+            emailError,
+          );
+        }
       }
 
       await writeAuditLog({
@@ -217,10 +223,9 @@ export const importGoogleWorkspaceUserAction = actionClient
     });
 
     if (createdUser.createdLegalMembershipId) {
-      // Kicks the reconfirmation reminder workflow, which sends the initial
-      // "complete your membership application" email immediately. The import
-      // notification email below ("Your START Cockpit access is ready") is a
-      // separate email — both are intentional on import.
+      // Kicks the reconfirmation reminder workflow. Its first run sends the
+      // "Your START Cockpit access is ready" email when the user has not yet
+      // onboarded, so we skip the direct send below to avoid duplicates.
       await inngest.send({
         name: events.reconfirmationPending.name,
         data: {
@@ -228,19 +233,21 @@ export const importGoogleWorkspaceUserAction = actionClient
           legalMembershipId: createdUser.createdLegalMembershipId,
         },
       });
-    }
-
-    // Non-fatal: notification email failure must not block import success.
-    try {
-      await sendEmail(
-        buildImportedUserNotificationEmail({
-          email: workspaceUser.primaryEmail,
-          firstName: parsedInput.firstName,
-          status: parsedInput.status,
-        }),
-      );
-    } catch (emailError) {
-      console.error("Failed to send import notification email:", emailError);
+    } else {
+      // No legal membership → reconfirmation workflow won't fire, so send the
+      // "Cockpit access is ready" email directly. Non-fatal: notification email
+      // failure must not block import success.
+      try {
+        await sendEmail(
+          buildImportedUserNotificationEmail({
+            email: workspaceUser.primaryEmail,
+            firstName: parsedInput.firstName,
+            status: parsedInput.status,
+          }),
+        );
+      } catch (emailError) {
+        console.error("Failed to send import notification email:", emailError);
+      }
     }
 
     await writeAuditLog({
