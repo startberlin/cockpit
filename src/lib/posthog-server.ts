@@ -10,7 +10,7 @@ export function getPostHogClient(): PostHog {
       throw new Error("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is not set");
     }
     posthogClient = new PostHog(token, {
-      host: "https://eu.i.posthog.com",
+      host: env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com",
       flushAt: 1,
       flushInterval: 0,
     });
