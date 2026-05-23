@@ -1,14 +1,32 @@
 "use client";
 
-import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
+import { CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryState,
+} from "nuqs";
 import * as React from "react";
 import { PeopleTable } from "@/components/people-table";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { PaginatedUsers } from "@/db/people";
-import type { LegalMembershipState } from "@/db/schema/auth";
+import type { Department, LegalMembershipState } from "@/db/schema/auth";
+import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
+import { cn } from "@/lib/utils";
 
-const SORT_OPTIONS = ["name", "joinDate"] as const;
-type SortOption = (typeof SORT_OPTIONS)[number];
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const DEPARTMENT_OPTIONS = DEPARTMENT_IDS.map((id) => ({
+  value: id,
+  label: DEPARTMENT_NAMES[id],
+}));
 
 const LEGAL_MEMBERSHIP_OPTIONS: {
   label: string;
@@ -34,13 +52,194 @@ const INACTIVE_PRESETS: FilterPreset[] = [
   { label: "Cancelled / Former", status: "cancelled" },
 ];
 
-interface AdminDirectoryPageClientProps {
-  usersPromise: Promise<PaginatedUsers>;
-  initialSearch: string;
-  canViewInactive: boolean;
-  isDeptHeadScoped: boolean;
-  initialLegalMembership?: LegalMembershipState;
+const departmentParser = parseAsStringLiteral(
+  DEPARTMENT_IDS as unknown as string[],
+);
+
+// ─── FilterDropdown (single-select) ──────────────────────────────────────────
+
+function FilterDropdown({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const selected = options.find((o) => o.value === value);
+  const displayLabel = selected ? selected.label : "All";
+  const hasValue = !!value;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs",
+            hasValue
+              ? "border-foreground bg-muted font-medium"
+              : "border-input text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          <span className="uppercase tracking-widest font-semibold opacity-60">
+            {label}
+          </span>
+          <span className="text-foreground font-medium">{displayLabel}</span>
+          <ChevronDownIcon className="size-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto min-w-44 p-1">
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <div
+              key={opt.value}
+              role="option"
+              aria-selected={active}
+              tabIndex={0}
+              onClick={() => onChange(active ? "" : opt.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onChange(active ? "" : opt.value);
+                }
+              }}
+              className="w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 hover:bg-accent rounded-sm cursor-pointer"
+            >
+              <span
+                className={cn(
+                  "size-4 shrink-0 rounded-sm border border-input flex items-center justify-center transition-colors",
+                  active && "bg-primary border-primary",
+                )}
+              >
+                {active && (
+                  <CheckIcon className="size-3 text-primary-foreground" />
+                )}
+              </span>
+              <span className="flex-1">{opt.label}</span>
+            </div>
+          );
+        })}
+        {hasValue && (
+          <>
+            <div className="h-px bg-border my-1" />
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent rounded-sm cursor-pointer"
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
+
+// ─── FilterMenu (multi-select) ────────────────────────────────────────────────
+
+function FilterMenu<T extends string | number>({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  selected: T[];
+  onChange: (next: T[]) => void;
+}) {
+  const count = selected.length;
+
+  const toggle = (val: T) => {
+    onChange(
+      selected.includes(val)
+        ? selected.filter((v) => v !== val)
+        : [...selected, val],
+    );
+  };
+
+  const displayLabel =
+    count === 0
+      ? "All"
+      : count === 1
+        ? (options.find((o) => o.value === selected[0])?.label ?? "")
+        : `${count} selected`;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs",
+            count > 0
+              ? "border-foreground bg-muted font-medium"
+              : "border-input text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          <span className="uppercase tracking-widest font-semibold opacity-60">
+            {label}
+          </span>
+          <span className="text-foreground font-medium">{displayLabel}</span>
+          <ChevronDownIcon className="size-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto min-w-44 p-1">
+        {options.map((opt) => {
+          const active = selected.includes(opt.value);
+          return (
+            <div
+              key={String(opt.value)}
+              role="option"
+              aria-selected={active}
+              tabIndex={0}
+              onClick={() => toggle(opt.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggle(opt.value);
+                }
+              }}
+              className="w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 hover:bg-accent rounded-sm cursor-pointer"
+            >
+              <span
+                className={cn(
+                  "size-4 shrink-0 rounded-sm border border-input flex items-center justify-center transition-colors",
+                  active && "bg-primary border-primary",
+                )}
+              >
+                {active && (
+                  <CheckIcon className="size-3 text-primary-foreground" />
+                )}
+              </span>
+              <span className="flex-1">{opt.label}</span>
+            </div>
+          );
+        })}
+        {count > 0 && (
+          <>
+            <div className="h-px bg-border my-1" />
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent rounded-sm cursor-pointer"
+            >
+              Clear
+            </button>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── UsersTableSection ────────────────────────────────────────────────────────
 
 function UsersTableSection({
   usersPromise,
@@ -58,30 +257,54 @@ function UsersTableSection({
       pageCount={pageCount}
       pendingActions={[]}
       initialSearch={initialSearch}
+      hideSearch
     />
   );
 }
 
+// ─── Main page client ─────────────────────────────────────────────────────────
+
+interface AdminDirectoryPageClientProps {
+  usersPromise: Promise<PaginatedUsers>;
+  batches: { number: number }[];
+  initialSearch: string;
+  canViewInactive: boolean;
+  isDeptHeadScoped: boolean;
+}
+
 export default function AdminDirectoryPageClient({
   usersPromise,
+  batches,
   initialSearch,
   canViewInactive,
-  initialLegalMembership,
+  isDeptHeadScoped,
 }: AdminDirectoryPageClientProps) {
+  const [search, setSearch] = useQueryState(
+    "q",
+    parseAsString
+      .withDefault(initialSearch)
+      .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
+  );
   const [status, setStatus] = useQueryState(
     "status",
     parseAsString.withOptions({ shallow: false, clearOnDefault: true }),
   );
   const [legalMembership, setLegalMembership] = useQueryState(
     "legalMembership",
-    parseAsString
-      .withDefault(initialLegalMembership ?? "")
-      .withOptions({ shallow: false, clearOnDefault: true }),
+    parseAsString.withOptions({ shallow: false, clearOnDefault: true }),
   );
-  const [sortBy, setSortBy] = useQueryState(
-    "sortBy",
-    parseAsStringLiteral(SORT_OPTIONS)
-      .withDefault("name")
+  const [department, setDepartment] = useQueryState(
+    "department",
+    parseAsArrayOf(departmentParser).withOptions({ shallow: false }),
+  );
+  const [batchNumber, setBatchNumber] = useQueryState(
+    "batchNumber",
+    parseAsArrayOf(parseAsInteger).withOptions({ shallow: false }),
+  );
+  const [, setPage] = useQueryState(
+    "page",
+    parseAsInteger
+      .withDefault(1)
       .withOptions({ shallow: false, clearOnDefault: true }),
   );
 
@@ -89,72 +312,110 @@ export default function AdminDirectoryPageClient({
     ? [...ALWAYS_VISIBLE_PRESETS, ...INACTIVE_PRESETS]
     : ALWAYS_VISIBLE_PRESETS;
 
-  const activePreset = presets.find((p) => p.status === status) ?? null;
+  const activeDept = (department ?? []) as Department[];
+  const activeBatch = batchNumber ?? [];
 
-  const handlePreset = (preset: FilterPreset) => {
-    if (activePreset?.status === preset.status) {
-      setStatus(null);
-    } else {
-      setStatus(preset.status);
-    }
+  const hasFilters = !!(
+    search ||
+    status ||
+    legalMembership ||
+    activeDept.length ||
+    activeBatch.length
+  );
+
+  const handleReset = () => {
+    setSearch("");
+    setStatus(null);
+    setLegalMembership(null);
+    setDepartment(null);
+    setBatchNumber(null);
+    setPage(1);
   };
+
+  const handleDepartmentChange = (next: string[]) => {
+    setDepartment(next.length ? (next as Department[]) : null);
+    setPage(1);
+  };
+
+  const handleBatchChange = (next: number[]) => {
+    setBatchNumber(next.length ? next : null);
+    setPage(1);
+  };
+
+  const batchOptions = batches.map((b) => ({
+    value: b.number,
+    label: `Batch #${b.number}`,
+  }));
 
   return (
     <>
-      <div className="flex items-center justify-between pb-4">
-        <div>
-          <h1 className="text-xl font-semibold">Members</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            All members as records
-          </p>
+      {/* Header */}
+      <div className="pb-4">
+        <h1 className="text-xl font-semibold">Members</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          View all members that you can manage.
+        </p>
+      </div>
+
+      {/* Filter bar — single scrollable row */}
+      <div className="flex items-center gap-2 pb-4 overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden ">
+        <div className="relative shrink-0">
+          <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            className="h-9 w-full sm:w-56 pl-8"
+            placeholder="Find by name…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Sort by:</span>
-          <Button
-            variant={sortBy === "name" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setSortBy("name" as SortOption)}
+        <FilterDropdown
+          label="Status"
+          options={presets.map((p) => ({ value: p.status, label: p.label }))}
+          value={status ?? ""}
+          onChange={(v) => {
+            setStatus(v || null);
+            setPage(1);
+          }}
+        />
+        <FilterDropdown
+          label="Membership"
+          options={LEGAL_MEMBERSHIP_OPTIONS}
+          value={legalMembership ?? ""}
+          onChange={(v) => {
+            setLegalMembership(v || null);
+            setPage(1);
+          }}
+        />
+        {!isDeptHeadScoped && (
+          <FilterMenu
+            label="Department"
+            options={DEPARTMENT_OPTIONS}
+            selected={activeDept}
+            onChange={handleDepartmentChange}
+          />
+        )}
+        <FilterMenu
+          label="Batch"
+          options={batchOptions}
+          selected={activeBatch}
+          onChange={handleBatchChange}
+        />
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="h-9 px-2.5 shrink-0 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Name
-          </Button>
-          <Button
-            variant={sortBy === "joinDate" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setSortBy("joinDate" as SortOption)}
-          >
-            Join date
-          </Button>
-        </div>
+            <XIcon className="size-3.5" />
+            Reset
+          </button>
+        )}
       </div>
-      <div className="flex flex-wrap items-center gap-2 pb-2">
-        {presets.map((preset) => (
-          <Button
-            key={preset.status}
-            variant={
-              activePreset?.status === preset.status ? "secondary" : "outline"
-            }
-            size="sm"
-            onClick={() => handlePreset(preset)}
-          >
-            {preset.label}
-          </Button>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 pb-4">
-        <span className="text-xs text-muted-foreground">Legal status:</span>
-        {LEGAL_MEMBERSHIP_OPTIONS.map((opt) => (
-          <Button
-            key={opt.value}
-            variant={legalMembership === opt.value ? "secondary" : "outline"}
-            size="sm"
-            onClick={() =>
-              setLegalMembership(legalMembership === opt.value ? "" : opt.value)
-            }
-          >
-            {opt.label}
-          </Button>
-        ))}
-      </div>
+
+      {/* Table */}
       <React.Suspense
         fallback={<div className="h-64 animate-pulse rounded-xl bg-muted" />}
       >

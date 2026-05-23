@@ -19,6 +19,7 @@ import type {
   OrganizationPosition,
 } from "./schema/authority";
 import { userOrganizationPosition } from "./schema/authority";
+import { group as groupTable, usersToGroups } from "./schema/group";
 
 export interface PublicUser {
   id: string;
@@ -230,8 +231,8 @@ export async function getAllUsersForAdmin({
   page?: number;
   search?: string;
   status?: UserStatus[];
-  department?: Department;
-  batchNumber?: number;
+  department?: Department[];
+  batchNumber?: number[];
   legalMembershipState?: LegalMembershipState;
   sortBy?: "name" | "joinDate";
 } = {}): Promise<PaginatedUsers> {
@@ -253,9 +254,9 @@ export async function getAllUsersForAdmin({
   const whereClause = and(
     searchClause,
     inArray(userTable.status, effectiveStatus),
-    department !== undefined ? eq(userTable.department, department) : undefined,
-    batchNumber !== undefined
-      ? eq(userTable.batchNumber, batchNumber)
+    department?.length ? inArray(userTable.department, department) : undefined,
+    batchNumber?.length
+      ? inArray(userTable.batchNumber, batchNumber)
       : undefined,
     legalMembershipState !== undefined
       ? eq(userTable.legalMembershipState, legalMembershipState)
@@ -339,6 +340,15 @@ export interface UserGroupMembership {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface UserGroupMembershipDetail {
+  id: string;
+  name: string;
+  slug: string;
+  source: "criteria" | "manual";
+  joinedAt: Date;
+  memberCount: number;
 }
 
 export interface UserAuthorityData {
@@ -429,6 +439,43 @@ export const getUserGroupMemberships = cache(
       id: row.group.id,
       name: row.group.name,
       slug: row.group.slug,
+    }));
+  },
+);
+
+// Per-request deduplication only — not a persistent cache
+export const getUserGroupMembershipsWithDetails = cache(
+  async (id: string): Promise<UserGroupMembershipDetail[]> => {
+    const memberCountSubquery = db
+      .select({ groupId: usersToGroups.groupId, total: count().as("total") })
+      .from(usersToGroups)
+      .groupBy(usersToGroups.groupId)
+      .as("member_counts");
+
+    const rows = await db
+      .select({
+        id: groupTable.id,
+        name: groupTable.name,
+        slug: groupTable.slug,
+        source: usersToGroups.source,
+        joinedAt: usersToGroups.joinedAt,
+        memberCount: memberCountSubquery.total,
+      })
+      .from(usersToGroups)
+      .innerJoin(groupTable, eq(usersToGroups.groupId, groupTable.id))
+      .innerJoin(
+        memberCountSubquery,
+        eq(usersToGroups.groupId, memberCountSubquery.groupId),
+      )
+      .where(eq(usersToGroups.userId, id));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      source: row.source,
+      joinedAt: row.joinedAt,
+      memberCount: row.memberCount,
     }));
   },
 );

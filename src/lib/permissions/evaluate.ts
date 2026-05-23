@@ -191,7 +191,7 @@ function evaluateGlobalAction(
     case "membership.resolution.view":
       return hasAdminGrant(authority) || isLegalOfficer(authority);
     case "membership.cancel_member":
-      return isLegalOfficer(authority);
+      return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
     case "groups.view_all":
       return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "users.view_inactive":

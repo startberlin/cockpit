@@ -16,13 +16,13 @@ import { getUserDetails } from "@/db/people";
 import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
-import { ActiveSessionsCard } from "./active-sessions-card";
-import { AdminActionCards } from "./admin-action-cards";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { MemberHeader } from "./member-header";
+import { MemberSummaryStrip } from "./member-summary-strip";
+import { MembershipCard } from "./membership-card";
 import { PaymentSection } from "./payment-section";
-import { ProfileSection } from "./profile-section";
+import { PermissionsSection } from "./permissions-section";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -88,6 +88,7 @@ export default async function UserDetailPage({ params }: PageProps) {
   }
 
   const isEligibleForMembershipProposal =
+    user.status === "onboarding" &&
     user.profileOnboardingComplete &&
     !(LIVE_TENURE_STATUSES as readonly string[]).includes(
       user.legalMembershipState,
@@ -118,20 +119,40 @@ export default async function UserDetailPage({ params }: PageProps) {
 
       <Suspense
         fallback={
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-14 w-14 rounded-full" />
-            <div className="space-y-2">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-4">
+            <Skeleton className="h-16 w-16 rounded-full sm:h-14 sm:w-14" />
+            <div className="flex flex-col items-center gap-2 sm:items-start">
               <Skeleton className="h-7 w-48" />
-              <Skeleton className="h-4 w-64" />
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-5 w-64" />
             </div>
           </div>
         }
       >
-        <MemberHeader userId={id} />
+        <MemberHeader userId={id} canImpersonate={canImpersonate} />
       </Suspense>
 
-      <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
-        <ProfileSection userId={id} />
+      <Suspense
+        fallback={
+          <div className="grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="px-4 py-3">
+                <Skeleton className="mb-1.5 h-3 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        }
+      >
+        <MemberSummaryStrip userId={id} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        <MembershipCard
+          userId={id}
+          canPropose={canProposeMembership}
+          canRemove={canRemoveMember}
+        />
       </Suspense>
 
       <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
@@ -139,29 +160,43 @@ export default async function UserDetailPage({ params }: PageProps) {
       </Suspense>
 
       {canViewPayment && (
-        <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+        <Suspense
+          fallback={
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-3 w-48" />
+              <Skeleton className="h-28 w-full rounded-md" />
+            </div>
+          }
+        >
           <PaymentSection userId={id} />
         </Suspense>
       )}
 
-      <Suspense fallback={<Skeleton className="h-24 w-full rounded-xl" />}>
-        <ActiveSessionsCard userId={id} />
-      </Suspense>
-
-      <Suspense fallback={<Skeleton className="h-32 w-full rounded-xl" />}>
+      <Suspense
+        fallback={
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-24 w-full rounded-md" />
+          </div>
+        }
+      >
         <GroupsCard userId={id} />
       </Suspense>
 
-      <AdminActionCards
-        userId={id}
-        userEmail={user.email ?? ""}
-        firstName={user.firstName}
-        lastName={user.lastName}
-        canImpersonate={canImpersonate}
-        canProposeMembership={canProposeMembership}
-        canRemoveMember={canRemoveMember}
-        canManageAuthority={canManageAuthority}
-      />
+      {canManageAuthority && (
+        <Suspense
+          fallback={
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-36" />
+              <Skeleton className="h-24 w-full rounded-md" />
+            </div>
+          }
+        >
+          <PermissionsSection userId={id} />
+        </Suspense>
+      )}
     </div>
   );
 }

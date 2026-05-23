@@ -65,6 +65,7 @@ export const usersToGroups = pgTable(
       .notNull()
       .references(() => group.id),
     source: groupMembershipSource("source").notNull().default("manual"),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.groupId] })],
 );

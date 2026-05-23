@@ -46,12 +46,12 @@ const LEGAL_MEMBERSHIP_STATE_INFO: Record<
   { label: string; tooltip: string; active: boolean }
 > = {
   not_member: {
-    label: "Not a member",
+    label: "Not member",
     tooltip: "This person has not yet completed the legal membership process.",
     active: false,
   },
   active_member: {
-    label: "Active member",
+    label: "Legal member",
     tooltip: "This person is a legally registered member of START Berlin e.V.",
     active: true,
   },
@@ -69,6 +69,7 @@ interface PeopleTableProps {
   pageCount: number;
   pendingActions?: PendingBoardAction[];
   initialSearch: string;
+  hideSearch?: boolean;
 }
 
 export function PeopleTable({
@@ -77,6 +78,7 @@ export function PeopleTable({
   pageCount,
   pendingActions = [],
   initialSearch,
+  hideSearch = false,
 }: PeopleTableProps) {
   const router = useRouter();
   const can = useCan();
@@ -173,16 +175,7 @@ export function PeopleTable({
           return (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className={
-                    info.active
-                      ? "border-green-600 text-green-700"
-                      : "text-muted-foreground"
-                  }
-                >
-                  {info.label}
-                </Badge>
+                <Badge variant="outline">{info.label}</Badge>
               </TooltipTrigger>
               <TooltipContent side="top">{info.tooltip}</TooltipContent>
             </Tooltip>
@@ -257,14 +250,16 @@ export function PeopleTable({
 
   return (
     <div className="w-full">
-      <div className="flex items-center pb-4">
-        <Input
-          placeholder="Find users..."
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+      {!hideSearch && (
+        <div className="flex items-center pb-4">
+          <Input
+            placeholder="Find users..."
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+      )}
       <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader>

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import db from "@/db";
 import { getUserAuthority } from "@/db/authority";
 import { getAllUsersForAdmin } from "@/db/people";
 import {
@@ -9,6 +10,7 @@ import {
   type UserStatus,
   userStatus,
 } from "@/db/schema/auth";
+import { batch } from "@/db/schema/batch";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import { evaluateAuth, evaluateUnscopedViewDetails } from "@/lib/permissions";
@@ -25,7 +27,7 @@ const ACTIVE_STATUSES: UserStatus[] = [
   "member",
   "supporting_alumni",
 ];
-const INACTIVE_STATUSES: UserStatus[] = ["alumni", "cancelled", "former"];
+const INACTIVE_STATUSES: UserStatus[] = ["alumni", "cancelled"];
 
 interface PageProps {
   searchParams: Promise<{
@@ -35,7 +37,6 @@ interface PageProps {
     batchNumber?: string;
     status?: string;
     legalMembership?: string;
-    sortBy?: string;
   }>;
 }
 
@@ -74,13 +75,9 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
     batchNumber,
     status,
     legalMembership: legalMembershipParam,
-    sortBy: sortByParam,
   } = await searchParams;
 
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
-  const batchNum = batchNumber
-    ? parseInt(batchNumber, 10) || undefined
-    : undefined;
 
   const validStatuses = new Set<string>(userStatus.enumValues);
   const requestedStatuses = status
@@ -99,14 +96,21 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
   })();
 
   const validDepartments = new Set<string>(departmentEnum.enumValues);
-  const deptFilter: Department | undefined =
-    forcedDeptHead ??
-    (department && validDepartments.has(department)
-      ? (department as Department)
-      : undefined);
 
-  const sortBy =
-    sortByParam === "joinDate" ? ("joinDate" as const) : ("name" as const);
+  const deptFilter: Department[] | undefined = forcedDeptHead
+    ? [forcedDeptHead]
+    : department
+      ? (department
+          .split(",")
+          .filter((d) => validDepartments.has(d)) as Department[])
+      : undefined;
+
+  const validBatches = batchNumber
+    ? batchNumber
+        .split(",")
+        .map((n) => parseInt(n, 10))
+        .filter((n) => !Number.isNaN(n))
+    : undefined;
 
   const validLegalStates = new Set<string>(legalMembershipStateEnum.enumValues);
   const legalMembershipFilter =
@@ -114,23 +118,25 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
       ? (legalMembershipParam as LegalMembershipState)
       : undefined;
 
-  const usersPromise = getAllUsersForAdmin({
-    page,
-    search,
-    department: deptFilter,
-    batchNumber: batchNum,
-    status: statusFilter,
-    legalMembershipState: legalMembershipFilter,
-    sortBy,
-  });
+  const [usersPromise, batches] = [
+    getAllUsersForAdmin({
+      page,
+      search,
+      department: deptFilter?.length ? deptFilter : undefined,
+      batchNumber: validBatches?.length ? validBatches : undefined,
+      status: statusFilter,
+      legalMembershipState: legalMembershipFilter,
+    }),
+    db.select({ number: batch.number }).from(batch).orderBy(batch.number),
+  ];
 
   return (
     <AdminDirectoryPageClient
       usersPromise={usersPromise}
+      batches={await batches}
       initialSearch={search}
       canViewInactive={canViewInactive}
       isDeptHeadScoped={forcedDeptHead !== null}
-      initialLegalMembership={legalMembershipFilter}
     />
   );
 }

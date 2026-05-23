@@ -1,10 +1,20 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { getActivePaymentTerm } from "@/db/membership-payments";
 import { getUserDetails } from "@/db/people";
 import { getGcPaymentHistoryForMember } from "@/lib/gocardless/payments";
+import { PaymentTableClient } from "./payment-table-client";
 
-function formatAmount(amountCents: number) {
+const COLLECTED_STATUSES = new Set(["paid", "confirmed", "paid_out"]);
+
+function formatAmount(amountCents: number): string {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
     currency: "EUR",
@@ -15,17 +25,30 @@ function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-GB", {
     year: "numeric",
-    month: "long",
+    month: "short",
     day: "numeric",
   });
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-      {children}
-    </p>
-  );
+function buildSummaryText(
+  totalCents: number,
+  earliestDate: Date | null,
+): string {
+  const amount = formatAmount(totalCents);
+  if (!earliestDate) return `${amount} collected.`;
+
+  const now = new Date();
+  const monthsDiff =
+    (now.getFullYear() - earliestDate.getFullYear()) * 12 +
+    (now.getMonth() - earliestDate.getMonth());
+
+  if (monthsDiff < 12) {
+    return `${amount} collected.`;
+  }
+
+  const years = Math.floor(monthsDiff / 12);
+  const yearLabel = years === 1 ? "1 year" : `${years} years`;
+  return `${amount} collected over ${yearLabel}.`;
 }
 
 interface PaymentSectionProps {
@@ -54,6 +77,23 @@ export async function PaymentSection({ userId }: PaymentSectionProps) {
 
   const recentPayments = paymentHistory.slice(0, 5);
 
+  const collectedPayments = paymentHistory.filter((p) =>
+    COLLECTED_STATUSES.has(p.status),
+  );
+  const totalCollectedCents = collectedPayments.reduce(
+    (sum, p) => sum + p.amount,
+    0,
+  );
+
+  const earliestCollectedDate =
+    collectedPayments.length > 0
+      ? collectedPayments.reduce<Date | null>((earliest, p) => {
+          if (!p.chargeDate) return earliest;
+          const d = new Date(`${p.chargeDate}T00:00:00`);
+          return !earliest || d < earliest ? d : earliest;
+        }, null)
+      : null;
+
   const nextDueDate = paymentTerm
     ? formatDate(
         new Date(
@@ -67,68 +107,30 @@ export async function PaymentSection({ userId }: PaymentSectionProps) {
       )
     : null;
 
-  const mandateLabel =
-    mandateStatus === "active"
-      ? "Active"
-      : mandateStatus === "cancelled"
-        ? "Cancelled"
-        : "Not set up";
-
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Payment</CardTitle>
+        <CardTitle>Payments</CardTitle>
+        <CardDescription>Membership payments of this member.</CardDescription>
+        {nextDueDate && (
+          <CardAction>
+            <Badge variant="outline">Next collection at {nextDueDate}</Badge>
+          </CardAction>
+        )}
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <FieldLabel>Direct debit</FieldLabel>
-            <p className="text-sm font-medium">{mandateLabel}</p>
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Next payment due</FieldLabel>
-            <p className="text-sm font-medium">{nextDueDate ?? "—"}</p>
-          </div>
-        </div>
-
-        {recentPayments.length > 0 && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <FieldLabel>Recent payments</FieldLabel>
-              <div className="divide-y">
-                {recentPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center justify-between py-2 text-sm"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="font-medium">
-                        {formatDate(payment.chargeDate)}
-                      </p>
-                      <p className="text-muted-foreground capitalize">
-                        {payment.status}
-                      </p>
-                    </div>
-                    <p className="font-medium">
-                      {formatAmount(payment.amount)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {recentPayments.length === 0 && mandateStatus !== "not_set_up" && (
-          <>
-            <Separator />
-            <p className="text-sm text-muted-foreground">
-              No payment history found.
-            </p>
-          </>
-        )}
-      </CardContent>
+      {recentPayments.length > 0 ? (
+        <CardContent className="p-0">
+          <PaymentTableClient payments={recentPayments} />
+        </CardContent>
+      ) : (
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            {mandateStatus === "not_set_up"
+              ? "No direct debit set up."
+              : "No payment history."}
+          </p>
+        </CardContent>
+      )}
     </Card>
   );
 }

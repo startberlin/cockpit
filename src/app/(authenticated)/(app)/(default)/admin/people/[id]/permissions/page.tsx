@@ -61,7 +61,7 @@ export default async function PermissionsPage({ params }: PageProps) {
 
       <div>
         <h1 className="text-xl font-semibold">
-          Permissions — {user.firstName} {user.lastName}
+          Permissions: {user.firstName} {user.lastName}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Manage app permission grants for this member.

@@ -1,4 +1,3 @@
-import { deriveMembershipNotice } from "@/app/(authenticated)/(app)/(default)/membership/membership-notice-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +11,8 @@ import { getActiveLegalMembership, getMemberSinceDate } from "@/db/membership";
 import { getDepartmentHeadForDepartment, getUserDetails } from "@/db/people";
 import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
-import { can } from "@/lib/permissions/server";
 import { USER_STATUS_INFO } from "@/lib/user-status";
-import { AdminMembershipNoticeBlock } from "./admin-membership-notice-block";
+import { MembershipCardMenu } from "./membership-card-menu";
 
 const LEGAL_MEMBERSHIP_STATE_INFO: Record<
   LegalMembershipState,
@@ -26,14 +24,14 @@ const LEGAL_MEMBERSHIP_STATE_INFO: Record<
     active: false,
   },
   active_member: {
-    label: "Active legal member",
+    label: "Legal member",
     tooltip: "This person is a legally registered member of START Berlin e.V.",
     active: true,
   },
   former_member: {
     label: "Former legal member",
     tooltip:
-      "This person was previously a legal member but is no longer active.",
+      "This person was previously a legal member but has left the association.",
     active: false,
   },
 };
@@ -85,30 +83,28 @@ function formatDate(date: Date): string {
   });
 }
 
-interface ProfileSectionProps {
+interface MembershipCardProps {
   userId: string;
+  canPropose: boolean;
+  canRemove: boolean;
 }
 
-export async function ProfileSection({ userId }: ProfileSectionProps) {
+export async function MembershipCard({
+  userId,
+  canPropose,
+  canRemove,
+}: MembershipCardProps) {
   const user = await getUserDetails(userId);
 
   if (!user) return null;
 
-  const [memberSince, legalMembership, departmentHead, canViewPayment] =
-    await Promise.all([
-      getMemberSinceDate(userId),
-      getActiveLegalMembership(userId),
-      user.department
-        ? getDepartmentHeadForDepartment(user.department)
-        : Promise.resolve(null),
-      can("user.payment.view", { department: user.department }),
-    ]);
-
-  const noticeType = deriveMembershipNotice(
-    user.membershipState,
-    legalMembership?.status ?? null,
-    user.status,
-  );
+  const [memberSince, , departmentHead] = await Promise.all([
+    getMemberSinceDate(userId),
+    getActiveLegalMembership(userId),
+    user.department
+      ? getDepartmentHeadForDepartment(user.department)
+      : Promise.resolve(null),
+  ]);
 
   const statusInfo = USER_STATUS_INFO[user.status];
   const legalStateInfo = LEGAL_MEMBERSHIP_STATE_INFO[user.legalMembershipState];
@@ -116,20 +112,15 @@ export async function ProfileSection({ userId }: ProfileSectionProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Profile</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle>Membership</CardTitle>
+        <MembershipCardMenu
+          userId={userId}
+          canPropose={canPropose}
+          canRemove={canRemove}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
-        {noticeType && (
-          <>
-            <AdminMembershipNoticeBlock
-              noticeType={noticeType}
-              canViewPayment={canViewPayment}
-            />
-            <Separator />
-          </>
-        )}
-
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <FieldLabel>Status</FieldLabel>
@@ -149,21 +140,6 @@ export async function ProfileSection({ userId }: ProfileSectionProps) {
             <p className="text-sm font-medium">
               {user.batchNumber != null ? `#${user.batchNumber}` : "—"}
             </p>
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Profile onboarding</FieldLabel>
-            {user.profileOnboardingComplete ? (
-              <Badge
-                variant="outline"
-                className="border-green-600 text-green-700"
-              >
-                Complete
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                Not yet complete
-              </Badge>
-            )}
           </div>
         </div>
 
@@ -220,23 +196,35 @@ export async function ProfileSection({ userId }: ProfileSectionProps) {
 
         <Separator />
 
-        <div className="space-y-1.5">
-          <FieldLabel>Legal membership</FieldLabel>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className={
-                  legalStateInfo.active
-                    ? "border-green-600 text-green-700"
-                    : "text-muted-foreground"
-                }
-              >
-                {legalStateInfo.label}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <FieldLabel>Legal membership</FieldLabel>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className={
+                    legalStateInfo.active ? undefined : "text-muted-foreground"
+                  }
+                >
+                  {legalStateInfo.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {legalStateInfo.tooltip}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Profile onboarding</FieldLabel>
+            {user.profileOnboardingComplete ? (
+              <Badge variant="outline">Complete</Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">
+                Not yet complete
               </Badge>
-            </TooltipTrigger>
-            <TooltipContent side="top">{legalStateInfo.tooltip}</TooltipContent>
-          </Tooltip>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
