@@ -6,6 +6,7 @@ import type { Department } from "@/db/schema/auth";
 import {
   type Action,
   evaluateAuth,
+  evaluateUnscopedViewDetails,
   type GlobalAction,
   type GroupScope,
   type GroupScopedAction,
@@ -20,7 +21,11 @@ import { useAuthority } from "@/lib/permissions/authority-context";
 export type CanCheck = {
   (permission: GlobalAction): boolean;
   (
-    permission: UserScopedAction,
+    permission: "user.view_details",
+    user?: { department: Department | null },
+  ): boolean;
+  (
+    permission: Exclude<UserScopedAction, "user.view_details">,
     user: { department: Department | null },
   ): boolean;
   (permission: GroupScopedAction, group: { isMember: boolean }): boolean;
@@ -33,12 +38,16 @@ interface CanComponentProps {
 
 type CanProps =
   | (CanComponentProps & {
-      permission: GlobalAction;
-      context?: never;
+      permission: "user.view_details";
+      context?: { department: Department | null };
     })
   | (CanComponentProps & {
-      permission: UserScopedAction;
+      permission: Exclude<UserScopedAction, "user.view_details">;
       context: { department: Department | null };
+    })
+  | (CanComponentProps & {
+      permission: GlobalAction;
+      context?: never;
     })
   | (CanComponentProps & {
       permission: GroupScopedAction;
@@ -48,7 +57,11 @@ type CanProps =
 export function useCan(): CanCheck;
 export function useCan(permission: GlobalAction): boolean;
 export function useCan(
-  permission: UserScopedAction,
+  permission: "user.view_details",
+  user?: { department: Department | null },
+): boolean;
+export function useCan(
+  permission: Exclude<UserScopedAction, "user.view_details">,
   user: { department: Department | null },
 ): boolean;
 export function useCan(
@@ -73,6 +86,10 @@ export function useCan(
     ) => {
       if (!authority) {
         return false;
+      }
+
+      if (action === "user.view_details" && !checkResource) {
+        return evaluateUnscopedViewDetails(authority);
       }
 
       if (isGlobalAction(action)) {
@@ -106,6 +123,10 @@ export function useCan(
     return check(permission);
   }
 
+  if (permission === "user.view_details" && !resource) {
+    return check("user.view_details");
+  }
+
   if (isUserScopedAction(permission)) {
     return check(permission, resource as { department: Department | null });
   }
@@ -125,6 +146,8 @@ export function Can(props: CanProps) {
   let granted: boolean;
   if (isGlobalAction(props.permission)) {
     granted = check(props.permission);
+  } else if (props.permission === "user.view_details" && !props.context) {
+    granted = check("user.view_details");
   } else if (isUserScopedAction(props.permission)) {
     granted = check(
       props.permission,

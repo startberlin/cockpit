@@ -10,6 +10,7 @@ export type {
 export {
   type Action,
   evaluateAuth,
+  evaluateUnscopedViewDetails,
   type GlobalAction,
   type GroupScope,
   type GroupScopedAction,

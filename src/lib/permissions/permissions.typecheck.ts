@@ -6,13 +6,13 @@ declare const authority: UserAuthority;
 declare const check: CanCheck;
 
 evaluateAuth(authority, "groups.view_all");
-evaluateAuth(authority, "users.view_all");
-evaluateAuth(authority, "user.view", { targetDepartment: "events" });
+evaluateAuth(authority, "users.view_inactive");
+evaluateAuth(authority, "user.view_details", { targetDepartment: "events" });
 evaluateAuth(authority, "group.members.manage", { isGroupMember: true });
 evaluateAuth(authority, "group.export", { isGroupMember: false });
 
 // @ts-expect-error user-scoped permissions require context.
-evaluateAuth(authority, "user.view");
+evaluateAuth(authority, "user.view_details");
 
 // @ts-expect-error contextless permissions do not accept user-scoped context.
 evaluateAuth(authority, "groups.view_all", { targetDepartment: "events" });
@@ -21,11 +21,13 @@ evaluateAuth(authority, "groups.view_all", { targetDepartment: "events" });
 evaluateAuth(authority, "group.members.manage");
 
 can("groups.view_all");
-can("user.view", { department: "events" });
+can("user.view_details"); // unscoped — valid for listing route gate
+can("user.view_details", { department: "events" });
+can("user.payment.view", { department: "events" });
 can("group.members.manage", { id: "gr_123" });
 
 // @ts-expect-error user-scoped server checks require a user resource.
-can("user.view");
+can("user.membership.propose");
 
 // @ts-expect-error global server checks do not accept a resource.
 can("groups.view_all", { department: "events" });
@@ -34,11 +36,12 @@ can("groups.view_all", { department: "events" });
 can("group.members.manage");
 
 check("groups.view_all");
-check("user.view", { department: "events" });
+check("user.view_details"); // unscoped — valid for listing route gate
+check("user.view_details", { department: "events" });
 check("group.members.manage", { isMember: true });
 
 // @ts-expect-error user-scoped client checks require a user resource.
-check("user.view");
+check("user.membership.propose");
 
 // @ts-expect-error global client checks do not accept a resource.
 check("groups.view_all", { department: "events" });
