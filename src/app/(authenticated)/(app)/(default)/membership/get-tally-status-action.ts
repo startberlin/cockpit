@@ -28,6 +28,8 @@ export const getTallyStatusAction = actionClient.action(async ({ ctx }) => {
         },
       },
     );
+  } catch {
+    return { isMember: false };
   } finally {
     clearTimeout(timeout);
   }
