@@ -56,6 +56,7 @@ interface CreateUserFormProps {
   defaultDepartment?: Department | null;
   submitLabel?: string;
   onSuccess?: () => void;
+  onBack?: () => void;
 }
 
 export function CreateUserForm({
@@ -64,6 +65,7 @@ export function CreateUserForm({
   defaultDepartment = null,
   submitLabel = "Add member",
   onSuccess,
+  onBack,
 }: CreateUserFormProps) {
   const resolver = React.useMemo(() => zodResolver(createUserSchema), []);
   const defaultValues = React.useMemo(
@@ -360,9 +362,20 @@ export function CreateUserForm({
         </Alert>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-between gap-2">
+        {onBack && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onBack}
+            disabled={action.isPending}
+          >
+            Back
+          </Button>
+        )}
         <Button
           type="submit"
+          className="ml-auto"
           disabled={
             !form.formState.isValid ||
             action.isPending ||
