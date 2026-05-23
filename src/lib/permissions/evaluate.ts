@@ -77,7 +77,7 @@ function hasSuperAdminGrant(authority: UserAuthority) {
   return authority.grants.some((a) => a.grant === "super_admin");
 }
 
-function hasAdminGrant(authority: UserAuthority) {
+export function hasAdminGrant(authority: UserAuthority) {
   return (
     hasSuperAdminGrant(authority) ||
     authority.grants.some((a) => a.grant === "admin")
@@ -88,8 +88,18 @@ function hasFinanceAdminGrant(authority: UserAuthority) {
   return authority.grants.some((a) => a.grant === "finance_admin");
 }
 
-function hasPeopleAdminGrant(authority: UserAuthority) {
+export function hasPeopleAdminGrant(authority: UserAuthority) {
   return authority.grants.some((a) => a.grant === "people_admin");
+}
+
+export function isLegalOfficer(authority: UserAuthority) {
+  return authority.positions.some(
+    (assignment) =>
+      assignment.scope === "global" &&
+      (assignment.position === "president" ||
+        assignment.position === "vice_president" ||
+        assignment.position === "head_of_finance"),
+  );
 }
 
 function isHeadOfFinance(authority: UserAuthority) {
@@ -97,16 +107,6 @@ function isHeadOfFinance(authority: UserAuthority) {
     (assignment) =>
       assignment.scope === "global" &&
       assignment.position === "head_of_finance",
-  );
-}
-
-function isLegalOfficer(authority: UserAuthority) {
-  return authority.positions.some(
-    (assignment) =>
-      assignment.scope === "global" &&
-      (assignment.position === "president" ||
-        assignment.position === "vice_president" ||
-        assignment.position === "head_of_finance"),
   );
 }
 
