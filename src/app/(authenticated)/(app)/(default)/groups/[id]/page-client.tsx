@@ -185,7 +185,7 @@ export default function GroupDetailClient({
   const canManageMembers = can("group.members.manage", groupScope);
   const canExport = can("group.export", groupScope);
   const canViewMemberProfile = (member: GroupMember) =>
-    can("user.view", member);
+    can("user.view_details", member);
 
   return (
     <div className="w-full space-y-6">

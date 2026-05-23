@@ -8,7 +8,7 @@ interface AdminPeopleLayoutProps {
 export default async function AdminPeopleLayout({
   children,
 }: AdminPeopleLayoutProps) {
-  if (!(await can("users.view_all"))) {
+  if (!(await can("user.view_details"))) {
     redirect("/membership");
   }
 

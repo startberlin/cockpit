@@ -1,4 +1,4 @@
-import { and, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
@@ -29,6 +29,8 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  legalMembershipState?: LegalMembershipState | null;
+  memberSinceDate?: string | null;
   positionLabel?: string | null;
   isEligibleForMembershipProposal?: boolean;
 }
@@ -210,11 +212,10 @@ export async function getAllUserPublicData({
   };
 }
 
-const ADMIN_DEFAULT_STATUSES: UserStatus[] = [
+const ADMIN_ACTIVE_STATUSES: UserStatus[] = [
   "onboarding",
   "member",
   "supporting_alumni",
-  "alumni",
 ];
 
 export async function getAllUsersForAdmin({
@@ -223,19 +224,20 @@ export async function getAllUsersForAdmin({
   status,
   department,
   batchNumber,
-  includeFormer = false,
+  legalMembershipState,
+  sortBy = "name",
 }: {
   page?: number;
   search?: string;
   status?: UserStatus[];
   department?: Department;
   batchNumber?: number;
-  includeFormer?: boolean;
+  legalMembershipState?: LegalMembershipState;
+  sortBy?: "name" | "joinDate";
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
 
-  const effectiveStatus =
-    status ?? (includeFormer ? undefined : ADMIN_DEFAULT_STATUSES);
+  const effectiveStatus = status ?? ADMIN_ACTIVE_STATUSES;
 
   const searchClause = search
     ? or(
@@ -250,14 +252,23 @@ export async function getAllUsersForAdmin({
 
   const whereClause = and(
     searchClause,
-    effectiveStatus !== undefined
-      ? inArray(userTable.status, effectiveStatus)
-      : undefined,
+    inArray(userTable.status, effectiveStatus),
     department !== undefined ? eq(userTable.department, department) : undefined,
     batchNumber !== undefined
       ? eq(userTable.batchNumber, batchNumber)
       : undefined,
+    legalMembershipState !== undefined
+      ? eq(userTable.legalMembershipState, legalMembershipState)
+      : undefined,
   );
+
+  const orderBy =
+    sortBy === "joinDate"
+      ? [
+          asc(sql`${userTable.memberSinceDate} NULLS LAST`),
+          asc(userTable.createdAt),
+        ]
+      : [asc(userTable.firstName), asc(userTable.lastName)];
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -270,10 +281,12 @@ export async function getAllUsersForAdmin({
         department: userTable.department,
         batchNumber: sql<number | null>`${userTable.batchNumber}`,
         status: userTable.status,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
       })
       .from(userTable)
       .where(whereClause)
-      .orderBy(userTable.firstName, userTable.lastName)
+      .orderBy(...orderBy)
       .limit(PEOPLE_PAGE_SIZE)
       .offset(offset),
     db.select({ total: count() }).from(userTable).where(whereClause),
@@ -289,6 +302,8 @@ export async function getAllUsersForAdmin({
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
+      legalMembershipState: u.legalMembershipState,
+      memberSinceDate: u.memberSinceDate,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
@@ -301,6 +316,7 @@ export interface UserDetails {
   firstName: string;
   lastName: string;
   email: string | null;
+  image: string | null;
   personalEmail: string | null;
   phone: string | null;
   street: string | null;
@@ -314,6 +330,8 @@ export interface UserDetails {
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
+  gocardlessMandateId: string | null;
+  gocardlessCustomerId: string | null;
   createdAt: Date;
 }
 
@@ -345,6 +363,7 @@ export const getUserDetails = cache(
         firstName: true,
         lastName: true,
         email: true,
+        image: true,
         personalEmail: true,
         phone: true,
         birthDate: true,
@@ -375,6 +394,7 @@ export const getUserDetails = cache(
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      image: user.image ?? null,
       personalEmail: user.personalEmail,
       phone: user.phone,
       street: user.street,
@@ -388,6 +408,8 @@ export const getUserDetails = cache(
       legalMembershipState: user.legalMembershipState,
       membershipState: getStructuredMembershipState(user),
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
+      gocardlessMandateId: user.gocardlessMandateId ?? null,
+      gocardlessCustomerId: user.gocardlessCustomerId ?? null,
       createdAt: user.createdAt,
     };
   },

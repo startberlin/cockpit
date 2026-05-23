@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { Fragment, useMemo } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,10 +35,33 @@ import {
 } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
+import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { useCan } from "./can";
 import { Badge } from "./ui/badge";
+
+const LEGAL_MEMBERSHIP_STATE_INFO: Record<
+  LegalMembershipState,
+  { label: string; tooltip: string; active: boolean }
+> = {
+  not_member: {
+    label: "Not a member",
+    tooltip: "This person has not yet completed the legal membership process.",
+    active: false,
+  },
+  active_member: {
+    label: "Active member",
+    tooltip: "This person is a legally registered member of START Berlin e.V.",
+    active: true,
+  },
+  former_member: {
+    label: "Former member",
+    tooltip:
+      "This person was previously a legal member but is no longer active.",
+    active: false,
+  },
+};
 
 interface PeopleTableProps {
   data: PublicUser[];
@@ -78,11 +102,25 @@ export function PeopleTable({
         id: "name",
         accessorFn: (row) => `${row.firstName} ${row.lastName}`,
         header: "Name",
-        cell: ({ row }) => (
-          <div className="font-medium">
-            {row.original.firstName} {row.original.lastName}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const { firstName, lastName, image } = row.original;
+          const initials =
+            `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
+          return (
+            <div className="flex items-center gap-2.5">
+              <Avatar className="h-7 w-7 text-xs">
+                <AvatarImage
+                  src={image ?? undefined}
+                  alt={`${firstName} ${lastName}`}
+                />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <span className="font-medium">
+                {firstName} {lastName}
+              </span>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "department",
@@ -121,6 +159,32 @@ export function PeopleTable({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="top">{info.description}</TooltipContent>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        id: "legalMembership",
+        header: "Legal Membership",
+        cell: ({ row }) => {
+          const state = row.original.legalMembershipState;
+          if (!state) return <span className="text-muted-foreground">—</span>;
+          const info = LEGAL_MEMBERSHIP_STATE_INFO[state];
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className={
+                    info.active
+                      ? "border-green-600 text-green-700"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {info.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top">{info.tooltip}</TooltipContent>
             </Tooltip>
           );
         },
@@ -177,7 +241,8 @@ export function PeopleTable({
     pageCount,
   });
 
-  const canOpenMemberProfile = (member: PublicUser) => can("user.view", member);
+  const canOpenMemberProfile = (member: PublicUser) =>
+    can("user.view_details", member);
 
   const visibleRows = table.getRowModel().rows;
 

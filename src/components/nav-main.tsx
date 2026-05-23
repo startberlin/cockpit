@@ -140,7 +140,7 @@ export function NavMain() {
             isParentActive={pathname.startsWith("/admin/people/")}
             tooltip="People"
           >
-            <Can permission="users.view_all">
+            <Can permission="user.view_details">
               <SidebarMenuSubItem>
                 <SidebarMenuSubButton
                   asChild
