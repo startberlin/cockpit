@@ -380,9 +380,10 @@ export default function AdminDirectoryPageClient({
                 variant="outline"
                 size="sm"
                 onClick={() => setImportOpen(true)}
+                aria-label="Import from Google Workspace"
               >
                 <DownloadIcon className="size-3.5" />
-                Import
+                <span className="hidden sm:inline">Import</span>
               </Button>
             )}
             {canCreate && (
