@@ -155,6 +155,7 @@ export function CreateUserDialog({
               onOpenChange(false);
               onSuccess?.();
             }}
+            onDone={() => onOpenChange(false)}
           />
         )}
       </DialogContent>

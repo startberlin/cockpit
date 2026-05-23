@@ -17,7 +17,10 @@ import { userStatus } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { generateCompanyEmail } from "@/lib/google-workspace/email";
 import { createUserAction } from "./create-user-action";
-import type { CreateUserFormData } from "./create-user-schema";
+import {
+  type CreateUserFormData,
+  createUserSchema,
+} from "./create-user-schema";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -111,67 +114,53 @@ function validateRow(
   const firstName = raw.firstName?.trim() ?? "";
   const lastName = raw.lastName?.trim() ?? "";
   const personalEmail = raw.personalEmail?.trim() ?? "";
-  const departmentRaw = raw.department?.trim() ?? "";
   const statusRaw = raw.status?.trim().toLowerCase() ?? "";
   const batchRaw = raw.batchNumber?.trim() ?? "";
 
-  const errors: string[] = [];
-
-  if (!firstName) errors.push("First name is required");
-  if (!lastName) errors.push("Last name is required");
-
-  if (!personalEmail) {
-    errors.push("Email is required");
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail)) {
-    errors.push(`Invalid email: "${personalEmail}"`);
-  }
-
-  const validStatuses = userStatus.enumValues as readonly string[];
-  if (!statusRaw) {
-    errors.push("Status is required");
-  } else if (!validStatuses.includes(statusRaw)) {
-    errors.push(
-      `Invalid status: "${statusRaw}". Must be one of: ${validStatuses.join(", ")}`,
-    );
-  }
-
-  const department = normalizeDept(departmentRaw);
+  // Department normalization: schema cannot convert display names to IDs
+  const department = normalizeDept(raw.department?.trim() ?? "");
   const isValidDept =
     department !== null &&
     DEPARTMENT_IDS.includes(department as (typeof DEPARTMENT_IDS)[number]);
 
-  if (department && !isValidDept) {
-    errors.push(
-      `Invalid department: "${departmentRaw}". Must be one of: ${DEPARTMENT_IDS.join(", ")}`,
-    );
-  }
-
-  const requiresDept = statusRaw === "member" || statusRaw === "onboarding";
-  if (
-    requiresDept &&
-    !isValidDept &&
-    !errors.some((e) => e.startsWith("Invalid department"))
-  ) {
-    errors.push(`Department is required for "${statusRaw}" status`);
-  }
-  if (!requiresDept && isValidDept && validStatuses.includes(statusRaw)) {
-    errors.push(`"${statusRaw}" status cannot have a department`);
-  }
-
+  // Batch existence: schema cannot verify a number exists in the current batch list
   let batchNumber: number | null = null;
+  const batchErrors: string[] = [];
   if (batchRaw) {
     const parsed = parseInt(batchRaw, 10);
     if (Number.isNaN(parsed) || String(parsed) !== batchRaw) {
-      errors.push(`Invalid batch number: "${batchRaw}"`);
+      batchErrors.push(`Invalid batch number: "${batchRaw}"`);
     } else if (!batches.some((b) => b.number === parsed)) {
-      errors.push(`Batch #${parsed} does not exist`);
+      batchErrors.push(`Batch #${parsed} does not exist`);
     } else {
       batchNumber = parsed;
     }
   }
 
+  // Generate company email so the full createUserSchema can be satisfied
   const companyEmail =
     firstName && lastName ? generateCompanyEmail(firstName, lastName) : "";
+
+  // Delegate all other validation to the same schema used by createUserAction
+  const schemaResult = createUserSchema.safeParse({
+    firstName,
+    lastName,
+    personalEmail,
+    companyEmail,
+    department: isValidDept ? department : null,
+    status: statusRaw,
+    batchNumber: batchNumber ?? undefined,
+  });
+
+  const errors: string[] = [];
+  if (!schemaResult.success) {
+    for (const issue of schemaResult.error.issues) {
+      // companyEmail is auto-generated — its errors are already covered by firstName/lastName
+      if (issue.path[0] === "companyEmail") continue;
+      errors.push(issue.message);
+    }
+  }
+  errors.push(...batchErrors);
 
   return {
     rowNumber,
@@ -238,12 +227,14 @@ interface CsvBatchStepProps {
   batches: { number: number }[];
   onBack: () => void;
   onSuccess?: () => void;
+  onDone?: () => void;
 }
 
 export function CsvBatchStep({
   batches,
   onBack,
   onSuccess,
+  onDone,
 }: CsvBatchStepProps) {
   const [phase, setPhase] = React.useState<Phase>({ name: "idle" });
   const [parseError, setParseError] = React.useState<string | null>(null);
@@ -255,7 +246,18 @@ export function CsvBatchStep({
     setParseError(null);
     setPhase({ name: "parsing" });
 
-    const result = await parseAndValidate(file, batches);
+    let result: Awaited<ReturnType<typeof parseAndValidate>>;
+    try {
+      result = await parseAndValidate(file, batches);
+    } catch (err) {
+      console.error("CSV parse error:", err);
+      setParseError(
+        err instanceof Error ? err.message : "Failed to parse file",
+      );
+      setPhase({ name: "idle" });
+      e.target.value = "";
+      return;
+    }
 
     if (!result.ok) {
       setParseError(result.error);
@@ -365,7 +367,10 @@ export function CsvBatchStep({
           </Alert>
         )}
         <div className="flex justify-end">
-          <Button type="button" onClick={onSuccess}>
+          <Button
+            type="button"
+            onClick={phase.failed.length === 0 ? onSuccess : onDone}
+          >
             Done
           </Button>
         </div>
