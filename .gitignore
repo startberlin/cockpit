@@ -49,8 +49,15 @@ next-env.d.ts
 # symlinks to .agents/skills/
 .cursor/skills/
 .claude/skills/
+.claude/worktrees/
+
+# security audit artifacts — never publish to public repo
+.deepsec/
+docs/plans/*security*
+docs/plans/*remediation*
 
 # database dumps
 /supabase.sql
 .claude/settings.local.json
 .codex/config.toml
+.env*.local

@@ -23,6 +23,9 @@ describe("Better Auth user fields", () => {
       "legalMembershipState",
       "gocardlessMandateId",
       "gocardlessCustomerId",
+      "gocardlessSetupSessionId",
+      "eventEmailPreference",
+      "eventInviteEmail",
     ]);
   });
 

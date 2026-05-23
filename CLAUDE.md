@@ -78,6 +78,7 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
 4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
 5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
+6. **Never use `psql` or raw SQL clients to apply schema changes.** All database changes must go through Drizzle migrations so that production deployments (which run `npm run db:migrate`) stay in sync.
 
 ### Server Actions
 
@@ -172,3 +173,7 @@ For server components, use `createSearchParamsCache` to read params server-side.
 ### Forms
 
 Whenever you have a form, use React Hook Form with Zod validation. When using server actions, integrate with `@next-safe-action/adapter-react-hook-form` for seamless server-side handling. See here for an example: https://next-safe-action.dev/docs/integrations/react-hook-form
+
+### Loading Skeletons
+
+Whenever you change the structure of a page or component — adding, removing, or reorganising sections — update the corresponding `loading.tsx` and any component-level skeleton files to match. Skeletons must always reflect the actual layout of the loaded page. This applies to direct page changes and to component changes that affect a page's structure.

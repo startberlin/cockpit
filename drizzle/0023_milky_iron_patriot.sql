@@ -1,0 +1,1 @@
+ALTER TABLE "users_to_groups" ADD COLUMN "integrations_synced" boolean DEFAULT false NOT NULL;

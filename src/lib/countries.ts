@@ -1,256 +1,9 @@
-const ISO_COUNTRY_CODES = [
-  "AD",
-  "AE",
-  "AF",
-  "AG",
-  "AI",
-  "AL",
-  "AM",
-  "AO",
-  "AQ",
-  "AR",
-  "AS",
-  "AT",
-  "AU",
-  "AW",
-  "AX",
-  "AZ",
-  "BA",
-  "BB",
-  "BD",
-  "BE",
-  "BF",
-  "BG",
-  "BH",
-  "BI",
-  "BJ",
-  "BL",
-  "BM",
-  "BN",
-  "BO",
-  "BQ",
-  "BR",
-  "BS",
-  "BT",
-  "BV",
-  "BW",
-  "BY",
-  "BZ",
-  "CA",
-  "CC",
-  "CD",
-  "CF",
-  "CG",
-  "CH",
-  "CI",
-  "CK",
-  "CL",
-  "CM",
-  "CN",
-  "CO",
-  "CR",
-  "CU",
-  "CV",
-  "CW",
-  "CX",
-  "CY",
-  "CZ",
-  "DE",
-  "DJ",
-  "DK",
-  "DM",
-  "DO",
-  "DZ",
-  "EC",
-  "EE",
-  "EG",
-  "EH",
-  "ER",
-  "ES",
-  "ET",
-  "FI",
-  "FJ",
-  "FK",
-  "FM",
-  "FO",
-  "FR",
-  "GA",
-  "GB",
-  "GD",
-  "GE",
-  "GF",
-  "GG",
-  "GH",
-  "GI",
-  "GL",
-  "GM",
-  "GN",
-  "GP",
-  "GQ",
-  "GR",
-  "GS",
-  "GT",
-  "GU",
-  "GW",
-  "GY",
-  "HK",
-  "HM",
-  "HN",
-  "HR",
-  "HT",
-  "HU",
-  "ID",
-  "IE",
-  "IL",
-  "IM",
-  "IN",
-  "IO",
-  "IQ",
-  "IR",
-  "IS",
-  "IT",
-  "JE",
-  "JM",
-  "JO",
-  "JP",
-  "KE",
-  "KG",
-  "KH",
-  "KI",
-  "KM",
-  "KN",
-  "KP",
-  "KR",
-  "KW",
-  "KY",
-  "KZ",
-  "LA",
-  "LB",
-  "LC",
-  "LI",
-  "LK",
-  "LR",
-  "LS",
-  "LT",
-  "LU",
-  "LV",
-  "LY",
-  "MA",
-  "MC",
-  "MD",
-  "ME",
-  "MF",
-  "MG",
-  "MH",
-  "MK",
-  "ML",
-  "MM",
-  "MN",
-  "MO",
-  "MP",
-  "MQ",
-  "MR",
-  "MS",
-  "MT",
-  "MU",
-  "MV",
-  "MW",
-  "MX",
-  "MY",
-  "MZ",
-  "NA",
-  "NC",
-  "NE",
-  "NF",
-  "NG",
-  "NI",
-  "NL",
-  "NO",
-  "NP",
-  "NR",
-  "NU",
-  "NZ",
-  "OM",
-  "PA",
-  "PE",
-  "PF",
-  "PG",
-  "PH",
-  "PK",
-  "PL",
-  "PM",
-  "PN",
-  "PR",
-  "PS",
-  "PT",
-  "PW",
-  "PY",
-  "QA",
-  "RE",
-  "RO",
-  "RS",
-  "RU",
-  "RW",
-  "SA",
-  "SB",
-  "SC",
-  "SD",
-  "SE",
-  "SG",
-  "SH",
-  "SI",
-  "SJ",
-  "SK",
-  "SL",
-  "SM",
-  "SN",
-  "SO",
-  "SR",
-  "SS",
-  "ST",
-  "SV",
-  "SX",
-  "SY",
-  "SZ",
-  "TC",
-  "TD",
-  "TF",
-  "TG",
-  "TH",
-  "TJ",
-  "TK",
-  "TL",
-  "TM",
-  "TN",
-  "TO",
-  "TR",
-  "TT",
-  "TV",
-  "TW",
-  "TZ",
-  "UA",
-  "UG",
-  "UM",
-  "US",
-  "UY",
-  "UZ",
-  "VA",
-  "VC",
-  "VE",
-  "VG",
-  "VI",
-  "VN",
-  "VU",
-  "WF",
-  "WS",
-  "YE",
-  "YT",
-  "ZA",
-  "ZM",
-  "ZW",
-] as const;
+import countries, { type Alpha2Code } from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
 
-export type CountryCode = (typeof ISO_COUNTRY_CODES)[number];
+countries.registerLocale(en);
+
+export type CountryCode = Alpha2Code;
 
 export interface CountryOption {
   code: CountryCode;
@@ -260,27 +13,73 @@ export interface CountryOption {
 
 export const DEFAULT_COUNTRY = "Germany";
 
-const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+const LOCALE = "en";
 
-export const COUNTRY_OPTIONS: CountryOption[] = ISO_COUNTRY_CODES.map(
-  (code) => {
-    const label = regionNames.of(code) ?? code;
-    return {
-      code,
-      label,
-      value: label,
-    };
-  },
-).sort((a, b) => a.label.localeCompare(b.label, "en"));
-
-export function findCountryByName(name: string): CountryOption | undefined {
-  const normalizedName = name.trim().toLocaleLowerCase("en");
-
-  return COUNTRY_OPTIONS.find(
-    (country) => country.value.toLocaleLowerCase("en") === normalizedName,
-  );
+function isCountryCode(code: string): code is CountryCode {
+  return countries.isValid(code.toUpperCase());
 }
 
+export const COUNTRY_OPTIONS: CountryOption[] = Object.entries(
+  countries.getNames(LOCALE, { select: "official" }),
+)
+  .map(([code, label]) => ({
+    code: code as CountryCode,
+    label,
+    value: label,
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label, LOCALE));
+
+/**
+ * Country name -> country option
+ *
+ * Example:
+ * "Germany" -> { code: "DE", label: "Germany", value: "Germany" }
+ */
+export function findCountryByName(name: string): CountryOption | undefined {
+  const alpha2Code = countries.getAlpha2Code(name.trim(), LOCALE);
+
+  if (!alpha2Code) {
+    return undefined;
+  }
+
+  return findCountryByCode(alpha2Code);
+}
+
+/**
+ * Country code -> country option
+ *
+ * Example:
+ * "DE" -> { code: "DE", label: "Germany", value: "Germany" }
+ */
+export function findCountryByCode(code: string): CountryOption | undefined {
+  const normalizedCode = code.trim().toUpperCase();
+
+  if (!isCountryCode(normalizedCode)) {
+    return undefined;
+  }
+
+  const label = countries.getName(normalizedCode, LOCALE, {
+    select: "official",
+  });
+
+  if (!label) {
+    return undefined;
+  }
+
+  return {
+    code: normalizedCode,
+    label,
+    value: label,
+  };
+}
+
+/**
+ * Accepts either a country name or an alpha-2 country code.
+ *
+ * Examples:
+ * "Germany" -> Germany option
+ * "DE"      -> Germany option
+ */
 export function getCountryOption(
   country: string | null | undefined,
 ): CountryOption | undefined {
@@ -288,7 +87,57 @@ export function getCountryOption(
     return undefined;
   }
 
-  return findCountryByName(country);
+  const trimmedCountry = country.trim();
+
+  if (!trimmedCountry) {
+    return undefined;
+  }
+
+  if (trimmedCountry.length === 2) {
+    const byCode = findCountryByCode(trimmedCountry);
+
+    if (byCode) {
+      return byCode;
+    }
+  }
+
+  return findCountryByName(trimmedCountry);
+}
+
+/**
+ * Country name -> alpha-2 code
+ *
+ * Example:
+ * "Germany" -> "DE"
+ */
+export function getCountryCodeByName(
+  name: string | null | undefined,
+): CountryCode | undefined {
+  if (!name) {
+    return undefined;
+  }
+
+  const alpha2Code = countries.getAlpha2Code(name.trim(), LOCALE);
+
+  return alpha2Code as CountryCode | undefined;
+}
+
+/**
+ * Alpha-2 code -> country name
+ *
+ * Example:
+ * "DE" -> "Germany"
+ */
+export function getCountryNameByCode(
+  code: string | null | undefined,
+): string | undefined {
+  if (!code) {
+    return undefined;
+  }
+
+  const country = findCountryByCode(code);
+
+  return country?.label;
 }
 
 export function getDefaultCountry(existingCountry: string | null | undefined) {

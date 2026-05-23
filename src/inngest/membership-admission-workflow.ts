@@ -1,52 +1,48 @@
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
+import { getFyiRecipients, getPositionAssignments } from "@/db/authority";
 import { user } from "@/db/schema/auth";
-import {
-  admissionParticipant,
-  boardResolution,
-  boardVote,
-} from "@/db/schema/board-admission";
 import { legalMembership } from "@/db/schema/legal-membership";
-import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution-task-assigned";
-import MembershipAdmissionCompletedBoardEmail from "@/emails/membership-admission-completed-board";
-import MembershipAdmissionConfirmedEmail from "@/emails/membership-admission-confirmed";
-import MembershipApplicationReadyEmail from "@/emails/membership-application-ready";
-import MembershipApplicationSubmittedEmail from "@/emails/membership-application-submitted";
+import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution/board-resolution-task-assigned";
+import MembershipAdmissionCompletedBoardEmail from "@/emails/membership/admission/membership-admission-completed-board";
+import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/membership-admission-confirmed";
+import MembershipApplicationReadyEmail from "@/emails/membership/admission/membership-application-ready";
+import MembershipApplicationSubmittedEmail from "@/emails/membership/admission/membership-application-submitted";
 import { env } from "@/env";
 import {
   computeResolutionRoles,
   computeVoteOutcome,
   type VoteOutcome,
 } from "@/lib/board-resolution-rules";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
+import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
   archiveLegalDocument,
   downloadArchivedDocument,
 } from "@/lib/legal-documents/drive-archive";
-import { mergePdfsWithAttachments } from "@/lib/legal-documents/pdf-merge";
-import {
-  readFinanzordnungBuffer,
-  readSatzungBuffer,
-} from "@/lib/legal-documents/static-documents";
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
-import { renderAppendixPage } from "@/lib/legal-documents/templates/appendix";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
-import { renderMembershipApplicationTemplate } from "@/lib/legal-documents/templates/membership-application";
-import { resend } from "@/lib/resend";
+import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
+import { notifyUntil } from "./lib/step-loops";
 
 export const membershipAdmissionWorkflow = inngest.createFunction(
   {
     id: "membership-admission-workflow",
     name: "Membership Admission Workflow",
     triggers: [{ event: events.admissionWorkflowStarted }],
+    cancelOn: [
+      {
+        event: events.cancellationRequested.name,
+        if: "async.data.subjectUserId == event.data.userId",
+      },
+    ],
   },
   async ({ event, step, runId }) => {
     const { legalMembershipId, subjectUserId } = event.data;
 
-    // Step 1: Store the Inngest run ID and load the subject user in one step so
-    // downstream steps can reference firstName/lastName/email/status without
-    // redundant DB round-trips.
+    // Step 1: Store the Inngest run ID and load the subject user.
     const subject = await step.run("store-inngest-run-id", async () => {
       await db
         .update(legalMembership)
@@ -71,75 +67,68 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         ? `${subject.firstName} ${subject.lastName}`.trim()
         : subjectUserId;
 
-    // Step 1b: Load board notification data — participants and resolution URL.
-    const boardTaskData = await step.run("load-board-task-data", async () => {
-      const resolution = await db.query.boardResolution.findFirst({
-        where: (br, { eq: eqFn }) =>
-          eqFn(br.legalMembershipId, legalMembershipId),
-        columns: { id: true },
-      });
+    // Steps 1b–4: Vote loop. Up to 3 rounds; each round polls for a vote with
+    // 3-day inner waits and re-emails still-pending participants until a vote
+    // arrives or the 90-day budget for that round expires.
+    const VOTE_TOTAL_DAYS = 90;
+    const VOTE_INTERVAL_DAYS = 3;
 
-      const participants = await db
-        .select({
-          userId: admissionParticipant.userId,
-          email: user.email,
-          firstName: user.firstName,
-        })
-        .from(admissionParticipant)
-        .innerJoin(user, eq(user.id, admissionParticipant.userId))
-        .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
-
-      return {
-        subjectName,
-        resolutionUrl: resolution
-          ? `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${resolution.id}`
-          : `${env.NEXT_PUBLIC_COCKPIT_URL}/people`,
-        participants,
-      };
-    });
-
-    // Step 1c: Send one email per board participant — each in its own step so a
-    // Resend failure only retries that participant's send, not the entire fan-out.
-    for (const participant of boardTaskData.participants) {
-      await step.run(
-        `send-board-task-email-${participant.userId}`,
-        async () => {
-          await resend.emails.send({
-            from: "START Berlin <notifications@cockpit.start-berlin.com>",
-            to: participant.email,
-            subject: `Action required: vote on ${boardTaskData.subjectName}'s membership`,
-            react: BoardResolutionTaskAssignedEmail({
-              firstName: participant.firstName ?? "",
-              subjectName: boardTaskData.subjectName,
-              resolutionUrl: boardTaskData.resolutionUrl,
-            }),
-          });
-        },
-      );
-    }
-
-    // Steps 2–4: Vote loop — wait for up to 3 individual board votes (one per
-    // officer). We allow up to 3 rounds so each officer gets one event. The
-    // loop exits early once a resolution is reached.
     let voteRound = 0;
     let resolution: VoteOutcome = "pending";
 
     while (voteRound < 3 && resolution === "pending") {
       voteRound++;
 
-      // Wait up to 90 days for the next vote.
-      const voteEvent = await step.waitForEvent(
-        `wait-for-board-vote-${voteRound}`,
-        {
-          event: events.boardVoteCast,
-          timeout: "90d",
-          if: "async.data.legalMembershipId == event.data.legalMembershipId",
+      const sendVoteNotifications = async (index: number) => {
+        const lm = await db.query.legalMembership.findFirst({
+          where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+          columns: { boardParticipants: true, boardVotes: true },
+        });
+        const voted = new Set((lm?.boardVotes ?? []).map((v) => v.voterUserId));
+        const pendingIds = (lm?.boardParticipants ?? [])
+          .map((p) => p.userId)
+          .filter((id) => !voted.has(id));
+        if (pendingIds.length === 0) return;
+
+        const pendingUsers = await db.query.user.findMany({
+          where: (u, { inArray }) => inArray(u.id, pendingIds),
+          columns: { id: true, email: true, firstName: true },
+        });
+        const isReminder = index > 0;
+        await Promise.all(
+          pendingUsers
+            .filter((u) => u.email)
+            .map((u) =>
+              sendEmail({
+                from: "START Berlin <notifications@cockpit.start-berlin.com>",
+                to: u.email!,
+                subject: isReminder
+                  ? `Reminder: vote on ${subjectName}'s membership`
+                  : `Action required: vote on ${subjectName}'s membership`,
+                react: BoardResolutionTaskAssignedEmail({
+                  firstName: u.firstName ?? "",
+                  subjectName,
+                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
+                  isReminder,
+                }),
+              }),
+            ),
+        );
+      };
+
+      const voteEvent = await notifyUntil(step, {
+        id: `board-vote-r${voteRound}`,
+        terminateOn: {
+          eventName: events.boardVoteCast.name,
+          match: "legalMembershipId",
         },
-      );
+        timeoutDays: VOTE_TOTAL_DAYS,
+        remindEveryDays: VOTE_INTERVAL_DAYS,
+        send: sendVoteNotifications,
+      });
 
       if (voteEvent === null) {
-        // Timeout — no vote received in 90 days; escalate to manual followup.
-        await step.run("timeout-to-manual-followup", async () => {
+        await step.run(`timeout-to-manual-followup-r${voteRound}`, async () => {
           await db
             .update(legalMembership)
             .set({ status: "manual_followup" })
@@ -148,21 +137,19 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         return { outcome: "timeout", legalMembershipId };
       }
 
-      // Read all votes cast so far for this legal membership from the DB and
-      // evaluate — this is robust to out-of-order delivery and Inngest replays.
       resolution = await step.run(
         `evaluate-votes-round-${voteRound}`,
         async () => {
-          const votes = await db
-            .select({ value: boardVote.value })
-            .from(boardVote)
-            .where(eq(boardVote.legalMembershipId, legalMembershipId));
+          const lm = await db.query.legalMembership.findFirst({
+            where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+            columns: { boardVotes: true },
+          });
+          const votes = lm?.boardVotes ?? [];
           return computeVoteOutcome(votes.map((v) => v.value));
         },
       );
     }
 
-    // Step 5: Act on the vote resolution.
     if (resolution === "manual_followup") {
       await step.run("reject-to-manual-followup", async () => {
         await db
@@ -174,7 +161,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     }
 
     if (resolution !== "approved") {
-      // Still pending after 3 rounds with no resolution — manual followup.
       await step.run("unresolved-to-manual-followup", async () => {
         await db
           .update(legalMembership)
@@ -184,7 +170,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       return { outcome: "unresolved", legalMembershipId };
     }
 
-    // Step 6: Board approved — update status to application_pending.
     await step.run("mark-application-pending", async () => {
       await db
         .update(legalMembership)
@@ -192,32 +177,33 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         .where(eq(legalMembership.id, legalMembershipId));
     });
 
-    // Notify the applicant that they can now submit their membership application.
-    await step.run("notify-applicant-board-approved", async () => {
-      if (!subject.email) {
-        throw new Error(`Missing email for subject user ${subjectUserId}`);
-      }
-      await resend.emails.send({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: subject.email,
-        subject: "Complete your membership application",
-        react: MembershipApplicationReadyEmail({
-          firstName: subject.firstName,
-          applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
-        }),
-      });
-    });
-
-    // Step 7: Wait for the applicant to submit their membership application
-    // (up to 90 days).
-    const applicationEvent = await step.waitForEvent(
-      "wait-for-application-submitted",
-      {
-        event: events.applicationSubmitted,
-        timeout: "90d",
-        if: "async.data.legalMembershipId == event.data.legalMembershipId",
+    // Wait for the applicant to submit, sending a reminder every 3 days until
+    // submission or the 90-day budget expires.
+    const applicationEvent = await notifyUntil(step, {
+      id: "application",
+      terminateOn: {
+        eventName: events.applicationSubmitted.name,
+        match: "legalMembershipId",
       },
-    );
+      timeoutDays: 90,
+      remindEveryDays: 3,
+      send: async (index) => {
+        if (!subject.email) return;
+        const isReminder = index > 0;
+        await sendEmail({
+          from: "START Berlin <notifications@cockpit.start-berlin.com>",
+          to: subject.email,
+          subject: isReminder
+            ? "Reminder: complete your START Berlin membership application"
+            : "Complete your START Berlin membership application",
+          react: MembershipApplicationReadyEmail({
+            firstName: subject.firstName,
+            applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
+            isReminder,
+          }),
+        });
+      },
+    });
 
     if (applicationEvent === null) {
       await step.run("application-timeout-to-manual-followup", async () => {
@@ -229,7 +215,6 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       return { outcome: "application_timeout", legalMembershipId };
     }
 
-    // Step 8: Mark as processing while we generate documents.
     await step.run("mark-processing", async () => {
       await db
         .update(legalMembership)
@@ -238,213 +223,188 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     });
 
     // Step 9a: Render and archive board resolution PDF.
-    // archiveLegalDocument handles idempotency internally via the DB UNIQUE constraint.
-    await step.run("archive-board-resolution", async () => {
-      const [resolution] = await db
-        .select({
-          id: boardResolution.id,
-          resolutionText: boardResolution.resolutionText,
-          resolutionTextHash: boardResolution.resolutionTextHash,
-        })
-        .from(boardResolution)
-        .where(eq(boardResolution.legalMembershipId, legalMembershipId));
+    // Returns driveFileId — Inngest caches this for downstream steps.
+    const { driveFileId: boardResolutionFileDriveId } = await step.run(
+      "archive-board-resolution",
+      async () => {
+        const lm = await db.query.legalMembership.findFirst({
+          where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+          columns: {
+            boardResolutionText: true,
+            boardResolutionHash: true,
+            boardParticipants: true,
+            boardVotes: true,
+          },
+        });
 
-      if (!resolution) {
-        throw new Error(`No board_resolution found for ${legalMembershipId}`);
-      }
+        if (!lm?.boardResolutionText || !lm.boardResolutionHash) {
+          throw new Error(
+            `No board resolution data found for ${legalMembershipId}`,
+          );
+        }
 
-      const participants = await db
-        .select({
-          userId: admissionParticipant.userId,
-          officerFunction: admissionParticipant.officerFunction,
-          firstName: user.firstName,
-          lastName: user.lastName,
-        })
-        .from(admissionParticipant)
-        .innerJoin(user, eq(user.id, admissionParticipant.userId))
-        .where(eq(admissionParticipant.legalMembershipId, legalMembershipId));
+        const participants = lm.boardParticipants ?? [];
+        const votes = lm.boardVotes ?? [];
 
-      const votes = await db
-        .select({
-          voterUserId: boardVote.voterUserId,
-          value: boardVote.value,
-          castAt: boardVote.castAt,
-          firstName: user.firstName,
-          lastName: user.lastName,
-        })
-        .from(boardVote)
-        .innerJoin(user, eq(user.id, boardVote.voterUserId))
-        .where(eq(boardVote.legalMembershipId, legalMembershipId));
+        const participantIds = participants.map((p) => p.userId);
+        const participantUsers =
+          participantIds.length > 0
+            ? await db.query.user.findMany({
+                where: (u, { inArray }) => inArray(u.id, participantIds),
+                columns: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              })
+            : [];
 
-      const mappedParticipants = participants.map((p) => ({
-        userId: p.userId,
-        name: `${p.firstName} ${p.lastName}`,
-        officerFunction: p.officerFunction,
-      }));
-
-      const mappedVotes = votes.map((v) => ({
-        voterUserId: v.voterUserId,
-        voterName: `${v.firstName} ${v.lastName}`,
-        value: v.value,
-        castAt: v.castAt,
-      }));
-
-      const roles = computeResolutionRoles(
-        participants.map((p) => ({
-          userId: p.userId,
-          officerFunction: p.officerFunction,
-        })),
-        votes.map((v) => ({ voterUserId: v.voterUserId, value: v.value })),
-      );
-
-      if (!roles) {
-        throw new Error(
-          `Cannot determine Sitzungsleiter/Protokollführer for ${legalMembershipId}: fewer than 2 yes-voting participants found`,
+        const userNameById = new Map(
+          participantUsers.map((u) => [
+            u.id,
+            { firstName: u.firstName, lastName: u.lastName },
+          ]),
         );
-      }
 
-      const sitzungsleiterParticipant = participants.find(
-        (p) => p.userId === roles.sitzungsleiter.userId,
-      );
-      const protokollfuehrerParticipant = participants.find(
-        (p) => p.userId === roles.protokollfuehrer.userId,
-      );
+        const mappedParticipants = participants.map((p) => {
+          const names = userNameById.get(p.userId);
+          return {
+            userId: p.userId,
+            name: names
+              ? `${names.firstName} ${names.lastName}`.trim()
+              : p.userId,
+            officerFunction: p.officerFunction,
+          };
+        });
 
-      const { renderToBuffer } = await import("@react-pdf/renderer");
-      const element = renderBoardResolutionTemplate({
-        legalMembershipId,
-        resolutionId: resolution.id,
-        resolutionText: resolution.resolutionText,
-        resolutionTextHash: resolution.resolutionTextHash,
-        subjectName,
-        sitzungsleiter: {
-          name: `${sitzungsleiterParticipant?.firstName ?? ""} ${sitzungsleiterParticipant?.lastName ?? ""}`.trim(),
-          officerFunction: roles.sitzungsleiter.officerFunction,
-        },
-        protokollfuehrer: {
-          name: `${protokollfuehrerParticipant?.firstName ?? ""} ${protokollfuehrerParticipant?.lastName ?? ""}`.trim(),
-          officerFunction: roles.protokollfuehrer.officerFunction,
-        },
-        participants: mappedParticipants,
-        votes: mappedVotes,
-        renderedAt: new Date(),
-      });
+        const mappedVotes = votes.map((v) => {
+          const voterNames = userNameById.get(v.voterUserId);
+          return {
+            voterUserId: v.voterUserId,
+            voterName: voterNames
+              ? `${voterNames.firstName} ${voterNames.lastName}`.trim()
+              : v.voterUserId,
+            value: v.value,
+            castAt: new Date(v.castAt),
+          };
+        });
 
-      const buffer = Buffer.from(await renderToBuffer(element));
+        const roles = computeResolutionRoles(
+          participants.map((p) => ({
+            userId: p.userId,
+            officerFunction: p.officerFunction,
+          })),
+          votes.map((v) => ({ voterUserId: v.voterUserId, value: v.value })),
+        );
 
-      await archiveLegalDocument({
-        legalMembershipId,
-        documentType: "board_resolution",
-        buffer,
-        fileName: `board-resolution-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-        firstName: subject.firstName,
-        lastName: subject.lastName,
-      });
-    });
+        if (!roles) {
+          throw new Error(
+            `Cannot determine Sitzungsleiter/Protokollführer for ${legalMembershipId}: fewer than 2 yes-voting participants found`,
+          );
+        }
+
+        const sitzungsleiterNames = userNameById.get(
+          roles.sitzungsleiter.userId,
+        );
+        const protokollfuehrerNames = userNameById.get(
+          roles.protokollfuehrer.userId,
+        );
+
+        const { renderToBuffer } = await import("@react-pdf/renderer");
+        const element = renderBoardResolutionTemplate({
+          legalMembershipId,
+          resolutionId: legalMembershipId,
+          resolutionText: lm.boardResolutionText,
+          resolutionTextHash: lm.boardResolutionHash,
+          subjectName,
+          sitzungsleiter: {
+            name: sitzungsleiterNames
+              ? `${sitzungsleiterNames.firstName} ${sitzungsleiterNames.lastName}`.trim()
+              : roles.sitzungsleiter.userId,
+            officerFunction: roles.sitzungsleiter.officerFunction,
+          },
+          protokollfuehrer: {
+            name: protokollfuehrerNames
+              ? `${protokollfuehrerNames.firstName} ${protokollfuehrerNames.lastName}`.trim()
+              : roles.protokollfuehrer.userId,
+            officerFunction: roles.protokollfuehrer.officerFunction,
+          },
+          participants: mappedParticipants,
+          votes: mappedVotes,
+          renderedAt: new Date(),
+        });
+
+        const buffer = Buffer.from(await renderToBuffer(element));
+
+        return archiveLegalDocument({
+          legalMembershipId,
+          buffer,
+          fileName: `board-resolution-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
+          firstName: subject.firstName,
+          lastName: subject.lastName,
+        });
+      },
+    );
 
     // Step 9b: Render and archive membership application PDF.
-    await step.run("archive-membership-application", async () => {
-      const application = await db.query.membershipApplication.findFirst({
-        where: (ma, { eq: eqFn }) =>
-          eqFn(ma.legalMembershipId, legalMembershipId),
-      });
+    const { driveFileId: applicationFileDriveId } = await step.run(
+      "archive-membership-application",
+      async () => {
+        const application = await db.query.membershipApplication.findFirst({
+          where: (ma, { eq: eqFn }) =>
+            eqFn(ma.legalMembershipId, legalMembershipId),
+        });
 
-      if (!application) {
-        throw new Error(
-          `No membership_application found for ${legalMembershipId}`,
-        );
-      }
+        if (!application) {
+          throw new Error(
+            `No membership_application found for ${legalMembershipId}`,
+          );
+        }
 
-      if (
-        !application.street ||
-        !application.city ||
-        !application.zip ||
-        !application.country ||
-        !application.birthDate ||
-        !application.declarations ||
-        !application.feeTextVersion ||
-        !application.applicationVersion ||
-        !application.submittedAt
-      ) {
-        throw new Error(
-          `Membership application ${application.id} is missing required fields`,
-        );
-      }
+        if (application.subjectUserId !== subjectUserId) {
+          throw new Error(
+            `Ownership mismatch: application subjectUserId ${application.subjectUserId} does not match expected ${subjectUserId} for legal membership ${legalMembershipId}`,
+          );
+        }
 
-      const renderedAt = new Date();
-      const { renderToBuffer } = await import("@react-pdf/renderer");
-      const element = renderMembershipApplicationTemplate({
-        legalMembershipId,
-        applicationId: application.id,
-        subjectName,
-        email: application.personalEmail ?? undefined,
-        birthDate: application.birthDate,
-        address: {
-          street: application.street,
-          city: application.city,
-          state: application.state ?? "",
-          zip: application.zip,
-          country: application.country,
-        },
-        declarations: application.declarations,
-        feeTextVersion: application.feeTextVersion,
-        applicationVersion: application.applicationVersion,
-        submittedAt: application.submittedAt,
-        renderedAt,
-      });
+        if (
+          !application.street ||
+          !application.city ||
+          !application.zip ||
+          !application.country ||
+          !application.birthDate ||
+          !application.declarations ||
+          !application.feeTextVersion ||
+          !application.applicationVersion ||
+          !application.submittedAt
+        ) {
+          throw new Error(
+            `Membership application ${application.id} is missing required fields`,
+          );
+        }
 
-      const [
-        mainBuffer,
-        appendixABuffer,
-        appendixBBuffer,
-        satzungBuffer,
-        finanzordnungBuffer,
-      ] = await Promise.all([
-        renderToBuffer(element).then((b) => Buffer.from(b)),
-        renderToBuffer(
-          renderAppendixPage({
-            letter: "A",
-            title: "Bylaws (Satzung)",
-            docId: "ANX-A",
-            legalMembershipId,
-            renderedAt,
-          }),
-        ).then((b) => Buffer.from(b)),
-        renderToBuffer(
-          renderAppendixPage({
-            letter: "B",
-            title: "Financial Regulations (Finanzordnung)",
-            docId: "ANX-B",
-            legalMembershipId,
-            renderedAt,
-          }),
-        ).then((b) => Buffer.from(b)),
-        readSatzungBuffer(),
-        readFinanzordnungBuffer(),
-      ]);
-
-      const buffer = await mergePdfsWithAttachments(mainBuffer, [
-        {
-          title: "Appendix A: Bylaws",
-          buffer: satzungBuffer,
-          dividerBuffer: appendixABuffer,
-        },
-        {
-          title: "Appendix B: Financial Regulations",
-          buffer: finanzordnungBuffer,
-          dividerBuffer: appendixBBuffer,
-        },
-      ]);
-
-      await archiveLegalDocument({
-        legalMembershipId,
-        documentType: "membership_application",
-        buffer,
-        fileName: `membership-application-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-        firstName: subject.firstName,
-        lastName: subject.lastName,
-      });
-    });
+        return archiveMembershipApplicationPdf({
+          legalMembershipId,
+          applicationId: application.id,
+          subjectName,
+          firstName: subject.firstName,
+          lastName: subject.lastName,
+          email: application.personalEmail ?? undefined,
+          birthDate: application.birthDate,
+          address: {
+            street: application.street,
+            city: application.city,
+            state: application.state ?? "",
+            zip: application.zip,
+            country: application.country,
+          },
+          declarations: application.declarations,
+          feeTextVersion: application.feeTextVersion,
+          applicationVersion: application.applicationVersion,
+          submittedAt: application.submittedAt,
+        });
+      },
+    );
 
     // Send the applicant a confirmation email with the application PDF attached.
     await step.run("send-application-submitted-email", async () => {
@@ -452,28 +412,17 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         throw new Error(`Missing email for subject user ${subjectUserId}`);
       }
 
-      const applicationDoc = await db.query.legalDocument.findFirst({
-        where: (d, { and: andFn, eq: eqFn }) =>
-          andFn(
-            eqFn(d.legalMembershipId, legalMembershipId),
-            eqFn(d.documentType, "membership_application"),
-          ),
-        columns: { driveFileId: true },
-      });
-
-      const attachments = applicationDoc?.driveFileId
+      const attachments = applicationFileDriveId
         ? [
             {
               filename: `membership-application-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-              content: await downloadArchivedDocument(
-                applicationDoc.driveFileId,
-              ),
+              content: await downloadArchivedDocument(applicationFileDriveId),
               contentType: "application/pdf",
             },
           ]
         : undefined;
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
         subject: "Your membership application has been received",
@@ -484,12 +433,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 10: Activate the legal membership and set legalMembershipState.
-    // Only reached after all documents are archived.
-    // Both updates are wrapped in a transaction to prevent split-brain where
-    // legal_membership.status = 'active' but user.legalMembershipState is stale.
-    // The status promotion (onboarding → member) happens here, not at payment
-    // setup, since legal membership and payment are independent.
+    // Step 10: Activate the legal membership.
     const activatedAt = await step.run(
       "activate-legal-membership",
       async () => {
@@ -510,66 +454,93 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               and(eq(user.id, subjectUserId), eq(user.status, "onboarding")),
             );
         });
+
         return now.toISOString();
       },
     );
 
-    // Step 9c: Render and archive admission confirmation PDF (after activation so activatedAt is set).
-    await step.run("archive-admission-confirmation", async () => {
-      const [boardMembers, application] = await Promise.all([
-        db
-          .select({
-            userId: admissionParticipant.userId,
-            officerFunction: admissionParticipant.officerFunction,
-            firstName: user.firstName,
-            lastName: user.lastName,
-          })
-          .from(admissionParticipant)
-          .innerJoin(user, eq(user.id, admissionParticipant.userId))
-          .where(eq(admissionParticipant.legalMembershipId, legalMembershipId)),
-        db.query.membershipApplication.findFirst({
-          where: (ma, { eq: eqFn }) =>
-            eqFn(ma.legalMembershipId, legalMembershipId),
-          columns: { street: true, zip: true, city: true, country: true },
-        }),
-      ]);
-
-      const board = boardMembers.map((p) => ({
-        name: `${p.firstName} ${p.lastName}`.trim(),
-        role: ROLE_DISPLAY[p.officerFunction] ?? p.officerFunction,
-      }));
-
-      const subjectAddress = application?.street
-        ? [
-            application.street,
-            `${application.zip} ${application.city}`.trim(),
-            application.country,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        : undefined;
-
-      const { renderToBuffer } = await import("@react-pdf/renderer");
-      const element = renderAdmissionConfirmationTemplate({
-        legalMembershipId,
-        subjectName,
-        subjectAddress,
-        board,
-        activatedAt: new Date(activatedAt),
-        renderedAt: new Date(),
-      });
-
-      const buffer = Buffer.from(await renderToBuffer(element));
-
-      await archiveLegalDocument({
-        legalMembershipId,
-        documentType: "admission_confirmation",
-        buffer,
-        fileName: `admission-confirmation-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-        firstName: subject.firstName,
-        lastName: subject.lastName,
-      });
+    await step.sendEvent("user-status-changed", {
+      name: events.cockpitUserUpdated.name,
+      data: { id: subjectUserId },
     });
+
+    // Kick off the mandate-setup reminder workflow; it self-checks current
+    // mandate state at each tick so it's a no-op if the user already has one.
+    await step.sendEvent("kick-mandate-setup-reminder", {
+      name: events.mandateSetupNeeded.name,
+      data: { userId: subjectUserId },
+    });
+
+    // Step 9c: Render and archive admission confirmation PDF.
+    const { driveFileId: confirmationFileDriveId } = await step.run(
+      "archive-admission-confirmation",
+      async () => {
+        const [lm, application] = await Promise.all([
+          db.query.legalMembership.findFirst({
+            where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+            columns: { boardParticipants: true },
+          }),
+          db.query.membershipApplication.findFirst({
+            where: (ma, { eq: eqFn }) =>
+              eqFn(ma.legalMembershipId, legalMembershipId),
+            columns: { street: true, zip: true, city: true, country: true },
+          }),
+        ]);
+
+        const participants = lm?.boardParticipants ?? [];
+        const participantIds = participants.map((p) => p.userId);
+
+        const participantUsers =
+          participantIds.length > 0
+            ? await db.query.user.findMany({
+                where: (u, { inArray }) => inArray(u.id, participantIds),
+                columns: { id: true, firstName: true, lastName: true },
+              })
+            : [];
+
+        const userNameById = new Map(participantUsers.map((u) => [u.id, u]));
+
+        const board = participants.map((p) => {
+          const names = userNameById.get(p.userId);
+          return {
+            name: names
+              ? `${names.firstName} ${names.lastName}`.trim()
+              : p.userId,
+            role: ROLE_DISPLAY[p.officerFunction] ?? p.officerFunction,
+          };
+        });
+
+        const subjectAddress = application?.street
+          ? [
+              application.street,
+              `${application.zip} ${application.city}`.trim(),
+              application.country,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : undefined;
+
+        const { renderToBuffer } = await import("@react-pdf/renderer");
+        const element = renderAdmissionConfirmationTemplate({
+          legalMembershipId,
+          subjectName,
+          subjectAddress,
+          board,
+          activatedAt: new Date(activatedAt),
+          renderedAt: new Date(),
+        });
+
+        const buffer = Buffer.from(await renderToBuffer(element));
+
+        return archiveLegalDocument({
+          legalMembershipId,
+          buffer,
+          fileName: `admission-confirmation-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
+          firstName: subject.firstName,
+          lastName: subject.lastName,
+        });
+      },
+    );
 
     // Step 11: Send admission confirmation to the new member.
     await step.run("send-admission-confirmed-email", async () => {
@@ -577,46 +548,22 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         throw new Error(`Missing email for subject user ${subjectUserId}`);
       }
 
-      // Fetch user status fresh — it may have changed since step 1 (e.g. GoCardless
-      // payment activated operational status from 'onboarding' to 'member').
-      const [freshUser, confirmationDoc] = await Promise.all([
-        db.query.user.findFirst({
-          where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
-          columns: { status: true, gocardlessMandateId: true },
-        }),
-        db.query.legalDocument.findFirst({
-          where: (d, { and: andFn, eq: eqFn }) =>
-            andFn(
-              eqFn(d.legalMembershipId, legalMembershipId),
-              eqFn(d.documentType, "admission_confirmation"),
-            ),
-          columns: { driveFileId: true },
-        }),
-      ]);
-
-      const includesPaymentCta =
-        freshUser?.status === "member" && !freshUser?.gocardlessMandateId;
-
-      const attachments = confirmationDoc?.driveFileId
+      const attachments = confirmationFileDriveId
         ? [
             {
               filename: `admission-confirmation-${subject.firstName}-${subject.lastName}-${legalMembershipId}.pdf`,
-              content: await downloadArchivedDocument(
-                confirmationDoc.driveFileId,
-              ),
+              content: await downloadArchivedDocument(confirmationFileDriveId),
               contentType: "application/pdf",
             },
           ]
         : undefined;
 
-      await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: subject.email,
-        subject: "Welcome to START Berlin",
+        subject: "Your START Berlin membership is active",
         react: MembershipAdmissionConfirmedEmail({
           firstName: subject.firstName,
-          includesPaymentCta,
-          membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
         }),
         attachments,
       });
@@ -626,32 +573,45 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const boardCompletionData = await step.run(
       "load-board-completion-data",
       async () => {
-        const [participants, boardResolutionDoc] = await Promise.all([
-          db
-            .select({
-              userId: admissionParticipant.userId,
-              email: user.email,
-              firstName: user.firstName,
-            })
-            .from(admissionParticipant)
-            .innerJoin(user, eq(user.id, admissionParticipant.userId))
-            .where(
-              eq(admissionParticipant.legalMembershipId, legalMembershipId),
-            ),
-          db.query.legalDocument.findFirst({
-            where: (d, { and: andFn, eq: eqFn }) =>
-              andFn(
-                eqFn(d.legalMembershipId, legalMembershipId),
-                eqFn(d.documentType, "board_resolution"),
-              ),
-            columns: { driveFileId: true },
+        const [positions, subjectUser] = await Promise.all([
+          getPositionAssignments(),
+          db.query.user.findFirst({
+            where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+            columns: { department: true },
           }),
         ]);
 
+        const recipients = getFyiRecipients(
+          positions,
+          subjectUserId,
+          subjectUser?.department,
+        );
+
+        const boardMemberIds = new Set(
+          [
+            positions.president,
+            positions.vice_president,
+            positions.head_of_finance,
+          ].flatMap((p) => (p ? [p.userId] : [])),
+        );
+
+        // Non-board recipients can only be the dept head of the subject's
+        // department (per getFyiRecipients), so department is non-null here.
+        const subjectDepartmentLabel = subjectUser?.department
+          ? DEPARTMENT_NAMES[subjectUser.department]
+          : null;
+
         return {
           subjectName,
-          participants,
-          boardResolutionDriveFileId: boardResolutionDoc?.driveFileId ?? null,
+          participants: recipients.map((r) => ({
+            userId: r.userId,
+            email: r.email,
+            firstName: r.firstName,
+            receivingReason: boardMemberIds.has(r.userId)
+              ? "You're receiving this because you're a board member of START Berlin."
+              : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
+          })),
+          boardResolutionDriveFileId: boardResolutionFileDriveId,
         };
       },
     );
@@ -661,6 +621,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       await step.run(
         `send-board-completion-email-${participant.userId}`,
         async () => {
+          if (!participant.email) return;
           const attachments = boardCompletionData.boardResolutionDriveFileId
             ? [
                 {
@@ -673,14 +634,15 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
               ]
             : undefined;
 
-          await resend.emails.send({
+          await sendEmail({
             from: "START Berlin <notifications@cockpit.start-berlin.com>",
             to: participant.email,
-            subject: `Admission complete: ${boardCompletionData.subjectName}`,
+            subject: `Admission complete: ${boardCompletionData.subjectName} is now a member`,
             react: MembershipAdmissionCompletedBoardEmail({
               firstName: participant.firstName ?? "",
               subjectName: boardCompletionData.subjectName,
               legalMembershipId,
+              receivingReason: participant.receivingReason,
             }),
             attachments,
           });

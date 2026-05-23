@@ -1,23 +1,44 @@
+import { randomInt } from "node:crypto";
 import { Common, google } from "googleapis";
 import { NonRetriableError } from "inngest";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
-import SignInInstructionsEmail from "@/emails/signin-instructions";
-import StartCockpitEnabledEmail from "@/emails/start-cockpit-enabled";
+import SignInInstructionsEmail from "@/emails/auth/signin-instructions";
+import StartCockpitEnabledEmail from "@/emails/auth/start-cockpit-enabled";
+import { env } from "@/env";
+import { sendEmail } from "@/lib/email";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
-import { resend } from "@/lib/resend";
 
 function generateRandomPassword(length = 15) {
-  // Simple secure password generator with all required charsets.
-  const chars =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@$!%*#?&";
-  let res = "";
-  for (let i = 0; i < length; i++) {
-    res += chars.charAt(Math.floor(Math.random() * chars.length));
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "@$!%*#?&";
+  const all = upper + lower + digits + special;
+
+  // Guarantee at least one character from each class.
+  const required = [
+    upper[randomInt(upper.length)],
+    lower[randomInt(lower.length)],
+    digits[randomInt(digits.length)],
+    special[randomInt(special.length)],
+  ];
+
+  const rest = Array.from(
+    { length: length - required.length },
+    () => all[randomInt(all.length)],
+  );
+
+  // Fisher-Yates shuffle so the required chars aren't always first.
+  const chars = [...required, ...rest];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
   }
-  return res;
+
+  return chars.join("");
 }
 
 export const onboardNewUserWorkflow = inngest.createFunction(
@@ -40,50 +61,68 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     const user = await step.run("create-google-user", async () => {
       const password = generateRandomPassword();
 
-      const auth = createGoogleAuth(
-        "https://www.googleapis.com/auth/admin.directory.user",
-      );
+      if (env.DISABLE_GOOGLE_WORKSPACE) {
+        console.warn(
+          `[google-workspace disabled] would have provisioned ${companyEmail}`,
+        );
+      } else {
+        const auth = createGoogleAuth(
+          "https://www.googleapis.com/auth/admin.directory.user",
+        );
 
-      const admin = google.admin({
-        auth,
-        version: "directory_v1",
-      });
-
-      try {
-        const res = await admin.users.insert({
-          requestBody: {
-            name: { givenName: firstName, familyName: lastName },
-            primaryEmail: companyEmail,
-            recoveryEmail: personalEmail,
-            password,
-            changePasswordAtNextLogin: true,
-          },
+        const admin = google.admin({
+          auth,
+          version: "directory_v1",
         });
 
-        if (!res.ok) {
-          throw new Error(`Failed to create user: ${res.statusText}.`);
-        }
-      } catch (error) {
-        if (
-          error instanceof Common.GaxiosError &&
-          error.message === "Entity already exists."
-        ) {
-          throw new NonRetriableError(
-            `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
-          );
-        }
+        try {
+          const res = await admin.users.insert({
+            requestBody: {
+              name: { givenName: firstName, familyName: lastName },
+              primaryEmail: companyEmail,
+              recoveryEmail: personalEmail,
+              password,
+              changePasswordAtNextLogin: true,
+            },
+          });
 
-        throw error;
+          if (!res.ok) {
+            throw new Error(`Failed to create user: ${res.statusText}.`);
+          }
+        } catch (error) {
+          if (
+            error instanceof Common.GaxiosError &&
+            error.message === "Entity already exists."
+          ) {
+            throw new NonRetriableError(
+              `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
+            );
+          }
+
+          throw error;
+        }
       }
 
-      return { companyEmail, personalEmail, password };
+      await sendEmail({
+        from: "START Berlin <notifications@cockpit.start-berlin.com>",
+        to: personalEmail,
+        subject: "Welcome to START Berlin — your sign-in details",
+        react: SignInInstructionsEmail({
+          firstName,
+          companyEmail,
+          initialPassword: password,
+        }),
+      });
+
+      // password intentionally excluded — must not persist in Inngest run history
+      return { companyEmail, personalEmail };
     });
 
-    await step.run("insert-db-user", async () => {
+    const dbUser = await step.run("insert-db-user", async () => {
       // Convert empty string to null for the database enum
       const departmentValue = department || null;
 
-      return await db
+      const [row] = await db
         .insert(userTable)
         .values({
           id: newId("user"),
@@ -108,23 +147,16 @@ export const onboardNewUserWorkflow = inngest.createFunction(
           },
         })
         .returning({ id: userTable.id });
+      return row;
     });
 
-    await step.run("send-signin-instructions", async () => {
-      return await resend.emails.send({
-        from: "START Berlin <notifications@cockpit.start-berlin.com>",
-        to: user.personalEmail,
-        subject: "Welcome to START Berlin — your sign-in details",
-        react: SignInInstructionsEmail({
-          firstName,
-          companyEmail: user.companyEmail,
-          initialPassword: user.password,
-        }),
-      });
+    await step.sendEvent("trigger-group-reconciliation", {
+      name: events.cockpitUserUpdated.name,
+      data: { id: dbUser.id },
     });
 
     await step.run("send-cockpit-access-email", async () => {
-      return await resend.emails.send({
+      await sendEmail({
         from: "START Berlin <notifications@cockpit.start-berlin.com>",
         to: user.companyEmail,
         subject: "Your START Cockpit access is ready",

@@ -2,19 +2,35 @@ import {
   batchCreateProposedPayments,
   getMembersNeedingProposal,
 } from "@/db/membership-payments";
-import { inngest } from "@/lib/inngest";
+import { env } from "@/env";
+import { events, inngest } from "@/lib/inngest";
 
 export const membershipPaymentProposalsCron = inngest.createFunction(
   {
     id: "membership-payment-proposals",
     name: "Membership Payment Proposals (Daily)",
-    triggers: [{ cron: "0 9 * * *" }],
+    triggers: [{ cron: "TZ=Europe/Berlin 0 9 * * *" }],
   },
   async ({ step }) => {
-    return step.run("check-and-propose", async () => {
+    const result = await step.run("check-and-propose", async () => {
       const members = await getMembersNeedingProposal();
       const proposed = await batchCreateProposedPayments(members);
       return { proposed, eligible: members.length };
     });
+
+    if (result.proposed > 0) {
+      await step.sendEvent("fire-finance-digest", {
+        name: events.paymentProposalCreated.name,
+        data: { count: result.proposed },
+      });
+    }
+
+    if (env.BETTERSTACK_HEARTBEAT_URL) {
+      await step.run("send-heartbeat", async () => {
+        await fetch(env.BETTERSTACK_HEARTBEAT_URL as string);
+      });
+    }
+
+    return result;
   },
 );

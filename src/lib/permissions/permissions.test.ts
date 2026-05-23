@@ -16,10 +16,7 @@ function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
 describe("permissions", () => {
   it("allows global admins to perform admin-listed actions", () => {
     assert.equal(
-      evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
-        "users.create",
-      ),
+      evaluateAuth(authority({ grants: [{ grant: "admin" }] }), "users.create"),
       true,
     );
   });
@@ -36,7 +33,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
+        "user.view",
         { targetDepartment: "events" },
       ),
       true,
@@ -55,7 +52,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
+        "user.view",
         { targetDepartment: "growth" },
       ),
       false,
@@ -74,8 +71,10 @@ describe("permissions", () => {
             },
           ],
         }),
-        "users.view_details",
-        undefined as unknown as { targetDepartment: null },
+        "user.view",
+        undefined as unknown as {
+          targetDepartment: null;
+        },
       ),
       false,
     );
@@ -87,7 +86,7 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "users.view_details",
+        "user.view",
         { targetDepartment: "events" },
       ),
       false,
@@ -100,14 +99,24 @@ describe("permissions", () => {
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "membership.propose",
+        "user.membership.propose",
         { targetDepartment: "events" },
       ),
       true,
     );
   });
 
-  it("allows any department head to view all groups without target context", () => {
+  it("allows people admins to view all groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "groups.view_all",
+      ),
+      true,
+    );
+  });
+
+  it("denies department heads from viewing all groups", () => {
     assert.equal(
       evaluateAuth(
         authority({
@@ -121,7 +130,7 @@ describe("permissions", () => {
         }),
         "groups.view_all",
       ),
-      true,
+      false,
     );
   });
 
@@ -137,20 +146,125 @@ describe("permissions", () => {
             },
           ],
         }),
-        "membership.vote_resolution",
+        "membership.resolution.vote",
       ),
       false,
     );
   });
 
-  it("does not allow legal officers to perform admin-only actions", () => {
+  it("does not allow legal officers to manage group members", () => {
     assert.equal(
       evaluateAuth(
         authority({
           positions: [{ position: "president", scope: "global" }],
         }),
-        "groups.manage_members",
+        "group.members.manage",
+        { isGroupMember: false },
       ),
+      false,
+    );
+  });
+
+  it("allows admins to manage group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin" }] }),
+        "group.members.manage",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("denies people admins from managing group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "group.members.manage",
+        { isGroupMember: false },
+      ),
+      false,
+    );
+  });
+
+  it("denies people admins from creating groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "groups.create",
+      ),
+      false,
+    );
+  });
+
+  it("denies people admins from managing authority", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.manage_authority",
+      ),
+      false,
+    );
+  });
+
+  it("allows people admins to create and import users", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.create",
+      ),
+      true,
+    );
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "users.import",
+      ),
+      true,
+    );
+  });
+
+  it("denies ordinary group members from managing the group", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.members.manage", {
+        isGroupMember: true,
+      }),
+      false,
+    );
+  });
+
+  it("allows admins to export group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin" }] }),
+        "group.export",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows people admins to export group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "group.export",
+        { isGroupMember: false },
+      ),
+      true,
+    );
+  });
+
+  it("denies plain group members from exporting", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.export", { isGroupMember: true }),
+      false,
+    );
+  });
+
+  it("denies non-members from exporting", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.export", { isGroupMember: false }),
       false,
     );
   });
@@ -158,7 +272,7 @@ describe("permissions", () => {
   it("allows global admins to manage batches", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "batches.manage",
       ),
       true,
@@ -187,9 +301,10 @@ describe("permissions", () => {
         evaluateAuth(
           authority({
             status,
-            grants: [{ grant: "admin", scope: "global" }],
+            grants: [{ grant: "admin" }],
           }),
-          "groups.manage_members",
+          "group.members.manage",
+          { isGroupMember: false },
         ),
         false,
       );
@@ -201,9 +316,10 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           status: "member",
-          grants: [{ grant: "admin", scope: "global" }],
+          grants: [{ grant: "admin" }],
         }),
-        "groups.manage_members",
+        "group.members.manage",
+        { isGroupMember: false },
       ),
       true,
     );
@@ -342,7 +458,7 @@ describe("permissions", () => {
   it("allows finance_admin grant to manage payments", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "finance_admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "finance_admin" }] }),
         "payments.manage",
       ),
       true,
@@ -352,7 +468,7 @@ describe("permissions", () => {
   it("denies admin grant from managing payments", () => {
     assert.equal(
       evaluateAuth(
-        authority({ grants: [{ grant: "admin", scope: "global" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
         "payments.manage",
       ),
       false,
@@ -364,7 +480,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           positions: [{ position: "head_of_finance", scope: "global" }],
-          grants: [{ grant: "finance_admin", scope: "global" }],
+          grants: [{ grant: "finance_admin" }],
         }),
         "payments.manage",
       ),
@@ -389,11 +505,315 @@ describe("permissions", () => {
       evaluateAuth(
         authority({
           status: "alumni",
-          grants: [{ grant: "finance_admin", scope: "global" }],
+          grants: [{ grant: "finance_admin" }],
         }),
         "payments.manage",
       ),
       false,
     );
+  });
+
+  describe("users.view_all", () => {
+    it("allows admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows super_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows people_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows any department_head position", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain member", () => {
+      assert.equal(evaluateAuth(authority(), "users.view_all"), false);
+    });
+
+    it("denies finance_admin grant only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "finance_admin" }] }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+
+    it("denies head_of_finance position only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "head_of_finance", scope: "global" }],
+          }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+
+    it("denies president position only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "users.view_all",
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("isUserScopedAction", () => {
+    it('returns true for "user.view"', () => {
+      const { isUserScopedAction } = require("./evaluate");
+      assert.equal(isUserScopedAction("user.view"), true);
+    });
+
+    it('returns false for "users.view_all"', () => {
+      const { isUserScopedAction } = require("./evaluate");
+      assert.equal(isUserScopedAction("users.view_all"), false);
+    });
+  });
+
+  describe("people_admin", () => {
+    it("denies user.membership.propose", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.membership.propose",
+          { targetDepartment: "events" },
+        ),
+        false,
+      );
+    });
+
+    it("allows user.view for any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.view",
+          { targetDepartment: "growth" },
+        ),
+        true,
+      );
+    });
+
+    it("allows users.view_all", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "users.view_all",
+        ),
+        true,
+      );
+    });
+
+    it("allows groups.view_all", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "groups.view_all",
+        ),
+        true,
+      );
+    });
+  });
+
+  describe("membership cancellation and transitions", () => {
+    it("allows president to cancel any member", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.cancel_member",
+        ),
+        true,
+      );
+    });
+
+    it("denies regular member from cancelling another member", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.cancel_member"),
+        false,
+      );
+    });
+
+    it("allows legal officer to decide on a transition in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("allows department head to decide on a transition in their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head from deciding on a transition in a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: "growth" },
+        ),
+        false,
+      );
+    });
+
+    it("denies department head from deciding on a transition for a member with no department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.transition.decide",
+          { targetDepartment: null },
+        ),
+        false,
+      );
+    });
+
+    it("denies regular member from deciding on a transition", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.transition.decide", {
+          targetDepartment: "events",
+        }),
+        false,
+      );
+    });
+
+    it("allows legal officer to acknowledge a cancellation in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("allows department head to acknowledge a cancellation in their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head from acknowledging a cancellation in a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "growth" },
+        ),
+        false,
+      );
+    });
+
+    it("denies regular member from acknowledging a cancellation", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.cancellation.acknowledge", {
+          targetDepartment: "events",
+        }),
+        false,
+      );
+    });
   });
 });

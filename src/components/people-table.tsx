@@ -2,32 +2,16 @@
 
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  type SortingState,
   useReactTable,
-  type VisibilityState,
 } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
-import { Fragment, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { proposeMembershipAction } from "@/app/(authenticated)/(app)/people/propose-membership-action";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,100 +34,43 @@ import {
 } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
-import { DEPARTMENTS } from "@/lib/enums";
+import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
-import { Can, useCan } from "./can";
+import { useCan } from "./can";
 import { Badge } from "./ui/badge";
 
 interface PeopleTableProps {
   data: PublicUser[];
+  total: number;
+  pageCount: number;
   pendingActions?: PendingBoardAction[];
+  initialSearch: string;
 }
 
-function ProposeMembershipMenuItem({ user }: { user: PublicUser }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const { execute, isPending } = useAction(proposeMembershipAction, {
-    onSuccess: () => {
-      setOpen(false);
-      router.refresh();
-      toast.success("Membership proposed", {
-        description:
-          "The board admission workflow has been started for this member.",
-      });
-    },
-    onError: () => {
-      toast.error(
-        "Could not propose membership. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    },
-  });
-
-  return (
-    <Fragment key={user.id}>
-      <DropdownMenuItem
-        disabled={isPending}
-        onSelect={(event) => {
-          event.preventDefault();
-          setOpen(true);
-        }}
-      >
-        Propose for membership
-      </DropdownMenuItem>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Propose {user.firstName} {user.lastName} for membership?
-            </DialogTitle>
-            <DialogDescription>
-              This starts the board admission workflow for this member. The
-              board will be asked to vote on their admission.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={isPending}
-              onClick={() => execute({ userId: user.id })}
-            >
-              {isPending ? "Proposing..." : "Propose for membership"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Fragment>
-  );
-}
-
-export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
+export function PeopleTable({
+  data,
+  total,
+  pageCount,
+  pendingActions = [],
+  initialSearch,
+}: PeopleTableProps) {
   const router = useRouter();
   const can = useCan();
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
+  const [page, setPage] = useQueryState(
+    "page",
+    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
+  );
+  const [search, setSearch] = useQueryState(
+    "q",
+    parseAsString
+      .withDefault(initialSearch)
+      .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
+  );
 
   const pendingActionsMap = useMemo(
     () => new Map(pendingActions.map((a) => [a.subjectUserId, a])),
     [pendingActions],
   );
-
-  const sortedData = useMemo(() => {
-    if (pendingActionsMap.size === 0) return data;
-    return [
-      ...data.filter((u) => pendingActionsMap.has(u.id)),
-      ...data.filter((u) => !pendingActionsMap.has(u.id)),
-    ];
-  }, [data, pendingActionsMap]);
 
   const columns = useMemo<ColumnDef<PublicUser>[]>(
     () => [
@@ -163,7 +90,7 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
         cell: ({ row }) =>
           row.original.department ? (
             <Badge variant="outline">
-              {DEPARTMENTS[row.original.department]}
+              {DEPARTMENT_NAMES[row.original.department]}
             </Badge>
           ) : (
             <p>—</p>
@@ -210,7 +137,7 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
               {pendingAction && (
                 <Button asChild size="sm">
                   <Link
-                    href={`/people/resolutions/${pendingAction.resolutionId}`}
+                    href={`/people/resolutions/${pendingAction.legalMembershipId}`}
                     aria-label={`Vote on ${user.firstName} ${user.lastName}`}
                   >
                     Vote
@@ -226,20 +153,12 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    onClick={() => navigator.clipboard.writeText(user.email)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(user.email ?? "")
+                    }
                   >
                     Copy email
                   </DropdownMenuItem>
-                  {user.status === "onboarding" &&
-                    user.profileOnboardingComplete &&
-                    !user.hasActiveTenure && (
-                      <Can
-                        permission="membership.propose"
-                        context={{ targetDepartment: user.department }}
-                      >
-                        <ProposeMembershipMenuItem user={user} />
-                      </Can>
-                    )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -251,48 +170,33 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
   );
 
   const table = useReactTable({
-    data: sortedData,
+    data,
     columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-    },
+    manualPagination: true,
+    pageCount,
   });
 
-  const canOpenMemberProfile = (member: PublicUser) =>
-    can("users.view_details", { targetDepartment: member.department });
+  const canOpenMemberProfile = (member: PublicUser) => can("user.view", member);
 
   const visibleRows = table.getRowModel().rows;
 
-  // Only show the separator when no column sort is active (default view).
-  // Under an active sort, pending users may scatter through the list and the
-  // separator would no longer reliably mark the "vote needed" boundary.
-  const lastPendingIndex =
-    sorting.length === 0
-      ? visibleRows.findLastIndex((row) =>
-          pendingActionsMap.has(row.original.id),
-        )
-      : -1;
+  const lastPendingIndex = visibleRows.findLastIndex((row) =>
+    pendingActionsMap.has(row.original.id),
+  );
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <div className="w-full">
       <div className="flex items-center pb-4">
         <Input
           placeholder="Find users..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="max-w-sm"
         />
       </div>
@@ -323,7 +227,6 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                   <Fragment key={row.id}>
                     <TableRow
                       key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
                       className={
                         canOpenProfile
                           ? "cursor-pointer"
@@ -333,7 +236,7 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
                         canOpenProfile
                           ? () =>
                               router.push(
-                                `/people/directory/${row.original.id}`,
+                                `/admin/people/directory/${row.original.id}`,
                               )
                           : undefined
                       }
@@ -385,6 +288,34 @@ export function PeopleTable({ data, pendingActions = [] }: PeopleTableProps) {
           </TableBody>
         </Table>
       </div>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between py-3">
+          <span className="text-sm text-muted-foreground">
+            {total} member{total === 1 ? "" : "s"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page >= pageCount}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -84,9 +84,15 @@ export function normalizePhotonFeature(
 export function normalizePhotonResponse(
   response: PhotonResponse,
 ): AddressSuggestion[] {
+  const seen = new Set<string>();
   return (response.features ?? [])
     .map((feature, index) => normalizePhotonFeature(feature, index))
-    .filter((suggestion): suggestion is AddressSuggestion => !!suggestion);
+    .filter((suggestion): suggestion is AddressSuggestion => {
+      if (!suggestion) return false;
+      if (seen.has(suggestion.label)) return false;
+      seen.add(suggestion.label);
+      return true;
+    });
 }
 
 export async function fetchPhotonAddressSuggestions(

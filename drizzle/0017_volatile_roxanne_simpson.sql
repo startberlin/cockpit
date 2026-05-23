@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "gocardless_setup_session_id" text;

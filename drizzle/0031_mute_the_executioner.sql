@@ -1,0 +1,1 @@
+ALTER TABLE "group" ADD COLUMN "google_sync_pending" boolean DEFAULT false NOT NULL;
