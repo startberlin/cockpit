@@ -1,8 +1,10 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { findWorkspaceUserByEmail } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
@@ -11,7 +13,7 @@ import { createUserSchema } from "./create-user-schema";
 
 export const createUserAction = actionClient
   .inputSchema(createUserSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("users.create"))) {
       throw new Error("You are not authorized to create users.");
     }
@@ -33,6 +35,12 @@ export const createUserAction = actionClient
         `${companyEmail} already exists in Google Workspace. Import that Workspace user instead.`,
       );
     }
+
+    const [existingDbUser] = await db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.email, companyEmail))
+      .limit(1);
 
     await db
       .insert(userTable)
@@ -62,5 +70,18 @@ export const createUserAction = actionClient
     await inngest.send({
       name: events.userCreated.name,
       data: parsedInput,
+    });
+
+    await writeAuditLog({
+      category: "user",
+      eventType: existingDbUser ? "user.updated" : "user.created",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      metadata: {
+        firstName,
+        lastName,
+        companyEmail,
+        department: department ?? null,
+      },
+      description: companyEmail,
     });
   });

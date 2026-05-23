@@ -4,8 +4,9 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
-import { session } from "@/db/schema/auth";
+import { session, user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
+import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 
@@ -15,7 +16,7 @@ const schema = z.object({
 
 export const boardKickAction = actionClient
   .inputSchema(schema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("membership.cancel_member"))) {
       throw new Error("You are not authorized to remove members.");
     }
@@ -42,6 +43,21 @@ export const boardKickAction = actionClient
     await db
       .delete(session)
       .where(eq(session.userId, parsedInput.targetUserId));
+
+    const [targetUser] = await db
+      .select({ id: userTable.id, name: userTable.name })
+      .from(userTable)
+      .where(eq(userTable.id, parsedInput.targetUserId))
+      .limit(1);
+
+    await writeAuditLog({
+      category: "membership",
+      eventType: "membership.board_kicked",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: targetUser ? { id: targetUser.id, name: targetUser.name } : null,
+      metadata: { requestId: request.id },
+      description: "Removed by board",
+    });
 
     return { requestId: request.id };
   });

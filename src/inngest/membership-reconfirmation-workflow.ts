@@ -4,6 +4,7 @@ import { createProposedPayment } from "@/db/membership-payments";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import MembershipAdmissionConfirmedEmail from "@/emails/membership/admission/membership-admission-confirmed";
+import { writeAuditLog } from "@/lib/audit-log";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
 import {
@@ -173,6 +174,15 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     await step.sendEvent("kick-mandate-setup-reminder", {
       name: events.mandateSetupNeeded.name,
       data: { userId: subjectData.userId },
+    });
+
+    await step.run("write-audit-log-reconfirmed", async () => {
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.reconfirmation_completed",
+        subject: { id: subjectData.userId, name: subjectName },
+        metadata: { legalMembershipId },
+      });
     });
 
     // Step 4: Create the first proposed membership payment.

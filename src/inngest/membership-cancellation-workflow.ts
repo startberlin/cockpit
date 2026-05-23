@@ -12,6 +12,7 @@ import MembershipCancellationAcknowledgementNeededEmail from "@/emails/membershi
 import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
 import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import { env } from "@/env";
+import { writeAuditLog } from "@/lib/audit-log";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { cancelMembershipMandate } from "@/lib/gocardless/membership-cancellation";
@@ -162,6 +163,22 @@ export const membershipCancellationWorkflow = inngest.createFunction(
           .where(eq(user.id, userId));
 
         await tx.delete(session).where(eq(session.userId, userId));
+      });
+    });
+
+    await step.run("write-audit-log-cancelled", async () => {
+      const subjectName =
+        `${userData.firstName} ${userData.lastName}`.trim() || userId;
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.cancelled",
+        subject: { id: userId, name: subjectName },
+        metadata: {
+          legalMembershipId: userData.legalMembershipId,
+          reason,
+        },
+        description:
+          reason === "removed_by_board" ? "Removed by board" : "Self-requested",
       });
     });
 

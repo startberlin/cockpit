@@ -1,6 +1,6 @@
 {
-  "id": "724abdb0-35d7-46c9-9940-6152491fc945",
-  "prevId": "0b5ad60d-60f9-484e-ad8e-8ed1cddce7f5",
+  "id": "996f219e-344d-41d3-acf6-d2a35d5d9198",
+  "prevId": "e49516c0-696b-4428-9aab-61d3a9ca1588",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -57,6 +57,12 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -81,11 +87,17 @@
           "method": "btree",
           "with": {}
         },
-        "audit_log_category_idx": {
-          "name": "audit_log_category_idx",
+        "audit_log_category_created_at_idx": {
+          "name": "audit_log_category_created_at_idx",
           "columns": [
             {
               "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

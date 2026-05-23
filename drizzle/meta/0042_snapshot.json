@@ -1,6 +1,6 @@
 {
-  "id": "724abdb0-35d7-46c9-9940-6152491fc945",
-  "prevId": "0b5ad60d-60f9-484e-ad8e-8ed1cddce7f5",
+  "id": "e49516c0-696b-4428-9aab-61d3a9ca1588",
+  "prevId": "724abdb0-35d7-46c9-9940-6152491fc945",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -56,6 +56,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

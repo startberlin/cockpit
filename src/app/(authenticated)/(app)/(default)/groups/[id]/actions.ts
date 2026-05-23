@@ -9,6 +9,7 @@ import {
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
+import { writeAuditLog } from "@/lib/audit-log";
 import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { can } from "@/lib/permissions/server";
 
@@ -36,6 +37,13 @@ export async function addUserToGroupAction(
   await addUserToGroup(userId, groupId);
   await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
+
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_added",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
 }
 
 export async function removeUserFromGroupAction(
@@ -50,6 +58,13 @@ export async function removeUserFromGroupAction(
   await removeUserFromGroup(userId, groupId);
   await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
+
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_removed",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
 }
 
 export async function pinGroupMemberAction(

@@ -7,6 +7,7 @@ import {
   IdCard,
   Layers,
   Network,
+  ScrollText,
   Settings,
   Users,
 } from "lucide-react";
@@ -203,6 +204,22 @@ export function NavMain() {
                 <Link href="/admin/payments" onClick={closeMobile}>
                   <CreditCard />
                   <span>Payments</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </Can>
+
+          {/* Admin > Audit log */}
+          <Can permission="audit_log.read">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith("/admin/audit-log")}
+                tooltip="Audit log"
+              >
+                <Link href="/admin/audit-log" onClick={closeMobile}>
+                  <ScrollText />
+                  <span>Audit log</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
