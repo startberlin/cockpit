@@ -32,6 +32,9 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["google"],
+      // Users are pre-created by admins without going through OAuth, so their
+      // emailVerified is false by default. Google is trusted, so skip local check.
+      requireLocalEmailVerified: false,
     },
   },
   socialProviders: {
