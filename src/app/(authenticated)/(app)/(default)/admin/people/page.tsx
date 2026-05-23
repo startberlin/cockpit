@@ -130,6 +130,11 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
     db.select({ number: batch.number }).from(batch).orderBy(batch.number),
   ];
 
+  const [canCreate, canImport] = await Promise.all([
+    can("users.create"),
+    can("users.import"),
+  ]);
+
   return (
     <AdminDirectoryPageClient
       usersPromise={usersPromise}
@@ -137,6 +142,8 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
       initialSearch={search}
       canViewInactive={canViewInactive}
       isDeptHeadScoped={forcedDeptHead !== null}
+      canCreate={canCreate}
+      canImport={canImport}
     />
   );
 }

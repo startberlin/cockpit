@@ -1,6 +1,13 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  DownloadIcon,
+  PlusIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import {
   parseAsArrayOf,
   parseAsInteger,
@@ -10,6 +17,7 @@ import {
 } from "nuqs";
 import * as React from "react";
 import { PeopleTable } from "@/components/people-table";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -20,6 +28,8 @@ import type { PaginatedUsers } from "@/db/people";
 import type { Department, LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { cn } from "@/lib/utils";
+import { CreateUserDialog } from "./create-user-dialog";
+import { ImportGoogleUserDialog } from "./import-google-user-dialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -270,6 +280,8 @@ interface AdminDirectoryPageClientProps {
   initialSearch: string;
   canViewInactive: boolean;
   isDeptHeadScoped: boolean;
+  canCreate: boolean;
+  canImport: boolean;
 }
 
 export default function AdminDirectoryPageClient({
@@ -278,7 +290,11 @@ export default function AdminDirectoryPageClient({
   initialSearch,
   canViewInactive,
   isDeptHeadScoped,
+  canCreate,
+  canImport,
 }: AdminDirectoryPageClientProps) {
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [search, setSearch] = useQueryState(
     "q",
     parseAsString
@@ -350,11 +366,33 @@ export default function AdminDirectoryPageClient({
   return (
     <>
       {/* Header */}
-      <div className="pb-4">
-        <h1 className="text-xl font-semibold">Members</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          View all members that you can manage.
-        </p>
+      <div className="flex items-start justify-between gap-4 pb-4">
+        <div>
+          <h1 className="text-xl font-semibold">Members</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            View all members that you can manage.
+          </p>
+        </div>
+        {(canCreate || canImport) && (
+          <div className="flex items-center gap-2 shrink-0">
+            {canImport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setImportOpen(true)}
+              >
+                <DownloadIcon className="size-3.5" />
+                Import
+              </Button>
+            )}
+            {canCreate && (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <PlusIcon className="size-3.5" />
+                Add member
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filter bar — single scrollable row */}
@@ -424,6 +462,17 @@ export default function AdminDirectoryPageClient({
           initialSearch={initialSearch}
         />
       </React.Suspense>
+
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        batches={batches}
+      />
+      <ImportGoogleUserDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        batches={batches}
+      />
     </>
   );
 }
