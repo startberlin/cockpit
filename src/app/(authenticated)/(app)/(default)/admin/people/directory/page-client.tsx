@@ -39,7 +39,7 @@ export default function AdminDirectoryPageClient({
         <div>
           <h1 className="text-xl font-semibold">People</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            All members as records
+            View all members you can manage.
           </p>
         </div>
       </div>
