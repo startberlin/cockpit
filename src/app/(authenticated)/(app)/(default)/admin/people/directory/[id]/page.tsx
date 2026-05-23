@@ -16,13 +16,13 @@ import { getUserDetails } from "@/db/people";
 import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
-import { AuthorityCard } from "./authority-card";
-import { BoardKickButton } from "./board-kick-button";
+import { AdminActionCards } from "./admin-action-cards";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
-import { ImpersonateButton } from "./impersonate-button";
-import { ProfileCard } from "./profile-card";
-import { ProposeMembershipButton } from "./propose-membership-button";
+import { MemberHeader } from "./member-header";
+import { OnboardingSection } from "./onboarding-section";
+import { PaymentSection } from "./payment-section";
+import { ProfileSection } from "./profile-section";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -53,7 +53,19 @@ export default async function UserDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const canViewDetails = await can("user.view", user);
+  const [
+    canViewDetails,
+    canViewPayment,
+    canImpersonate,
+    canManageAuthority,
+    canRemoveMemberBase,
+  ] = await Promise.all([
+    can("user.view_details", { department: user.department }),
+    can("user.payment.view", { department: user.department }),
+    can("users.impersonate"),
+    can("users.manage_authority"),
+    can("membership.cancel_member"),
+  ]);
 
   if (!canViewDetails) {
     return (
@@ -75,11 +87,6 @@ export default async function UserDetailPage({ params }: PageProps) {
     );
   }
 
-  const canManageAuthority = await can("users.manage_authority");
-  const canImpersonate = await can("users.impersonate");
-  const canRemoveMember =
-    user.status !== "cancelled" && (await can("membership.cancel_member"));
-
   const isEligibleForMembershipProposal =
     user.profileOnboardingComplete &&
     !(LIVE_TENURE_STATUSES as readonly string[]).includes(
@@ -88,7 +95,9 @@ export default async function UserDetailPage({ params }: PageProps) {
 
   const canProposeMembership =
     isEligibleForMembershipProposal &&
-    (await can("user.membership.propose", user));
+    (await can("user.membership.propose", { department: user.department }));
+
+  const canRemoveMember = user.status !== "cancelled" && canRemoveMemberBase;
 
   return (
     <div className="w-full space-y-6">
@@ -101,59 +110,59 @@ export default async function UserDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <div className="flex flex-col gap-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
-          <Link href="/admin/people/directory">
-            <ArrowLeft />
-            Back to directory
-          </Link>
-        </Button>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {user.firstName} {user.lastName}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {canImpersonate && (
-              <ImpersonateButton
-                userId={user.id}
-                userEmail={user.email ?? ""}
-              />
-            )}
-            {canProposeMembership && (
-              <ProposeMembershipButton
-                userId={user.id}
-                firstName={user.firstName}
-                lastName={user.lastName}
-              />
-            )}
-            {canRemoveMember && (
-              <BoardKickButton
-                userId={user.id}
-                firstName={user.firstName}
-                lastName={user.lastName}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
+        <Link href="/admin/people/directory">
+          <ArrowLeft />
+          Back to directory
+        </Link>
+      </Button>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
-          <ProfileCard userId={id} />
+      <Suspense
+        fallback={
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        }
+      >
+        <MemberHeader userId={id} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+        <ProfileSection userId={id} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+        <ContactCard userId={id} />
+      </Suspense>
+
+      {canViewPayment && (
+        <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+          <PaymentSection userId={id} />
         </Suspense>
-        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
-          <ContactCard userId={id} />
-        </Suspense>
-        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
-          <GroupsCard userId={id} />
-        </Suspense>
-        <Suspense fallback={<Skeleton className="h-48 rounded-xl" />}>
-          <AuthorityCard userId={id} canManageAuthority={canManageAuthority} />
-        </Suspense>
-      </div>
+      )}
+
+      <Suspense fallback={<Skeleton className="h-24 w-full rounded-xl" />}>
+        <OnboardingSection userId={id} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton className="h-32 w-full rounded-xl" />}>
+        <GroupsCard userId={id} />
+      </Suspense>
+
+      <AdminActionCards
+        userId={id}
+        userEmail={user.email ?? ""}
+        firstName={user.firstName}
+        lastName={user.lastName}
+        canImpersonate={canImpersonate}
+        canProposeMembership={canProposeMembership}
+        canRemoveMember={canRemoveMember}
+        canManageAuthority={canManageAuthority}
+      />
     </div>
   );
 }
