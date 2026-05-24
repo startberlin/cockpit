@@ -13,7 +13,7 @@ describe("generateCompanyEmail", () => {
   it("normalizes German characters deterministically", () => {
     assert.equal(
       generateCompanyEmail("Jörg", "Müller"),
-      "jorg.muller@start-berlin.com",
+      "joerg.mueller@start-berlin.com",
     );
   });
 
