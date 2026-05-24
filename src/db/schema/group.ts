@@ -1,19 +1,12 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
-  jsonb,
-  pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-
-export const groupMembershipSource = pgEnum("group_membership_source", [
-  "criteria",
-  "manual",
-]);
 
 export const group = pgTable("group", {
   id: text("id").primaryKey(),
@@ -27,31 +20,6 @@ export const group = pgTable("group", {
 
 export const groupRelations = relations(group, ({ many }) => ({
   usersToGroups: many(usersToGroups),
-  criteria: many(groupCriteria),
-}));
-
-export const groupCriteria = pgTable("group_criteria", {
-  id: text("id").primaryKey(),
-  groupId: text("group_id")
-    .notNull()
-    .references(() => group.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  conditions: jsonb("conditions").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => user.id),
-});
-
-export const groupCriteriaRelations = relations(groupCriteria, ({ one }) => ({
-  group: one(group, {
-    fields: [groupCriteria.groupId],
-    references: [group.id],
-  }),
-  createdByUser: one(user, {
-    fields: [groupCriteria.createdBy],
-    references: [user.id],
-  }),
 }));
 
 export const usersToGroups = pgTable(
@@ -63,7 +31,6 @@ export const usersToGroups = pgTable(
     groupId: text("group_id")
       .notNull()
       .references(() => group.id),
-    source: groupMembershipSource("source").notNull().default("manual"),
     joinedAt: timestamp("joined_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.groupId] })],
