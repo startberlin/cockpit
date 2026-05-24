@@ -21,3 +21,30 @@ export function getPostHogClient(): PostHog | null {
   }
   return posthogClient;
 }
+
+export interface SubjectUser {
+  id: string;
+  status: string;
+  department: string | null;
+  batchNumber: number | null;
+  legalMembershipState: string;
+  memberSinceDate: string | null;
+}
+
+export function buildSubjectMetadata(
+  user: SubjectUser,
+  lastPaymentDate?: string | null,
+): Record<string, unknown> {
+  const meta: Record<string, unknown> = {
+    subject_id: user.id,
+    subject_status: user.status,
+    subject_department: user.department,
+    subject_batch_number: user.batchNumber,
+    subject_legal_membership_state: user.legalMembershipState,
+    subject_member_since_date: user.memberSinceDate,
+  };
+  if (lastPaymentDate !== undefined) {
+    meta.subject_last_payment_date = lastPaymentDate ?? null;
+  }
+  return meta;
+}

@@ -1,21 +1,21 @@
-"use client";
+import { getCurrentUser } from "@/db/user";
+import { PostHogIdentifyClient } from "./posthog-identify-client";
 
-import posthog from "posthog-js";
-import { useEffect } from "react";
-import { authClient } from "@/lib/auth-client";
+export async function PostHogIdentify() {
+  const user = await getCurrentUser();
+  if (!user) return null;
 
-export function PostHogIdentify() {
-  const session = authClient.useSession();
-  const user = session.data?.user;
-
-  useEffect(() => {
-    if (user?.id) {
-      posthog.identify(user.id, {
-        email: user.email,
-        name: user.name,
-      });
-    }
-  }, [user?.id, user?.email, user?.name]);
-
-  return null;
+  return (
+    <PostHogIdentifyClient
+      id={user.id}
+      email={user.email ?? ""}
+      name={user.name}
+      status={user.status}
+      department={user.department ?? null}
+      batchNumber={user.batchNumber ?? null}
+      legalMembershipState={user.legalMembershipState}
+      eventEmailPreference={user.eventEmailPreference ?? null}
+      memberSinceDate={user.memberSinceDate ?? null}
+    />
+  );
 }
