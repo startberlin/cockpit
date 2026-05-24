@@ -195,6 +195,18 @@ export const updatePositionsAction = actionClient
       await inngest.send(notificationEvents);
     }
 
+    const affectedUserIds = new Set(
+      auditPositionChanges.map((c) => c.subjectId),
+    );
+    if (affectedUserIds.size > 0) {
+      await inngest.send(
+        [...affectedUserIds].map((userId) => ({
+          name: events.positionsSystemGroupsSync.name,
+          data: { userId },
+        })),
+      );
+    }
+
     for (const change of auditPositionChanges) {
       await writeAuditLog({
         category: "authority",
