@@ -1,6 +1,7 @@
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import db from "@/db";
 import { auditLog } from "@/db/schema";
+import { unaccentSearch } from "@/lib/search";
 
 export type { AuditLogEntry } from "./schema/audit-log";
 
@@ -19,13 +20,13 @@ export async function getAuditLogPage(
   }
 
   if (search) {
-    conditions.push(
-      or(
-        ilike(auditLog.actorName, `%${search}%`),
-        ilike(auditLog.subjectName, `%${search}%`),
-        ilike(auditLog.eventType, `%${search}%`),
-      ),
+    const searchClause = unaccentSearch(
+      search,
+      auditLog.actorName,
+      auditLog.subjectName,
+      auditLog.eventType,
     );
+    if (searchClause) conditions.push(searchClause);
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

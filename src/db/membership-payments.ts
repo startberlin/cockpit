@@ -1,5 +1,6 @@
 import { and, count, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { newId } from "@/lib/id";
+import { unaccentSearch } from "@/lib/search";
 import db from ".";
 import { user } from "./schema/auth";
 import type {
@@ -195,7 +196,13 @@ export async function getPaymentHistoryPage(
     statuses && statuses.length > 0 ? statuses : DEFAULT_HISTORY_STATUSES;
 
   const searchFilter = term
-    ? sql`(lower(${user.firstName} || ' ' || ${user.lastName}) like lower(${`%${term}%`}) or lower(${user.email}) like lower(${`%${term}%`}))`
+    ? unaccentSearch(
+        term,
+        user.firstName,
+        user.lastName,
+        user.email,
+        sql`${user.firstName} || ' ' || ${user.lastName}`,
+      )
     : null;
 
   const whereClause = searchFilter
