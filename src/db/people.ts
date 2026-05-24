@@ -74,6 +74,7 @@ export interface UserDetail {
 export async function getDepartmentHeadForDepartment(
   dept: Department,
 ): Promise<{
+  id: string;
   firstName: string;
   lastName: string;
   image: string | null;
@@ -82,7 +83,9 @@ export async function getDepartmentHeadForDepartment(
     where: (t, { eq, and }) =>
       and(eq(t.position, "department_head"), eq(t.department, dept)),
     with: {
-      user: { columns: { firstName: true, lastName: true, image: true } },
+      user: {
+        columns: { id: true, firstName: true, lastName: true, image: true },
+      },
     },
   });
   return row?.user ?? null;
