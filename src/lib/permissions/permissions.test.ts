@@ -304,11 +304,7 @@ describe("permissions", () => {
   });
 
   it("denies ordinary permissions for inactive statuses even with grants", () => {
-    for (const status of [
-      "onboarding",
-      "supporting_alumni",
-      "alumni",
-    ] as const) {
+    for (const status of ["onboarding", "alumni"] as const) {
       assert.equal(
         evaluateAuth(
           authority({

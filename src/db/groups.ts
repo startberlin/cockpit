@@ -2,7 +2,6 @@ import {
   and,
   count,
   eq,
-  ilike,
   inArray,
   isNull,
   or,
@@ -20,6 +19,7 @@ import type { RuleGroup } from "@/lib/groups/rule";
 import { buildRuleGroupSQL } from "@/lib/groups/rule-sql";
 import { nanoid } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
+import { unaccentSearch } from "@/lib/search";
 import db from ".";
 import type { PublicUser } from "./people";
 import { user } from "./schema/auth";
@@ -74,7 +74,7 @@ export async function listGroupsForViewer(
   { page = 1, search = "" }: { page?: number; search?: string } = {},
 ): Promise<PaginatedGroups> {
   const offset = (page - 1) * GROUPS_PAGE_SIZE;
-  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
+  const whereClause = search ? unaccentSearch(search, group.name) : undefined;
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -107,7 +107,7 @@ export async function listGroupsPublic(
   { page = 1, search = "" }: { page?: number; search?: string } = {},
 ): Promise<PaginatedGroups> {
   const offset = (page - 1) * GROUPS_PAGE_SIZE;
-  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
+  const whereClause = search ? unaccentSearch(search, group.name) : undefined;
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -320,14 +320,12 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
     query && query.length >= 2
       ? and(
           sql`${usersToGroups.userId} IS NULL`,
-          or(
-            ilike(user.firstName, `%${query}%`),
-            ilike(user.lastName, `%${query}%`),
-            ilike(user.email, `%${query}%`),
-            ilike(
-              sql`${user.firstName} || ' ' || ${user.lastName}`,
-              `%${query}%`,
-            ),
+          unaccentSearch(
+            query,
+            user.firstName,
+            user.lastName,
+            user.email,
+            sql`${user.firstName} || ' ' || ${user.lastName}`,
           ),
         )
       : sql`${usersToGroups.userId} IS NULL`;
@@ -580,7 +578,7 @@ export async function listAllGroupsForAdmin({
   search?: string;
 } = {}): Promise<PaginatedAdminGroups> {
   const offset = (page - 1) * GROUPS_PAGE_SIZE;
-  const whereClause = search ? ilike(group.name, `%${search}%`) : undefined;
+  const whereClause = search ? unaccentSearch(search, group.name) : undefined;
 
   const [rows, [{ total }]] = await Promise.all([
     db
