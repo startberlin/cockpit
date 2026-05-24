@@ -39,8 +39,11 @@ export const events = {
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
     schema: staticSchema<{ legalMembershipId: string; userId: string }>(),
   }),
-  groupMembershipChanged: eventType("group/membership.changed", {
-    schema: staticSchema<{ groupId: string }>(),
+  groupMemberAdded: eventType("group/member.added", {
+    schema: staticSchema<{ groupId: string; userId: string }>(),
+  }),
+  groupMemberRemoved: eventType("group/member.removed", {
+    schema: staticSchema<{ groupId: string; userId: string }>(),
   }),
   batchCreated: eventType("cockpit/batch.created", {
     schema: staticSchema<{ batchNumber: number }>(),

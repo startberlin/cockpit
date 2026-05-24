@@ -1,6 +1,9 @@
 import "server-only";
 
+import { eq, isNotNull } from "drizzle-orm";
 import db from "@/db";
+import { user } from "@/db/schema/auth";
+import { group, usersToGroups } from "@/db/schema/group";
 import {
   addGroupMember,
   createGoogleGroup,
@@ -133,6 +136,90 @@ export const syncSystemGroupsCron = inngest.createFunction(
       totalRemoved += toRemove.length;
     }
 
-    return { groups: groupDeltas.length, totalAdded, totalRemoved };
+    // Reconcile manual DB groups (groups with a googleGroupEmail set).
+    const manualGroups = await step.run("load-manual-groups", () =>
+      db
+        .select({
+          id: group.id,
+          name: group.name,
+          googleEmailPrefix: group.googleEmailPrefix,
+          googleGroupEmail: group.googleGroupEmail,
+        })
+        .from(group)
+        .where(isNotNull(group.googleGroupEmail)),
+    );
+
+    let manualAdded = 0;
+    let manualRemoved = 0;
+
+    for (const g of manualGroups) {
+      if (!g.googleGroupEmail) continue;
+      const groupEmail = g.googleGroupEmail;
+
+      const { toAdd, toRemove } = await step.run(
+        `reconcile-manual-${g.id}`,
+        async () => {
+          let googleEmails: string[];
+          try {
+            googleEmails = await listGroupMemberEmails(groupEmail);
+          } catch (error) {
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              (error as { response?: { status?: number } }).response?.status ===
+                404
+            ) {
+              if (g.googleEmailPrefix) {
+                await createGoogleGroup(g.googleEmailPrefix, g.name);
+              }
+              googleEmails = [];
+            } else {
+              throw error;
+            }
+          }
+
+          const dbMembers = await db
+            .select({ email: user.email })
+            .from(usersToGroups)
+            .innerJoin(user, eq(usersToGroups.userId, user.id))
+            .where(eq(usersToGroups.groupId, g.id));
+
+          const activeEmails = dbMembers
+            .filter((m): m is { email: string } => m.email !== null)
+            .map((m) => m.email);
+
+          const googleSet = new Set(googleEmails.map((e) => e.toLowerCase()));
+          const dbSet = new Set(activeEmails.map((e) => e.toLowerCase()));
+
+          return {
+            toAdd: activeEmails.filter((e) => !googleSet.has(e.toLowerCase())),
+            toRemove: googleEmails.filter((e) => !dbSet.has(e.toLowerCase())),
+          };
+        },
+      );
+
+      for (const email of toAdd) {
+        await step.run(`add-manual-${g.id}-${email}`, () =>
+          addGroupMember(groupEmail, email),
+        );
+      }
+      for (const email of toRemove) {
+        await step.run(`remove-manual-${g.id}-${email}`, () =>
+          removeGroupMember(groupEmail, email),
+        );
+      }
+
+      manualAdded += toAdd.length;
+      manualRemoved += toRemove.length;
+    }
+
+    return {
+      systemGroups: groupDeltas.length,
+      systemAdded: totalAdded,
+      systemRemoved: totalRemoved,
+      manualGroups: manualGroups.length,
+      manualAdded,
+      manualRemoved,
+    };
   },
 );

@@ -13,9 +13,8 @@ import {
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
 } from "./position-assignment-notifications";
-import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
-import { syncGroupsCron } from "./sync-groups-cron";
+import { syncManualGroupMemberWorkflow } from "./sync-manual-group-member";
 import { syncPositionSystemGroupsWorkflow } from "./sync-position-system-groups";
 import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
@@ -26,7 +25,7 @@ export const inngestFunctions = [
   gocardlessEventsCleanupCron,
   mandateFixReminderWorkflow,
   mandateSetupReminderWorkflow,
-  syncGroupsCron,
+  syncManualGroupMemberWorkflow,
   syncSystemGroupsCron,
   membershipAdmissionWorkflow,
   membershipCancellationWorkflow,
@@ -36,7 +35,6 @@ export const inngestFunctions = [
   onboardNewUserWorkflow,
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
-  reconcileGroupMembershipWorkflow,
   reconfirmationReminderWorkflow,
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,
