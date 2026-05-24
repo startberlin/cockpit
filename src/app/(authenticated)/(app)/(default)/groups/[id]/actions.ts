@@ -52,9 +52,7 @@ export async function exportGroupCsvAction(groupId: string): Promise<string> {
     throw new Error("You are not authorized to export this group.");
   }
 
-  const batches = await db.query.batch.findMany({ columns: { number: true } });
-
-  if (isSystemGroupSlug(groupId, batches)) {
+  if (isSystemGroupSlug(groupId, []) || groupId.startsWith("batch-")) {
     const [minimalUsers, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
