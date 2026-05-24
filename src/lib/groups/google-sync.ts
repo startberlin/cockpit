@@ -11,7 +11,7 @@ export async function triggerGoogleSync(groupId: string) {
     .set({ googleSyncPending: true })
     .where(eq(group.id, groupId));
   await inngest.send({
-    name: events.groupCriteriaChanged.name,
+    name: events.groupMembershipChanged.name,
     data: { groupId },
   });
 }

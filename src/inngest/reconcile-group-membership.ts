@@ -12,8 +12,8 @@ import { events, inngest } from "@/lib/inngest";
 export const reconcileGroupMembershipWorkflow = inngest.createFunction(
   {
     id: "reconcile-group-membership",
-    name: "Sync Group to Google (on criteria change)",
-    triggers: [{ event: events.groupCriteriaChanged.name }],
+    name: "Sync Group to Google (on membership change)",
+    triggers: [{ event: events.groupMembershipChanged.name }],
     debounce: {
       key: "event.data.groupId",
       period: "15s",

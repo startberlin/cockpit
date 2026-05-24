@@ -191,10 +191,6 @@ export const updatePositionsAction = actionClient
     revalidatePath("/admin/settings/positions");
     revalidatePath("/admin/people", "layout");
 
-    if (notificationEvents.length > 0) {
-      await inngest.send(notificationEvents);
-    }
-
     for (const change of auditPositionChanges) {
       await writeAuditLog({
         category: "authority",
@@ -204,5 +200,28 @@ export const updatePositionsAction = actionClient
         metadata: { position: change.position },
         description: change.position,
       });
+    }
+
+    if (notificationEvents.length > 0) {
+      try {
+        await inngest.send(notificationEvents);
+      } catch (err) {
+        console.error(
+          "[update-positions] Failed to send position notification events",
+          err,
+        );
+      }
+    }
+
+    const affectedUserIds = new Set(
+      auditPositionChanges.map((c) => c.subjectId),
+    );
+    if (affectedUserIds.size > 0) {
+      await inngest.send(
+        [...affectedUserIds].map((userId) => ({
+          name: events.positionsSystemGroupsSync.name,
+          data: { userId },
+        })),
+      );
     }
   });

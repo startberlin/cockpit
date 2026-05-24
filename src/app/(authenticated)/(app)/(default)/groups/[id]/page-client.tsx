@@ -8,7 +8,6 @@ import {
   Download,
   Loader2,
   MoreHorizontal,
-  Pin,
   Plus,
   Search,
   Trash2,
@@ -19,8 +18,7 @@ import { notFound, useRouter } from "next/navigation";
 import { parseAsInteger, useQueryState } from "nuqs";
 import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Can, useCan } from "@/components/can";
-import GroupCriteriaManager from "@/components/group-criteria-manager";
+import { useCan } from "@/components/can";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,29 +45,147 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import { authClient } from "@/lib/auth-client";
 import {
   addUserToGroupAction,
-  pinGroupMemberAction,
+  exportGroupCsvAction,
   removeUserFromGroupAction,
   searchUsersNotInGroupAction,
 } from "./actions";
 
-interface GroupDetailClientProps {
-  groupDetailPromise: Promise<GroupDetail | null>;
+type SystemGroupMember = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+};
+
+type GroupDetailClientProps =
+  | {
+      kind: "system";
+      name: string;
+      googleGroupEmail: string;
+      members: SystemGroupMember[];
+    }
+  | {
+      kind: "manual";
+      groupDetailPromise: Promise<GroupDetail | null>;
+    };
+
+function SystemGroupView({
+  name,
+  googleGroupEmail,
+  members,
+}: {
+  name: string;
+  googleGroupEmail: string;
+  members: SystemGroupMember[];
+}) {
+  const router = useRouter();
+  const [emailCopied, setEmailCopied] = useState(false);
+
+  return (
+    <div className="w-full space-y-6">
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 mb-2 text-muted-foreground"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft />
+          Back
+        </Button>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
+          <Badge variant="secondary" className="shrink-0">
+            Auto-managed
+          </Badge>
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <span className="text-muted-foreground text-sm">
+            {googleGroupEmail}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground"
+            onClick={() => {
+              navigator.clipboard.writeText(googleGroupEmail);
+              setEmailCopied(true);
+              setTimeout(() => setEmailCopied(false), 2000);
+            }}
+          >
+            {emailCopied ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between pb-3">
+          <h2 className="text-sm font-semibold">Members</h2>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {members.length} member{members.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.length === 0 ? (
+                <TableRow>
+                  <TableCell className="py-10 text-center text-muted-foreground text-sm">
+                    No members match this group&apos;s criteria right now.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                members.map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-8 w-8 text-xs">
+                          <AvatarFallback>
+                            {member.firstName?.[0]}
+                            {member.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-sm">
+                            {member.firstName} {member.lastName}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {member.email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default function GroupDetailClient({
+function ManualGroupView({
   groupDetailPromise,
-}: GroupDetailClientProps) {
+}: {
+  groupDetailPromise: Promise<GroupDetail | null>;
+}) {
   const can = useCan();
   const router = useRouter();
   const { data: session } = authClient.useSession();
@@ -91,7 +207,6 @@ export default function GroupDetailClient({
     parseAsInteger.withDefault(1).withOptions({ shallow: false }),
   );
 
-  // Sync local state when server data refreshes (e.g. after router.refresh())
   useEffect(() => {
     setGroup(groupDetail);
   }, [groupDetail]);
@@ -153,16 +268,21 @@ export default function GroupDetailClient({
     }
   };
 
-  const handlePinMember = async (member: GroupMember) => {
+  const handleExport = async () => {
     try {
-      await pinGroupMemberAction(member.id, group.id);
-      toast.success(
-        `${member.firstName} ${member.lastName} will stay in this group even if they no longer match any matching rules.`,
-      );
-      router.refresh();
+      const csv = await exportGroupCsvAction(group.id);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "group-members-luma.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (_error) {
       toast.error(
-        "Could not update member. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     }
   };
@@ -177,10 +297,6 @@ export default function GroupDetailClient({
     };
   }, [group.googleSyncPending, router]);
 
-  const handleCriteriaChange = () => {
-    router.refresh();
-  };
-
   const groupScope = { isMember: group.isMember };
   const canManageMembers = can("group.members.manage", groupScope);
   const canExport = can("group.export", groupScope);
@@ -194,12 +310,10 @@ export default function GroupDetailClient({
           variant="ghost"
           size="sm"
           className="-ml-2 mb-2 text-muted-foreground"
-          asChild
+          onClick={() => router.back()}
         >
-          <Link href="/groups">
-            <ArrowLeft />
-            Back to groups
-          </Link>
+          <ArrowLeft />
+          Back
         </Button>
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -237,15 +351,6 @@ export default function GroupDetailClient({
         )}
       </div>
 
-      <Can permission="group.members.manage" context={groupScope}>
-        <GroupCriteriaManager
-          groupId={group.id}
-          criteria={group.criteria}
-          googleSyncPending={group.googleSyncPending}
-          onCriteriaChange={handleCriteriaChange}
-        />
-      </Can>
-
       <div>
         <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h2 className="text-sm font-semibold">Members</h2>
@@ -264,10 +369,8 @@ export default function GroupDetailClient({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <a href={`/api/groups/${group.id}/export`} download>
-                      CSV for Luma
-                    </a>
+                  <DropdownMenuItem onClick={handleExport}>
+                    CSV for Luma
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -347,7 +450,7 @@ export default function GroupDetailClient({
                       !isSearching &&
                       searchResults.length === 0 && (
                         <div className="text-center py-4 text-muted-foreground text-sm">
-                          No members found matching "{searchQuery}"
+                          No members found matching &quot;{searchQuery}&quot;
                         </div>
                       )}
                   </div>
@@ -362,7 +465,6 @@ export default function GroupDetailClient({
             <TableHeader>
               <TableRow>
                 <TableHead>Member</TableHead>
-                <TableHead>Added by</TableHead>
                 {canManageMembers && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
@@ -370,7 +472,7 @@ export default function GroupDetailClient({
               {group.totalMembers === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={canManageMembers ? 3 : 2}
+                    colSpan={canManageMembers ? 2 : 1}
                     className="py-10 text-center text-muted-foreground text-sm"
                   >
                     No members yet.
@@ -412,64 +514,17 @@ export default function GroupDetailClient({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <TooltipProvider>
-                          {member.source === "criteria" ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs cursor-default"
-                                >
-                                  Matching rule
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Added automatically because they match a rule
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs cursor-default"
-                                >
-                                  Manual
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                Added manually and won't be auto-removed by
-                                matching rules
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </TooltipProvider>
-                      </TableCell>
                       {canManageMembers && (
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {member.source === "criteria" && (
-                                <DropdownMenuItem
-                                  onClick={() => handlePinMember(member)}
-                                >
-                                  <Pin className="h-4 w-4 mr-2 shrink-0" />
-                                  <div className="flex flex-col">
-                                    <span>Keep in group</span>
-                                    <span className="text-xs text-muted-foreground font-normal leading-tight">
-                                      Won't be removed by matching rules
-                                    </span>
-                                  </div>
-                                </DropdownMenuItem>
-                              )}
-                              {member.source !== "criteria" && !isSelf && (
+                          {!isSelf && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                   onClick={() => handleRemoveMember(member)}
                                   className="text-destructive focus:text-destructive"
@@ -477,9 +532,9 @@ export default function GroupDetailClient({
                                   <Trash2 className="h-4 w-4 mr-2 shrink-0" />
                                   Remove from group
                                 </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -521,4 +576,17 @@ export default function GroupDetailClient({
       </div>
     </div>
   );
+}
+
+export default function GroupDetailClient(props: GroupDetailClientProps) {
+  if (props.kind === "system") {
+    return (
+      <SystemGroupView
+        name={props.name}
+        googleGroupEmail={props.googleGroupEmail}
+        members={props.members}
+      />
+    );
+  }
+  return <ManualGroupView groupDetailPromise={props.groupDetailPromise} />;
 }

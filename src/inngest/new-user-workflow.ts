@@ -172,6 +172,19 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       data: { id: dbUser.id },
     });
 
+    await step.sendEvent("sync-system-groups-for-new-user", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId: dbUser.id,
+        before: { status: null, department: null, batchNumber: null },
+        after: {
+          status: status ?? "onboarding",
+          department: department || null,
+          batchNumber: batchNumber ?? null,
+        },
+      },
+    });
+
     await step.run("write-audit-log-onboarded", async () => {
       await writeAuditLog({
         category: "user",
