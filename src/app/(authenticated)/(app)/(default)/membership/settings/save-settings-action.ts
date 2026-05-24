@@ -4,11 +4,14 @@ import { eq } from "drizzle-orm";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { settingsSchema } from "./settings-validation";
 
 export const saveSettingsAction = actionClient
   .inputSchema(settingsSchema)
   .action(async ({ ctx, parsedInput }) => {
+    const current = ctx.user;
+
     await db
       .update(userTable)
       .set({
@@ -28,6 +31,48 @@ export const saveSettingsAction = actionClient
         }),
       })
       .where(eq(userTable.id, ctx.user.id));
+
+    const changedFields: string[] = [];
+
+    if (parsedInput.personalEmail !== current.personalEmail) {
+      changedFields.push("personalEmail");
+    }
+    if (parsedInput.phone !== current.phone) {
+      changedFields.push("phone");
+    }
+    if (parsedInput.street !== current.street) {
+      changedFields.push("street");
+    }
+    if (parsedInput.city !== current.city) {
+      changedFields.push("city");
+    }
+    if (parsedInput.state !== current.state) {
+      changedFields.push("state");
+    }
+    if (parsedInput.zip !== current.zip) {
+      changedFields.push("zip");
+    }
+    if (parsedInput.country !== current.country) {
+      changedFields.push("country");
+    }
+    if (
+      parsedInput.eventEmailPreference !== undefined &&
+      parsedInput.eventEmailPreference !== current.eventEmailPreference
+    ) {
+      changedFields.push("eventEmailPreference");
+    }
+    if (
+      parsedInput.eventEmailPreference === "custom" &&
+      parsedInput.eventInviteEmail !== current.eventInviteEmail
+    ) {
+      changedFields.push("eventInviteEmail");
+    }
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "profile_updated",
+      properties: { changed_fields: changedFields },
+    });
 
     return { success: true };
   });

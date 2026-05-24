@@ -7,7 +7,7 @@ import { createTransitionRequest } from "@/db/membership-transitions";
 import { user } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
 import { events, inngest } from "@/lib/inngest";
-import { can } from "@/lib/permissions/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const schema = z.object({
   type: z.enum(["alumni_request", "supporting_alumni_request"]),
@@ -54,6 +54,15 @@ export const requestTransitionAction = actionClient
         transitionRequestId: request.id,
         type: parsedInput.type,
         keepPersonalEmail: parsedInput.keepPersonalEmail,
+      },
+    });
+
+    getPostHogClient()?.capture({
+      distinctId: currentUser.id,
+      event: "membership_transition_requested",
+      properties: {
+        transition_type: parsedInput.type,
+        had_reason: false,
       },
     });
 
