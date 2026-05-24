@@ -102,7 +102,10 @@ export async function PaymentSection({ userId }: PaymentSectionProps) {
     } else {
       const d = new Date(`${paymentTerm.activationDate}T00:00:00`);
       d.setFullYear(d.getFullYear() + 1);
-      nextDueDate = formatDate(d.toISOString().slice(0, 10));
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      nextDueDate = formatDate(`${yyyy}-${mm}-${dd}`);
     }
   }
 
