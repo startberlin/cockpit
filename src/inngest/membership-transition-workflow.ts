@@ -25,6 +25,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { notifyUntil } from "./lib/step-loops";
 
 export const membershipTransitionWorkflow = inngest.createFunction(
@@ -164,6 +165,24 @@ export const membershipTransitionWorkflow = inngest.createFunction(
             }),
           });
         });
+
+        await step.run("capture-analytics-expiry-email", async () => {
+          try {
+            getPostHogClient()?.capture({
+              distinctId: userId,
+              event: "workflow_email_sent",
+              properties: {
+                email_type: "membership_transition_expired",
+                subject_id: userId,
+              },
+            });
+          } catch (err) {
+            console.error(
+              "[membership-transition] posthog capture (expiry) failed",
+              err,
+            );
+          }
+        });
       }
 
       return { outcome: "expired", transitionRequestId };
@@ -193,6 +212,24 @@ export const membershipTransitionWorkflow = inngest.createFunction(
               transitionType: type,
             }),
           });
+        });
+
+        await step.run("capture-analytics-rejection-email", async () => {
+          try {
+            getPostHogClient()?.capture({
+              distinctId: userId,
+              event: "workflow_email_sent",
+              properties: {
+                email_type: "membership_transition_rejected",
+                subject_id: userId,
+              },
+            });
+          } catch (err) {
+            console.error(
+              "[membership-transition] posthog capture (rejection) failed",
+              err,
+            );
+          }
         });
       }
 
@@ -244,6 +281,27 @@ export const membershipTransitionWorkflow = inngest.createFunction(
             }),
           });
         });
+
+        await step.run(
+          "capture-analytics-supporting-alumni-email",
+          async () => {
+            try {
+              getPostHogClient()?.capture({
+                distinctId: userId,
+                event: "workflow_email_sent",
+                properties: {
+                  email_type: "membership_transition_supporting_alumni",
+                  subject_id: userId,
+                },
+              });
+            } catch (err) {
+              console.error(
+                "[membership-transition] posthog capture (supporting alumni) failed",
+                err,
+              );
+            }
+          },
+        );
       }
 
       await step.sendEvent("fire-group-reconciliation", {
@@ -355,6 +413,27 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           }),
         });
       });
+
+      await step.run(
+        "capture-analytics-alumni-cancellation-email",
+        async () => {
+          try {
+            getPostHogClient()?.capture({
+              distinctId: userId,
+              event: "workflow_email_sent",
+              properties: {
+                email_type: "membership_transition_alumni",
+                subject_id: userId,
+              },
+            });
+          } catch (err) {
+            console.error(
+              "[membership-transition] posthog capture (alumni cancellation) failed",
+              err,
+            );
+          }
+        },
+      );
     }
 
     // Step 10: Notify board and department head of the alumni transition.

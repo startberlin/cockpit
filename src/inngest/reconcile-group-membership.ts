@@ -8,6 +8,7 @@ import {
   removeGroupMember,
 } from "@/lib/google-workspace/directory";
 import { events, inngest } from "@/lib/inngest";
+import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
 
 export const reconcileGroupMembershipWorkflow = inngest.createFunction(
   {
@@ -32,18 +33,18 @@ export const reconcileGroupMembershipWorkflow = inngest.createFunction(
     if (g?.googleGroupEmail) {
       const googleGroupEmail = g.googleGroupEmail;
 
-      await step.run("sync-google", async () => {
+      const syncResult = await step.run("sync-google", async () => {
         const [googleEmails, dbMembers] = await Promise.all([
           listGroupMemberEmails(googleGroupEmail),
           db
-            .select({ email: user.email })
+            .select({ userId: usersToGroups.userId, email: user.email })
             .from(usersToGroups)
             .innerJoin(user, eq(usersToGroups.userId, user.id))
             .where(eq(usersToGroups.groupId, groupId)),
         ]);
 
         const activeMembers = dbMembers.filter(
-          (m): m is { email: string } => m.email !== null,
+          (m): m is { userId: string; email: string } => m.email !== null,
         );
         const googleSet = new Set(googleEmails);
         const dbEmailSet = new Set(
@@ -59,6 +60,67 @@ export const reconcileGroupMembershipWorkflow = inngest.createFunction(
           ...toAdd.map((m) => addGroupMember(googleGroupEmail, m.email)),
           ...toRemove.map((e) => removeGroupMember(googleGroupEmail, e)),
         ]);
+
+        return {
+          addedUserIds: toAdd.map((m) => m.userId),
+          removedEmails: toRemove,
+        };
+      });
+
+      await step.run("capture-analytics-group-sync", async () => {
+        try {
+          const ph = getPostHogClient();
+          if (!ph) return;
+
+          for (const userId of syncResult.addedUserIds) {
+            const userRecord = await db.query.user.findFirst({
+              where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+              columns: {
+                status: true,
+                department: true,
+                batchNumber: true,
+              },
+            });
+            ph.capture({
+              distinctId: userId,
+              event: "workflow_group_member_added",
+              properties: {
+                group_id: groupId,
+                reason: "criteria_match",
+                ...buildSubjectMetadata(userRecord ?? {}),
+              },
+            });
+          }
+
+          if (syncResult.removedEmails.length > 0) {
+            const removedUsers = await db.query.user.findMany({
+              where: (u, { inArray }) =>
+                inArray(u.email, syncResult.removedEmails),
+              columns: {
+                id: true,
+                status: true,
+                department: true,
+                batchNumber: true,
+              },
+            });
+            for (const userRecord of removedUsers) {
+              ph.capture({
+                distinctId: userRecord.id,
+                event: "workflow_group_member_removed",
+                properties: {
+                  group_id: groupId,
+                  reason: "criteria_no_longer_matches",
+                  ...buildSubjectMetadata(userRecord),
+                },
+              });
+            }
+          }
+        } catch (err) {
+          console.error(
+            "[reconcile-group-membership] posthog capture failed",
+            err,
+          );
+        }
       });
     }
 
