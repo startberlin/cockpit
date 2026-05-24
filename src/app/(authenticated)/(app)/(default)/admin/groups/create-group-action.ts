@@ -1,7 +1,6 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import db from "@/db";
 import { checkSlugAvailability } from "@/db/groups";
 import { group, usersToGroups } from "@/db/schema/group";
 import { actionClient } from "@/lib/action-client";
@@ -20,16 +19,16 @@ export const createGroupAction = actionClient
       throw new Error("You are not authorized to create groups.");
     }
 
-    const [slugAvailable, batches] = await Promise.all([
-      checkSlugAvailability(parsedInput.slug),
-      db.query.batch.findMany({ columns: { number: true } }),
-    ]);
+    const slugAvailable = await checkSlugAvailability(parsedInput.slug);
 
     if (!slugAvailable) {
       throw new Error("This slug is already taken. Please choose another one.");
     }
 
-    if (isSystemGroupSlug(parsedInput.slug, batches)) {
+    if (
+      isSystemGroupSlug(parsedInput.slug, []) ||
+      parsedInput.slug.startsWith("batch-")
+    ) {
       throw new Error(
         "This slug is reserved for a system group and cannot be used.",
       );
