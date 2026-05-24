@@ -20,12 +20,13 @@ export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { batchNumber } = event.data;
     const slug = `batch-${batchNumber}`;
+    const systemGroup = getSystemGroupBySlug(slug);
     const groupEmail =
-      getSystemGroupBySlug(slug)?.googleGroupEmail ??
-      `${slug}@start-berlin.com`;
+      systemGroup?.googleGroupEmail ?? `${slug}@start-berlin.com`;
+    const googleEmailPrefix = systemGroup?.googleEmailPrefix ?? slug;
 
     await step.run("create-google-group", () =>
-      createGoogleGroup(slug, `Batch ${batchNumber}`),
+      createGoogleGroup(googleEmailPrefix, `Batch ${batchNumber}`),
     );
 
     const members = await step.run("load-members", async () => {

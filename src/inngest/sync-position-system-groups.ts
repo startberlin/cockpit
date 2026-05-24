@@ -9,6 +9,7 @@ import {
 } from "@/lib/google-workspace/directory";
 import {
   getAllSystemGroups,
+  getEnvEmailPrefix,
   getSystemGroupBySlug,
   getSystemGroupsForUser,
 } from "@/lib/groups/system-groups";
@@ -20,8 +21,14 @@ const googleDeps = {
   addGroupMember,
   removeGroupMember,
   createGoogleGroup,
-  getGroupName: (prefix: string) =>
-    getSystemGroupBySlug(prefix)?.name ?? prefix,
+  getGroupName: (prefix: string) => {
+    const envPrefix = getEnvEmailPrefix();
+    const slug =
+      envPrefix && prefix.startsWith(envPrefix)
+        ? prefix.slice(envPrefix.length)
+        : prefix;
+    return getSystemGroupBySlug(slug)?.name ?? prefix;
+  },
 };
 
 export const syncPositionSystemGroupsWorkflow = inngest.createFunction(

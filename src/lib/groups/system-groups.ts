@@ -42,12 +42,29 @@ type SystemGroupDef = {
 
 const DOMAIN = "start-berlin.com";
 
+/**
+ * Returns the email prefix to prepend to all Google Group addresses for the
+ * current environment. Keeps prod clean while isolating staging/dev groups.
+ *
+ * VERCEL_ENV === "production"  → "" (no prefix)
+ * VERCEL_ENV === "preview"     → "staging-"
+ * anything else / unset        → "dev-"
+ */
+export function getEnvEmailPrefix(): string {
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv === "production") return "";
+  if (vercelEnv === "preview") return "staging-";
+  return "dev-";
+}
+
 function defToGroup(def: SystemGroupDef): SystemGroup {
+  const envPrefix = getEnvEmailPrefix();
+  const prefixedEmailPrefix = `${envPrefix}${def.googleEmailPrefix}`;
   return {
     slug: def.slug,
     name: def.name,
-    googleEmailPrefix: def.googleEmailPrefix,
-    googleGroupEmail: `${def.googleEmailPrefix}@${DOMAIN}`,
+    googleEmailPrefix: prefixedEmailPrefix,
+    googleGroupEmail: `${prefixedEmailPrefix}@${DOMAIN}`,
   };
 }
 
