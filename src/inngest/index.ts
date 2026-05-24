@@ -14,7 +14,6 @@ import {
   positionAssignmentDeletedNotification,
 } from "./position-assignment-notifications";
 import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
-import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
 import { syncGroupsCron } from "./sync-groups-cron";
 import { syncPositionSystemGroupsWorkflow } from "./sync-position-system-groups";
@@ -38,7 +37,6 @@ export const inngestFunctions = [
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
   reconcileGroupMembershipWorkflow,
-  reconcileUserGroupMembershipWorkflow,
   reconfirmationReminderWorkflow,
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,

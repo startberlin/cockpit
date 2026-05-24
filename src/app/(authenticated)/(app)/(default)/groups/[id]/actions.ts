@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import {
   addUserToGroup,
-  pinGroupMember,
   removeUserFromGroup,
   searchUsersNotInGroup,
 } from "@/db/groups";
@@ -65,17 +64,4 @@ export async function removeUserFromGroupAction(
     actor: { id: currentUser.id, name: currentUser.name },
     metadata: { groupId, userId },
   });
-}
-
-export async function pinGroupMemberAction(
-  userId: string,
-  groupId: string,
-): Promise<void> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
-    throw new Error("You are not authorized to manage group members.");
-  }
-
-  await pinGroupMember(userId, groupId);
-  revalidatePath(`/groups/${groupId}`);
 }

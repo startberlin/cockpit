@@ -8,7 +8,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import type { RuleGroup } from "@/lib/groups/rule";
 import { user } from "./auth";
 
 export const groupMembershipSource = pgEnum("group_membership_source", [
@@ -37,7 +36,7 @@ export const groupCriteria = pgTable("group_criteria", {
     .notNull()
     .references(() => group.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  conditions: jsonb("conditions").$type<RuleGroup>().notNull(),
+  conditions: jsonb("conditions").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: text("created_by")
     .notNull()
