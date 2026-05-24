@@ -9,6 +9,7 @@ import { findWorkspaceUserByEmail } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createUserSchema } from "./create-user-schema";
 
 export const createUserAction = actionClient
@@ -83,5 +84,18 @@ export const createUserAction = actionClient
         department: department ?? null,
       },
       description: companyEmail,
+    });
+
+    const posthog = getPostHogClient();
+    posthog?.capture({
+      distinctId: ctx.user.id,
+      event: "admin_user_created",
+      properties: {
+        actor_id: ctx.user.id,
+        company_email: companyEmail,
+        status: status ?? "onboarding",
+        department: department ?? null,
+        batch_number: batchNumber ?? null,
+      },
     });
   });

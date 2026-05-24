@@ -9,6 +9,7 @@ import { user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
 
 const accessGrants = [
   "super_admin",
@@ -50,7 +51,15 @@ export const updateGrantsAction = actionClient
     revalidatePath(`/admin/people/${parsedInput.userId}`);
 
     const [targetUser] = await db
-      .select({ id: userTable.id, name: userTable.name })
+      .select({
+        id: userTable.id,
+        name: userTable.name,
+        status: userTable.status,
+        department: userTable.department,
+        batchNumber: userTable.batchNumber,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
+      })
       .from(userTable)
       .where(eq(userTable.id, parsedInput.userId))
       .limit(1);
@@ -83,4 +92,25 @@ export const updateGrantsAction = actionClient
       metadata: { grants: newGrants },
       description,
     });
+
+    try {
+      const posthog = getPostHogClient();
+      if (posthog && targetUser) {
+        posthog.capture({
+          distinctId: targetUser.id,
+          event: "admin_permissions_updated",
+          properties: {
+            actor_id: ctx.user.id,
+            permissions_added: added,
+            permissions_removed: removed,
+            ...buildSubjectMetadata(targetUser),
+          },
+        });
+      }
+    } catch (err) {
+      console.error(
+        "PostHog capture failed for admin_permissions_updated:",
+        err,
+      );
+    }
   });

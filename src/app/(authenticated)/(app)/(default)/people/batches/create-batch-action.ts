@@ -6,11 +6,12 @@ import db from "@/db";
 import { batch } from "@/db/schema/batch";
 import { actionClient } from "@/lib/action-client";
 import { can } from "@/lib/permissions/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createBatchSchema } from "./create-batch-schema";
 
 export const createBatchAction = actionClient
   .inputSchema(createBatchSchema)
-  .action(async ({ parsedInput }) => {
+  .action(async ({ parsedInput, ctx }) => {
     if (!(await can("batches.manage"))) {
       throw new Error("You are not authorized to manage batches.");
     }
@@ -33,6 +34,16 @@ export const createBatchAction = actionClient
 
     revalidatePath("/people/batches");
     revalidatePath("/people");
+
+    const posthog = getPostHogClient();
+    posthog?.capture({
+      distinctId: ctx.user.id,
+      event: "admin_batch_created",
+      properties: {
+        actor_id: ctx.user.id,
+        batch_number: parsedInput.number,
+      },
+    });
 
     return { number: parsedInput.number };
   });

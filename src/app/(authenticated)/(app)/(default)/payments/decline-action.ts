@@ -9,6 +9,7 @@ import { user } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
 
 export const declineAction = actionClient
   .inputSchema(
@@ -45,7 +46,15 @@ export const declineAction = actionClient
     revalidatePath("/payments");
 
     const [member] = await db
-      .select({ name: user.name })
+      .select({
+        name: user.name,
+        id: user.id,
+        status: user.status,
+        department: user.department,
+        batchNumber: user.batchNumber,
+        legalMembershipState: user.legalMembershipState,
+        memberSinceDate: user.memberSinceDate,
+      })
       .from(user)
       .where(eq(user.id, row.userId))
       .limit(1);
@@ -58,6 +67,23 @@ export const declineAction = actionClient
       metadata: { paymentId: row.id, reason: parsedInput.reason },
       description: parsedInput.reason,
     });
+
+    try {
+      const posthog = getPostHogClient();
+      if (posthog && member) {
+        posthog.capture({
+          distinctId: row.userId,
+          event: "admin_payment_declined",
+          properties: {
+            actor_id: ctx.user.id,
+            payment_amount_cents: row.amount,
+            ...buildSubjectMetadata(member, row.activationDate),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("PostHog capture failed for admin_payment_declined:", err);
+    }
 
     return { alreadyProcessed: false };
   });
