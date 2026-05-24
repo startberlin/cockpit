@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or, type SQL } from "drizzle-orm";
 import db from "@/db";
 import {
   addUsersToGroup,
   removeUserFromGroups,
   removeUsersFromGroup,
 } from "@/db/groups";
+import { SYSTEM_USER_EMAIL } from "@/db/people";
 import { user } from "@/db/schema/auth";
 import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
 import { buildRuleGroupSQL } from "./rule-sql";
@@ -65,7 +66,12 @@ export async function reconcileGroupMembership(
     ? await db
         .select({ id: user.id, email: user.email })
         .from(user)
-        .where(whereClause)
+        .where(
+          and(
+            whereClause,
+            or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+          ),
+        )
     : [];
   const matchingIds = new Set(matching.map((u) => u.id));
 
