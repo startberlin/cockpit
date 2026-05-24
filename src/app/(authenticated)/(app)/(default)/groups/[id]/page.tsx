@@ -1,6 +1,12 @@
 import { notFound } from "next/navigation";
 import * as React from "react";
+import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
+import {
+  getMembersOfSystemGroup,
+  getSystemGroupBySlug,
+  isSystemGroupSlug,
+} from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import GroupDetailClient from "./page-client";
@@ -13,8 +19,17 @@ interface GroupPageProps {
 
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
-  const mayViewGroup = await can("group.view", { id });
+  const batches = await db.query.batch.findMany({ columns: { number: true } });
 
+  if (isSystemGroupSlug(id, batches)) {
+    const sg = getSystemGroupBySlug(id);
+    return createMetadata({
+      title: sg?.name ?? "Group",
+      description: `View members of ${sg?.name ?? id}.`,
+    });
+  }
+
+  const mayViewGroup = await can("group.view", { id });
   if (!mayViewGroup) {
     return createMetadata({
       title: "Group",
@@ -23,7 +38,6 @@ export async function generateMetadata({ params }: GroupPageProps) {
   }
 
   const group = await getGroupDetail(id);
-
   if (!group) {
     return createMetadata({
       title: "Group Not Found",
@@ -33,7 +47,7 @@ export async function generateMetadata({ params }: GroupPageProps) {
 
   return createMetadata({
     title: group.name,
-    description: `View and manage members of ${group.name} group.`,
+    description: `View and manage members of ${group.name}.`,
   });
 }
 
@@ -45,17 +59,59 @@ export default async function GroupPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const mayViewGroup = await can("group.view", { id });
+  const batches = await db.query.batch.findMany({ columns: { number: true } });
 
-  if (!mayViewGroup) {
-    notFound();
+  if (isSystemGroupSlug(id, batches)) {
+    const systemGroup = getSystemGroupBySlug(id);
+    if (!systemGroup) notFound();
+
+    const [users, positions] = await Promise.all([
+      db.query.user.findMany({
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      }),
+      db.query.userOrganizationPosition.findMany({
+        columns: {
+          userId: true,
+          position: true,
+          scope: true,
+          department: true,
+        },
+      }),
+    ]);
+
+    const members = getMembersOfSystemGroup(id, users, positions);
+
+    return (
+      <React.Suspense fallback={<GroupDetailSkeleton />}>
+        <GroupDetailClient
+          kind="system"
+          name={systemGroup.name}
+          googleGroupEmail={systemGroup.googleGroupEmail}
+          members={members}
+        />
+      </React.Suspense>
+    );
   }
+
+  const mayViewGroup = await can("group.view", { id });
+  if (!mayViewGroup) notFound();
 
   const groupDetailPromise = getGroupDetail(id, page);
 
   return (
     <React.Suspense fallback={<GroupDetailSkeleton />}>
-      <GroupDetailClient groupDetailPromise={groupDetailPromise} />
+      <GroupDetailClient
+        kind="manual"
+        groupDetailPromise={groupDetailPromise}
+      />
     </React.Suspense>
   );
 }
