@@ -142,6 +142,22 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         }),
     );
 
+    // Step 2b: Read user state before activation (replay-safe before-state).
+    const userBeforeActivation = await step.run(
+      "read-user-state-before-activation",
+      async () => {
+        const u = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectData.userId),
+          columns: { status: true, department: true, batchNumber: true },
+        });
+        return {
+          status: u?.status ?? null,
+          department: u?.department ?? null,
+          batchNumber: u?.batchNumber ?? null,
+        };
+      },
+    );
+
     // Step 3: Activate the legal membership and insert the payment row.
     await step.run("activate-legal-membership", async () => {
       await db.transaction(async (tx) => {
@@ -167,6 +183,22 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
     await step.sendEvent("user-status-changed", {
       name: events.cockpitUserUpdated.name,
       data: { id: subjectData.userId },
+    });
+
+    await step.sendEvent("sync-system-groups-after-activation", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId: subjectData.userId,
+        before: userBeforeActivation,
+        after: {
+          status:
+            userBeforeActivation.status === "onboarding"
+              ? "member"
+              : userBeforeActivation.status,
+          department: userBeforeActivation.department,
+          batchNumber: userBeforeActivation.batchNumber,
+        },
+      },
     });
 
     // Kick off the mandate-setup reminder workflow; it self-checks current

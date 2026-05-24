@@ -39,8 +39,32 @@ export const events = {
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
     schema: staticSchema<{ legalMembershipId: string; userId: string }>(),
   }),
-  groupCriteriaChanged: eventType("group/criteria.changed", {
-    schema: staticSchema<{ groupId: string }>(),
+  groupMemberAdded: eventType("group/member.added", {
+    schema: staticSchema<{ groupId: string; userId: string }>(),
+  }),
+  groupMemberRemoved: eventType("group/member.removed", {
+    schema: staticSchema<{ groupId: string; userId: string }>(),
+  }),
+  batchCreated: eventType("cockpit/batch.created", {
+    schema: staticSchema<{ batchNumber: number }>(),
+  }),
+  positionsSystemGroupsSync: eventType("cockpit/positions.system-groups-sync", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  userSystemGroupsSync: eventType("cockpit/user.system-groups-sync", {
+    schema: staticSchema<{
+      userId: string;
+      before: {
+        status: UserStatus | null;
+        department: Department | null;
+        batchNumber: number | null;
+      };
+      after: {
+        status: UserStatus | null;
+        department: Department | null;
+        batchNumber: number | null;
+      };
+    }>(),
   }),
   existingMemberDocumentationRequested: eventType(
     "membership/existing-member-documentation.requested",

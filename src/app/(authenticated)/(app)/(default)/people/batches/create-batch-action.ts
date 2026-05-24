@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import db from "@/db";
 import { batch } from "@/db/schema/batch";
 import { actionClient } from "@/lib/action-client";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { createBatchSchema } from "./create-batch-schema";
@@ -35,8 +36,19 @@ export const createBatchAction = actionClient
     revalidatePath("/people/batches");
     revalidatePath("/people");
 
-    const posthog = getPostHogClient();
-    posthog?.capture({
+    try {
+      await inngest.send({
+        name: events.batchCreated.name,
+        data: { batchNumber: parsedInput.number },
+      });
+    } catch (err) {
+      console.error(
+        `[create-batch] Failed to send batchCreated event for batch #${parsedInput.number}`,
+        err,
+      );
+    }
+
+    getPostHogClient()?.capture({
       distinctId: ctx.user.id,
       event: "admin_batch_created",
       properties: {

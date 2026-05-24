@@ -350,7 +350,6 @@ export interface UserGroupMembershipDetail {
   id: string;
   name: string;
   slug: string;
-  source: "criteria" | "manual";
   joinedAt: Date;
   memberCount: number;
 }
@@ -465,7 +464,6 @@ export const getUserGroupMembershipsWithDetails = cache(
         id: groupTable.id,
         name: groupTable.name,
         slug: groupTable.slug,
-        source: usersToGroups.source,
         joinedAt: usersToGroups.joinedAt,
         memberCount: memberCountSubquery.total,
       })
@@ -481,7 +479,6 @@ export const getUserGroupMembershipsWithDetails = cache(
       id: row.id,
       name: row.name,
       slug: row.slug,
-      source: row.source,
       joinedAt: row.joinedAt,
       memberCount: row.memberCount,
     }));

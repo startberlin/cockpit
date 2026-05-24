@@ -251,6 +251,22 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 4: Approved — execute based on type.
     if (type === "supporting_alumni_request") {
+      // Read user state before the transition for replay-safe before/after diff.
+      const userBeforeTransition = await step.run(
+        "read-user-state-before-transition",
+        async () => {
+          const u = await db.query.user.findFirst({
+            where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+            columns: { status: true, department: true, batchNumber: true },
+          });
+          return {
+            status: u?.status ?? null,
+            department: u?.department ?? null,
+            batchNumber: u?.batchNumber ?? null,
+          };
+        },
+      );
+
       // Supporting alumni: status change only, Google + mandate unchanged.
       await step.run("execute-supporting-alumni-transition", async () => {
         await db.transaction(async (tx) => {
@@ -309,6 +325,19 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         data: { id: userId },
       });
 
+      await step.sendEvent("sync-system-groups-after-supporting-alumni", {
+        name: events.userSystemGroupsSync.name,
+        data: {
+          userId,
+          before: userBeforeTransition,
+          after: {
+            status: "supporting_alumni",
+            department: null,
+            batchNumber: userBeforeTransition.batchNumber,
+          },
+        },
+      });
+
       await step.run("write-audit-log-supporting-alumni", async () => {
         await writeAuditLog({
           category: "membership",
@@ -323,6 +352,22 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     }
 
     // Alumni request: full exit sequence.
+
+    // Read user state before alumni transition for replay-safe before/after diff.
+    const userBeforeAlumniTransition = await step.run(
+      "read-user-state-before-alumni-transition",
+      async () => {
+        const u = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+          columns: { status: true, department: true, batchNumber: true },
+        });
+        return {
+          status: u?.status ?? null,
+          department: u?.department ?? null,
+          batchNumber: u?.batchNumber ?? null,
+        };
+      },
+    );
 
     // Step 5: Atomic alumni transition transaction.
     await step.run("execute-alumni-transition", async () => {
@@ -493,6 +538,19 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     await step.sendEvent("fire-group-reconciliation-alumni", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
+    });
+
+    await step.sendEvent("sync-system-groups-after-alumni", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId,
+        before: userBeforeAlumniTransition,
+        after: {
+          status: "alumni",
+          department: userBeforeAlumniTransition.department,
+          batchNumber: userBeforeAlumniTransition.batchNumber,
+        },
+      },
     });
 
     await step.run("write-audit-log-alumni", async () => {

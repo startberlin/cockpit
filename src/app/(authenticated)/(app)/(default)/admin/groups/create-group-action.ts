@@ -7,8 +7,9 @@ import { group, usersToGroups } from "@/db/schema/group";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createGoogleGroup } from "@/lib/google-workspace/directory";
-import { triggerGoogleSync } from "@/lib/groups/google-sync";
+import { isSystemGroupSlug } from "@/lib/groups/system-groups";
 import { newId } from "@/lib/id";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { createGroupSchema } from "./create-group-schema";
@@ -21,8 +22,18 @@ export const createGroupAction = actionClient
     }
 
     const slugAvailable = await checkSlugAvailability(parsedInput.slug);
+
     if (!slugAvailable) {
       throw new Error("This slug is already taken. Please choose another one.");
+    }
+
+    if (
+      isSystemGroupSlug(parsedInput.slug, []) ||
+      parsedInput.slug.startsWith("batch-")
+    ) {
+      throw new Error(
+        "This slug is reserved for a system group and cannot be used.",
+      );
     }
 
     const groupId = newId("group");
@@ -52,7 +63,6 @@ export const createGroupAction = actionClient
     await db.insert(usersToGroups).values({
       userId: currentUser.id,
       groupId,
-      source: "manual",
     });
 
     if (parsedInput.integrations.email) {
@@ -68,7 +78,17 @@ export const createGroupAction = actionClient
             .update(group)
             .set({ googleGroupEmail })
             .where(eq(group.id, groupId));
-          await triggerGoogleSync(groupId);
+          try {
+            await inngest.send({
+              name: events.groupMemberAdded.name,
+              data: { groupId, userId: currentUser.id },
+            });
+          } catch (err) {
+            console.error(
+              `[create-group] Failed to send groupMemberAdded event for group ${groupId}`,
+              err,
+            );
+          }
         }
       } catch (error) {
         console.error(
