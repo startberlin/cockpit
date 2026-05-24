@@ -1,15 +1,14 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { Common } from "googleapis";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
-import { group, groupCriteria, usersToGroups } from "@/db/schema/group";
+import { group, usersToGroups } from "@/db/schema/group";
 import {
   addGroupMember,
   createGoogleGroup,
   listGroupMemberEmails,
   removeGroupMember,
 } from "@/lib/google-workspace/directory";
-import { reconcileGroupMembership } from "@/lib/groups/reconcile";
 import { inngest } from "@/lib/inngest";
 
 async function listGroupMemberEmailsOrNull(
@@ -32,53 +31,7 @@ export const syncGroupsCron = inngest.createFunction(
     triggers: [{ cron: "TZ=Europe/Berlin */15 * * * *" }],
   },
   async ({ step }) => {
-    // Step 1: find all groups that have criteria and reconcile DB membership.
-    const groupsToReconcile = await step.run(
-      "find-groups-with-criteria",
-      async () => {
-        const [withCriteria, withOrphanedMembers] = await Promise.all([
-          db
-            .selectDistinct({ id: group.id })
-            .from(group)
-            .innerJoin(groupCriteria, eq(groupCriteria.groupId, group.id)),
-          db
-            .selectDistinct({ id: group.id })
-            .from(group)
-            .innerJoin(
-              usersToGroups,
-              and(
-                eq(usersToGroups.groupId, group.id),
-                eq(usersToGroups.source, "criteria"),
-              ),
-            ),
-        ]);
-
-        const seen = new Set<string>();
-        const merged: { id: string }[] = [];
-        for (const row of [...withCriteria, ...withOrphanedMembers]) {
-          if (!seen.has(row.id)) {
-            seen.add(row.id);
-            merged.push(row);
-          }
-        }
-        return merged;
-      },
-    );
-
-    for (const g of groupsToReconcile) {
-      try {
-        await step.run(`reconcile-db-${g.id}`, () =>
-          reconcileGroupMembership(g.id),
-        );
-      } catch (error) {
-        console.error(
-          `[sync-groups-cron] DB reconciliation failed for group ${g.id}`,
-          error,
-        );
-      }
-    }
-
-    // Step 2: for every group with a Google email, sync actual membership.
+    // For every manual group with a Google email, sync actual membership.
     const groupsWithEmail = await step.run(
       "find-groups-with-google-email",
       () =>
@@ -123,8 +76,9 @@ export const syncGroupsCron = inngest.createFunction(
             continue;
           }
 
+          const googleEmailPrefix = g.googleEmailPrefix;
           await step.run(`recreate-google-${g.id}`, () =>
-            createGoogleGroup(g.googleEmailPrefix!, g.name),
+            createGoogleGroup(googleEmailPrefix, g.name),
           );
 
           const activeMembersForPopulate = dbMembers.filter(
@@ -181,7 +135,6 @@ export const syncGroupsCron = inngest.createFunction(
     }
 
     return {
-      reconciled: groupsToReconcile.length,
       googleGroups: groupsWithEmail.length,
       googleAdded,
       googleRemoved,

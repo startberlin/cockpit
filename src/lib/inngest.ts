@@ -39,7 +39,7 @@ export const events = {
   reconfirmationSubmitted: eventType("membership/reconfirmation.submitted", {
     schema: staticSchema<{ legalMembershipId: string; userId: string }>(),
   }),
-  groupCriteriaChanged: eventType("group/criteria.changed", {
+  groupMembershipChanged: eventType("group/membership.changed", {
     schema: staticSchema<{ groupId: string }>(),
   }),
   batchCreated: eventType("cockpit/batch.created", {
