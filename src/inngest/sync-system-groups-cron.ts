@@ -3,6 +3,7 @@ import "server-only";
 import db from "@/db";
 import {
   addGroupMember,
+  createGoogleGroup,
   listGroupMemberEmails,
   removeGroupMember,
 } from "@/lib/google-workspace/directory";
@@ -20,8 +21,10 @@ export const syncSystemGroupsCron = inngest.createFunction(
     triggers: [{ cron: "TZ=Europe/Berlin 0 3 * * *" }],
   },
   async ({ step }) => {
-    const { users, positions, batches } = await step.run(
-      "load-data",
+    // Compute expected membership per group in-memory and checkpoint only
+    // email strings — not the full user/position rows.
+    const groupDeltas = await step.run(
+      "compute-expected-membership",
       async () => {
         const [users, positions, batches] = await Promise.all([
           db.query.user.findMany({
@@ -45,41 +48,72 @@ export const syncSystemGroupsCron = inngest.createFunction(
             columns: { number: true },
           }),
         ]);
-        return { users, positions, batches };
+
+        return getAllSystemGroupSlugs(batches)
+          .map((slug) => {
+            const systemGroup = getSystemGroupBySlug(slug);
+            if (!systemGroup) return null;
+
+            const expectedEmails = getMembersOfSystemGroup(
+              slug,
+              users,
+              positions,
+            )
+              .filter(
+                (u): u is typeof u & { email: string } => u.email !== null,
+              )
+              .map((u) => u.email.toLowerCase());
+
+            return {
+              slug,
+              groupEmail: systemGroup.googleGroupEmail,
+              googleEmailPrefix: systemGroup.googleEmailPrefix,
+              name: systemGroup.name,
+              expectedEmails,
+            };
+          })
+          .filter((g): g is NonNullable<typeof g> => g !== null);
       },
     );
 
-    const slugs = getAllSystemGroupSlugs(batches);
     let totalAdded = 0;
     let totalRemoved = 0;
 
-    for (const slug of slugs) {
-      const systemGroup = getSystemGroupBySlug(slug);
-      if (!systemGroup) continue;
-
-      const groupEmail = systemGroup.googleGroupEmail;
-
+    for (const {
+      slug,
+      groupEmail,
+      googleEmailPrefix,
+      name,
+      expectedEmails,
+    } of groupDeltas) {
       const result = await step.run(`reconcile-${slug}`, async () => {
-        const expectedMembers = getMembersOfSystemGroup(slug, users, positions);
-        const expectedEmails = new Set(
-          expectedMembers
-            .filter((u): u is typeof u & { email: string } => u.email !== null)
-            .map((u) => u.email.toLowerCase()),
-        );
+        const expectedSet = new Set(expectedEmails);
 
-        const googleEmails = await listGroupMemberEmails(groupEmail);
+        let googleEmails: string[];
+        try {
+          googleEmails = await listGroupMemberEmails(groupEmail);
+        } catch (error) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            (error as { response?: { status?: number } }).response?.status ===
+              404
+          ) {
+            await createGoogleGroup(googleEmailPrefix, name);
+            googleEmails = [];
+          } else {
+            throw error;
+          }
+        }
         const googleSet = new Set(googleEmails.map((e) => e.toLowerCase()));
 
-        const toAdd = expectedMembers.filter(
-          (u): u is typeof u & { email: string } =>
-            u.email !== null && !googleSet.has(u.email.toLowerCase()),
-        );
+        const toAdd = expectedEmails.filter((e) => !googleSet.has(e));
         const toRemove = googleEmails.filter(
-          (e) => !expectedEmails.has(e.toLowerCase()),
+          (e) => !expectedSet.has(e.toLowerCase()),
         );
 
         await Promise.all([
-          ...toAdd.map((u) => addGroupMember(groupEmail, u.email)),
+          ...toAdd.map((e) => addGroupMember(groupEmail, e)),
           ...toRemove.map((e) => removeGroupMember(groupEmail, e)),
         ]);
 
@@ -90,6 +124,6 @@ export const syncSystemGroupsCron = inngest.createFunction(
       totalRemoved += result.removed;
     }
 
-    return { groups: slugs.length, totalAdded, totalRemoved };
+    return { groups: groupDeltas.length, totalAdded, totalRemoved };
   },
 );

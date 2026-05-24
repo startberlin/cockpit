@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { toast } from "sonner";
 import { Can } from "@/components/can";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,25 @@ import {
 } from "@/components/ui/table";
 import type { AdminGroup } from "@/db/groups";
 import type { SystemGroup } from "@/lib/groups/system-groups";
+import { exportGroupCsvAction } from "../groups/[id]/actions";
 import { CreateGroupDialog } from "./create-group-dialog";
+
+async function handleExport(groupId: string) {
+  try {
+    const csv = await exportGroupCsvAction(groupId);
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "group-members-luma.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (_error) {
+    toast.error(
+      "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+    );
+  }
+}
 
 interface SystemGroupWithCount extends SystemGroup {
   memberCount: number;
@@ -168,14 +187,13 @@ export default function AdminGroupsPageClient({
                         permission="group.export"
                         context={{ isMember: true }}
                       >
-                        <Button variant="ghost" size="icon" asChild>
-                          <a
-                            href={`/api/groups/${g.id}/export`}
-                            download
-                            title="Export CSV"
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Export CSV"
+                          onClick={() => handleExport(g.id)}
+                        >
+                          <Download className="h-4 w-4" />
                         </Button>
                       </Can>
                     </TableCell>

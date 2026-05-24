@@ -13,6 +13,7 @@ export const syncUserSystemGroupsWorkflow = inngest.createFunction(
     id: "sync-user-system-groups",
     triggers: [{ event: events.userSystemGroupsSync }],
     concurrency: {
+      scope: "account",
       key: "event.data.userId",
       limit: 1,
     },
@@ -21,13 +22,19 @@ export const syncUserSystemGroupsWorkflow = inngest.createFunction(
     const { userId, before, after } = event.data;
 
     const syncData = await step.run("compute-diff", async () => {
-      const [positions, batches] = await Promise.all([
+      const [positions, batches, userRecord] = await Promise.all([
         db.query.userOrganizationPosition.findMany({
           where: (p, { eq }) => eq(p.userId, userId),
           columns: { position: true, scope: true, department: true },
         }),
         db.query.batch.findMany({ columns: { number: true } }),
+        db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.id, userId),
+          columns: { email: true },
+        }),
       ]);
+
+      const email = userRecord?.email ?? null;
 
       const beforeGroups = getSystemGroupsForUser(
         { id: userId, ...before },
@@ -44,25 +51,20 @@ export const syncUserSystemGroupsWorkflow = inngest.createFunction(
       const afterSlugs = new Set(afterGroups.map((g) => g.slug));
 
       return {
+        email,
         toAdd: afterGroups.filter((g) => !beforeSlugs.has(g.slug)),
         toRemove: beforeGroups.filter((g) => !afterSlugs.has(g.slug)),
       };
     });
+
+    if (!syncData.email) return { skipped: true };
 
     if (syncData.toAdd.length === 0 && syncData.toRemove.length === 0) {
       return { added: 0, removed: 0 };
     }
 
     await step.run("sync-google", async () => {
-      const userRecord = await db.query.user.findFirst({
-        where: (u, { eq }) => eq(u.id, userId),
-        columns: { email: true },
-      });
-
-      if (!userRecord?.email) return;
-
-      const { email } = userRecord;
-
+      const { email } = syncData;
       await Promise.all([
         ...syncData.toAdd.map((g) => addGroupMember(g.googleGroupEmail, email)),
         ...syncData.toRemove.map((g) =>

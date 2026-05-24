@@ -487,7 +487,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         userId: subjectUserId,
         before: userBeforeActivation,
         after: {
-          status: "member",
+          status:
+            userBeforeActivation.status === "onboarding"
+              ? "member"
+              : userBeforeActivation.status,
           department: userBeforeActivation.department,
           batchNumber: userBeforeActivation.batchNumber,
         },

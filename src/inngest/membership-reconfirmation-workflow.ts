@@ -191,7 +191,10 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
         userId: subjectData.userId,
         before: userBeforeActivation,
         after: {
-          status: "member",
+          status:
+            userBeforeActivation.status === "onboarding"
+              ? "member"
+              : userBeforeActivation.status,
           department: userBeforeActivation.department,
           batchNumber: userBeforeActivation.batchNumber,
         },

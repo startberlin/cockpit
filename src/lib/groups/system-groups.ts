@@ -73,13 +73,20 @@ const STATIC_SYSTEM_GROUP_DEFS: SystemGroupDef[] = [
     slug: "board",
     name: "Board",
     googleEmailPrefix: "board",
-    isMember: (_u, positions) => positions.length > 0,
+    isMember: (u, positions) =>
+      u.status !== null &&
+      u.status !== "cancelled" &&
+      u.status !== "alumni" &&
+      positions.length > 0,
   },
   {
     slug: "legal-board",
     name: "Legal Board",
     googleEmailPrefix: "legal-board",
-    isMember: (_u, positions) =>
+    isMember: (u, positions) =>
+      u.status !== null &&
+      u.status !== "cancelled" &&
+      u.status !== "alumni" &&
       positions.some(
         (p) =>
           p.position === "president" ||
@@ -97,7 +104,10 @@ const DEPT_SYSTEM_GROUP_DEFS: SystemGroupDef[] = DEPARTMENT_IDS.flatMap(
       slug: dept,
       name: DEPARTMENT_NAMES[dept],
       googleEmailPrefix: dept,
-      isMember: (_u, positions) =>
+      isMember: (u, positions) =>
+        u.status !== null &&
+        u.status !== "cancelled" &&
+        u.status !== "alumni" &&
         positions.some(
           (p) => p.position === "department_head" && p.department === dept,
         ),
@@ -110,7 +120,8 @@ const DEPT_SYSTEM_GROUP_DEFS: SystemGroupDef[] = DEPARTMENT_IDS.flatMap(
         u.department === dept &&
         u.status !== null &&
         u.status !== "cancelled" &&
-        u.status !== "alumni",
+        u.status !== "alumni" &&
+        u.status !== "supporting_alumni",
     },
   ],
 );

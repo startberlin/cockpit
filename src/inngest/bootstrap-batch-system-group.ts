@@ -5,7 +5,10 @@ import {
   addGroupMember,
   createGoogleGroup,
 } from "@/lib/google-workspace/directory";
-import { getMembersOfSystemGroup } from "@/lib/groups/system-groups";
+import {
+  getMembersOfSystemGroup,
+  getSystemGroupBySlug,
+} from "@/lib/groups/system-groups";
 import { events, inngest } from "@/lib/inngest";
 
 export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
@@ -16,7 +19,9 @@ export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { batchNumber } = event.data;
     const slug = `batch-${batchNumber}`;
-    const groupEmail = `${slug}@start-berlin.com`;
+    const groupEmail =
+      getSystemGroupBySlug(slug)?.googleGroupEmail ??
+      `${slug}@start-berlin.com`;
 
     await step.run("create-google-group", () =>
       createGoogleGroup(slug, `Batch ${batchNumber}`),

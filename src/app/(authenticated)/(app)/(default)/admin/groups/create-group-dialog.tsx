@@ -1,11 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -29,10 +28,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { createGroupAction } from "./create-group-action";
-import {
-  type CreateGroupFormData,
-  createGroupSchema,
-} from "./create-group-schema";
+import { createGroupSchema } from "./create-group-schema";
 
 function slugify(name: string) {
   return name
@@ -45,28 +41,32 @@ export function CreateGroupDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const form = useForm<CreateGroupFormData>({
-    resolver: zodResolver(createGroupSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      integrations: { email: false, googleEmailPrefix: undefined },
+  const { form, action, handleSubmitWithAction } = useHookFormAction(
+    createGroupAction,
+    zodResolver(createGroupSchema),
+    {
+      actionProps: {
+        onSuccess: () => {
+          toast.success("Group created.");
+          setOpen(false);
+          form.reset();
+          router.refresh();
+        },
+        onError: ({ error }) => {
+          toast.error(
+            error.serverError ?? "Could not create group. Please try again.",
+          );
+        },
+      },
+      formProps: {
+        defaultValues: {
+          name: "",
+          slug: "",
+          integrations: { email: false, googleEmailPrefix: undefined },
+        },
+      },
     },
-  });
-
-  const { execute, isPending } = useAction(createGroupAction, {
-    onSuccess: () => {
-      toast.success("Group created.");
-      setOpen(false);
-      form.reset();
-      router.refresh();
-    },
-    onError: ({ error }) => {
-      toast.error(
-        error.serverError ?? "Could not create group. Please try again.",
-      );
-    },
-  });
+  );
 
   const emailEnabled = form.watch("integrations.email");
 
@@ -93,10 +93,7 @@ export function CreateGroupDialog() {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit((data) => execute(data))}
-              className="space-y-4"
-            >
+            <form onSubmit={handleSubmitWithAction} className="space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -186,8 +183,8 @@ export function CreateGroupDialog() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? "Creating…" : "Create group"}
+                <Button type="submit" disabled={action.isPending}>
+                  {action.isPending ? "Creating…" : "Create group"}
                 </Button>
               </div>
             </form>

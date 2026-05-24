@@ -8,6 +8,7 @@ import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createGoogleGroup } from "@/lib/google-workspace/directory";
 import { triggerGoogleSync } from "@/lib/groups/google-sync";
+import { isSystemGroupSlug } from "@/lib/groups/system-groups";
 import { newId } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
 import { createGroupSchema } from "./create-group-schema";
@@ -19,9 +20,19 @@ export const createGroupAction = actionClient
       throw new Error("You are not authorized to create groups.");
     }
 
-    const slugAvailable = await checkSlugAvailability(parsedInput.slug);
+    const [slugAvailable, batches] = await Promise.all([
+      checkSlugAvailability(parsedInput.slug),
+      db.query.batch.findMany({ columns: { number: true } }),
+    ]);
+
     if (!slugAvailable) {
       throw new Error("This slug is already taken. Please choose another one.");
+    }
+
+    if (isSystemGroupSlug(parsedInput.slug, batches)) {
+      throw new Error(
+        "This slug is reserved for a system group and cannot be used.",
+      );
     }
 
     const groupId = newId("group");
@@ -51,7 +62,6 @@ export const createGroupAction = actionClient
     await db.insert(usersToGroups).values({
       userId: currentUser.id,
       groupId,
-      source: "manual",
     });
 
     if (parsedInput.integrations.email) {

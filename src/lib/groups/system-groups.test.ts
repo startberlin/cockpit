@@ -134,6 +134,34 @@ describe("getSystemGroupsForUser", () => {
     const result = getSystemGroupsForUser(u, [], BATCHES);
     assert.ok(!result.some((g) => g.slug.startsWith("batch-")));
   });
+
+  it("user with null status gets no groups even with positions", () => {
+    const u = user({ status: null, department: null, batchNumber: null });
+    const result = getSystemGroupsForUser(u, [position("president")], BATCHES);
+    assert.equal(result.length, 0);
+  });
+
+  it("cancelled user with president position gets no groups", () => {
+    const u = user({
+      status: "cancelled",
+      department: null,
+      batchNumber: null,
+    });
+    const result = getSystemGroupsForUser(u, [position("president")], BATCHES);
+    assert.equal(result.length, 0);
+  });
+
+  it("supporting_alumni with department gets members but not dept-members", () => {
+    const u = user({
+      status: "supporting_alumni",
+      department: "events",
+      batchNumber: null,
+    });
+    const result = getSystemGroupsForUser(u, [], BATCHES);
+    const slugSet = new Set(result.map((g) => g.slug));
+    assert.ok(slugSet.has("members"), "should have members");
+    assert.ok(!slugSet.has("events-members"), "should not have events-members");
+  });
 });
 
 describe("getMembersOfSystemGroup", () => {

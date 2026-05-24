@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import * as React from "react";
+import { cache } from "react";
 import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
 import {
@@ -12,6 +13,10 @@ import { can } from "@/lib/permissions/server";
 import GroupDetailClient from "./page-client";
 import GroupDetailSkeleton from "./skeleton";
 
+const getBatches = cache(() =>
+  db.query.batch.findMany({ columns: { number: true } }),
+);
+
 interface GroupPageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ page?: string }>;
@@ -19,7 +24,7 @@ interface GroupPageProps {
 
 export async function generateMetadata({ params }: GroupPageProps) {
   const { id } = await params;
-  const batches = await db.query.batch.findMany({ columns: { number: true } });
+  const batches = await getBatches();
 
   if (isSystemGroupSlug(id, batches)) {
     const sg = getSystemGroupBySlug(id);
@@ -59,7 +64,7 @@ export default async function GroupPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const batches = await db.query.batch.findMany({ columns: { number: true } });
+  const batches = await getBatches();
 
   if (isSystemGroupSlug(id, batches)) {
     const systemGroup = getSystemGroupBySlug(id);

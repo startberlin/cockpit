@@ -50,6 +50,7 @@ import type { PublicUser } from "@/db/people";
 import { authClient } from "@/lib/auth-client";
 import {
   addUserToGroupAction,
+  exportGroupCsvAction,
   removeUserFromGroupAction,
   searchUsersNotInGroupAction,
 } from "./actions";
@@ -267,6 +268,23 @@ function ManualGroupView({
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const csv = await exportGroupCsvAction(group.id);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "group-members-luma.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (_error) {
+      toast.error(
+        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
   useEffect(() => {
     if (!group.googleSyncPending) return;
     const pollId = setInterval(() => router.refresh(), 3000);
@@ -349,10 +367,8 @@ function ManualGroupView({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <a href={`/api/groups/${group.id}/export`} download>
-                      CSV for Luma
-                    </a>
+                  <DropdownMenuItem onClick={handleExport}>
+                    CSV for Luma
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
