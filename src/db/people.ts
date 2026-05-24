@@ -1,21 +1,11 @@
-import {
-  and,
-  asc,
-  count,
-  eq,
-  ilike,
-  inArray,
-  isNull,
-  ne,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
   getStructuredMembershipState,
   type StructuredMembershipState,
 } from "@/lib/membership-status";
+import { unaccentSearch } from "@/lib/search";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import db from ".";
 import type {
@@ -132,13 +122,11 @@ export async function getAllUserPublicData({
   const effectiveStatus = status ?? DEFAULT_COMMUNITY_STATUSES;
 
   const searchClause = search
-    ? or(
-        ilike(userTable.firstName, `%${search}%`),
-        ilike(userTable.lastName, `%${search}%`),
-        ilike(
-          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
-          `%${search}%`,
-        ),
+    ? unaccentSearch(
+        search,
+        userTable.firstName,
+        userTable.lastName,
+        sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
       )
     : undefined;
 
@@ -255,13 +243,11 @@ export async function getAllUsersForAdmin({
   const effectiveStatus = status ?? ADMIN_ACTIVE_STATUSES;
 
   const searchClause = search
-    ? or(
-        ilike(userTable.firstName, `%${search}%`),
-        ilike(userTable.lastName, `%${search}%`),
-        ilike(
-          sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
-          `%${search}%`,
-        ),
+    ? unaccentSearch(
+        search,
+        userTable.firstName,
+        userTable.lastName,
+        sql`${userTable.firstName} || ' ' || ${userTable.lastName}`,
       )
     : undefined;
 
