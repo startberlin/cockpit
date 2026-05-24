@@ -191,6 +191,17 @@ export const updatePositionsAction = actionClient
     revalidatePath("/admin/settings/positions");
     revalidatePath("/admin/people", "layout");
 
+    for (const change of auditPositionChanges) {
+      await writeAuditLog({
+        category: "authority",
+        eventType: change.eventType,
+        actor: { id: ctx.user.id, name: ctx.user.name },
+        subject: { id: change.subjectId, name: change.subjectName },
+        metadata: { position: change.position },
+        description: change.position,
+      });
+    }
+
     if (notificationEvents.length > 0) {
       await inngest.send(notificationEvents);
     }
@@ -205,16 +216,5 @@ export const updatePositionsAction = actionClient
           data: { userId },
         })),
       );
-    }
-
-    for (const change of auditPositionChanges) {
-      await writeAuditLog({
-        category: "authority",
-        eventType: change.eventType,
-        actor: { id: ctx.user.id, name: ctx.user.name },
-        subject: { id: change.subjectId, name: change.subjectName },
-        metadata: { position: change.position },
-        description: change.position,
-      });
     }
   });

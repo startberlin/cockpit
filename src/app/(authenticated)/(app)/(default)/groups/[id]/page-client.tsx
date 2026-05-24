@@ -276,8 +276,10 @@ function ManualGroupView({
       const a = document.createElement("a");
       a.href = url;
       a.download = "group-members-luma.csv";
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (_error) {
       toast.error(
         "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",

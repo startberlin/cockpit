@@ -63,15 +63,18 @@ export const syncUserSystemGroupsWorkflow = inngest.createFunction(
       return { added: 0, removed: 0 };
     }
 
-    await step.run("sync-google", async () => {
-      const { email } = syncData;
-      await Promise.all([
-        ...syncData.toAdd.map((g) => addGroupMember(g.googleGroupEmail, email)),
-        ...syncData.toRemove.map((g) =>
-          removeGroupMember(g.googleGroupEmail, email),
-        ),
-      ]);
-    });
+    const { email } = syncData;
+
+    for (const g of syncData.toAdd) {
+      await step.run(`add-${g.slug}`, () =>
+        addGroupMember(g.googleGroupEmail, email),
+      );
+    }
+    for (const g of syncData.toRemove) {
+      await step.run(`remove-${g.slug}`, () =>
+        removeGroupMember(g.googleGroupEmail, email),
+      );
+    }
 
     return { added: syncData.toAdd.length, removed: syncData.toRemove.length };
   },

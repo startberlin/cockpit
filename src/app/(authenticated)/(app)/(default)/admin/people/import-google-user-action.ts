@@ -97,6 +97,21 @@ export const importGoogleWorkspaceUserAction = actionClient
         name: events.cockpitUserUpdated.name,
         data: { id: existingUser.id },
       });
+      await inngest.send({
+        name: events.userSystemGroupsSync.name,
+        data: {
+          userId: existingUser.id,
+          before: { status: null, department: null, batchNumber: null },
+          after: {
+            status: parsedInput.status,
+            department: normalizeImportedDepartment(
+              parsedInput.status,
+              parsedInput.department,
+            ),
+            batchNumber: parsedInput.batchNumber ?? null,
+          },
+        },
+      });
       const existingLm = await db.query.legalMembership.findFirst({
         where: (lm, { and, eq, inArray }) =>
           and(

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import type { AdminGroup } from "@/db/groups";
 import type { SystemGroup } from "@/lib/groups/system-groups";
-import { exportGroupCsvAction } from "../groups/[id]/actions";
+import { exportGroupCsvAction } from "../../groups/[id]/actions";
 import { CreateGroupDialog } from "./create-group-dialog";
 
 async function handleExport(groupId: string) {
@@ -36,8 +36,10 @@ async function handleExport(groupId: string) {
     const a = document.createElement("a");
     a.href = url;
     a.download = "group-members-luma.csv";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (_error) {
     toast.error(
       "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",

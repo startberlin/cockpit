@@ -20,6 +20,13 @@ import {
 } from "@/lib/groups/system-groups";
 import { can } from "@/lib/permissions/server";
 
+const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\n"]);
+
+function csvField(value: string): string {
+  const safe = FORMULA_CHARS.has(value[0]) ? `'${value}` : value;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
 function buildCsv(
   members: {
     firstName: string | null;
@@ -40,7 +47,7 @@ function buildCsv(
           : m.eventEmailPreference === "personal_email" && m.personalEmail
             ? m.personalEmail
             : m.email;
-      return `"${name}",${email ?? ""}`;
+      return `${csvField(name)},${csvField(email ?? "")}`;
     }),
   ];
   return rows.join("\n");

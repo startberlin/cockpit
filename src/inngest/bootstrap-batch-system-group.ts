@@ -14,7 +14,9 @@ import { events, inngest } from "@/lib/inngest";
 export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
   {
     id: "bootstrap-batch-system-group",
-    triggers: [{ event: events.batchCreated }],
+    triggers: [
+      { event: events.batchCreated, idempotency: "event.data.batchNumber" },
+    ],
   },
   async ({ event, step }) => {
     const { batchNumber } = event.data;
