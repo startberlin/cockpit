@@ -40,7 +40,7 @@ describe("authority domain model", () => {
     ]);
   });
 
-  it("keeps ordinary authority active only for members by default", () => {
-    assert.deepEqual(activeAuthorityStatuses, ["member"]);
+  it("keeps ordinary authority active for members and supporting alumni", () => {
+    assert.deepEqual(activeAuthorityStatuses, ["member", "supporting_alumni"]);
   });
 });
