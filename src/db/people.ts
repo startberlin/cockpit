@@ -1,4 +1,4 @@
-import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
@@ -87,6 +87,8 @@ export async function getDepartmentHeadForDepartment(
   return row?.user ?? null;
 }
 
+const SYSTEM_USER_EMAIL = "cockpit-system-user@start-berlin.com";
+
 const PEOPLE_PAGE_SIZE = 100;
 
 export interface PaginatedUsers {
@@ -136,6 +138,7 @@ export async function getAllUserPublicData({
     batchNumber?.length
       ? inArray(userTable.batchNumber, batchNumber)
       : undefined,
+    ne(userTable.email, SYSTEM_USER_EMAIL),
   );
 
   const [rows, positionRows, [{ total }]] = await Promise.all([
@@ -261,6 +264,7 @@ export async function getAllUsersForAdmin({
     legalMembershipState !== undefined
       ? eq(userTable.legalMembershipState, legalMembershipState)
       : undefined,
+    ne(userTable.email, SYSTEM_USER_EMAIL),
   );
 
   const orderBy =
@@ -610,7 +614,11 @@ const ORG_CHART_STATUSES: UserStatus[] = ["member", "onboarding"];
 
 export async function getOrgChartData(): Promise<OrgChartUser[]> {
   const rows = await db.query.user.findMany({
-    where: (u, { inArray }) => inArray(u.status, ORG_CHART_STATUSES),
+    where: (u, { inArray, and, ne }) =>
+      and(
+        inArray(u.status, ORG_CHART_STATUSES),
+        ne(u.email, SYSTEM_USER_EMAIL),
+      ),
     columns: {
       id: true,
       firstName: true,
