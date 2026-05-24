@@ -163,6 +163,24 @@ export async function listMemberGroupsForViewer(
   return rows.map((g) => ({ ...g, isMember: true }));
 }
 
+export async function listManualGroupsForUser(
+  userId: string,
+): Promise<
+  { id: string; name: string; slug: string; googleGroupEmail: string | null }[]
+> {
+  return db
+    .select({
+      id: group.id,
+      name: group.name,
+      slug: group.slug,
+      googleGroupEmail: group.googleGroupEmail,
+    })
+    .from(usersToGroups)
+    .innerJoin(group, eq(usersToGroups.groupId, group.id))
+    .where(eq(usersToGroups.userId, userId))
+    .orderBy(group.name);
+}
+
 export async function checkSlugAvailability(slug: string): Promise<boolean> {
   const existing = await db
     .select({ id: group.id })

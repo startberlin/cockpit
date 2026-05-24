@@ -116,14 +116,12 @@ export function NavMain() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={
-                  pathname === "/groups" || pathname.startsWith("/groups/")
-                }
-                tooltip="Groups"
+                isActive={pathname === "/my-groups"}
+                tooltip="My Groups"
               >
-                <Link href="/groups" onClick={closeMobile}>
+                <Link href="/my-groups" onClick={closeMobile}>
                   <Layers />
-                  <span>Groups</span>
+                  <span>My Groups</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
