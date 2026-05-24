@@ -42,6 +42,9 @@ export const events = {
   groupCriteriaChanged: eventType("group/criteria.changed", {
     schema: staticSchema<{ groupId: string }>(),
   }),
+  batchCreated: eventType("cockpit/batch.created", {
+    schema: staticSchema<{ batchNumber: number }>(),
+  }),
   positionsSystemGroupsSync: eventType("cockpit/positions.system-groups-sync", {
     schema: staticSchema<{ userId: string }>(),
   }),
