@@ -88,7 +88,7 @@ export async function getDepartmentHeadForDepartment(
   return row?.user ?? null;
 }
 
-const SYSTEM_USER_EMAIL = "cockpit-system-user@start-berlin.com";
+export const SYSTEM_USER_EMAIL = "cockpit-system-user@start-berlin.com";
 
 const PEOPLE_PAGE_SIZE = 100;
 
@@ -450,6 +450,10 @@ export const getUserGroupMembershipsWithDetails = cache(
     const memberCountSubquery = db
       .select({ groupId: usersToGroups.groupId, total: count().as("total") })
       .from(usersToGroups)
+      .innerJoin(userTable, eq(usersToGroups.userId, userTable.id))
+      .where(
+        or(isNull(userTable.email), ne(userTable.email, SYSTEM_USER_EMAIL)),
+      )
       .groupBy(usersToGroups.groupId)
       .as("member_counts");
 
