@@ -487,7 +487,7 @@ export default function DirectoryPageClient({
               setSearch(query);
               setPage(1);
               if (query) {
-                posthog.capture("people_search_performed", { query });
+                posthog.capture("people_search_performed", {});
               }
             }}
           />

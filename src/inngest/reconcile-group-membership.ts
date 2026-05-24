@@ -76,20 +76,25 @@ export const reconcileGroupMembershipWorkflow = inngest.createFunction(
             const userRecord = await db.query.user.findFirst({
               where: (u, { eq: eqFn }) => eqFn(u.id, userId),
               columns: {
+                id: true,
                 status: true,
                 department: true,
                 batchNumber: true,
+                legalMembershipState: true,
+                memberSinceDate: true,
               },
             });
-            ph.capture({
-              distinctId: userId,
-              event: "workflow_group_member_added",
-              properties: {
-                group_id: groupId,
-                reason: "criteria_match",
-                ...buildSubjectMetadata(userRecord ?? {}),
-              },
-            });
+            if (userRecord) {
+              ph.capture({
+                distinctId: userId,
+                event: "workflow_group_member_added",
+                properties: {
+                  group_id: groupId,
+                  reason: "criteria_match",
+                  ...buildSubjectMetadata(userRecord),
+                },
+              });
+            }
           }
 
           if (syncResult.removedEmails.length > 0) {
@@ -101,6 +106,8 @@ export const reconcileGroupMembershipWorkflow = inngest.createFunction(
                 status: true,
                 department: true,
                 batchNumber: true,
+                legalMembershipState: true,
+                memberSinceDate: true,
               },
             });
             for (const userRecord of removedUsers) {
