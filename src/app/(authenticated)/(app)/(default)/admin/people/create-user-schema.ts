@@ -25,8 +25,9 @@ export const createUserSchema = z
     }),
   })
   .superRefine((data, ctx) => {
-    const requiresDepartment =
-      data.status === "member" || data.status === "onboarding";
+    const requiresDepartment = data.status === "onboarding";
+    const forbidsDepartment =
+      data.status === "alumni" || data.status === "supporting_alumni";
 
     if (requiresDepartment && !data.department) {
       ctx.addIssue({
@@ -36,7 +37,7 @@ export const createUserSchema = z
       });
     }
 
-    if (!requiresDepartment && data.department) {
+    if (forbidsDepartment && data.department) {
       ctx.addIssue({
         code: "custom",
         message: "Alumni cannot have a department.",

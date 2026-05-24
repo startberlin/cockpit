@@ -345,6 +345,34 @@ export async function replacePositionAssignments(
     if (rows.length > 0) {
       await tx.insert(userOrganizationPosition).values(rows);
     }
+
+    // Sync each position holder's department field. Dept heads are processed
+    // first so that a board assignment on the same user overrides to null.
+    const departmentUpdates = new Map<string, Department | null>();
+
+    for (const [dept, holder] of Object.entries(assignments.departmentHeads)) {
+      if (holder) {
+        departmentUpdates.set(holder.userId, dept as Department);
+      }
+    }
+
+    for (const pos of [
+      "president",
+      "vice_president",
+      "head_of_finance",
+    ] as const) {
+      const holder = assignments[pos];
+      if (holder) {
+        departmentUpdates.set(holder.userId, null);
+      }
+    }
+
+    for (const [userId, department] of departmentUpdates) {
+      await tx
+        .update(userTable)
+        .set({ department })
+        .where(eq(userTable.id, userId));
+    }
   };
 
   if (externalTx) {

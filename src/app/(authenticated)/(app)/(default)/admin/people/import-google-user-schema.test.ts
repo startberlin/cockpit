@@ -24,13 +24,13 @@ describe("importGoogleWorkspaceUserSchema", () => {
     assert.equal(result.success, true);
   });
 
-  it("rejects member imports without a department", () => {
+  it("accepts member imports without a department", () => {
     const result = importGoogleWorkspaceUserSchema.safeParse({
       ...baseInput,
       status: "member",
     });
 
-    assert.equal(result.success, false);
+    assert.equal(result.success, true);
   });
 
   it("accepts onboarding imports with a department", () => {
