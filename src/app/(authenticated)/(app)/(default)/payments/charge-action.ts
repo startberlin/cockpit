@@ -24,6 +24,13 @@ export const chargeAction = actionClient
       throw new Error("Payment not found.");
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    if (row.activationDate > today) {
+      throw new Error(
+        `Payment is not due until ${row.activationDate}. Cannot charge before the activation date.`,
+      );
+    }
+
     // Atomically claim the row before touching GoCardless.
     // Returns false if another concurrent request already claimed it.
     const claimed = await advancePaymentStatus(row.id, "proposed", "pending");
