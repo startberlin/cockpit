@@ -20,7 +20,7 @@ describe("generateCompanyEmail", () => {
   it("hyphenates multi-part names", () => {
     assert.equal(
       generateCompanyEmail("Mark Use", "Müller Schmidt"),
-      "mark-use.muller-schmidt@start-berlin.com",
+      "mark-use.mueller-schmidt@start-berlin.com",
     );
   });
 });

@@ -60,8 +60,6 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     } = event.data;
 
     const googleUser = await step.run("create-google-user", async () => {
-      const password = generateRandomPassword();
-
       if (env.DISABLE_GOOGLE_WORKSPACE) {
         console.warn(
           `[google-workspace disabled] would have provisioned ${companyEmail}`,
@@ -82,7 +80,8 @@ export const onboardNewUserWorkflow = inngest.createFunction(
               name: { givenName: firstName, familyName: lastName },
               primaryEmail: companyEmail,
               recoveryEmail: personalEmail,
-              password,
+              // Initial password is discarded — rotated in the email step after the sleep
+              password: generateRandomPassword(),
               changePasswordAtNextLogin: true,
             },
           });
@@ -104,14 +103,26 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         }
       }
 
-      // password is temporary (changePasswordAtNextLogin: true) and stored here
-      // only to allow delaying the welcome email until the account is ready
-      return { companyEmail, personalEmail, password };
+      return { companyEmail, personalEmail };
     });
 
     await step.sleep("wait-for-google-account-ready", "5m");
 
     await step.run("send-signin-instructions-email", async () => {
+      // Generate password locally — never returned so it never enters run history
+      const password = generateRandomPassword();
+
+      if (!env.DISABLE_GOOGLE_WORKSPACE) {
+        const auth = createGoogleAuth(
+          "https://www.googleapis.com/auth/admin.directory.user",
+        );
+        const admin = google.admin({ auth, version: "directory_v1" });
+        await admin.users.update({
+          userKey: googleUser.companyEmail,
+          requestBody: { password, changePasswordAtNextLogin: true },
+        });
+      }
+
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: googleUser.personalEmail,
@@ -119,7 +130,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         react: SignInInstructionsEmail({
           firstName,
           companyEmail: googleUser.companyEmail,
-          initialPassword: googleUser.password,
+          initialPassword: password,
         }),
       });
     });
