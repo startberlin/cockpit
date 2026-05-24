@@ -37,6 +37,7 @@ export type AuthorityScope = (typeof authorityScopes)[number];
 
 export const activeAuthorityStatuses = [
   "member",
+  "supporting_alumni",
 ] as const satisfies UserStatus[];
 
 export type ActiveAuthorityStatus = (typeof activeAuthorityStatuses)[number];
