@@ -17,6 +17,7 @@ import {
   readFinanzordnungBuffer,
   readSatzungBuffer,
 } from "@/lib/legal-documents/static-documents";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { submitApplicationSchema } from "./application-validation";
 
 export const submitApplicationAction = actionClient
@@ -196,6 +197,12 @@ export const submitApplicationAction = actionClient
       actor: { id: user.id, name: user.name },
       subject: { id: user.id, name: user.name },
       metadata: { legalMembershipId: parsedInput.legalMembershipId },
+    });
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "membership_application_submitted",
+      properties: {},
     });
 
     return { success: true };

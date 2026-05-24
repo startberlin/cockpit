@@ -8,6 +8,7 @@ import {
   membershipApplication,
 } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { declarationStepSchema } from "../application-validation";
 
 export const saveFeesDeclarationsAction = actionClient
@@ -62,6 +63,12 @@ export const saveFeesDeclarationsAction = actionClient
           },
         });
       }
+    });
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "membership_application_step_completed",
+      properties: { step: "fees" },
     });
 
     return { success: true };
