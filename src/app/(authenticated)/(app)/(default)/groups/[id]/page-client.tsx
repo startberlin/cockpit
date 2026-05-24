@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Copy,
   Download,
-  Loader2,
   MoreHorizontal,
   Plus,
   Search,
@@ -287,16 +286,6 @@ function ManualGroupView({
     }
   };
 
-  useEffect(() => {
-    if (!group.googleSyncPending) return;
-    const pollId = setInterval(() => router.refresh(), 3000);
-    const timeoutId = setTimeout(() => clearInterval(pollId), 120_000);
-    return () => {
-      clearInterval(pollId);
-      clearTimeout(timeoutId);
-    };
-  }, [group.googleSyncPending, router]);
-
   const groupScope = { isMember: group.isMember };
   const canManageMembers = can("group.members.manage", groupScope);
   const canExport = can("group.export", groupScope);
@@ -319,12 +308,6 @@ function ManualGroupView({
           <h1 className="text-2xl font-semibold tracking-tight">
             {group.name}
           </h1>
-          {group.googleSyncPending && (
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Syncing with Google…
-            </span>
-          )}
         </div>
         {group.googleGroupEmail && (
           <div className="flex items-center gap-1 mt-1">

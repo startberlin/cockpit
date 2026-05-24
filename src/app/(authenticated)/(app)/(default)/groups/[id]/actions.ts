@@ -13,11 +13,11 @@ import type { PublicUser } from "@/db/people";
 import { user } from "@/db/schema/auth";
 import { getCurrentUser } from "@/db/user";
 import { writeAuditLog } from "@/lib/audit-log";
-import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import {
   getMembersOfSystemGroup,
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
+import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
 
 const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\n"]);
@@ -127,8 +127,18 @@ export async function addUserToGroupAction(
   }
 
   await addUserToGroup(userId, groupId);
-  await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
+  try {
+    await inngest.send({
+      name: events.groupMemberAdded.name,
+      data: { groupId, userId },
+    });
+  } catch (err) {
+    console.error(
+      `[add-user-to-group] Failed to send groupMemberAdded event`,
+      err,
+    );
+  }
 
   await writeAuditLog({
     category: "group",
@@ -148,8 +158,18 @@ export async function removeUserFromGroupAction(
   }
 
   await removeUserFromGroup(userId, groupId);
-  await triggerGoogleSync(groupId);
   revalidatePath(`/groups/${groupId}`);
+  try {
+    await inngest.send({
+      name: events.groupMemberRemoved.name,
+      data: { groupId, userId },
+    });
+  } catch (err) {
+    console.error(
+      `[remove-user-from-group] Failed to send groupMemberRemoved event`,
+      err,
+    );
+  }
 
   await writeAuditLog({
     category: "group",
