@@ -171,11 +171,17 @@ export interface MembershipPaymentCycleWithUser extends MembershipPaymentCycle {
 export async function getProposedPayments(): Promise<
   MembershipPaymentCycleWithUser[]
 > {
+  const today = new Date().toISOString().slice(0, 10);
   return db
     .select(userPaymentColumns)
     .from(membershipPayments)
     .innerJoin(user, eq(user.id, membershipPayments.userId))
-    .where(eq(membershipPayments.status, "proposed"))
+    .where(
+      and(
+        eq(membershipPayments.status, "proposed"),
+        sql`${membershipPayments.activationDate}::date <= ${today}::date`,
+      ),
+    )
     .orderBy(membershipPayments.activationDate);
 }
 
@@ -266,8 +272,9 @@ export async function getPaymentStats(): Promise<PaymentStats> {
   let confirmedAmount = 0;
   let collectedAmount = 0;
 
+  const today = new Date().toISOString().slice(0, 10);
   for (const row of rows) {
-    if (row.status === "proposed") {
+    if (row.status === "proposed" && row.activationDate <= today) {
       proposedCount++;
       proposedAmount += row.amount;
     } else if (row.status === "pending" || row.status === "submitted") {
