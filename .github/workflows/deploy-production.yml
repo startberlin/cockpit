@@ -49,7 +49,7 @@ jobs:
       - name: Smoke test staged deployment
         run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
 
-  migrate:
+  release:
     needs: build
     runs-on: ubuntu-latest
     environment: production
@@ -69,15 +69,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
 
-  promote:
-    needs: [build, migrate]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: 22
-
       - name: Promote production deployment
         run: |
           npx vercel@54.0.0 promote \
@@ -93,12 +84,6 @@ jobs:
       - name: Smoke test production domain
         run: curl --fail "https://cockpit.start-berlin.com/api/health"
 
-  sync-inngest:
-    needs: promote
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
       - name: Sync Inngest production
         run: |
           curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \
