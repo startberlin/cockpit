@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import * as React from "react";
 import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
 import {
   getMembersOfSystemGroup,
   getSystemGroupBySlug,
+  getSystemGroupsForUser,
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
@@ -65,6 +67,34 @@ export default async function GroupPage({
   if (isSystemSlug(id)) {
     const systemGroup = getSystemGroupBySlug(id);
     if (!systemGroup) notFound();
+
+    const isAdmin = await can("users.import");
+    if (!isAdmin) {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) notFound();
+
+      const [userRecord, userPositions, batches] = await Promise.all([
+        db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.id, currentUser.id),
+          columns: { status: true, department: true, batchNumber: true },
+        }),
+        db.query.userOrganizationPosition.findMany({
+          where: (p, { eq }) => eq(p.userId, currentUser.id),
+          columns: { position: true, scope: true, department: true },
+        }),
+        db.query.batch.findMany({ columns: { number: true } }),
+      ]);
+
+      const memberOfGroup =
+        userRecord &&
+        getSystemGroupsForUser(
+          { id: currentUser.id, ...userRecord },
+          userPositions,
+          batches,
+        ).some((g) => g.slug === id);
+
+      if (!memberOfGroup) notFound();
+    }
 
     const [users, positions] = await Promise.all([
       db.query.user.findMany({
