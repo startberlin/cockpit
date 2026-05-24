@@ -8,6 +8,7 @@ import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
 import { nanoid } from "@/lib/id";
 import { getStructuredMembershipState } from "@/lib/membership-status";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const startMembershipPaymentAction = actionClient.action(
   async ({ ctx }) => {
@@ -69,6 +70,12 @@ export const startMembershipPaymentAction = actionClient.action(
         .set({ gocardlessCustomerId: flow.customerId })
         .where(eq(user.id, ctx.user.id));
     }
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "payment_setup_started",
+      properties: {},
+    });
 
     return { hostedUrl: flow.hostedUrl };
   },
