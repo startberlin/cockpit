@@ -266,15 +266,29 @@ describe("isSystemGroupSlug", () => {
 
 describe("getSystemGroupBySlug", () => {
   it("returns metadata for a static group", () => {
-    const group = getSystemGroupBySlug("members");
-    assert.equal(group?.slug, "members");
-    assert.equal(group?.googleGroupEmail, "members@start-berlin.com");
+    const prev = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "production";
+    try {
+      const group = getSystemGroupBySlug("members");
+      assert.equal(group?.slug, "members");
+      assert.equal(group?.googleGroupEmail, "members@start-berlin.com");
+    } finally {
+      if (prev === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = prev;
+    }
   });
 
   it("returns metadata for a batch group without batches list", () => {
-    const group = getSystemGroupBySlug("batch-42");
-    assert.equal(group?.slug, "batch-42");
-    assert.equal(group?.googleGroupEmail, "batch-42@start-berlin.com");
+    const prev = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "production";
+    try {
+      const group = getSystemGroupBySlug("batch-42");
+      assert.equal(group?.slug, "batch-42");
+      assert.equal(group?.googleGroupEmail, "batch-42@start-berlin.com");
+    } finally {
+      if (prev === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = prev;
+    }
   });
 
   it("returns undefined for unknown slug", () => {
