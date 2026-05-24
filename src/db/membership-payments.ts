@@ -367,7 +367,7 @@ export async function getActivePaymentTerm(userId: string): Promise<{
   const inFlight = await db.query.membershipPayments.findFirst({
     where: and(
       eq(membershipPayments.userId, userId),
-      inArray(membershipPayments.status, ["pending", "submitted"]),
+      inArray(membershipPayments.status, ["pending", "submitted", "proposed"]),
     ),
     columns: { activationDate: true, status: true },
     orderBy: (t, { desc }) => [desc(t.activationDate)],
