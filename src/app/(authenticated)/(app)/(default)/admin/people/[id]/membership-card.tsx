@@ -98,12 +98,15 @@ export async function MembershipCard({
 
   if (!user) return null;
 
-  const [memberSince, departmentHead] = await Promise.all([
+  const [memberSince, rawDepartmentHead] = await Promise.all([
     getMemberSinceDate(userId),
     user.department
       ? getDepartmentHeadForDepartment(user.department)
       : Promise.resolve(null),
   ]);
+
+  const departmentHead =
+    rawDepartmentHead?.id === user.id ? null : rawDepartmentHead;
 
   const statusInfo = USER_STATUS_INFO[user.status];
   const legalStateInfo = LEGAL_MEMBERSHIP_STATE_INFO[user.legalMembershipState];

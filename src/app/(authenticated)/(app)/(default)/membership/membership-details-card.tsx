@@ -107,13 +107,16 @@ export async function MembershipDetailsCard({
 }: MembershipDetailsCardProps) {
   const showBillingInfo = requiresMembershipBilling(user.status);
 
-  const [memberSince, departmentHead, paymentTerm] = await Promise.all([
+  const [memberSince, rawDepartmentHead, paymentTerm] = await Promise.all([
     getMemberSinceDate(user.id),
     user.department
       ? getDepartmentHeadForDepartment(user.department)
       : Promise.resolve(null),
     showBillingInfo ? getActivePaymentTerm(user.id) : Promise.resolve(null),
   ]);
+
+  const departmentHead =
+    rawDepartmentHead?.id === user.id ? null : rawDepartmentHead;
 
   const payment = paymentTerm
     ? formatPaymentPeriod(paymentTerm.activationDate)
