@@ -42,6 +42,21 @@ export const events = {
   groupCriteriaChanged: eventType("group/criteria.changed", {
     schema: staticSchema<{ groupId: string }>(),
   }),
+  userSystemGroupsSync: eventType("cockpit/user.system-groups-sync", {
+    schema: staticSchema<{
+      userId: string;
+      before: {
+        status: UserStatus | null;
+        department: Department | null;
+        batchNumber: number | null;
+      };
+      after: {
+        status: UserStatus | null;
+        department: Department | null;
+        batchNumber: number | null;
+      };
+    }>(),
+  }),
   existingMemberDocumentationRequested: eventType(
     "membership/existing-member-documentation.requested",
     {

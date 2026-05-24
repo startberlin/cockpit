@@ -16,6 +16,7 @@ import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
 import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
 import { syncGroupsCron } from "./sync-groups-cron";
+import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
   financePaymentProposalsDigest,
@@ -34,4 +35,5 @@ export const inngestFunctions = [
   reconcileGroupMembershipWorkflow,
   reconcileUserGroupMembershipWorkflow,
   reconfirmationReminderWorkflow,
+  syncUserSystemGroupsWorkflow,
 ];

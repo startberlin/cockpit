@@ -227,6 +227,22 @@ export const importGoogleWorkspaceUserAction = actionClient
       data: { id: createdUser.id },
     });
 
+    await inngest.send({
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId: createdUser.id,
+        before: { status: null, department: null, batchNumber: null },
+        after: {
+          status: parsedInput.status,
+          department: normalizeImportedDepartment(
+            parsedInput.status,
+            parsedInput.department,
+          ),
+          batchNumber: parsedInput.batchNumber ?? null,
+        },
+      },
+    });
+
     if (createdUser.createdLegalMembershipId) {
       // Kicks the reconfirmation reminder workflow. Its first run sends the
       // "Your START Cockpit access is ready" email when the user has not yet

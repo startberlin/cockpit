@@ -147,6 +147,22 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       });
     }
 
+    // Read user state before cancellation for replay-safe before/after diff.
+    const userBeforeCancellation = await step.run(
+      "read-user-state-before-cancellation",
+      async () => {
+        const u = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+          columns: { status: true, department: true, batchNumber: true },
+        });
+        return {
+          status: u?.status ?? null,
+          department: u?.department ?? null,
+          batchNumber: u?.batchNumber ?? null,
+        };
+      },
+    );
+
     // Step 3: Atomic cancellation transaction.
     await step.run("execute-cancellation-transaction", async () => {
       await db.transaction(async (tx) => {
@@ -305,6 +321,19 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     await step.sendEvent("fire-group-reconciliation", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
+    });
+
+    await step.sendEvent("sync-system-groups-after-cancellation", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId,
+        before: userBeforeCancellation,
+        after: {
+          status: "cancelled",
+          department: userBeforeCancellation.department,
+          batchNumber: userBeforeCancellation.batchNumber,
+        },
+      },
     });
 
     // Step 11: Erase personal data and mark request executed.
