@@ -4,6 +4,7 @@ import {
   eq,
   inArray,
   isNull,
+  ne,
   or,
   type SQL,
   sql,
@@ -21,7 +22,7 @@ import { nanoid } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
 import { unaccentSearch } from "@/lib/search";
 import db from ".";
-import type { PublicUser } from "./people";
+import { type PublicUser, SYSTEM_USER_EMAIL } from "./people";
 import { user } from "./schema/auth";
 import {
   group,
@@ -82,11 +83,12 @@ export async function listGroupsForViewer(
         id: group.id,
         name: group.name,
         slug: group.slug,
-        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        memberCount: sql<number>`(count(${usersToGroups.userId}) filter (where ${user.email} is null or ${user.email} != ${SYSTEM_USER_EMAIL}))::int`,
         isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
       })
       .from(group)
       .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .leftJoin(user, eq(usersToGroups.userId, user.id))
       .where(whereClause)
       .groupBy(group.id)
       .orderBy(group.name)
@@ -115,11 +117,12 @@ export async function listGroupsPublic(
         id: group.id,
         name: group.name,
         slug: group.slug,
-        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        memberCount: sql<number>`(count(${usersToGroups.userId}) filter (where ${user.email} is null or ${user.email} != ${SYSTEM_USER_EMAIL}))::int`,
         isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
       })
       .from(group)
       .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .leftJoin(user, eq(usersToGroups.userId, user.id))
       .where(whereClause)
       .groupBy(group.id)
       .orderBy(group.name)
@@ -226,7 +229,12 @@ export async function getGroupDetail(
     })
     .from(usersToGroups)
     .innerJoin(user, eq(usersToGroups.userId, user.id))
-    .where(eq(usersToGroups.groupId, id))
+    .where(
+      and(
+        eq(usersToGroups.groupId, id),
+        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+      ),
+    )
     .$dynamic();
 
   const [groupData, members, [{ totalMembers }], criteria] = await Promise.all([
@@ -248,7 +256,13 @@ export async function getGroupDetail(
     db
       .select({ totalMembers: count() })
       .from(usersToGroups)
-      .where(eq(usersToGroups.groupId, id)),
+      .innerJoin(user, eq(usersToGroups.userId, user.id))
+      .where(
+        and(
+          eq(usersToGroups.groupId, id),
+          or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+        ),
+      ),
     canManage
       ? db.query.groupCriteria.findMany({
           where: eq(groupCriteria.groupId, id),
@@ -290,7 +304,12 @@ export async function getAllGroupMembersForExport(id: string): Promise<
     })
     .from(usersToGroups)
     .innerJoin(user, eq(usersToGroups.userId, user.id))
-    .where(eq(usersToGroups.groupId, id))
+    .where(
+      and(
+        eq(usersToGroups.groupId, id),
+        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+      ),
+    )
     .orderBy(user.firstName, user.lastName);
 }
 
@@ -315,11 +334,16 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
       ),
     );
 
-  // If query provided, filter by search term
+  const notSystemUser = or(
+    isNull(user.email),
+    ne(user.email, SYSTEM_USER_EMAIL),
+  );
+
   const whereCondition =
     query && query.length >= 2
       ? and(
           sql`${usersToGroups.userId} IS NULL`,
+          notSystemUser,
           unaccentSearch(
             query,
             user.firstName,
@@ -328,7 +352,7 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
             sql`${user.firstName} || ' ' || ${user.lastName}`,
           ),
         )
-      : sql`${usersToGroups.userId} IS NULL`;
+      : and(sql`${usersToGroups.userId} IS NULL`, notSystemUser);
 
   const usersNotInGroup = await baseQuery
     .where(whereCondition)
@@ -508,7 +532,13 @@ export async function findUsersNotInGroupByCriteria(
         eq(usersToGroups.groupId, groupId),
       ),
     )
-    .where(and(sql`${usersToGroups.userId} IS NULL`, matchCondition))
+    .where(
+      and(
+        sql`${usersToGroups.userId} IS NULL`,
+        matchCondition,
+        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+      ),
+    )
     .orderBy(user.firstName, user.lastName);
 }
 
@@ -586,13 +616,14 @@ export async function listAllGroupsForAdmin({
         id: group.id,
         name: group.name,
         slug: group.slug,
-        memberCount: sql<number>`count(${usersToGroups.userId})::int`,
+        memberCount: sql<number>`(count(${usersToGroups.userId}) filter (where ${user.email} is null or ${user.email} != ${SYSTEM_USER_EMAIL}))::int`,
         emailEnabled: group.emailEnabled,
         googleGroupEmail: group.googleGroupEmail,
         googleSyncPending: group.googleSyncPending,
       })
       .from(group)
       .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
+      .leftJoin(user, eq(usersToGroups.userId, user.id))
       .where(whereClause)
       .groupBy(group.id)
       .orderBy(group.name)
@@ -631,7 +662,13 @@ export async function addUsersMatchingCriteria(
         eq(usersToGroups.groupId, groupId),
       ),
     )
-    .where(and(sql`${usersToGroups.userId} IS NULL`, whereClause));
+    .where(
+      and(
+        sql`${usersToGroups.userId} IS NULL`,
+        whereClause,
+        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+      ),
+    );
 
   if (matching.length === 0) return 0;
 

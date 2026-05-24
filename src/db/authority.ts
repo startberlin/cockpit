@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { cache } from "react";
 import {
   type AuthorityUpdateInput,
@@ -16,6 +16,7 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 import db from ".";
+import { SYSTEM_USER_EMAIL } from "./people";
 import { legalMembership } from "./schema";
 import type { Department } from "./schema/auth";
 import { user as userTable } from "./schema/auth";
@@ -284,7 +285,12 @@ export async function getEligibleUsersForPositions(): Promise<
     })
     .from(userTable)
     .innerJoin(legalMembership, eq(userTable.id, legalMembership.userId))
-    .where(eq(legalMembership.status, "active"))
+    .where(
+      and(
+        eq(legalMembership.status, "active"),
+        or(isNull(userTable.email), ne(userTable.email, SYSTEM_USER_EMAIL)),
+      ),
+    )
     .orderBy(userTable.lastName, userTable.firstName);
 }
 
