@@ -329,9 +329,13 @@ export async function addUsersToGroup({
     groupId,
   }));
 
-  await ops.insert(usersToGroups).values(values).onConflictDoNothing();
+  const inserted = await ops
+    .insert(usersToGroups)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ userId: usersToGroups.userId });
 
-  return userIds.length;
+  return inserted.length;
 }
 
 export async function addUserToGroup(userId: string, groupId: string) {

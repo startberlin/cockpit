@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import db from "@/db";
 import { checkSlugAvailability } from "@/db/groups";
 import { group, usersToGroups } from "@/db/schema/group";
 import { actionClient } from "@/lib/action-client";

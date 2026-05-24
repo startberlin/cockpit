@@ -86,42 +86,51 @@ export const syncSystemGroupsCron = inngest.createFunction(
       name,
       expectedEmails,
     } of groupDeltas) {
-      const result = await step.run(`reconcile-${slug}`, async () => {
-        const expectedSet = new Set(expectedEmails);
+      const { toAdd, toRemove } = await step.run(
+        `reconcile-${slug}`,
+        async () => {
+          const expectedSet = new Set(expectedEmails);
 
-        let googleEmails: string[];
-        try {
-          googleEmails = await listGroupMemberEmails(groupEmail);
-        } catch (error) {
-          if (
-            typeof error === "object" &&
-            error !== null &&
-            (error as { response?: { status?: number } }).response?.status ===
-              404
-          ) {
-            await createGoogleGroup(googleEmailPrefix, name);
-            googleEmails = [];
-          } else {
-            throw error;
+          let googleEmails: string[];
+          try {
+            googleEmails = await listGroupMemberEmails(groupEmail);
+          } catch (error) {
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              (error as { response?: { status?: number } }).response?.status ===
+                404
+            ) {
+              await createGoogleGroup(googleEmailPrefix, name);
+              googleEmails = [];
+            } else {
+              throw error;
+            }
           }
-        }
-        const googleSet = new Set(googleEmails.map((e) => e.toLowerCase()));
+          const googleSet = new Set(googleEmails.map((e) => e.toLowerCase()));
 
-        const toAdd = expectedEmails.filter((e) => !googleSet.has(e));
-        const toRemove = googleEmails.filter(
-          (e) => !expectedSet.has(e.toLowerCase()),
+          return {
+            toAdd: expectedEmails.filter((e) => !googleSet.has(e)),
+            toRemove: googleEmails.filter(
+              (e) => !expectedSet.has(e.toLowerCase()),
+            ),
+          };
+        },
+      );
+
+      for (const email of toAdd) {
+        await step.run(`add-${slug}-${email}`, () =>
+          addGroupMember(groupEmail, email),
         );
+      }
+      for (const email of toRemove) {
+        await step.run(`remove-${slug}-${email}`, () =>
+          removeGroupMember(groupEmail, email),
+        );
+      }
 
-        await Promise.all([
-          ...toAdd.map((e) => addGroupMember(groupEmail, e)),
-          ...toRemove.map((e) => removeGroupMember(groupEmail, e)),
-        ]);
-
-        return { added: toAdd.length, removed: toRemove.length };
-      });
-
-      totalAdded += result.added;
-      totalRemoved += result.removed;
+      totalAdded += toAdd.length;
+      totalRemoved += toRemove.length;
     }
 
     return { groups: groupDeltas.length, totalAdded, totalRemoved };

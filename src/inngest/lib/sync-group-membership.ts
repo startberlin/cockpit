@@ -35,7 +35,10 @@ export async function syncGroupMembership(
       throw error;
     }
   }
-  const isCurrentMember = currentMembers.includes(userEmail.toLowerCase());
+  const normalizedUserEmail = userEmail.toLowerCase();
+  const isCurrentMember = currentMembers.some(
+    (m) => m.toLowerCase() === normalizedUserEmail,
+  );
   if (shouldBeMember && !isCurrentMember) {
     await deps.addGroupMember(groupEmail, userEmail);
   } else if (!shouldBeMember && isCurrentMember) {

@@ -35,10 +35,17 @@ export const createBatchAction = actionClient
     revalidatePath("/people/batches");
     revalidatePath("/people");
 
-    await inngest.send({
-      name: events.batchCreated.name,
-      data: { batchNumber: parsedInput.number },
-    });
+    try {
+      await inngest.send({
+        name: events.batchCreated.name,
+        data: { batchNumber: parsedInput.number },
+      });
+    } catch (err) {
+      console.error(
+        `[create-batch] Failed to send batchCreated event for batch #${parsedInput.number}`,
+        err,
+      );
+    }
 
     return { number: parsedInput.number };
   });

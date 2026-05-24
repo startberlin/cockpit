@@ -203,7 +203,14 @@ export const updatePositionsAction = actionClient
     }
 
     if (notificationEvents.length > 0) {
-      await inngest.send(notificationEvents);
+      try {
+        await inngest.send(notificationEvents);
+      } catch (err) {
+        console.error(
+          "[update-positions] Failed to send position notification events",
+          err,
+        );
+      }
     }
 
     const affectedUserIds = new Set(

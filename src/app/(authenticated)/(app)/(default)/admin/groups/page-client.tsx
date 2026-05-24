@@ -99,21 +99,24 @@ export default function AdminGroupsPageClient({
             </TableHeader>
             <TableBody>
               {systemGroups.map((sg) => (
-                <TableRow key={sg.slug} className="cursor-pointer" asChild>
-                  <Link href={`/groups/${sg.slug}`}>
-                    <TableCell className="font-medium">
+                <TableRow key={sg.slug} className="cursor-pointer">
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/groups/${sg.slug}`}
+                      className="hover:underline"
+                    >
                       <div className="flex items-center gap-2">
                         {sg.name}
                         <Badge variant="secondary" className="text-xs">
                           Auto
                         </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>{sg.memberCount}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {sg.googleGroupEmail}
-                    </TableCell>
-                  </Link>
+                    </Link>
+                  </TableCell>
+                  <TableCell>{sg.memberCount}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {sg.googleGroupEmail}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
