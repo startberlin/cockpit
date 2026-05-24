@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { stepMasterDataSchema } from "../onboarding-validation";
 
 export const completeOnboardingMasterDataStep = actionClient
@@ -24,6 +25,16 @@ export const completeOnboardingMasterDataStep = actionClient
         birthDate: parsedInput.birthDate,
       })
       .where(eq(userTable.id, user.id));
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "onboarding_master_data_submitted",
+      properties: {
+        had_personal_email: Boolean(parsedInput.personalEmail),
+        had_phone: Boolean(parsedInput.phone),
+        had_birth_date: Boolean(parsedInput.birthDate),
+      },
+    });
 
     return { success: true };
   });
