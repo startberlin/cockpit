@@ -10,6 +10,7 @@ import { createGoogleGroup } from "@/lib/google-workspace/directory";
 import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { newId } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createGroupSchema } from "./create-group-schema";
 
 export const createGroupAction = actionClient
@@ -83,6 +84,14 @@ export const createGroupAction = actionClient
       actor: { id: currentUser.id, name: currentUser.name },
       metadata: { groupId, name: parsedInput.name, slug: parsedInput.slug },
       description: parsedInput.name,
+    });
+
+    getPostHogClient()?.capture({
+      distinctId: currentUser.id,
+      event: "group_created",
+      properties: {
+        has_email_integration: parsedInput.integrations.email,
+      },
     });
 
     return { id: groupId };

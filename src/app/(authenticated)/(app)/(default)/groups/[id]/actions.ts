@@ -1,6 +1,8 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import db from "@/db";
 import {
   addUserToGroup,
   pinGroupMember,
@@ -8,10 +10,12 @@ import {
   searchUsersNotInGroup,
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
+import { user } from "@/db/schema/auth";
 import { getCurrentUser } from "@/db/user";
 import { writeAuditLog } from "@/lib/audit-log";
 import { triggerGoogleSync } from "@/lib/groups/google-sync";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
 
 export async function searchUsersNotInGroupAction(
   groupId: string,
@@ -44,6 +48,28 @@ export async function addUserToGroupAction(
     actor: { id: currentUser.id, name: currentUser.name },
     metadata: { groupId, userId },
   });
+
+  try {
+    const targetUser = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+    });
+    if (targetUser) {
+      getPostHogClient()?.capture({
+        distinctId: targetUser.id,
+        event: "group_member_added",
+        properties: {
+          actor_id: currentUser.id,
+          group_id: groupId,
+          ...buildSubjectMetadata(targetUser),
+        },
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[analytics] Failed to capture group_member_added event",
+      error,
+    );
+  }
 }
 
 export async function removeUserFromGroupAction(
@@ -65,6 +91,28 @@ export async function removeUserFromGroupAction(
     actor: { id: currentUser.id, name: currentUser.name },
     metadata: { groupId, userId },
   });
+
+  try {
+    const targetUser = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+    });
+    if (targetUser) {
+      getPostHogClient()?.capture({
+        distinctId: targetUser.id,
+        event: "group_member_removed",
+        properties: {
+          actor_id: currentUser.id,
+          group_id: groupId,
+          ...buildSubjectMetadata(targetUser),
+        },
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[analytics] Failed to capture group_member_removed event",
+      error,
+    );
+  }
 }
 
 export async function pinGroupMemberAction(
@@ -78,4 +126,27 @@ export async function pinGroupMemberAction(
 
   await pinGroupMember(userId, groupId);
   revalidatePath(`/groups/${groupId}`);
+
+  try {
+    const targetUser = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+    });
+    if (targetUser) {
+      getPostHogClient()?.capture({
+        distinctId: targetUser.id,
+        event: "group_member_pinned",
+        properties: {
+          actor_id: currentUser.id,
+          group_id: groupId,
+          pinned: true,
+          ...buildSubjectMetadata(targetUser),
+        },
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[analytics] Failed to capture group_member_pinned event",
+      error,
+    );
+  }
 }

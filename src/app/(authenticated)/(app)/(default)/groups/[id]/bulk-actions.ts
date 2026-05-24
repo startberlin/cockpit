@@ -7,6 +7,7 @@ import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { normalizedGroupCriteriaSchema } from "@/lib/groups/criteria";
 import { can } from "@/lib/permissions/server";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const searchByCriteriaSchema = normalizedGroupCriteriaSchema
   .omit({ match: true })
@@ -32,6 +33,7 @@ export const searchUsersByCriteriaAction = actionClient
 const bulkAddUsersSchema = z.object({
   groupId: z.string().min(1),
   userIds: z.array(z.string()).min(1),
+  criteriaType: z.enum(["department", "status", "batch"]).optional(),
 });
 
 export const bulkAddUsersAction = actionClient
@@ -41,7 +43,7 @@ export const bulkAddUsersAction = actionClient
       throw new Error("You are not authorized to manage group members.");
     }
 
-    const { groupId, userIds } = parsedInput;
+    const { groupId, userIds, criteriaType } = parsedInput;
     await addUsersToGroup({ groupId, userIds });
 
     revalidatePath(`/groups/${groupId}`);
@@ -52,6 +54,15 @@ export const bulkAddUsersAction = actionClient
       actor: { id: ctx.user.id, name: ctx.user.name },
       metadata: { groupId, count: userIds.length, userIds },
       description: `${userIds.length} member${userIds.length === 1 ? "" : "s"}`,
+    });
+
+    getPostHogClient()?.capture({
+      distinctId: ctx.user.id,
+      event: "group_bulk_members_added",
+      properties: {
+        criteria_type: criteriaType ?? null,
+        member_count: userIds.length,
+      },
     });
 
     return { added: userIds.length };
