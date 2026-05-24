@@ -59,7 +59,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       status,
     } = event.data;
 
-    const user = await step.run("create-google-user", async () => {
+    const googleUser = await step.run("create-google-user", async () => {
       const password = generateRandomPassword();
 
       if (env.DISABLE_GOOGLE_WORKSPACE) {
@@ -104,19 +104,24 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         }
       }
 
+      // password is temporary (changePasswordAtNextLogin: true) and stored here
+      // only to allow delaying the welcome email until the account is ready
+      return { companyEmail, personalEmail, password };
+    });
+
+    await step.sleep("wait-for-google-account-ready", "5m");
+
+    await step.run("send-signin-instructions-email", async () => {
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-        to: personalEmail,
+        to: googleUser.personalEmail,
         subject: "Welcome to START Berlin — your sign-in details",
         react: SignInInstructionsEmail({
           firstName,
-          companyEmail,
-          initialPassword: password,
+          companyEmail: googleUser.companyEmail,
+          initialPassword: googleUser.password,
         }),
       });
-
-      // password intentionally excluded — must not persist in Inngest run history
-      return { companyEmail, personalEmail };
     });
 
     const dbUser = await step.run("insert-db-user", async () => {
@@ -127,7 +132,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         .insert(userTable)
         .values({
           id: newId("user"),
-          email: user.companyEmail,
+          email: companyEmail,
           firstName,
           lastName,
           personalEmail,
@@ -172,7 +177,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     await step.run("send-cockpit-access-email", async () => {
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-        to: user.companyEmail,
+        to: companyEmail,
         subject: "Your START Cockpit access is ready",
         react: StartCockpitEnabledEmail({ firstName }),
       });
