@@ -13,14 +13,14 @@ describe("generateCompanyEmail", () => {
   it("normalizes German characters deterministically", () => {
     assert.equal(
       generateCompanyEmail("Jörg", "Müller"),
-      "jorg.muller@start-berlin.com",
+      "joerg.mueller@start-berlin.com",
     );
   });
 
   it("hyphenates multi-part names", () => {
     assert.equal(
       generateCompanyEmail("Mark Use", "Müller Schmidt"),
-      "mark-use.muller-schmidt@start-berlin.com",
+      "mark-use.mueller-schmidt@start-berlin.com",
     );
   });
 });

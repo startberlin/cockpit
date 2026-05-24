@@ -1,31 +1,42 @@
 import slugify from "slugify";
 
-// Join multi-part names with hyphens, normalize special chars, lowercase, keep only [a-z0-9.-]
-const customReplacements = [
-  ["ä", "ae"],
-  ["ö", "oe"],
-  ["ü", "ue"],
-  ["ß", "ss"],
-  ["æ", "ae"],
-  ["ø", "oe"],
-  ["å", "aa"],
-  ["Ä", "ae"],
-  ["Ö", "oe"],
-  ["Ü", "ue"],
-  ["Æ", "ae"],
-  ["Ø", "oe"],
-  ["Å", "aa"],
+// Umlaut replacements applied before slugify so its internal NFD normalization
+// doesn't decompose ö→o+combining-diaeresis before our pattern can match.
+const UMLAUT_MAP: [RegExp, string][] = [
+  [/ä/g, "ae"],
+  [/ö/g, "oe"],
+  [/ü/g, "ue"],
+  [/ß/g, "ss"],
+  [/æ/g, "ae"],
+  [/ø/g, "oe"],
+  [/å/g, "aa"],
+  [/Ä/g, "Ae"],
+  [/Ö/g, "Oe"],
+  [/Ü/g, "Ue"],
+  [/Æ/g, "Ae"],
+  [/Ø/g, "Oe"],
+  [/Å/g, "Aa"],
 ];
 
-export function generateCompanyEmail(firstName: string, lastName: string) {
-  const slugOptions = {
-    lower: true,
-    strict: true,
-    customReplacements,
-  } as const;
+function replaceUmlauts(str: string): string {
+  let result = str;
+  for (const [regex, replacement] of UMLAUT_MAP) {
+    result = result.replace(regex, replacement);
+  }
+  return result;
+}
 
-  const firstSlug = slugify(firstName.replace(/\s+/g, "-"), slugOptions);
-  const lastSlug = slugify(lastName.replace(/\s+/g, "-"), slugOptions);
+export function generateCompanyEmail(firstName: string, lastName: string) {
+  const slugOptions = { lower: true, strict: true } as const;
+
+  const firstSlug = slugify(
+    replaceUmlauts(firstName).replace(/\s+/g, "-"),
+    slugOptions,
+  );
+  const lastSlug = slugify(
+    replaceUmlauts(lastName).replace(/\s+/g, "-"),
+    slugOptions,
+  );
 
   return `${firstSlug}.${lastSlug}@start-berlin.com`;
 }

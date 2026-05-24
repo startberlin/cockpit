@@ -13,7 +13,13 @@ import {
 import { batch } from "@/db/schema/batch";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import { evaluateAuth, evaluateUnscopedViewDetails } from "@/lib/permissions";
+import {
+  evaluateAuth,
+  evaluateUnscopedViewDetails,
+  hasAdminGrant,
+  hasPeopleAdminGrant,
+  isLegalOfficer,
+} from "@/lib/permissions";
 import { can } from "@/lib/permissions/server";
 import AdminDirectoryPageClient from "./page-client";
 
@@ -58,9 +64,9 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
   const canViewInactive = evaluateAuth(authority, "users.view_inactive");
   const isUnrestrictedViewer =
     evaluateUnscopedViewDetails(authority) &&
-    !authority.positions.some(
-      (p) => p.scope === "department" && p.position === "department_head",
-    );
+    (hasAdminGrant(authority) ||
+      hasPeopleAdminGrant(authority) ||
+      isLegalOfficer(authority));
 
   const forcedDeptHead = !isUnrestrictedViewer
     ? (authority.positions.find(

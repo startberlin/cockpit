@@ -59,9 +59,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
       status,
     } = event.data;
 
-    const user = await step.run("create-google-user", async () => {
-      const password = generateRandomPassword();
-
+    const googleUser = await step.run("create-google-user", async () => {
       if (env.DISABLE_GOOGLE_WORKSPACE) {
         console.warn(
           `[google-workspace disabled] would have provisioned ${companyEmail}`,
@@ -82,7 +80,8 @@ export const onboardNewUserWorkflow = inngest.createFunction(
               name: { givenName: firstName, familyName: lastName },
               primaryEmail: companyEmail,
               recoveryEmail: personalEmail,
-              password,
+              // Initial password is discarded — rotated in the email step after the sleep
+              password: generateRandomPassword(),
               changePasswordAtNextLogin: true,
             },
           });
@@ -104,19 +103,36 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         }
       }
 
+      return { companyEmail, personalEmail };
+    });
+
+    await step.sleep("wait-for-google-account-ready", "5m");
+
+    await step.run("send-signin-instructions-email", async () => {
+      // Generate password locally — never returned so it never enters run history
+      const password = generateRandomPassword();
+
+      if (!env.DISABLE_GOOGLE_WORKSPACE) {
+        const auth = createGoogleAuth(
+          "https://www.googleapis.com/auth/admin.directory.user",
+        );
+        const admin = google.admin({ auth, version: "directory_v1" });
+        await admin.users.update({
+          userKey: googleUser.companyEmail,
+          requestBody: { password, changePasswordAtNextLogin: true },
+        });
+      }
+
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-        to: personalEmail,
+        to: googleUser.personalEmail,
         subject: "Welcome to START Berlin — your sign-in details",
         react: SignInInstructionsEmail({
           firstName,
-          companyEmail,
+          companyEmail: googleUser.companyEmail,
           initialPassword: password,
         }),
       });
-
-      // password intentionally excluded — must not persist in Inngest run history
-      return { companyEmail, personalEmail };
     });
 
     const dbUser = await step.run("insert-db-user", async () => {
@@ -127,7 +143,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
         .insert(userTable)
         .values({
           id: newId("user"),
-          email: user.companyEmail,
+          email: companyEmail,
           firstName,
           lastName,
           personalEmail,
@@ -172,7 +188,7 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     await step.run("send-cockpit-access-email", async () => {
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-        to: user.companyEmail,
+        to: companyEmail,
         subject: "Your START Cockpit access is ready",
         react: StartCockpitEnabledEmail({ firstName }),
       });
