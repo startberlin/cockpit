@@ -137,7 +137,7 @@ function DetailsStep({
       <div className="flex flex-col gap-2">
         <label
           htmlFor="bug-description"
-          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
         >
           What happened
         </label>
