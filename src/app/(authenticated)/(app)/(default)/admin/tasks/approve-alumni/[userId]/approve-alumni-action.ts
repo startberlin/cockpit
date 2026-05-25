@@ -53,6 +53,10 @@ export const approveAlumniAction = actionClient
       throw new Error("Not authorized to decide on this transition.");
     }
 
+    if (row.userId === currentUser.id) {
+      throw new Error("You cannot decide on your own transition request.");
+    }
+
     await inngest.send({
       name: events.transitionDecided.name,
       data: {

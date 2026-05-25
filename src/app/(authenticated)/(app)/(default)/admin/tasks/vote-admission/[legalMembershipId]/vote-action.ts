@@ -32,6 +32,7 @@ export const castVoteAction = actionClient
     const lm = await db.query.legalMembership.findFirst({
       where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
       columns: {
+        userId: true,
         status: true,
         boardResolutionHash: true,
         boardParticipants: true,
@@ -50,6 +51,12 @@ export const castVoteAction = actionClient
     if (displayedResolutionHash !== lm.boardResolutionHash) {
       throw new Error(
         "The resolution text has changed since you loaded this page. Please refresh and try again.",
+      );
+    }
+
+    if (lm.userId === currentUser.id) {
+      throw new Error(
+        "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
     }
 

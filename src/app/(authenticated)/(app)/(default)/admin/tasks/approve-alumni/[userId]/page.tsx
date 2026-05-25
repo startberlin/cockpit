@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import db from "@/db";
+import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import ApproveAlumniClient from "./approve-alumni-client";
@@ -53,9 +54,13 @@ export default async function ApproveAlumniPage({
     notFound();
   }
 
-  const canAct = await can("membership.transition.decide", {
-    department: subjectUser.department,
-  });
+  const currentUser = await getCurrentUser();
+
+  const canAct =
+    currentUser?.id !== subjectUser.id &&
+    (await can("membership.transition.decide", {
+      department: subjectUser.department,
+    }));
 
   return (
     <ApproveAlumniClient
