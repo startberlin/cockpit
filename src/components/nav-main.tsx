@@ -3,6 +3,7 @@
 import {
   AppWindow,
   ChevronRight,
+  ClipboardList,
   CreditCard,
   IdCard,
   Layers,
@@ -132,6 +133,22 @@ export function NavMain() {
       {/* Admin — auto-hides when user has no admin permissions */}
       <HidableSidebarGroup label="Admin">
         <SidebarMenu>
+          {/* Admin > Tasks */}
+          <Can permission="tasks.view_any">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith("/admin/tasks")}
+                tooltip="Tasks"
+              >
+                <Link href="/admin/tasks" onClick={closeMobile}>
+                  <ClipboardList />
+                  <span>Tasks</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </Can>
+
           {/* Admin > People (collapsible) */}
           <HidableNavCollapsibleItem
             label="People"
