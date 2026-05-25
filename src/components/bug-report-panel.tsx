@@ -7,8 +7,8 @@ import {
   CameraIcon,
   CircleCheck,
   LightbulbIcon,
-  MessageSquareIcon,
   MessageSquareMoreIcon,
+  MessageSquareWarningIcon,
   SendIcon,
   XIcon,
 } from "lucide-react";
@@ -355,53 +355,55 @@ export function BugReportButton() {
   return (
     <>
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon"
         className="h-7 w-7"
         onClick={() => setOpen(true)}
         aria-label="Report an issue"
       >
-        <MessageSquareIcon className="size-4" />
+        <MessageSquareWarningIcon className="size-4" />
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpen}>
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           {step !== "submitted" && (
-            <DialogHeader className="gap-3 border-b px-6 pt-6 pb-5">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  {STEP_LABELS.map((label, i) => {
-                    const isActive = i === stepIndex;
-                    const isCompleted = i < stepIndex;
-                    return (
-                      <React.Fragment key={label}>
-                        {i > 0 && <BreadcrumbSeparator />}
-                        <BreadcrumbItem
-                          className={cn(
-                            "rounded px-1.5 py-0.5",
-                            isActive && "bg-muted",
-                          )}
-                        >
-                          <BreadcrumbPage
+            <DialogHeader className="gap-4">
+              <div>
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    {STEP_LABELS.map((label, i) => {
+                      const isActive = i === stepIndex;
+                      const isCompleted = i < stepIndex;
+                      return (
+                        <React.Fragment key={label}>
+                          {i > 0 && <BreadcrumbSeparator />}
+                          <BreadcrumbItem
                             className={cn(
-                              "flex items-center gap-1",
-                              !isActive &&
-                                !isCompleted &&
-                                "text-muted-foreground",
+                              "rounded-md px-1.5 py-0.5",
+                              isActive && "bg-muted",
                             )}
                           >
-                            {isCompleted && (
-                              <CircleCheck className="size-4 fill-success text-primary-foreground" />
-                            )}
-                            {label}
-                          </BreadcrumbPage>
-                        </BreadcrumbItem>
-                      </React.Fragment>
-                    );
-                  })}
-                </BreadcrumbList>
-              </Breadcrumb>
-              <div className="flex flex-col gap-1">
+                            <BreadcrumbPage
+                              className={cn(
+                                "flex items-center gap-1 font-regular",
+                                !isActive &&
+                                  !isCompleted &&
+                                  "text-muted-foreground",
+                              )}
+                            >
+                              {isCompleted && (
+                                <CircleCheck className="size-4 fill-success text-primary-foreground" />
+                              )}
+                              {label}
+                            </BreadcrumbPage>
+                          </BreadcrumbItem>
+                        </React.Fragment>
+                      );
+                    })}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
+              <div className="flex flex-col gap-2">
                 <DialogTitle>
                   {step === "category"
                     ? "Report an issue"
@@ -416,37 +418,30 @@ export function BugReportButton() {
             </DialogHeader>
           )}
 
-          <div className={cn("overflow-y-auto", step !== "submitted" && "p-6")}>
-            {step === "category" && (
-              <CategoryStep value={category} onChange={setCategory} />
-            )}
-            {step === "details" && activeCat && (
-              <DetailsStep
-                category={activeCat}
-                description={description}
-                onDescriptionChange={setDescription}
-                screenshotDataUrl={screenshotDataUrl}
-                onCaptureScreenshot={captureScreenshot}
-                isCapturing={isCapturing}
-                onRemoveScreenshot={() => setScreenshotDataUrl(null)}
-              />
-            )}
-            {step === "submitted" && <SuccessStep progress={progress} />}
-          </div>
+          {step === "category" && (
+            <CategoryStep value={category} onChange={setCategory} />
+          )}
+          {step === "details" && activeCat && (
+            <DetailsStep
+              category={activeCat}
+              description={description}
+              onDescriptionChange={setDescription}
+              screenshotDataUrl={screenshotDataUrl}
+              onCaptureScreenshot={captureScreenshot}
+              isCapturing={isCapturing}
+              onRemoveScreenshot={() => setScreenshotDataUrl(null)}
+            />
+          )}
+          {step === "submitted" && <SuccessStep progress={progress} />}
 
           {step !== "submitted" && (
-            <div className="flex items-center justify-end gap-2 border-t bg-muted/40 px-6 py-4">
+            <div className="flex justify-between gap-2">
               {step === "category" ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleOpen(false)}
-                  >
+                  <Button variant="outline" onClick={() => handleOpen(false)}>
                     Cancel
                   </Button>
                   <Button
-                    size="sm"
                     disabled={!category}
                     onClick={() => setStep("details")}
                   >
@@ -457,8 +452,7 @@ export function BugReportButton() {
               ) : (
                 <>
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
                     disabled={isPending}
                     onClick={() => setStep("category")}
                   >
@@ -466,7 +460,6 @@ export function BugReportButton() {
                     Back
                   </Button>
                   <Button
-                    size="sm"
                     disabled={!description.trim() || isPending}
                     onClick={handleSubmit}
                   >
