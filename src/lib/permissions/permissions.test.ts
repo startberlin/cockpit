@@ -730,13 +730,13 @@ describe("permissions", () => {
       );
     });
 
-    it("denies people_admin from viewing admission resolutions", () => {
+    it("allows people_admin to view admission resolutions", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "membership.resolution.admission.view",
         ),
-        false,
+        true,
       );
     });
   });
@@ -782,13 +782,13 @@ describe("permissions", () => {
       );
     });
 
-    it("denies plain admin without officer/depthead position", () => {
+    it("allows plain admin to view transitions", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
           "membership.transition.view",
         ),
-        false,
+        true,
       );
     });
 
@@ -890,13 +890,13 @@ describe("permissions", () => {
       );
     });
 
-    it("denies plain admin without officer/depthead", () => {
+    it("allows plain admin to view cancellations", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
           "membership.cancellation.view",
         ),
-        false,
+        true,
       );
     });
 
@@ -1029,6 +1029,17 @@ describe("permissions", () => {
       );
     });
 
+    it("allows super_admin to decide on a transition in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "membership.transition.decide",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
     it("denies regular member from deciding on a transition", () => {
       assert.equal(
         evaluateAuth(authority(), "membership.transition.decide", {
@@ -1086,6 +1097,17 @@ describe("permissions", () => {
           { targetDepartment: "growth" },
         ),
         false,
+      );
+    });
+
+    it("allows super_admin to acknowledge a cancellation in any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "membership.cancellation.acknowledge",
+          { targetDepartment: "events" },
+        ),
+        true,
       );
     });
 

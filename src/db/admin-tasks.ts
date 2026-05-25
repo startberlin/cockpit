@@ -41,6 +41,7 @@ export interface AdminTaskRow {
   deadline: Date;
   taskStatus: AdminTaskStatus;
   completedStatus: AdminTaskCompletedStatus | null;
+  currentUserHasActed: boolean;
 }
 
 export interface TaskMember {
@@ -64,7 +65,11 @@ function getHeadedDepartments(authority: UserAuthority): Department[] {
 }
 
 function canViewAllTransitions(authority: UserAuthority): boolean {
-  return hasPeopleAdminGrant(authority) || isLegalOfficer(authority);
+  return (
+    hasAdminGrant(authority) ||
+    hasPeopleAdminGrant(authority) ||
+    isLegalOfficer(authority)
+  );
 }
 
 function canViewAllAdmissions(authority: UserAuthority): boolean {
@@ -87,6 +92,7 @@ function addDeadlineDays(date: Date, days: number): Date {
 async function fetchAdmissionTasks(
   departmentFilter: Department[] | null,
   memberIdFilter?: string[],
+  currentUserId?: string,
 ): Promise<AdminTaskRow[]> {
   if (departmentFilter !== null && departmentFilter.length === 0) return [];
 
@@ -108,6 +114,7 @@ async function fetchAdmissionTasks(
       status: legalMembership.status,
       startedAt: legalMembership.startedAt,
       createdAt: legalMembership.createdAt,
+      boardVotes: legalMembership.boardVotes,
     })
     .from(legalMembership)
     .innerJoin(user, eq(user.id, legalMembership.userId))
@@ -122,6 +129,9 @@ async function fetchAdmissionTasks(
       else if (row.status === "manual_followup")
         completedStatus = "manual_followup";
     }
+    const currentUserHasActed =
+      currentUserId != null &&
+      (row.boardVotes ?? []).some((v) => v.voterUserId === currentUserId);
     return {
       kind: "admission",
       legalMembershipId: row.id,
@@ -133,6 +143,7 @@ async function fetchAdmissionTasks(
       deadline: addDeadlineDays(row.startedAt, 90),
       taskStatus: isOpen ? "open" : "completed",
       completedStatus,
+      currentUserHasActed,
     };
   });
 }
@@ -187,6 +198,7 @@ async function fetchTransitionTasks(
       deadline: addDeadlineDays(row.requestedAt, 30),
       taskStatus: isOpen ? "open" : "completed",
       completedStatus: isOpen ? null : (row.status as AdminTaskCompletedStatus),
+      currentUserHasActed: false,
     };
   });
 }
@@ -238,6 +250,7 @@ async function fetchCancellationTasks(
       deadline: addDeadlineDays(row.requestedAt, 7),
       taskStatus: isOpen ? "open" : "completed",
       completedStatus: isOpen ? null : (row.status as AdminTaskCompletedStatus),
+      currentUserHasActed: false,
     };
   });
 }
@@ -256,6 +269,7 @@ export async function getAdminTasksPage(
   authority: UserAuthority,
   filters: { types?: AdminTaskKind[]; memberIds?: string[] },
   pagination: { page: number; pageSize: number },
+  currentUserId?: string,
 ): Promise<GetAdminTasksPageResult> {
   const { types, memberIds } = filters;
   const { page, pageSize } = pagination;
@@ -277,7 +291,9 @@ export async function getAdminTasksPage(
     !types || types.length === 0 || types.includes(kind);
 
   if (canViewAnyAdmission(authority) && includeKind("admission")) {
-    fetchPromises.push(fetchAdmissionTasks(admissionDeptFilter, memberIds));
+    fetchPromises.push(
+      fetchAdmissionTasks(admissionDeptFilter, memberIds, currentUserId),
+    );
   }
 
   const canViewTransitions = canViewAllTrans || headedDepartments.length > 0;

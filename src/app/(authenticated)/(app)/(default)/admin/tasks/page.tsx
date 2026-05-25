@@ -85,6 +85,7 @@ export default async function AdminTasksPage({
         memberIds: memberIds.length > 0 ? memberIds : undefined,
       },
       { page, pageSize: PAGE_SIZE },
+      currentUser.id,
     ),
     getAllVisibleTaskMembers(authority),
   ]);
@@ -92,7 +93,8 @@ export default async function AdminTasksPage({
   const enrichedRows = rows.map((row) => ({
     ...row,
     canAct:
-      row.kind === "admission"
+      currentUser.id !== row.userId &&
+      (row.kind === "admission"
         ? evaluateAuth(authority, "membership.resolution.admission.vote")
         : row.kind === "alumni_request" ||
             row.kind === "supporting_alumni_request"
@@ -101,10 +103,8 @@ export default async function AdminTasksPage({
             })
           : evaluateAuth(authority, "membership.cancellation.acknowledge", {
               targetDepartment: row.department,
-            }),
+            })),
   }));
-
-  const canViewUserDetails = evaluateAuth(authority, "user.view_details");
 
   return (
     <TasksPageClient
@@ -113,7 +113,6 @@ export default async function AdminTasksPage({
       pageCount={pageCount}
       allMembers={allMembers}
       viewableKinds={viewableKinds}
-      canViewUserDetails={canViewUserDetails}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { getResolutionDetail } from "@/db/board-resolutions";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
@@ -35,10 +36,19 @@ export default async function VoteAdmissionPage({
     resolution.participants.some((p) => p.userId === currentUser.id);
 
   return (
-    <ResolutionVoteClient
-      resolution={resolution}
-      currentUserId={currentUser.id}
-      isParticipant={isParticipant}
-    />
+    <>
+      <BreadcrumbCrumb
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Tasks", href: "/admin/tasks" },
+          { label: "Board resolution" },
+        ]}
+      />
+      <ResolutionVoteClient
+        resolution={resolution}
+        currentUserId={currentUser.id}
+        isParticipant={isParticipant}
+      />
+    </>
   );
 }

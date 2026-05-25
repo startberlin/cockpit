@@ -55,6 +55,7 @@ interface AdminTaskRow {
   taskStatus: AdminTaskStatus;
   completedStatus: AdminTaskCompletedStatus | null;
   canAct: boolean;
+  currentUserHasActed: boolean;
 }
 
 interface TaskMember {
@@ -68,7 +69,6 @@ interface TasksPageClientProps {
   pageCount: number;
   allMembers: TaskMember[];
   viewableKinds: AdminTaskKind[];
-  canViewUserDetails: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -85,16 +85,6 @@ const KIND_LABELS: Record<AdminTaskKind, string> = {
   alumni_request: "Alumni transition approval",
   supporting_alumni_request: "Alumni transition approval",
   cancellation: "Cancellation acknowledgement",
-};
-
-const COMPLETED_STATUS_LABELS: Record<AdminTaskCompletedStatus, string> = {
-  admitted: "Admitted",
-  cancelled: "Cancelled",
-  manual_followup: "Follow-up needed",
-  executed: "Executed",
-  retracted: "Retracted",
-  expired: "Expired",
-  acknowledged: "Acknowledged",
 };
 
 const kindParser = parseAsStringLiteral(ALL_KINDS as unknown as string[]);
@@ -118,6 +108,22 @@ function getOpenCtaLabel(kind: AdminTaskKind): string {
   return "Review";
 }
 
+function formatRelativeDeadline(deadline: Date): string {
+  const diffDays = Math.floor(
+    (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
+  if (diffDays < 14) return `in ${diffDays} days`;
+  if (diffDays < 60) {
+    const weeks = Math.floor(diffDays / 7);
+    return `in ${weeks} week${weeks !== 1 ? "s" : ""}`;
+  }
+  const months = Math.floor(diffDays / 30);
+  return `in ${months} month${months !== 1 ? "s" : ""}`;
+}
+
 // ─── FilterMenu ───────────────────────────────────────────────────────────────
 
 function FilterMenu<T extends string>({
@@ -125,11 +131,13 @@ function FilterMenu<T extends string>({
   options,
   selected,
   onChange,
+  disabled,
 }: {
   label: string;
   options: { value: T; label: string }[];
   selected: T[];
   onChange: (next: T[]) => void;
+  disabled?: boolean;
 }) {
   const count = selected.length;
   const displayLabel =
@@ -146,6 +154,22 @@ function FilterMenu<T extends string>({
         : [...selected, val],
     );
   };
+
+  if (disabled) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border border-input rounded-md bg-background text-xs text-muted-foreground opacity-50 cursor-not-allowed"
+      >
+        <span className="uppercase tracking-widest font-semibold opacity-60">
+          {label}
+        </span>
+        <span className="font-medium">All</span>
+        <ChevronDownIcon className="size-3 opacity-50" />
+      </button>
+    );
+  }
 
   return (
     <Popover>
@@ -215,6 +239,148 @@ function FilterMenu<T extends string>({
   );
 }
 
+// ─── Task table ───────────────────────────────────────────────────────────────
+
+function OpenTasksTable({ rows }: { rows: AdminTaskRow[] }) {
+  const firstActionableIndex = rows.findIndex((r) => r.canAct);
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Member</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Deadline</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={4}
+                className="py-10 text-center text-muted-foreground text-sm"
+              >
+                No tasks are waiting for review.
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row, index) => {
+              const href = getTaskHref(row);
+              const label = row.canAct ? getOpenCtaLabel(row.kind) : "View";
+              const buttonVariant =
+                index === firstActionableIndex ? "default" : "outline";
+              return (
+                <TableRow
+                  key={row.legalMembershipId ?? row.transitionRequestId}
+                >
+                  <TableCell className="font-medium">
+                    <Link href={href} className="hover:underline">
+                      {row.userName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {KIND_LABELS[row.kind]}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        row.canAct &&
+                          Math.floor(
+                            (row.deadline.getTime() - Date.now()) /
+                              (1000 * 60 * 60 * 24),
+                          ) < 7
+                          ? "text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {formatRelativeDeadline(row.deadline)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant={buttonVariant} size="sm" asChild>
+                      <Link href={href}>{label}</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function CompletedTasksTable({ rows }: { rows: AdminTaskRow[] }) {
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Member</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={4}
+                className="py-10 text-center text-muted-foreground text-sm"
+              >
+                No completed tasks.
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row) => {
+              const href = getTaskHref(row);
+              const stillPending =
+                row.taskStatus === "open" && row.currentUserHasActed;
+              return (
+                <TableRow
+                  key={row.legalMembershipId ?? row.transitionRequestId}
+                >
+                  <TableCell className="font-medium">
+                    <Link href={href} className="hover:underline">
+                      {row.userName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span>{KIND_LABELS[row.kind]}</span>
+                    {stillPending && (
+                      <Badge
+                        variant="outline"
+                        className="ml-2 text-xs font-normal"
+                      >
+                        Pending
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {row.createdAt.toLocaleDateString("en-GB", {
+                      dateStyle: "medium",
+                    })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={href}>View</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function TasksPageClient({
@@ -223,7 +389,6 @@ export default function TasksPageClient({
   pageCount,
   allMembers,
   viewableKinds,
-  canViewUserDetails,
 }: TasksPageClientProps) {
   const [page, setPage] = useQueryState(
     "page",
@@ -270,6 +435,13 @@ export default function TasksPageClient({
     label: m.name,
   }));
 
+  const openRows = rows.filter(
+    (r) => r.taskStatus === "open" && !r.currentUserHasActed,
+  );
+  const completedRows = rows.filter(
+    (r) => r.taskStatus === "completed" || r.currentUserHasActed,
+  );
+
   return (
     <>
       <div className="pb-6">
@@ -279,7 +451,7 @@ export default function TasksPageClient({
         </p>
       </div>
 
-      <div className="flex items-center gap-2 pb-4 overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-2 pb-6 overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {kindOptions.length > 1 && (
           <FilterMenu
             label="Type"
@@ -293,6 +465,7 @@ export default function TasksPageClient({
           options={memberOptions}
           selected={activeMemberIds}
           onChange={handleMembersChange}
+          disabled={memberOptions.length === 0}
         />
         {hasFilters && (
           <button
@@ -306,87 +479,25 @@ export default function TasksPageClient({
         )}
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          No tasks found.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Deadline</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              const firstActionableIndex = rows.findIndex(
-                (r) => r.taskStatus === "open" && r.canAct,
-              );
-              return rows.map((row, index) => {
-                const href = getTaskHref(row);
-                const isOpen = row.taskStatus === "open";
-                const label =
-                  isOpen && row.canAct ? getOpenCtaLabel(row.kind) : "View";
-                const buttonVariant =
-                  index === firstActionableIndex ? "default" : "outline";
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-4 pb-3">
+          <h2 className="text-sm font-semibold">Open tasks</h2>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {openRows.length} task{openRows.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <OpenTasksTable rows={openRows} />
+      </div>
 
-                return (
-                  <TableRow
-                    key={row.legalMembershipId ?? row.transitionRequestId}
-                  >
-                    <TableCell className="font-medium">
-                      {canViewUserDetails ? (
-                        <Link
-                          href={`/admin/people/${row.userId}`}
-                          className="hover:underline"
-                        >
-                          {row.userName}
-                        </Link>
-                      ) : (
-                        row.userName
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {KIND_LABELS[row.kind]}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {row.createdAt.toLocaleDateString("en-GB", {
-                        dateStyle: "medium",
-                      })}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">
-                      {row.deadline.toLocaleDateString("en-GB", {
-                        dateStyle: "medium",
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      {isOpen ? (
-                        <Badge variant="secondary">Open</Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {row.completedStatus
-                            ? COMPLETED_STATUS_LABELS[row.completedStatus]
-                            : "Completed"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant={buttonVariant} size="sm" asChild>
-                        <Link href={href}>{label}</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              });
-            })()}
-          </TableBody>
-        </Table>
-      )}
+      <div>
+        <div className="flex items-center justify-between gap-4 pb-3">
+          <h2 className="text-sm font-semibold">Completed tasks</h2>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {completedRows.length} task{completedRows.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <CompletedTasksTable rows={completedRows} />
+      </div>
 
       <div className="flex items-center justify-between pt-4">
         <p className="text-sm text-muted-foreground">
