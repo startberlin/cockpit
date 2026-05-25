@@ -35,15 +35,16 @@ export default async function ApproveAlumniPage({
     .findMany({
       where: (t, { eq: eqFn }) => eqFn(t.userId, userId),
     })
-    .then(
-      (rows) =>
-        rows.find(
-          (r) =>
-            (r.type === "alumni_request" ||
-              r.type === "supporting_alumni_request") &&
-            r.status === "pending",
-        ) ?? null,
-    );
+    .then((rows) => {
+      const matching = rows.filter(
+        (r) =>
+          r.type === "alumni_request" || r.type === "supporting_alumni_request",
+      );
+      matching.sort(
+        (a, b) => b.requestedAt.getTime() - a.requestedAt.getTime(),
+      );
+      return matching[0] ?? null;
+    });
 
   if (!request) notFound();
 
@@ -58,6 +59,7 @@ export default async function ApproveAlumniPage({
   const currentUser = await getCurrentUser();
 
   const canAct =
+    request.status === "pending" &&
     currentUser?.id !== subjectUser.id &&
     (await can("membership.transition.decide", {
       department: subjectUser.department,
