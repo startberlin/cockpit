@@ -109,7 +109,7 @@ function getOpenCtaLabel(kind: AdminTaskKind): string {
 }
 
 function formatRelativeDeadline(deadline: Date): string {
-  const diffDays = Math.ceil(
+  const diffDays = Math.floor(
     (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
   if (diffDays < 0) return "overdue";
@@ -117,10 +117,10 @@ function formatRelativeDeadline(deadline: Date): string {
   if (diffDays === 1) return "tomorrow";
   if (diffDays < 14) return `in ${diffDays} days`;
   if (diffDays < 60) {
-    const weeks = Math.round(diffDays / 7);
+    const weeks = Math.floor(diffDays / 7);
     return `in ${weeks} week${weeks !== 1 ? "s" : ""}`;
   }
-  const months = Math.round(diffDays / 30);
+  const months = Math.floor(diffDays / 30);
   return `in ${months} month${months !== 1 ? "s" : ""}`;
 }
 
@@ -288,7 +288,7 @@ function OpenTasksTable({ rows }: { rows: AdminTaskRow[] }) {
                       className={cn(
                         "tabular-nums",
                         row.canAct &&
-                          Math.ceil(
+                          Math.floor(
                             (row.deadline.getTime() - Date.now()) /
                               (1000 * 60 * 60 * 24),
                           ) < 7
