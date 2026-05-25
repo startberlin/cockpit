@@ -25,35 +25,41 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
 
   const currentUser = await getCurrentUser();
 
-  const [userRows, positions, batches, manualGroupsResult, canExportAll, viewerManagerRows] =
-    await Promise.all([
-      db.query.user.findMany({
-        columns: {
-          id: true,
-          status: true,
-          department: true,
-          batchNumber: true,
-        },
-        with: { accessGrants: { columns: { grant: true } } },
-      }),
-      db.query.userOrganizationPosition.findMany({
-        columns: {
-          userId: true,
-          position: true,
-          scope: true,
-          department: true,
-        },
-      }),
-      db.query.batch.findMany({ columns: { number: true } }),
-      listAllGroupsForAdmin({ search }),
-      can("group.export", { isMember: false }),
-      currentUser
-        ? db
-            .select({ groupId: usersToGroups.groupId })
-            .from(usersToGroups)
-            .where(eq(usersToGroups.userId, currentUser.id))
-        : Promise.resolve([] as { groupId: string }[]),
-    ]);
+  const [
+    userRows,
+    positions,
+    batches,
+    manualGroupsResult,
+    canExportAll,
+    viewerManagerRows,
+  ] = await Promise.all([
+    db.query.user.findMany({
+      columns: {
+        id: true,
+        status: true,
+        department: true,
+        batchNumber: true,
+      },
+      with: { accessGrants: { columns: { grant: true } } },
+    }),
+    db.query.userOrganizationPosition.findMany({
+      columns: {
+        userId: true,
+        position: true,
+        scope: true,
+        department: true,
+      },
+    }),
+    db.query.batch.findMany({ columns: { number: true } }),
+    listAllGroupsForAdmin({ search }),
+    can("group.export", { isMember: false }),
+    currentUser
+      ? db
+          .select({ groupId: usersToGroups.groupId })
+          .from(usersToGroups)
+          .where(eq(usersToGroups.userId, currentUser.id))
+      : Promise.resolve([] as { groupId: string }[]),
+  ]);
 
   const users = userRows.map((u) => ({
     id: u.id,
