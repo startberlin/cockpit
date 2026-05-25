@@ -7,13 +7,7 @@ import {
 import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import {
-  evaluateAuth,
-  evaluateUnscopedViewDetails,
-  hasAdminGrant,
-  hasPeopleAdminGrant,
-  isLegalOfficer,
-} from "@/lib/permissions";
+import { evaluateAuth, evaluateUnscopedViewDetails } from "@/lib/permissions";
 import TasksPageClient from "./tasks-table-client";
 
 export const metadata = createMetadata({
@@ -40,21 +34,14 @@ export default async function AdminTasksPage({
   const authority = await getUserAuthority(currentUser.id);
   if (!authority) redirect("/membership");
 
-  const headedDepts = authority.positions
-    .filter(
-      (p): p is Extract<typeof p, { scope: "department" }> =>
-        p.scope === "department" && p.position === "department_head",
-    )
-    .map((p) => p.department);
-
-  const canViewAdmission =
-    hasAdminGrant(authority) ||
-    isLegalOfficer(authority) ||
-    headedDepts.length > 0;
-  const canViewTransitions =
-    hasPeopleAdminGrant(authority) ||
-    isLegalOfficer(authority) ||
-    headedDepts.length > 0;
+  const canViewAdmission = evaluateAuth(
+    authority,
+    "membership.resolution.admission.view",
+  );
+  const canViewTransitions = evaluateAuth(
+    authority,
+    "membership.transition.view",
+  );
 
   const viewableKinds: AdminTaskKind[] = [
     ...(canViewAdmission ? (["admission"] as const) : []),

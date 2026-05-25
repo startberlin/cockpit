@@ -855,62 +855,6 @@ describe("permissions", () => {
     });
   });
 
-  describe("tasks.view_any", () => {
-    it("allows admin", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ grants: [{ grant: "admin" }] }),
-          "tasks.view_any",
-        ),
-        true,
-      );
-    });
-
-    it("allows people_admin", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ grants: [{ grant: "people_admin" }] }),
-          "tasks.view_any",
-        ),
-        true,
-      );
-    });
-
-    it("allows legal officer", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            positions: [{ position: "president", scope: "global" }],
-          }),
-          "tasks.view_any",
-        ),
-        true,
-      );
-    });
-
-    it("allows department head", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            positions: [
-              {
-                position: "department_head",
-                scope: "department",
-                department: "events",
-              },
-            ],
-          }),
-          "tasks.view_any",
-        ),
-        true,
-      );
-    });
-
-    it("denies plain member", () => {
-      assert.equal(evaluateAuth(authority(), "tasks.view_any"), false);
-    });
-  });
-
   describe("membership cancellation and transitions", () => {
     it("allows president to cancel any member", () => {
       assert.equal(
