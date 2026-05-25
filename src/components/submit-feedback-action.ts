@@ -11,15 +11,12 @@ const FROM =
 
 export const CATEGORY_LABEL = {
   bug: "Something is broken",
-  visual: "Visual issue",
-  data: "Wrong data",
-  account: "Account or access",
   suggestion: "Suggestion",
   other: "Something else",
 } as const;
 
 const schema = z.object({
-  category: z.enum(["bug", "visual", "data", "account", "suggestion", "other"]),
+  category: z.enum(["bug", "suggestion", "other"]),
   description: z.string().trim().min(1).max(5000),
   pageUrl: z.string().url().nullable(),
   sessionId: z.string().nullable(),

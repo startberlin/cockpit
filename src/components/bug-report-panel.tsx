@@ -6,9 +6,6 @@ import {
   BugIcon,
   CameraIcon,
   CircleCheck,
-  DatabaseIcon,
-  KeyRoundIcon,
-  LayoutDashboardIcon,
   LightbulbIcon,
   MessageSquareIcon,
   MessageSquareMoreIcon,
@@ -47,31 +44,14 @@ const CATEGORIES = [
   {
     value: "bug" as const,
     label: "Something is broken",
-    description: "A button, table, or page is not behaving the way it should.",
+    description:
+      "A bug, visual glitch, wrong data, access problem, or anything that isn't working as expected.",
     icon: BugIcon,
-  },
-  {
-    value: "visual" as const,
-    label: "Visual issue",
-    description: "Layout, text, or styling looks wrong or out of place.",
-    icon: LayoutDashboardIcon,
-  },
-  {
-    value: "data" as const,
-    label: "Wrong data",
-    description: "Information shown is missing, outdated, or incorrect.",
-    icon: DatabaseIcon,
-  },
-  {
-    value: "account" as const,
-    label: "Account or access",
-    description: "Sign-in, permissions, or membership status is off.",
-    icon: KeyRoundIcon,
   },
   {
     value: "suggestion" as const,
     label: "Suggestion",
-    description: "An idea for how Cockpit could work better.",
+    description: "An idea or proposal for how Cockpit could work better.",
     icon: LightbulbIcon,
   },
   {
