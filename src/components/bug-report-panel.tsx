@@ -4,13 +4,11 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   BugIcon,
-  CameraIcon,
   CircleCheck,
   LightbulbIcon,
   MessageSquareMoreIcon,
   MessageSquareWarning,
   SendIcon,
-  XIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import posthog from "posthog-js";
@@ -35,10 +33,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-
-// ---------------------------------------------------------------------------
-// Category definitions
-// ---------------------------------------------------------------------------
 
 const CATEGORIES = [
   {
@@ -66,10 +60,6 @@ type Category = (typeof CATEGORIES)[number]["value"];
 type Step = "category" | "details" | "submitted";
 
 const STEP_LABELS = ["Category", "Details"] as const;
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
 
 function CategoryStep({
   value,
@@ -132,28 +122,18 @@ function DetailsStep({
   category,
   description,
   onDescriptionChange,
-  screenshotDataUrl,
-  onCaptureScreenshot,
-  isCapturing,
-  onRemoveScreenshot,
 }: {
   category: (typeof CATEGORIES)[number];
   description: string;
   onDescriptionChange: (v: string) => void;
-  screenshotDataUrl: string | null;
-  onCaptureScreenshot: () => void;
-  isCapturing: boolean;
-  onRemoveScreenshot: () => void;
 }) {
   const Icon = category.icon;
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2.5 border border-border bg-muted px-3 py-2.5">
+      <div className="flex items-center gap-2 border border-border bg-muted px-3 py-2.5">
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">Category</span>
-        <span className="text-sm font-semibold">{category.label}</span>
+        <span className="text-sm font-medium">{category.label}</span>
       </div>
-
       <div className="flex flex-col gap-2">
         <label
           htmlFor="bug-description"
@@ -173,38 +153,6 @@ function DetailsStep({
           We follow up by email if we need more detail.
         </p>
       </div>
-
-      {screenshotDataUrl ? (
-        <div className="relative">
-          {/* biome-ignore lint/performance/noImgElement: screenshot is a base64 data URL, next/image does not support it */}
-          <img
-            src={screenshotDataUrl}
-            alt="Screenshot"
-            className="w-full rounded-sm border object-cover"
-            style={{ maxHeight: 160 }}
-          />
-          <button
-            type="button"
-            onClick={onRemoveScreenshot}
-            aria-label="Remove screenshot"
-            className="absolute top-1.5 right-1.5 flex size-5 cursor-pointer items-center justify-center rounded-sm bg-background/90 text-foreground shadow-sm hover:bg-muted"
-          >
-            <XIcon className="size-3" />
-          </button>
-        </div>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={onCaptureScreenshot}
-          disabled={isCapturing}
-        >
-          {isCapturing ? <Spinner /> : <CameraIcon className="size-4" />}
-          {isCapturing ? "Capturing…" : "Attach screenshot"}
-        </Button>
-      )}
     </div>
   );
 }
@@ -236,10 +184,7 @@ function SuccessStep({ progress }: { progress: number }) {
       <div className="relative h-0.5 w-full max-w-[280px] overflow-hidden bg-border">
         <div
           className="absolute inset-0 bg-foreground"
-          style={{
-            width: `${progress}%`,
-            transition: "width 60ms linear",
-          }}
+          style={{ width: `${progress}%`, transition: "width 60ms linear" }}
         />
       </div>
       <p className="text-xs text-muted-foreground">
@@ -249,26 +194,16 @@ function SuccessStep({ progress }: { progress: number }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main export
-// ---------------------------------------------------------------------------
-
 export function BugReportButton() {
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<Step>("category");
   const [category, setCategory] = React.useState<Category | null>(null);
   const [description, setDescription] = React.useState("");
-  const [screenshotDataUrl, setScreenshotDataUrl] = React.useState<
-    string | null
-  >(null);
-  const [isCapturing, setIsCapturing] = React.useState(false);
   const [progress, setProgress] = React.useState(100);
 
   const { execute, isPending } = useAction(submitFeedbackAction, {
     onSuccess: () => {
-      if (category) {
-        posthog.capture("bug_report_submitted", { category });
-      }
+      if (category) posthog.capture("bug_report_submitted", { category });
       setStep("submitted");
     },
     onError: ({ error }) => {
@@ -283,7 +218,6 @@ export function BugReportButton() {
     setStep("category");
     setCategory(null);
     setDescription("");
-    setScreenshotDataUrl(null);
     setProgress(100);
   };
 
@@ -306,40 +240,7 @@ export function BugReportButton() {
         typeof window !== "undefined"
           ? (posthog.get_session_replay_url() ?? null)
           : null,
-      screenshotBase64: screenshotDataUrl,
     });
-  };
-
-  const captureScreenshot = async () => {
-    setIsCapturing(true);
-    setOpen(false);
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
-    try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(document.documentElement, {
-        pixelRatio: 1,
-        skipFonts: true,
-        filter: (node) => {
-          if (node.nodeName === "IFRAME") return false;
-          // Skip cross-origin images — they violate CSP and crash the capture
-          if (node instanceof HTMLImageElement && node.src) {
-            try {
-              return new URL(node.src).origin === window.location.origin;
-            } catch {
-              return false;
-            }
-          }
-          return true;
-        },
-      });
-      setScreenshotDataUrl(dataUrl);
-    } catch (err) {
-      console.error("[screenshot]", err);
-      toast.error("Couldn't capture screenshot. Please try again.");
-    } finally {
-      setIsCapturing(false);
-      setOpen(true);
-    }
   };
 
   React.useEffect(() => {
@@ -379,7 +280,7 @@ export function BugReportButton() {
       <Dialog open={open} onOpenChange={handleOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           {step !== "submitted" && (
-            <DialogHeader className="gap-4">
+            <DialogHeader className="gap-4 text-left">
               <div>
                 <Breadcrumb>
                   <BreadcrumbList>
@@ -431,17 +332,19 @@ export function BugReportButton() {
           )}
 
           {step === "category" && (
-            <CategoryStep value={category} onChange={setCategory} />
+            <CategoryStep
+              value={category}
+              onChange={(c) => {
+                setCategory(c);
+                setStep("details");
+              }}
+            />
           )}
           {step === "details" && activeCat && (
             <DetailsStep
               category={activeCat}
               description={description}
               onDescriptionChange={setDescription}
-              screenshotDataUrl={screenshotDataUrl}
-              onCaptureScreenshot={captureScreenshot}
-              isCapturing={isCapturing}
-              onRemoveScreenshot={() => setScreenshotDataUrl(null)}
             />
           )}
           {step === "submitted" && <SuccessStep progress={progress} />}

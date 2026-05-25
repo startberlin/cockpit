@@ -23,7 +23,6 @@ interface FeedbackSubmittedProps {
   pageUrl: string | null;
   sessionId: string | null;
   sessionReplayUrl: string | null;
-  hasScreenshot: boolean;
 }
 
 export function FeedbackSubmitted({
@@ -33,7 +32,6 @@ export function FeedbackSubmitted({
   pageUrl,
   sessionId,
   sessionReplayUrl,
-  hasScreenshot,
 }: FeedbackSubmittedProps) {
   const label = CATEGORY_LABEL[category];
   const subjectLine = `${label} from ${submittedBy.name}`;
@@ -95,11 +93,6 @@ export function FeedbackSubmitted({
                 >
                   Watch replay
                 </Link>
-              </Text>
-            ) : null}
-            {hasScreenshot ? (
-              <Text className="my-1 text-[13px] text-[#44403C]">
-                <strong>Screenshot:</strong> attached as screenshot.png
               </Text>
             ) : null}
           </Container>

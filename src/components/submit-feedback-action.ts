@@ -21,20 +21,13 @@ const schema = z.object({
   pageUrl: z.string().url().nullable(),
   sessionId: z.string().nullable(),
   sessionReplayUrl: z.string().nullable(),
-  screenshotBase64: z.string().nullable(),
 });
 
 export const submitFeedbackAction = actionClient
   .inputSchema(schema)
   .action(async ({ ctx, parsedInput }) => {
-    const {
-      category,
-      description,
-      pageUrl,
-      sessionId,
-      sessionReplayUrl,
-      screenshotBase64,
-    } = parsedInput;
+    const { category, description, pageUrl, sessionId, sessionReplayUrl } =
+      parsedInput;
 
     const group = getSystemGroupBySlug("cockpit-feedback");
     if (!group) {
@@ -44,19 +37,6 @@ export const submitFeedbackAction = actionClient
     const fullName = `${ctx.user.firstName} ${ctx.user.lastName}`.trim();
     const fromEmail = ctx.user.email ?? "(no email on account)";
     const label = CATEGORY_LABEL[category];
-
-    const attachments = screenshotBase64
-      ? [
-          {
-            filename: "screenshot.png",
-            content: Buffer.from(
-              screenshotBase64.replace(/^data:image\/\w+;base64,/, ""),
-              "base64",
-            ),
-            contentType: "image/png",
-          },
-        ]
-      : undefined;
 
     await sendEmail({
       from: FROM,
@@ -69,9 +49,7 @@ export const submitFeedbackAction = actionClient
         pageUrl,
         sessionId,
         sessionReplayUrl,
-        hasScreenshot: !!screenshotBase64,
       }),
-      attachments,
     });
 
     return { success: true };
