@@ -12,25 +12,28 @@ import {
   Tailwind,
   Text,
 } from "react-email";
+import { CATEGORY_LABEL } from "@/components/submit-feedback-action";
+
+type Category = keyof typeof CATEGORY_LABEL;
 
 interface FeedbackSubmittedProps {
-  category: "issue" | "idea" | "other";
+  category: Category;
   description: string;
   submittedBy: { name: string; email: string };
   pageUrl: string | null;
+  sessionId: string | null;
+  sessionReplayUrl: string | null;
+  hasScreenshot: boolean;
 }
-
-const CATEGORY_LABEL: Record<FeedbackSubmittedProps["category"], string> = {
-  issue: "Issue",
-  idea: "Idea",
-  other: "Other",
-};
 
 export function FeedbackSubmitted({
   category,
   description,
   submittedBy,
   pageUrl,
+  sessionId,
+  sessionReplayUrl,
+  hasScreenshot,
 }: FeedbackSubmittedProps) {
   const label = CATEGORY_LABEL[category];
   const subjectLine = `${label} from ${submittedBy.name}`;
@@ -76,6 +79,27 @@ export function FeedbackSubmitted({
                 <Link href={pageUrl} className="text-[#1C1917] underline">
                   {pageUrl}
                 </Link>
+              </Text>
+            ) : null}
+            {sessionId ? (
+              <Text className="my-1 text-[13px] text-[#44403C]">
+                <strong>Session ID:</strong> {sessionId}
+              </Text>
+            ) : null}
+            {sessionReplayUrl ? (
+              <Text className="my-1 text-[13px] text-[#44403C]">
+                <strong>Session recording:</strong>{" "}
+                <Link
+                  href={sessionReplayUrl}
+                  className="text-[#1C1917] underline"
+                >
+                  Watch replay
+                </Link>
+              </Text>
+            ) : null}
+            {hasScreenshot ? (
+              <Text className="my-1 text-[13px] text-[#44403C]">
+                <strong>Screenshot:</strong> attached as screenshot.png
               </Text>
             ) : null}
           </Container>
