@@ -116,10 +116,13 @@ export default async function AdminGroupPage({
   const mayViewGroup = await can("group.view", { id });
   if (!mayViewGroup) notFound();
 
+  const mayManageMembers = await can("group.members.manage", { id });
   const groupDetailPromise = getGroupDetail(id, page);
   const [group, availableUsers] = await Promise.all([
     groupDetailPromise,
-    add !== undefined ? listAllUsersNotInGroup(id) : Promise.resolve(undefined),
+    add !== undefined && mayManageMembers
+      ? listAllUsersNotInGroup(id)
+      : Promise.resolve(undefined),
   ]);
   if (!group) notFound();
 

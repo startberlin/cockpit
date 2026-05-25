@@ -256,6 +256,13 @@ export async function promoteToManagerAction(
   }
   await updateUserRoleInGroup(userId, groupId, "manager");
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/admin/groups/${groupId}`);
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_promoted_to_manager",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
 }
 
 export async function demoteFromManagerAction(
@@ -268,6 +275,13 @@ export async function demoteFromManagerAction(
   }
   await updateUserRoleInGroup(userId, groupId, "member");
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/admin/groups/${groupId}`);
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_demoted_from_manager",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userId },
+  });
 }
 
 export async function listUsersNotInGroupAction(
@@ -322,7 +336,7 @@ export async function exportMultipleGroupsCsvAction(
   groupIds: string[],
 ): Promise<string> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("group.export", { isMember: true }))) {
+  if (!currentUser) {
     throw new Error("You are not authorized to export groups.");
   }
   if (groupIds.length === 0) return "name,email";
@@ -333,6 +347,17 @@ export async function exportMultipleGroupsCsvAction(
   const manualIds = groupIds.filter(
     (id) => !isSystemGroupSlug(id, []) && !id.startsWith("batch-"),
   );
+
+  const permissionChecks = [
+    ...(systemIds.length > 0 ? [can("group.export", { isMember: false })] : []),
+    ...manualIds.map((id) => can("group.export", { id })),
+  ];
+  const results = await Promise.all(permissionChecks);
+  if (results.some((ok) => !ok)) {
+    throw new Error(
+      "You are not authorized to export one or more of the selected groups.",
+    );
+  }
 
   const memberIdSet = new Set<string>();
 

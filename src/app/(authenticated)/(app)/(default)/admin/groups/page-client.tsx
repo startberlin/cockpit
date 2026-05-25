@@ -86,6 +86,7 @@ interface UnifiedGroup {
   memberCount: number;
   managers: GroupManager[];
   isSystem: boolean;
+  canExport: boolean;
 }
 
 interface AdminGroupsPageClientProps {
@@ -93,6 +94,8 @@ interface AdminGroupsPageClientProps {
   manualGroups: AdminGroup[];
   total: number;
   initialSearch: string;
+  canExportAll: boolean;
+  viewerManagerGroupIds: string[];
 }
 
 export default function AdminGroupsPageClient({
@@ -100,7 +103,10 @@ export default function AdminGroupsPageClient({
   manualGroups,
   total,
   initialSearch,
+  canExportAll,
+  viewerManagerGroupIds,
 }: AdminGroupsPageClientProps) {
+  const viewerManagerGroupIdSet = new Set(viewerManagerGroupIds);
   const [search, setSearch] = useQueryState(
     "q",
     parseAsString
@@ -113,7 +119,9 @@ export default function AdminGroupsPageClient({
   );
 
   const can = useCan();
-  const canExport = can("group.export", { isMember: true });
+  const canExportAny =
+    can("group.export", { isMember: true }) ||
+    (!canExportAll && viewerManagerGroupIds.length > 0);
 
   const systemRows: UnifiedGroup[] = systemGroups.map((sg) => ({
     key: sg.slug,
@@ -124,6 +132,7 @@ export default function AdminGroupsPageClient({
     memberCount: sg.memberCount,
     managers: [],
     isSystem: true,
+    canExport: canExportAll,
   }));
 
   const manualRows: UnifiedGroup[] = manualGroups.map((g) => ({
@@ -135,6 +144,7 @@ export default function AdminGroupsPageClient({
     memberCount: g.memberCount,
     managers: g.managers,
     isSystem: false,
+    canExport: canExportAll || viewerManagerGroupIdSet.has(g.id),
   }));
 
   const filteredSystemRows = search
@@ -227,26 +237,42 @@ export default function AdminGroupsPageClient({
         />
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {systemRows.length + total} group
-            {systemRows.length + total === 1 ? "" : "s"}
+            {allRows.length} group
+            {allRows.length === 1 ? "" : "s"}
           </span>
-          {canExport && selectedRows.size > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-1" />
-                  Export {selectedRows.size} group
-                  {selectedRows.size === 1 ? "" : "s"}
-                  <ChevronDown className="h-3 w-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleBulkExport}>
-                  CSV for Luma
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {canExportAny &&
+            selectedRows.size > 0 &&
+            (() => {
+              const canExportAllSelected = Array.from(
+                selectedRows.values(),
+              ).every((r) => r.canExport);
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canExportAllSelected}
+                      title={
+                        canExportAllSelected
+                          ? undefined
+                          : "You don't have export permission for one or more selected groups"
+                      }
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Export {selectedRows.size} group
+                      {selectedRows.size === 1 ? "" : "s"}
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleBulkExport}>
+                      CSV for Luma
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })()}
         </div>
       </div>
 

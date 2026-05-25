@@ -144,6 +144,7 @@ function SystemGroupView({
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-muted-foreground"
+            aria-label="Copy group email"
             onClick={() => {
               navigator.clipboard.writeText(googleGroupEmail);
               setEmailCopied(true);
@@ -465,6 +466,7 @@ function ManualGroupView({
               variant="ghost"
               size="icon"
               className="h-6 w-6 text-muted-foreground"
+              aria-label="Copy group email"
               onClick={() => {
                 navigator.clipboard.writeText(group.googleGroupEmail ?? "");
                 setEmailCopied(true);
