@@ -164,19 +164,13 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
       </div>
 
       <div className="rounded-md border">
-        <Table className="table-fixed">
-          <colgroup>
-            <col className="w-[30%]" />
-            <col className="w-[25%]" />
-            <col className="w-[25%]" />
-            <col className="w-[20%]" />
-          </colgroup>
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Event</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead className="text-right">Time</TableHead>
+              <TableHead className="w-40">Subject</TableHead>
+              <TableHead className="w-40">Actor</TableHead>
+              <TableHead className="w-24 text-right">Time</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -195,19 +189,20 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
               rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs shrink-0">
                         {CATEGORY_LABELS[row.category] ?? row.category}
                       </Badge>
-                      <span className="text-sm truncate">
-                        {formatEventLabel(row.eventType)}
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm">
+                          {formatEventLabel(row.eventType)}
+                        </span>
                         {row.description && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {row.description}
+                          <span className="text-xs text-muted-foreground truncate">
+                            {row.description}
                           </span>
                         )}
-                      </span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
