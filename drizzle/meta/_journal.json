@@ -330,6 +330,13 @@
       "when": 1779644328202,
       "tag": "0046_fearless_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1779716995275,
+      "tag": "0047_yellow_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }

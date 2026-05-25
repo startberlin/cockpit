@@ -19,7 +19,6 @@ import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -99,9 +98,6 @@ function SystemGroupView({
         </Button>
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
-          <Badge variant="secondary" className="shrink-0">
-            Auto-managed
-          </Badge>
         </div>
         <div className="flex items-center gap-1 mt-1">
           <span className="text-muted-foreground text-sm">

@@ -40,10 +40,12 @@ export default async function AcknowledgeCancellationPage({
         eq(membershipTransitionRequest.userId, userId),
         eq(membershipTransitionRequest.type, "cancellation"),
         eq(membershipTransitionRequest.reason, "resigned"),
-        eq(membershipTransitionRequest.status, "pending"),
       ),
     )
-    .then((rows) => rows[0] ?? null);
+    .then((rows) => {
+      rows.sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+      return rows[0] ?? null;
+    });
 
   if (!request) notFound();
 
@@ -58,6 +60,7 @@ export default async function AcknowledgeCancellationPage({
   const currentUser = await getCurrentUser();
 
   const canAct =
+    request.status === "pending" &&
     currentUser?.id !== subjectUser.id &&
     (await can("membership.cancellation.acknowledge", {
       department: subjectUser.department,

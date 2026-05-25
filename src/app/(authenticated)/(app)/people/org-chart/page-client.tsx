@@ -51,6 +51,58 @@ export default function OrgChartPageClient({ users }: OrgChartPageClientProps) {
     return () => wrapper.removeEventListener("wheel", onWheel);
   }, []);
 
+  // Touch → let vertical swipes pass through to native page scroll.
+  // react-zoom-pan-pinch captures all touch events and calls preventDefault(),
+  // which blocks the browser from scrolling the page. We intercept in the
+  // capture phase (before the library sees the event): vertical gestures get
+  // stopImmediatePropagation() so the library never calls preventDefault() and
+  // the browser scrolls naturally; horizontal gestures fall through to the library.
+  React.useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    let startX = 0;
+    let startY = 0;
+    let directionLocked: "horizontal" | "vertical" | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      directionLocked = null;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const deltaX = Math.abs(e.touches[0].clientX - startX);
+      const deltaY = Math.abs(e.touches[0].clientY - startY);
+
+      if (directionLocked === null && (deltaX > 5 || deltaY > 5)) {
+        directionLocked = deltaX > deltaY ? "horizontal" : "vertical";
+      }
+
+      if (directionLocked === "vertical") {
+        e.stopImmediatePropagation();
+      }
+    };
+
+    wrapper.addEventListener("touchstart", onTouchStart, {
+      passive: true,
+      capture: true,
+    });
+    wrapper.addEventListener("touchmove", onTouchMove, {
+      passive: true,
+      capture: true,
+    });
+
+    return () => {
+      wrapper.removeEventListener("touchstart", onTouchStart, {
+        capture: true,
+      });
+      wrapper.removeEventListener("touchmove", onTouchMove, { capture: true });
+    };
+  }, []);
+
   const { officers, departments } = React.useMemo(
     () => buildOrgChart(users),
     [users],

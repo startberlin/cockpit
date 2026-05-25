@@ -113,10 +113,28 @@ export default function ResolutionVoteClient({
     }
   }
 
-  const statusLabel =
-    resolution.status === "admission_pending"
-      ? "Pending"
-      : resolution.status.replace(/_/g, " ");
+  const statusLabels: Record<typeof resolution.status, string> = {
+    admission_pending: "Pending",
+    application_pending: "Application pending",
+    membership_reconfirmation_pending: "Reconfirmation pending",
+    processing: "Processing",
+    active: "Active",
+    manual_followup: "Manual follow-up",
+    cancelled: "Cancelled",
+  };
+  const statusLabel = statusLabels[resolution.status];
+
+  const voteOutcomeMessage: Partial<Record<typeof resolution.status, string>> =
+    {
+      application_pending: "The resolution was accepted.",
+      processing: "The resolution was accepted.",
+      active: "The resolution was accepted.",
+      membership_reconfirmation_pending: "The resolution was accepted.",
+      manual_followup:
+        "The vote did not reach a decision and was referred to manual follow-up.",
+      cancelled: "The membership was cancelled.",
+    };
+  const outcomeMessage = voteOutcomeMessage[resolution.status];
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -269,10 +287,8 @@ export default function ResolutionVoteClient({
 
       {resolution.status !== "admission_pending" && (
         <p className="text-sm text-muted-foreground">
-          Voting is closed for this resolution. Current status:{" "}
-          <span className="font-medium text-foreground capitalize">
-            {statusLabel}
-          </span>
+          Voting is closed for this resolution.
+          {outcomeMessage ? ` ${outcomeMessage}` : ""}
         </p>
       )}
 
