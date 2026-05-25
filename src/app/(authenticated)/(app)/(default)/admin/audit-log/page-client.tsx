@@ -164,7 +164,13 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
       </div>
 
       <div className="rounded-md border">
-        <Table>
+        <Table className="table-fixed">
+          <colgroup>
+            <col className="w-[30%]" />
+            <col className="w-[25%]" />
+            <col className="w-[25%]" />
+            <col className="w-[20%]" />
+          </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>Event</TableHead>
@@ -189,25 +195,24 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
               rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Badge variant="outline" className="text-xs shrink-0">
                         {CATEGORY_LABELS[row.category] ?? row.category}
                       </Badge>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm">
-                          {formatEventLabel(row.eventType)}
-                        </span>
+                      <span className="text-sm truncate">
+                        {formatEventLabel(row.eventType)}
                         {row.description && (
-                          <span className="text-xs text-muted-foreground truncate">
-                            {row.description}
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {row.description}
                           </span>
                         )}
-                      </div>
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
                     {row.subjectName ? (
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-medium truncate block">
                         {row.subjectName}
                       </span>
                     ) : (
@@ -217,7 +222,7 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
                   <TableCell>
                     <span
                       className={cn(
-                        "text-sm",
+                        "text-sm truncate block",
                         !row.actorName && "text-muted-foreground",
                       )}
                     >
