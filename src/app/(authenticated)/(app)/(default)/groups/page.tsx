@@ -22,6 +22,7 @@ export default async function GroupsPage() {
       db.query.user.findFirst({
         where: (u, { eq }) => eq(u.id, currentUser.id),
         columns: { status: true, department: true, batchNumber: true },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         where: (p, { eq }) => eq(p.userId, currentUser.id),
@@ -34,7 +35,13 @@ export default async function GroupsPage() {
   const userSystemGroupSlugs = new Set(
     userRecord
       ? getSystemGroupsForUser(
-          { id: currentUser.id, ...userRecord },
+          {
+            id: currentUser.id,
+            status: userRecord.status,
+            department: userRecord.department,
+            batchNumber: userRecord.batchNumber,
+            grants: userRecord.accessGrants.map((g) => g.grant),
+          },
           positions,
           batches,
         ).map((g) => g.slug)

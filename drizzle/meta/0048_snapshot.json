@@ -1,6 +1,6 @@
 {
-  "id": "036aefd9-3414-4005-bae5-ee0ae330a40b",
-  "prevId": "e834982a-97df-47d7-b593-4d6d88e13829",
+  "id": "7526f582-f621-4746-84bf-5d8b85ba25a8",
+  "prevId": "036aefd9-3414-4005-bae5-ee0ae330a40b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -249,7 +249,38 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "session_expires_at_idx": {
+          "name": "session_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "account_user_id_user_id_fk": {
           "name": "account_user_id_user_id_fk",
@@ -327,38 +358,7 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "session_user_id_idx": {
-          "name": "session_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "session_expires_at_idx": {
-          "name": "session_expires_at_idx",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "session_user_id_user_id_fk": {
           "name": "session_user_id_user_id_fk",
@@ -1005,6 +1005,14 @@
           "primaryKey": false,
           "notNull": true
         },
+        "role": {
+          "name": "role",
+          "type": "group_member_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
         "joined_at": {
           "name": "joined_at",
           "type": "timestamp",
@@ -1606,6 +1614,11 @@
       "name": "email_suppression_reason",
       "schema": "public",
       "values": ["bounce", "complaint"]
+    },
+    "public.group_member_role": {
+      "name": "group_member_role",
+      "schema": "public",
+      "values": ["member", "manager"]
     },
     "public.legal_membership_status": {
       "name": "legal_membership_status",

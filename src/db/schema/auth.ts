@@ -2,6 +2,7 @@ import { type InferSelectModel, relations } from "drizzle-orm";
 import {
   boolean,
   date,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -88,23 +89,30 @@ export const usersRelations = relations(user, ({ one, many }) => ({
   // usersToGroups relation will be defined in the schema/index.ts to avoid circular dependency
 }));
 
-export const session = pgTable("session", {
-  id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at").notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  impersonatedBy: text("impersonated_by").references(() => user.id, {
-    onDelete: "set null",
-  }),
-});
+export const session = pgTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: timestamp("expires_at").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    impersonatedBy: text("impersonated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("session_user_id_idx").on(table.userId),
+    index("session_expires_at_idx").on(table.expiresAt),
+  ],
+);
 
 export const account = pgTable("account", {
   id: text("id").primaryKey(),

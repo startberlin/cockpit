@@ -31,7 +31,7 @@ export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
     );
 
     const members = await step.run("load-members", async () => {
-      const users = await db.query.user.findMany({
+      const userRows = await db.query.user.findMany({
         columns: {
           id: true,
           status: true,
@@ -39,7 +39,16 @@ export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
           batchNumber: true,
           email: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       });
+      const users = userRows.map((u) => ({
+        id: u.id,
+        status: u.status,
+        department: u.department,
+        batchNumber: u.batchNumber,
+        email: u.email,
+        grants: u.accessGrants.map((g) => g.grant),
+      }));
       const memberWithEmail: { id: string; email: string }[] = [];
       for (const u of getMembersOfSystemGroup(slug, users, [])) {
         if (u.email) memberWithEmail.push({ id: u.id, email: u.email });
