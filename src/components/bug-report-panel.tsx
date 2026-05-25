@@ -3,8 +3,8 @@
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
-  BugIcon,
   LightbulbIcon,
+  MessageSquareIcon,
   MoreHorizontalIcon,
 } from "lucide-react";
 import posthog from "posthog-js";
@@ -94,7 +94,7 @@ export function BugReportButton() {
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
       >
-        <BugIcon className="size-4" />
+        <MessageSquareIcon className="size-4" />
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpen}>
