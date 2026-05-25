@@ -1,3 +1,4 @@
+import { authCleanupCron } from "./auth-cleanup";
 import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
 import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
@@ -20,6 +21,7 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  authCleanupCron,
   bootstrapBatchSystemGroupWorkflow,
   financePaymentProposalsDigest,
   gocardlessEventsCleanupCron,
