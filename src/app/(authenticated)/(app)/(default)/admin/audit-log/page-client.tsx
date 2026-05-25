@@ -190,7 +190,10 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
                 <TableRow key={row.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="text-xs shrink-0 w-[82px] justify-center"
+                      >
                         {CATEGORY_LABELS[row.category] ?? row.category}
                       </Badge>
                       <div className="flex flex-col min-w-0">
