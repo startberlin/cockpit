@@ -1,10 +1,11 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import Link from "next/link";
-import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Can } from "@/components/can";
+import { useCan } from "@/components/can";
 import {
   Avatar,
   AvatarFallback,
@@ -12,14 +13,14 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -36,27 +37,8 @@ import {
 } from "@/components/ui/tooltip";
 import type { AdminGroup, GroupManager } from "@/db/groups";
 import type { SystemGroup } from "@/lib/groups/system-groups";
-import { exportGroupCsvAction } from "../../groups/[id]/actions";
+import { exportMultipleGroupsCsvAction } from "../../groups/[id]/actions";
 import { CreateGroupDialog } from "./create-group-dialog";
-
-async function handleExport(exportId: string, groupName: string) {
-  try {
-    const csv = await exportGroupCsvAction(exportId);
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${groupName.toLowerCase().replace(/\s+/g, "-")}-luma.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch (_error) {
-    toast.error(
-      "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-    );
-  }
-}
 
 function ManagerAvatarStack({ managers }: { managers: GroupManager[] }) {
   if (managers.length === 0)
@@ -110,7 +92,6 @@ interface AdminGroupsPageClientProps {
   systemGroups: SystemGroupWithCount[];
   manualGroups: AdminGroup[];
   total: number;
-  pageCount: number;
   initialSearch: string;
 }
 
@@ -118,19 +99,21 @@ export default function AdminGroupsPageClient({
   systemGroups,
   manualGroups,
   total,
-  pageCount,
   initialSearch,
 }: AdminGroupsPageClientProps) {
-  const [page, setPage] = useQueryState(
-    "page",
-    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
-  );
   const [search, setSearch] = useQueryState(
     "q",
     parseAsString
       .withDefault("")
       .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
   );
+
+  const [selectedRows, setSelectedRows] = useState(
+    new Map<string, UnifiedGroup>(),
+  );
+
+  const can = useCan();
+  const canExport = can("group.export", { isMember: true });
 
   const systemRows: UnifiedGroup[] = systemGroups.map((sg) => ({
     key: sg.slug,
@@ -164,6 +147,68 @@ export default function AdminGroupsPageClient({
     a.name.localeCompare(b.name),
   );
 
+  const allVisibleSelected =
+    allRows.length > 0 && allRows.every((r) => selectedRows.has(r.key));
+  const someVisibleSelected = allRows.some((r) => selectedRows.has(r.key));
+  const headerChecked = allVisibleSelected
+    ? true
+    : someVisibleSelected
+      ? "indeterminate"
+      : false;
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected || someVisibleSelected) {
+      setSelectedRows((prev) => {
+        const next = new Map(prev);
+        for (const r of allRows) next.delete(r.key);
+        return next;
+      });
+    } else {
+      setSelectedRows((prev) => {
+        const next = new Map(prev);
+        for (const r of allRows) next.set(r.key, r);
+        return next;
+      });
+    }
+  };
+
+  const toggleRow = (row: UnifiedGroup) => {
+    setSelectedRows((prev) => {
+      const next = new Map(prev);
+      if (next.has(row.key)) {
+        next.delete(row.key);
+      } else {
+        next.set(row.key, row);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkExport = async () => {
+    const rows = Array.from(selectedRows.values());
+    const exportIds = rows.map((r) => r.exportId);
+    const fileName =
+      rows.length === 1
+        ? `${rows[0].name.toLowerCase().replace(/\s+/g, "-")}-luma.csv`
+        : "groups-luma.csv";
+    try {
+      const csv = await exportMultipleGroupsCsvAction(exportIds);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (_error) {
+      toast.error(
+        "Could not export groups. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -177,24 +222,48 @@ export default function AdminGroupsPageClient({
           value={search}
           onChange={(e) => {
             setSearch(e.target.value || null);
-            setPage(1);
           }}
           className="max-w-sm"
         />
-        <span className="text-sm text-muted-foreground ml-auto">
-          {systemRows.length + total} group
-          {systemRows.length + total === 1 ? "" : "s"}
-        </span>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {systemRows.length + total} group
+            {systemRows.length + total === 1 ? "" : "s"}
+          </span>
+          {canExport && selectedRows.size > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1" />
+                  Export {selectedRows.size} group
+                  {selectedRows.size === 1 ? "" : "s"}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleBulkExport}>
+                  CSV for Luma
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={headerChecked}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all groups"
+                />
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Members</TableHead>
               <TableHead>Owners</TableHead>
-              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -212,6 +281,13 @@ export default function AdminGroupsPageClient({
             ) : (
               allRows.map((g) => (
                 <TableRow key={g.key}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedRows.has(g.key)}
+                      onCheckedChange={() => toggleRow(g)}
+                      aria-label={`Select ${g.name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link href={g.href} className="hover:underline">
                       {g.name}
@@ -232,58 +308,12 @@ export default function AdminGroupsPageClient({
                       <ManagerAvatarStack managers={g.managers} />
                     )}
                   </TableCell>
-                  <TableCell>
-                    <Can permission="group.export" context={{ isMember: true }}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Export CSV for Luma"
-                        onClick={() => handleExport(g.exportId, g.name)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </Can>
-                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
-
-      {pageCount > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-disabled={page <= 1}
-                className={
-                  page <= 1
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
-                }
-              />
-            </PaginationItem>
-            <PaginationItem>
-              <span className="text-sm text-muted-foreground px-3">
-                {page} / {pageCount}
-              </span>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                aria-disabled={page >= pageCount}
-                className={
-                  page >= pageCount
-                    ? "pointer-events-none opacity-50"
-                    : "cursor-pointer"
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
     </div>
   );
 }

@@ -13,12 +13,11 @@ export const metadata = createMetadata({
 });
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
 export default async function AdminGroupsPage({ searchParams }: PageProps) {
-  const { page: pageParam, q: search = "" } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const { q: search = "" } = await searchParams;
 
   const [users, positions, batches, manualGroupsResult] = await Promise.all([
     db.query.user.findMany({
@@ -38,7 +37,7 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
       },
     }),
     db.query.batch.findMany({ columns: { number: true } }),
-    listAllGroupsForAdmin({ page, search }),
+    listAllGroupsForAdmin({ search }),
   ]);
 
   const systemGroups = getAllSystemGroups(batches).map((sg) => ({
@@ -51,7 +50,6 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
       systemGroups={systemGroups}
       manualGroups={manualGroupsResult.groups}
       total={manualGroupsResult.total}
-      pageCount={manualGroupsResult.pageCount}
       initialSearch={search}
     />
   );

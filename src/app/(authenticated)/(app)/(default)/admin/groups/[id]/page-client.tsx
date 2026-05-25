@@ -11,16 +11,16 @@ import {
   Plus,
   Search,
   Trash2,
-  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
-import { parseAsInteger, useQueryState } from "nuqs";
-import { use, useCallback, useEffect, useState } from "react";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { use, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -46,14 +53,16 @@ import {
 } from "@/components/ui/table";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
+import type { LegalMembershipState, UserStatus } from "@/db/schema/auth";
 import { authClient } from "@/lib/auth-client";
+import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
+import { USER_STATUS_INFO } from "@/lib/user-status";
 import {
-  addUserToGroupAction,
+  addUsersToGroupAction,
   demoteFromManagerAction,
   exportGroupCsvAction,
   promoteToManagerAction,
   removeUserFromGroupAction,
-  searchUsersNotInGroupAction,
 } from "../../../groups/[id]/actions";
 
 type SystemGroupMember = {
@@ -74,6 +83,7 @@ type AdminGroupDetailClientProps =
   | {
       kind: "manual";
       groupDetailPromise: Promise<GroupDetail | null>;
+      availableUsers?: PublicUser[];
     };
 
 function SystemGroupView({
@@ -224,8 +234,10 @@ function SystemGroupView({
 
 function ManualGroupView({
   groupDetailPromise,
+  availableUsers: availableUsersProp = [],
 }: {
   groupDetailPromise: Promise<GroupDetail | null>;
+  availableUsers?: PublicUser[];
 }) {
   const can = useCan();
   const router = useRouter();
@@ -238,60 +250,126 @@ function ManualGroupView({
   }
 
   const [group, setGroup] = useState(groupDetail);
-  const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<PublicUser[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
+  const [legalFilter, setLegalFilter] = useState<LegalMembershipState | "">("");
+  const [batchFilter, setBatchFilter] = useState<number | "">("");
+  const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
+  const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [membersPage, setMembersPage] = useQueryState(
     "page",
     parseAsInteger.withDefault(1).withOptions({ shallow: false }),
   );
+  const [addParam, setAddParam] = useQueryState(
+    "add",
+    parseAsString.withOptions({ shallow: false }),
+  );
+  const isAddMemberDialogOpen = addParam !== null;
 
   useEffect(() => {
     setGroup(groupDetail);
   }, [groupDetail]);
 
-  const loadAvailableUsers = useCallback(
-    async (query?: string) => {
-      setIsSearching(true);
-      try {
-        const result = await searchUsersNotInGroupAction(group.id, query);
-        setSearchResults(result);
-      } catch (_error) {
-        toast.error(
-          "Could not load members. Please try again. If this keeps happening, email operations@start-berlin.com.",
-        );
-      } finally {
-        setIsSearching(false);
-      }
-    },
-    [group.id],
-  );
-
   useEffect(() => {
-    if (isAddMemberDialogOpen) {
-      loadAvailableUsers();
+    if (!isAddMemberDialogOpen) {
+      setUserSearch("");
+      setDepartmentFilter("");
+      setStatusFilter("");
+      setLegalFilter("");
+      setBatchFilter("");
+      setSelectedUserIds(new Set());
     }
-  }, [isAddMemberDialogOpen, loadAvailableUsers]);
+  }, [isAddMemberDialogOpen]);
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    await loadAvailableUsers(query || undefined);
+  const availableBatches = useMemo(() => {
+    const nums = new Set<number>();
+    for (const u of availableUsersProp) {
+      if (u.batchNumber != null) nums.add(u.batchNumber);
+    }
+    return Array.from(nums).sort((a, b) => a - b);
+  }, [availableUsersProp]);
+
+  const filteredUsers = useMemo(() => {
+    return availableUsersProp.filter((u) => {
+      const nameMatch =
+        !userSearch ||
+        `${u.firstName} ${u.lastName}`
+          .toLowerCase()
+          .includes(userSearch.toLowerCase()) ||
+        u.email?.toLowerCase().includes(userSearch.toLowerCase());
+      const deptMatch = !departmentFilter || u.department === departmentFilter;
+      const statusMatch = !statusFilter || u.status === statusFilter;
+      const legalMatch = !legalFilter || u.legalMembershipState === legalFilter;
+      const batchMatch = batchFilter === "" || u.batchNumber === batchFilter;
+      return nameMatch && deptMatch && statusMatch && legalMatch && batchMatch;
+    });
+  }, [
+    availableUsersProp,
+    userSearch,
+    departmentFilter,
+    statusFilter,
+    legalFilter,
+    batchFilter,
+  ]);
+
+  const allFilteredSelected =
+    filteredUsers.length > 0 &&
+    filteredUsers.every((u) => selectedUserIds.has(u.id));
+  const someFilteredSelected = filteredUsers.some((u) =>
+    selectedUserIds.has(u.id),
+  );
+  const headerUserChecked = allFilteredSelected
+    ? true
+    : someFilteredSelected
+      ? "indeterminate"
+      : false;
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected || someFilteredSelected) {
+      setSelectedUserIds((prev) => {
+        const next = new Set(prev);
+        for (const u of filteredUsers) next.delete(u.id);
+        return next;
+      });
+    } else {
+      setSelectedUserIds((prev) => {
+        const next = new Set(prev);
+        for (const u of filteredUsers) next.add(u.id);
+        return next;
+      });
+    }
   };
 
-  const handleAddMember = async (user: PublicUser) => {
+  const toggleUserRow = (userId: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  const handleAddSelectedMembers = async () => {
+    const ids = Array.from(selectedUserIds);
+    if (ids.length === 0) return;
+    setIsAddingMembers(true);
     try {
-      await addUserToGroupAction(user.id, group.id);
-      setIsAddMemberDialogOpen(false);
-      setSearchQuery("");
-      setSearchResults([]);
-      toast.success(`Added ${user.firstName} ${user.lastName} to the group`);
-      router.refresh();
+      await addUsersToGroupAction(ids, group.id);
+      toast.success(
+        `Added ${ids.length} member${ids.length === 1 ? "" : "s"} to the group`,
+      );
+      setAddParam(null);
     } catch (_error) {
       toast.error(
-        "Could not add member to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+        "Could not add members to group. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );
+    } finally {
+      setIsAddingMembers(false);
     }
   };
 
@@ -429,81 +507,245 @@ function ManualGroupView({
             {canManageMembers && (
               <Dialog
                 open={isAddMemberDialogOpen}
-                onOpenChange={setIsAddMemberDialogOpen}
+                onOpenChange={(open) => {
+                  if (!open) setAddParam(null);
+                }}
               >
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddParam("1")}
+                  >
                     <Plus className="h-4 w-4 mr-1" />
-                    Add member
+                    Add members
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add member to {group.name}</DialogTitle>
-                    <DialogDescription>
-                      Search for a person to add to this group.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by name or email..."
-                        value={searchQuery}
-                        onChange={(e) => handleSearch(e.target.value)}
-                        className="pl-10"
-                      />
+                <DialogContent className="sm:max-w-2xl flex flex-col p-0 gap-0 h-[80vh] overflow-hidden">
+                  <div className="p-6 pb-4 border-b shrink-0">
+                    <DialogHeader>
+                      <DialogTitle>Add members to {group.name}</DialogTitle>
+                      <DialogDescription>
+                        Select people to add to this group.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name or email..."
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={departmentFilter || "__all__"}
+                          onValueChange={(v) =>
+                            setDepartmentFilter(v === "__all__" ? "" : v)
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All departments" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">
+                              All departments
+                            </SelectItem>
+                            {DEPARTMENT_IDS.map((id) => (
+                              <SelectItem key={id} value={id}>
+                                {DEPARTMENT_NAMES[id]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={statusFilter || "__all__"}
+                          onValueChange={(v) =>
+                            setStatusFilter(
+                              v === "__all__" ? "" : (v as UserStatus),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All statuses" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">
+                              All statuses
+                            </SelectItem>
+                            {(
+                              Object.keys(USER_STATUS_INFO) as UserStatus[]
+                            ).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {USER_STATUS_INFO[s].label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={legalFilter || "__all__"}
+                          onValueChange={(v) =>
+                            setLegalFilter(
+                              v === "__all__"
+                                ? ""
+                                : (v as LegalMembershipState),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All legal statuses" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">
+                              All legal statuses
+                            </SelectItem>
+                            <SelectItem value="not_member">
+                              Not a legal member
+                            </SelectItem>
+                            <SelectItem value="active_member">
+                              Legal member
+                            </SelectItem>
+                            <SelectItem value="former_member">
+                              Former legal member
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={
+                            batchFilter === "" ? "__all__" : String(batchFilter)
+                          }
+                          onValueChange={(v) =>
+                            setBatchFilter(v === "__all__" ? "" : Number(v))
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="All batches" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__all__">All batches</SelectItem>
+                            {availableBatches.map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                Batch {n}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+                  </div>
 
-                    {isSearching && (
-                      <div className="flex items-center justify-center py-4">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-                      </div>
-                    )}
-
-                    {searchResults.length > 0 && (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {searchResults.map((user) => (
-                          <div
-                            key={user.id}
-                            className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {user.firstName[0]}
-                                  {user.lastName[0]}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">
-                                  {user.firstName} {user.lastName}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {user.email}
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAddMember(user)}
+                  <div className="flex-1 overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={headerUserChecked}
+                              onCheckedChange={toggleSelectAllFiltered}
+                              aria-label="Select all"
+                            />
+                          </TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Batch</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredUsers.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={4}
+                              className="text-center text-muted-foreground py-10 text-sm"
                             >
-                              <UserPlus className="h-3 w-3 mr-1" />
-                              Add
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              {userSearch ||
+                              departmentFilter ||
+                              statusFilter ||
+                              legalFilter ||
+                              batchFilter !== ""
+                                ? "No people match your filters."
+                                : "Everyone is already in this group."}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredUsers.map((u) => (
+                            <TableRow
+                              key={u.id}
+                              className="cursor-pointer"
+                              onClick={() => toggleUserRow(u.id)}
+                            >
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedUserIds.has(u.id)}
+                                  onCheckedChange={() => toggleUserRow(u.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  aria-label={`Select ${u.firstName} ${u.lastName}`}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2.5">
+                                  <Avatar className="h-7 w-7 text-xs shrink-0">
+                                    <AvatarFallback>
+                                      {u.firstName?.[0]}
+                                      {u.lastName?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium text-sm">
+                                      {u.firstName} {u.lastName}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {u.email}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {u.department
+                                  ? (DEPARTMENT_NAMES[
+                                      u.department as keyof typeof DEPARTMENT_NAMES
+                                    ] ?? u.department)
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {u.batchNumber != null
+                                  ? `Batch ${u.batchNumber}`
+                                  : "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
 
-                    {searchQuery &&
-                      !isSearching &&
-                      searchResults.length === 0 && (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
-                          No members found matching &quot;{searchQuery}&quot;
-                        </div>
-                      )}
+                  <div className="p-4 border-t shrink-0 flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      {selectedUserIds.size > 0
+                        ? `${selectedUserIds.size} selected`
+                        : "No people selected"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAddParam(null)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={selectedUserIds.size === 0 || isAddingMembers}
+                        onClick={handleAddSelectedMembers}
+                      >
+                        {isAddingMembers
+                          ? "Adding..."
+                          : selectedUserIds.size > 0
+                            ? `Add ${selectedUserIds.size} member${selectedUserIds.size === 1 ? "" : "s"}`
+                            : "Add members"}
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -664,5 +906,10 @@ export default function AdminGroupDetailClient(
       />
     );
   }
-  return <ManualGroupView groupDetailPromise={props.groupDetailPromise} />;
+  return (
+    <ManualGroupView
+      groupDetailPromise={props.groupDetailPromise}
+      availableUsers={props.availableUsers}
+    />
+  );
 }

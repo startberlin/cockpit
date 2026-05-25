@@ -1,18 +1,22 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import db from "@/db";
 import {
+  addUsersToGroup,
   addUserToGroup,
   getAllGroupMembersForExport,
+  listAllUsersNotInGroup,
   removeUserFromGroup,
   searchUsersNotInGroup,
   updateUserRoleInGroup,
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
+import { SYSTEM_USER_EMAIL } from "@/db/people";
 import { user } from "@/db/schema/auth";
+import { usersToGroups } from "@/db/schema/group";
 import { getCurrentUser } from "@/db/user";
 import { writeAuditLog } from "@/lib/audit-log";
 import {
@@ -238,4 +242,128 @@ export async function demoteFromManagerAction(
   }
   await updateUserRoleInGroup(userId, groupId, "member");
   revalidatePath(`/groups/${groupId}`);
+}
+
+export async function listUsersNotInGroupAction(
+  groupId: string,
+): Promise<PublicUser[]> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+  return listAllUsersNotInGroup(groupId) as Promise<PublicUser[]>;
+}
+
+export async function addUsersToGroupAction(
+  userIds: string[],
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+  if (userIds.length === 0) return;
+
+  await addUsersToGroup({ groupId, userIds });
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/admin/groups/${groupId}`);
+
+  try {
+    await Promise.all(
+      userIds.map((userId) =>
+        inngest.send({
+          name: events.groupMemberAdded.name,
+          data: { groupId, userId },
+        }),
+      ),
+    );
+  } catch (err) {
+    console.error(
+      "[add-users-to-group] Failed to send groupMemberAdded events",
+      err,
+    );
+  }
+
+  await writeAuditLog({
+    category: "group",
+    eventType: "group.member_added",
+    actor: { id: currentUser.id, name: currentUser.name },
+    metadata: { groupId, userIds, count: userIds.length },
+  });
+}
+
+export async function exportMultipleGroupsCsvAction(
+  groupIds: string[],
+): Promise<string> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.export", { isMember: true }))) {
+    throw new Error("You are not authorized to export groups.");
+  }
+  if (groupIds.length === 0) return "name,email";
+
+  const systemIds = groupIds.filter(
+    (id) => isSystemGroupSlug(id, []) || id.startsWith("batch-"),
+  );
+  const manualIds = groupIds.filter(
+    (id) => !isSystemGroupSlug(id, []) && !id.startsWith("batch-"),
+  );
+
+  const memberIdSet = new Set<string>();
+
+  if (systemIds.length > 0) {
+    const [minimalUsers, positions] = await Promise.all([
+      db.query.user.findMany({
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+        },
+      }),
+      db.query.userOrganizationPosition.findMany({
+        columns: {
+          userId: true,
+          position: true,
+          scope: true,
+          department: true,
+        },
+      }),
+    ]);
+    for (const id of systemIds) {
+      for (const m of getMembersOfSystemGroup(id, minimalUsers, positions)) {
+        memberIdSet.add(m.id);
+      }
+    }
+  }
+
+  if (manualIds.length > 0) {
+    const rows = await db
+      .select({ userId: usersToGroups.userId })
+      .from(usersToGroups)
+      .innerJoin(user, eq(usersToGroups.userId, user.id))
+      .where(
+        and(
+          inArray(usersToGroups.groupId, manualIds),
+          or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+        ),
+      );
+    for (const r of rows) memberIdSet.add(r.userId);
+  }
+
+  if (memberIdSet.size === 0) return "name,email";
+
+  const members = await db
+    .select({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      personalEmail: user.personalEmail,
+      eventEmailPreference: user.eventEmailPreference,
+      eventInviteEmail: user.eventInviteEmail,
+    })
+    .from(user)
+    .where(inArray(user.id, Array.from(memberIdSet)))
+    .orderBy(user.firstName, user.lastName);
+
+  return buildCsv(members);
 }

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import * as React from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
-import { getGroupDetail } from "@/db/groups";
+import { getGroupDetail, listAllUsersNotInGroup } from "@/db/groups";
 import {
   getMembersOfSystemGroup,
   getSystemGroupBySlug,
@@ -19,7 +19,7 @@ function isSystemSlug(id: string) {
 
 interface GroupPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; add?: string }>;
 }
 
 export async function generateMetadata({ params }: GroupPageProps) {
@@ -60,7 +60,7 @@ export default async function AdminGroupPage({
   searchParams,
 }: GroupPageProps) {
   const { id } = await params;
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, add } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   if (isSystemSlug(id)) {
@@ -117,7 +117,10 @@ export default async function AdminGroupPage({
   if (!mayViewGroup) notFound();
 
   const groupDetailPromise = getGroupDetail(id, page);
-  const group = await groupDetailPromise;
+  const [group, availableUsers] = await Promise.all([
+    groupDetailPromise,
+    add !== undefined ? listAllUsersNotInGroup(id) : Promise.resolve(undefined),
+  ]);
   if (!group) notFound();
 
   return (
@@ -133,6 +136,7 @@ export default async function AdminGroupPage({
         <AdminGroupDetailClient
           kind="manual"
           groupDetailPromise={groupDetailPromise}
+          availableUsers={availableUsers ?? undefined}
         />
       </React.Suspense>
     </>

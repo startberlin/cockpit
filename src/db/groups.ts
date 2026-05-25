@@ -278,6 +278,36 @@ export async function getAllGroupMembersForExport(id: string): Promise<
     .orderBy(user.firstName, user.lastName);
 }
 
+export async function listAllUsersNotInGroup(groupId: string) {
+  const notSystemUser = or(
+    isNull(user.email),
+    ne(user.email, SYSTEM_USER_EMAIL),
+  );
+
+  return db
+    .select({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      image: user.image,
+      department: user.department,
+      status: user.status,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
+      legalMembershipState: user.legalMembershipState,
+    })
+    .from(user)
+    .leftJoin(
+      usersToGroups,
+      and(
+        eq(usersToGroups.userId, user.id),
+        eq(usersToGroups.groupId, groupId),
+      ),
+    )
+    .where(and(sql`${usersToGroups.userId} IS NULL`, notSystemUser))
+    .orderBy(user.firstName, user.lastName);
+}
+
 export async function searchUsersNotInGroup(groupId: string, query?: string) {
   const baseQuery = db
     .select({
@@ -405,20 +435,16 @@ export interface AdminGroup {
   managers: GroupManager[];
 }
 
-export interface PaginatedAdminGroups {
+export interface AdminGroupsResult {
   groups: AdminGroup[];
   total: number;
-  pageCount: number;
 }
 
 export async function listAllGroupsForAdmin({
-  page = 1,
   search = "",
 }: {
-  page?: number;
   search?: string;
-} = {}): Promise<PaginatedAdminGroups> {
-  const offset = (page - 1) * GROUPS_PAGE_SIZE;
+} = {}): Promise<AdminGroupsResult> {
   const whereClause = search ? unaccentSearch(search, group.name) : undefined;
 
   const [rows, [{ total }]] = await Promise.all([
@@ -437,9 +463,7 @@ export async function listAllGroupsForAdmin({
       .leftJoin(user, eq(usersToGroups.userId, user.id))
       .where(whereClause)
       .groupBy(group.id)
-      .orderBy(group.name)
-      .limit(GROUPS_PAGE_SIZE)
-      .offset(offset),
+      .orderBy(group.name),
     db.select({ total: count() }).from(group).where(whereClause),
   ]);
 
@@ -484,7 +508,6 @@ export async function listAllGroupsForAdmin({
       managers: managersByGroupId.get(g.id) ?? [],
     })),
     total,
-    pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
   };
 }
 
