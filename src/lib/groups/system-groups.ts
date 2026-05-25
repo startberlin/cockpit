@@ -1,5 +1,6 @@
 import type { Department, UserStatus } from "@/db/schema/auth";
 import type {
+  AccessGrant,
   AuthorityScope,
   OrganizationPosition,
 } from "@/db/schema/authority";
@@ -12,6 +13,7 @@ export type SystemGroupUser = {
   status: UserStatus | null;
   department: Department | null;
   batchNumber: number | null;
+  grants: AccessGrant[];
 };
 
 /** Per-user position shape — same as userOrganizationPosition columns (no userId). */
@@ -110,6 +112,13 @@ const STATIC_SYSTEM_GROUP_DEFS: SystemGroupDef[] = [
           p.position === "vice_president" ||
           p.position === "head_of_finance",
       ),
+  },
+  {
+    slug: "cockpit-feedback",
+    name: "Cockpit Feedback",
+    googleEmailPrefix: "cockpit-feedback",
+    isMember: (u) =>
+      u.grants.includes("admin") || u.grants.includes("super_admin"),
   },
 ];
 

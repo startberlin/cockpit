@@ -77,6 +77,7 @@ export default async function GroupPage({
         db.query.user.findFirst({
           where: (u, { eq }) => eq(u.id, currentUser.id),
           columns: { status: true, department: true, batchNumber: true },
+          with: { accessGrants: { columns: { grant: true } } },
         }),
         db.query.userOrganizationPosition.findMany({
           where: (p, { eq }) => eq(p.userId, currentUser.id),
@@ -88,7 +89,13 @@ export default async function GroupPage({
       const memberOfGroup =
         userRecord &&
         getSystemGroupsForUser(
-          { id: currentUser.id, ...userRecord },
+          {
+            id: currentUser.id,
+            status: userRecord.status,
+            department: userRecord.department,
+            batchNumber: userRecord.batchNumber,
+            grants: userRecord.accessGrants.map((g) => g.grant),
+          },
           userPositions,
           batches,
         ).some((g) => g.slug === id);
@@ -96,7 +103,7 @@ export default async function GroupPage({
       if (!memberOfGroup) notFound();
     }
 
-    const [users, positions] = await Promise.all([
+    const [userRows, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
           id: true,
@@ -107,6 +114,7 @@ export default async function GroupPage({
           firstName: true,
           lastName: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         columns: {
@@ -117,6 +125,17 @@ export default async function GroupPage({
         },
       }),
     ]);
+
+    const users = userRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
 
     const members = getMembersOfSystemGroup(id, users, positions);
 

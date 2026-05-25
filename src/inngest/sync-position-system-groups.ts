@@ -60,6 +60,7 @@ export const syncPositionSystemGroupsWorkflow = inngest.createFunction(
               department: true,
               batchNumber: true,
             },
+            with: { accessGrants: { columns: { grant: true } } },
           }),
           db.query.batch.findMany({ columns: { number: true } }),
         ]);
@@ -74,10 +75,19 @@ export const syncPositionSystemGroupsWorkflow = inngest.createFunction(
     if (!user?.email) return { skipped: true };
 
     const { email } = user;
+    const grants = user.accessGrants.map((g) => g.grant);
     const expectedGroupEmails = new Set(
-      getSystemGroupsForUser({ id: userId, ...user }, positions, batches).map(
-        (g) => g.googleGroupEmail,
-      ),
+      getSystemGroupsForUser(
+        {
+          id: userId,
+          status: user.status,
+          department: user.department,
+          batchNumber: user.batchNumber,
+          grants,
+        },
+        positions,
+        batches,
+      ).map((g) => g.googleGroupEmail),
     );
 
     const allGroups = getAllSystemGroups(batches);

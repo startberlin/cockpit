@@ -7,10 +7,14 @@ import {
   MessageSquareIcon,
   MoreHorizontalIcon,
 } from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
 import posthog from "posthog-js";
 import { useState } from "react";
+import { toast } from "sonner";
+import { submitFeedbackAction } from "@/components/submit-feedback-action";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
 type Category = "issue" | "idea" | "other";
@@ -57,6 +61,27 @@ export function BugReportButton() {
   const [category, setCategory] = useState<Category | null>(null);
   const [description, setDescription] = useState("");
 
+  const { execute, isPending } = useAction(submitFeedbackAction, {
+    onSuccess: () => {
+      if (category) {
+        const trimmed = description.trim();
+        posthog.capture("bug_report_submitted", {
+          category,
+          has_description: trimmed.length > 0,
+          description_length: trimmed.length,
+        });
+      }
+      setStep("submitted");
+      setTimeout(() => handleOpen(false), 1500);
+    },
+    onError: ({ error }) => {
+      toast.error(
+        error.serverError ??
+          "Could not send your feedback. Please try again in a moment.",
+      );
+    },
+  });
+
   const reset = () => {
     setStep("category");
     setCategory(null);
@@ -77,12 +102,11 @@ export function BugReportButton() {
 
   const handleSubmit = () => {
     if (!category || !description.trim()) return;
-    posthog.capture("bug_report_submitted", {
+    execute({
       category,
       description: description.trim(),
+      pageUrl: typeof window !== "undefined" ? window.location.href : null,
     });
-    setStep("submitted");
-    setTimeout(() => handleOpen(false), 1500);
   };
 
   return (
@@ -128,7 +152,8 @@ export function BugReportButton() {
                   type="button"
                   onClick={() => setStep("category")}
                   aria-label="Back"
-                  className="-ml-1 cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  disabled={isPending}
+                  className="-ml-1 cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                 >
                   <ArrowLeftIcon className="size-4" />
                 </button>
@@ -141,12 +166,14 @@ export function BugReportButton() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
+                disabled={isPending}
               />
               <Button
                 onClick={handleSubmit}
-                disabled={!description.trim()}
+                disabled={!description.trim() || isPending}
                 className="w-full"
               >
+                {isPending ? <Spinner /> : null}
                 Send feedback
               </Button>
             </>

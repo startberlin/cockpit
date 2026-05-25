@@ -41,7 +41,12 @@ describe("sync-user-system-groups: group diff computation", () => {
 
   it("adds members/batch groups when status changes cancelled → member", () => {
     const userId = "usr_1";
-    const base = { id: userId, department: null, batchNumber: 7 } as const;
+    const base = {
+      id: userId,
+      department: null,
+      batchNumber: 7,
+      grants: [],
+    } satisfies Omit<SystemGroupUser, "status">;
     const { toAdd, toRemove } = diff(
       { ...base, status: "cancelled" },
       { ...base, status: "member" },
@@ -56,7 +61,12 @@ describe("sync-user-system-groups: group diff computation", () => {
 
   it("removes groups when status changes member → cancelled", () => {
     const userId = "usr_1";
-    const base = { id: userId, department: null, batchNumber: 3 } as const;
+    const base = {
+      id: userId,
+      department: null,
+      batchNumber: 3,
+      grants: [],
+    } satisfies Omit<SystemGroupUser, "status">;
     const batches3 = [{ number: 3 }];
     const { toAdd, toRemove } = diff(
       { ...base, status: "member" },
@@ -71,7 +81,12 @@ describe("sync-user-system-groups: group diff computation", () => {
 
   it("adds onboarding-members when status changes to onboarding", () => {
     const userId = "usr_1";
-    const base = { id: userId, department: null, batchNumber: null } as const;
+    const base = {
+      id: userId,
+      department: null,
+      batchNumber: null,
+      grants: [],
+    } satisfies Omit<SystemGroupUser, "status">;
     const { toAdd } = diff(
       { ...base, status: "cancelled" },
       { ...base, status: "onboarding" },
@@ -89,6 +104,7 @@ describe("sync-user-system-groups: group diff computation", () => {
       status: "member",
       department: null,
       batchNumber: null,
+      grants: [],
     };
     const { toAdd, toRemove } = diff(u, u, [], []);
     assert.equal(toAdd.length, 0);
@@ -105,6 +121,7 @@ describe("sync-position-system-groups: expected group computation", () => {
       status: "member",
       department: null,
       batchNumber: null,
+      grants: [],
     };
     const positions: UserPosition[] = [
       { position: "president", scope: "global", department: null },
@@ -122,6 +139,7 @@ describe("sync-position-system-groups: expected group computation", () => {
       status: "member",
       department: "events",
       batchNumber: null,
+      grants: [],
     };
     const positions: UserPosition[] = [
       { position: "department_head", scope: "global", department: "events" },
@@ -140,6 +158,7 @@ describe("sync-position-system-groups: expected group computation", () => {
       status: "cancelled",
       department: "operations",
       batchNumber: 7,
+      grants: [],
     };
     const groups = getSystemGroupsForUser(user, [], [{ number: 7 }]);
     assert.equal(groups.length, 0);
@@ -157,6 +176,7 @@ describe("bootstrap-batch-system-group: member selection", () => {
       status: "member",
       department: null,
       batchNumber: 7,
+      grants: [],
       email: "u1@example.com",
     },
     {
@@ -164,6 +184,7 @@ describe("bootstrap-batch-system-group: member selection", () => {
       status: "cancelled",
       department: null,
       batchNumber: 7,
+      grants: [],
       email: "u2@example.com",
     },
     {
@@ -171,6 +192,7 @@ describe("bootstrap-batch-system-group: member selection", () => {
       status: "member",
       department: null,
       batchNumber: 3,
+      grants: [],
       email: "u3@example.com",
     },
     {
@@ -178,6 +200,7 @@ describe("bootstrap-batch-system-group: member selection", () => {
       status: "member",
       department: null,
       batchNumber: 7,
+      grants: [],
       email: null,
     },
   ];
@@ -203,6 +226,45 @@ describe("bootstrap-batch-system-group: member selection", () => {
 
   it("returns empty when no users match the batch", () => {
     const members = getMembersOfSystemGroup("batch-99", users, []);
+    assert.equal(members.length, 0);
+  });
+});
+
+// ─── cockpit-feedback membership (grant-based) ────────────────────────────────
+
+describe("cockpit-feedback: membership computed from grants", () => {
+  const baseUser = {
+    status: "member" as const,
+    department: null,
+    batchNumber: null,
+  };
+
+  it("includes users with admin grant", () => {
+    const users: SystemGroupUser[] = [
+      { id: "u1", ...baseUser, grants: ["admin"] },
+      { id: "u2", ...baseUser, grants: [] },
+    ];
+    const members = getMembersOfSystemGroup("cockpit-feedback", users, []);
+    assert.deepEqual(
+      members.map((m) => m.id),
+      ["u1"],
+    );
+  });
+
+  it("includes users with super_admin grant", () => {
+    const users: SystemGroupUser[] = [
+      { id: "u1", ...baseUser, grants: ["super_admin"] },
+    ];
+    const members = getMembersOfSystemGroup("cockpit-feedback", users, []);
+    assert.equal(members.length, 1);
+  });
+
+  it("does not include finance_admin or people_admin without admin", () => {
+    const users: SystemGroupUser[] = [
+      { id: "u1", ...baseUser, grants: ["finance_admin"] },
+      { id: "u2", ...baseUser, grants: ["people_admin"] },
+    ];
+    const members = getMembersOfSystemGroup("cockpit-feedback", users, []);
     assert.equal(members.length, 0);
   });
 });

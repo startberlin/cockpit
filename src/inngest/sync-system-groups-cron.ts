@@ -29,7 +29,7 @@ export const syncSystemGroupsCron = inngest.createFunction(
     const groupDeltas = await step.run(
       "compute-expected-membership",
       async () => {
-        const [users, positions, batches] = await Promise.all([
+        const [userRows, positions, batches] = await Promise.all([
           db.query.user.findMany({
             columns: {
               id: true,
@@ -37,6 +37,9 @@ export const syncSystemGroupsCron = inngest.createFunction(
               department: true,
               batchNumber: true,
               email: true,
+            },
+            with: {
+              accessGrants: { columns: { grant: true } },
             },
           }),
           db.query.userOrganizationPosition.findMany({
@@ -51,6 +54,15 @@ export const syncSystemGroupsCron = inngest.createFunction(
             columns: { number: true },
           }),
         ]);
+
+        const users = userRows.map((u) => ({
+          id: u.id,
+          status: u.status,
+          department: u.department,
+          batchNumber: u.batchNumber,
+          email: u.email,
+          grants: u.accessGrants.map((g) => g.grant),
+        }));
 
         return getAllSystemGroupSlugs(batches)
           .map((slug) => {
