@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { advancePaymentStatus, getPaymentById } from "@/db/membership-payments";
@@ -9,7 +10,7 @@ import { user } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
-import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 export const declineAction = actionClient
   .inputSchema(
@@ -68,10 +69,9 @@ export const declineAction = actionClient
       description: parsedInput.reason,
     });
 
-    try {
-      const posthog = getPostHogClient();
-      if (posthog && member) {
-        posthog.capture({
+    if (member) {
+      after(() =>
+        track({
           distinctId: row.userId,
           event: "admin_payment_declined",
           properties: {
@@ -79,10 +79,8 @@ export const declineAction = actionClient
             payment_amount_cents: row.amount,
             ...buildSubjectMetadata(member, row.activationDate),
           },
-        });
-      }
-    } catch (err) {
-      console.error("PostHog capture failed for admin_payment_declined:", err);
+        }),
+      );
     }
 
     return { alreadyProcessed: false };

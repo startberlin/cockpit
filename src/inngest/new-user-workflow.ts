@@ -11,7 +11,7 @@ import { sendEmail } from "@/lib/email";
 import { createGoogleAuth } from "@/lib/google-auth";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 
 function generateRandomPassword(length = 15) {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -209,18 +209,14 @@ export const onboardNewUserWorkflow = inngest.createFunction(
     });
 
     await step.run("capture-analytics-welcome-email", async () => {
-      try {
-        getPostHogClient()?.capture({
-          distinctId: dbUser.id,
-          event: "workflow_email_sent",
-          properties: {
-            email_type: "welcome",
-            subject_id: dbUser.id,
-          },
-        });
-      } catch (err) {
-        console.error("[capture-analytics-welcome-email] failed", err);
-      }
+      track({
+        distinctId: dbUser.id,
+        event: "workflow_email_sent",
+        properties: {
+          email_type: "welcome",
+          subject_id: dbUser.id,
+        },
+      });
     });
   },
 );

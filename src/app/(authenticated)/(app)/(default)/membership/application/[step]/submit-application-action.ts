@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { after } from "next/server";
 import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
@@ -17,7 +18,7 @@ import {
   readFinanzordnungBuffer,
   readSatzungBuffer,
 } from "@/lib/legal-documents/static-documents";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { submitApplicationSchema } from "./application-validation";
 
 export const submitApplicationAction = actionClient
@@ -199,18 +200,13 @@ export const submitApplicationAction = actionClient
       metadata: { legalMembershipId: parsedInput.legalMembershipId },
     });
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: ctx.user.id,
         event: "membership_application_submitted",
         properties: {},
-      });
-    } catch (err) {
-      console.error(
-        "[analytics] Failed to capture membership_application_submitted:",
-        err,
-      );
-    }
+      }),
+    );
 
     return { success: true };
   });

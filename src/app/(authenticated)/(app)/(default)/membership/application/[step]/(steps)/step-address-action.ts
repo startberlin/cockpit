@@ -1,13 +1,14 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { membershipApplication } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { applicationPersonalInfoSchema } from "../application-validation";
 
 export const saveApplicationPersonalInfoAction = actionClient
@@ -79,11 +80,13 @@ export const saveApplicationPersonalInfoAction = actionClient
         });
     });
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "membership_application_step_completed",
-      properties: { step: "personal-information" },
-    });
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "membership_application_step_completed",
+        properties: { step: "personal-information" },
+      }),
+    );
 
     return { success: true };
   });

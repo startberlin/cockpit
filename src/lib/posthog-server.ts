@@ -31,6 +31,18 @@ export interface SubjectUser {
   memberSinceDate: string | null;
 }
 
+export function track(params: {
+  distinctId: string;
+  event: string;
+  properties?: Record<string, unknown>;
+}): void {
+  try {
+    getPostHogClient()?.capture(params);
+  } catch (err) {
+    console.error(`[analytics] Failed to capture ${params.event}:`, err);
+  }
+}
+
 export function buildSubjectMetadata(
   user: SubjectUser,
   lastPaymentDate?: string | null,

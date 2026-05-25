@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
@@ -9,7 +10,7 @@ import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const schema = z.object({
   targetUserId: z.string().min(1),
@@ -68,20 +69,17 @@ export const boardKickAction = actionClient
       description: "Removed by board",
     });
 
-    try {
-      const posthog = getPostHogClient();
-      if (posthog && targetUser) {
-        posthog.capture({
+    if (targetUser) {
+      after(() =>
+        track({
           distinctId: targetUser.id,
           event: "admin_user_removed",
           properties: {
             actor_id: ctx.user.id,
             ...buildSubjectMetadata(targetUser),
           },
-        });
-      }
-    } catch (err) {
-      console.error("PostHog capture failed for admin_user_removed:", err);
+        }),
+      );
     }
 
     return { requestId: request.id };

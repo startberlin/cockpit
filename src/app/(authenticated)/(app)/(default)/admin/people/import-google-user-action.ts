@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
@@ -13,7 +14,7 @@ import {
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
 import {
   fetchWorkspaceUsersPageSchema,
@@ -170,34 +171,29 @@ export const importGoogleWorkspaceUserAction = actionClient
         description: `${parsedInput.status} · ${workspaceUser.primaryEmail}`,
       });
 
-      try {
-        const posthog = getPostHogClient();
-        if (posthog) {
-          const importedUserRecord = await db.query.user.findFirst({
-            where: (users, { eq: eqFn }) => eqFn(users.id, existingUser.id),
-            columns: {
-              id: true,
-              status: true,
-              department: true,
-              batchNumber: true,
-              legalMembershipState: true,
-              memberSinceDate: true,
+      after(async () => {
+        const importedUserRecord = await db.query.user.findFirst({
+          where: (users, { eq: eqFn }) => eqFn(users.id, existingUser.id),
+          columns: {
+            id: true,
+            status: true,
+            department: true,
+            batchNumber: true,
+            legalMembershipState: true,
+            memberSinceDate: true,
+          },
+        });
+        if (importedUserRecord) {
+          track({
+            distinctId: existingUser.id,
+            event: "admin_user_imported",
+            properties: {
+              actor_id: ctx.user.id,
+              ...buildSubjectMetadata(importedUserRecord),
             },
           });
-          if (importedUserRecord) {
-            posthog.capture({
-              distinctId: existingUser.id,
-              event: "admin_user_imported",
-              properties: {
-                actor_id: ctx.user.id,
-                ...buildSubjectMetadata(importedUserRecord),
-              },
-            });
-          }
         }
-      } catch (err) {
-        console.error("PostHog capture failed for admin_user_imported:", err);
-      }
+      });
 
       return { id: existingUser.id };
     }
@@ -334,34 +330,29 @@ export const importGoogleWorkspaceUserAction = actionClient
       },
     });
 
-    try {
-      const posthog = getPostHogClient();
-      if (posthog) {
-        const importedUserRecord = await db.query.user.findFirst({
-          where: (users, { eq: eqFn }) => eqFn(users.id, createdUser.id),
-          columns: {
-            id: true,
-            status: true,
-            department: true,
-            batchNumber: true,
-            legalMembershipState: true,
-            memberSinceDate: true,
+    after(async () => {
+      const importedUserRecord = await db.query.user.findFirst({
+        where: (users, { eq: eqFn }) => eqFn(users.id, createdUser.id),
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+          legalMembershipState: true,
+          memberSinceDate: true,
+        },
+      });
+      if (importedUserRecord) {
+        track({
+          distinctId: createdUser.id,
+          event: "admin_user_imported",
+          properties: {
+            actor_id: ctx.user.id,
+            ...buildSubjectMetadata(importedUserRecord),
           },
         });
-        if (importedUserRecord) {
-          posthog.capture({
-            distinctId: createdUser.id,
-            event: "admin_user_imported",
-            properties: {
-              actor_id: ctx.user.id,
-              ...buildSubjectMetadata(importedUserRecord),
-            },
-          });
-        }
       }
-    } catch (err) {
-      console.error("PostHog capture failed for admin_user_imported:", err);
-    }
+    });
 
     return { id: createdUser.id };
   });

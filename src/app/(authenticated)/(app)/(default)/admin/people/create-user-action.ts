@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
@@ -9,7 +10,7 @@ import { findWorkspaceUserByEmail } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { createUserSchema } from "./create-user-schema";
 
 export const createUserAction = actionClient
@@ -91,8 +92,8 @@ export const createUserAction = actionClient
       description: companyEmail,
     });
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: subjectId,
         event: existingDbUser ? "admin_user_updated" : "admin_user_created",
         properties: {
@@ -102,8 +103,6 @@ export const createUserAction = actionClient
           department: department ?? null,
           batch_number: batchNumber ?? null,
         },
-      });
-    } catch (err) {
-      console.error("[analytics] Failed to capture admin_user event:", err);
-    }
+      }),
+    );
   });

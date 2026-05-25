@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { getUserAuthority, replaceUserGrants } from "@/db/authority";
@@ -9,7 +10,7 @@ import { user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
-import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const accessGrants = [
   "super_admin",
@@ -93,10 +94,9 @@ export const updateGrantsAction = actionClient
       description,
     });
 
-    try {
-      const posthog = getPostHogClient();
-      if (posthog && targetUser) {
-        posthog.capture({
+    if (targetUser) {
+      after(() =>
+        track({
           distinctId: targetUser.id,
           event: "admin_permissions_updated",
           properties: {
@@ -105,12 +105,7 @@ export const updateGrantsAction = actionClient
             permissions_removed: removed,
             ...buildSubjectMetadata(targetUser),
           },
-        });
-      }
-    } catch (err) {
-      console.error(
-        "PostHog capture failed for admin_permissions_updated:",
-        err,
+        }),
       );
     }
   });

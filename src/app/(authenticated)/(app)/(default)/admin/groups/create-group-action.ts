@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { checkSlugAvailability } from "@/db/groups";
 import { group, usersToGroups } from "@/db/schema/group";
@@ -11,7 +12,7 @@ import { isSystemGroupSlug } from "@/lib/groups/system-groups";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { createGroupSchema } from "./create-group-schema";
 
 export const createGroupAction = actionClient
@@ -106,13 +107,15 @@ export const createGroupAction = actionClient
       description: parsedInput.name,
     });
 
-    getPostHogClient()?.capture({
-      distinctId: currentUser.id,
-      event: "group_created",
-      properties: {
-        has_email_integration: parsedInput.integrations.email,
-      },
-    });
+    after(() =>
+      track({
+        distinctId: currentUser.id,
+        event: "group_created",
+        properties: {
+          has_email_integration: parsedInput.integrations.email,
+        },
+      }),
+    );
 
     return { id: groupId };
   });

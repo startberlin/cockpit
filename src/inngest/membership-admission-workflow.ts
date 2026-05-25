@@ -25,7 +25,7 @@ import {
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
 import { notifyUntil } from "./lib/step-loops";
 
@@ -438,21 +438,14 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     await step.run(
       "capture-analytics-application-submitted-email",
       async () => {
-        try {
-          getPostHogClient()?.capture({
-            distinctId: subjectUserId,
-            event: "workflow_email_sent",
-            properties: {
-              email_type: "membership_application_submitted",
-              subject_id: subjectUserId,
-            },
-          });
-        } catch (err) {
-          console.error(
-            "[membership-admission] posthog capture (application submitted) failed",
-            err,
-          );
-        }
+        track({
+          distinctId: subjectUserId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "membership_application_submitted",
+            subject_id: subjectUserId,
+          },
+        });
       },
     );
 
@@ -634,21 +627,14 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     });
 
     await step.run("capture-analytics-admission-confirmed-email", async () => {
-      try {
-        getPostHogClient()?.capture({
-          distinctId: subjectUserId,
-          event: "workflow_email_sent",
-          properties: {
-            email_type: "membership_admission_confirmed",
-            subject_id: subjectUserId,
-          },
-        });
-      } catch (err) {
-        console.error(
-          "[membership-admission] posthog capture (admission confirmed) failed",
-          err,
-        );
-      }
+      track({
+        distinctId: subjectUserId,
+        event: "workflow_email_sent",
+        properties: {
+          email_type: "membership_admission_confirmed",
+          subject_id: subjectUserId,
+        },
+      });
     });
 
     // Step 11b: Load board completion notification data.

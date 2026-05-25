@@ -10,7 +10,7 @@ import {
   getSystemGroupBySlug,
 } from "@/lib/groups/system-groups";
 import { events, inngest } from "@/lib/inngest";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 
 export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
   {
@@ -54,21 +54,14 @@ export const bootstrapBatchSystemGroupWorkflow = inngest.createFunction(
     }
 
     await step.run("capture-analytics-batch-group-bootstrapped", async () => {
-      try {
-        getPostHogClient()?.capture({
-          distinctId: `system`,
-          event: "workflow_batch_group_bootstrapped",
-          properties: {
-            batch_number: batchNumber,
-            member_count: members.length,
-          },
-        });
-      } catch (err) {
-        console.error(
-          "[bootstrap-batch-system-group] posthog capture failed",
-          err,
-        );
-      }
+      track({
+        distinctId: "system",
+        event: "workflow_batch_group_bootstrapped",
+        properties: {
+          batch_number: batchNumber,
+          member_count: members.length,
+        },
+      });
     });
 
     return { groupEmail, memberCount: members.length };

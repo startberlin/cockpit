@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
 import { env } from "@/env";
@@ -8,7 +9,7 @@ import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
 import { nanoid } from "@/lib/id";
 import { getStructuredMembershipState } from "@/lib/membership-status";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 
 export const startMembershipPaymentAction = actionClient.action(
   async ({ ctx }) => {
@@ -71,18 +72,13 @@ export const startMembershipPaymentAction = actionClient.action(
         .where(eq(user.id, ctx.user.id));
     }
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: ctx.user.id,
         event: "payment_setup_started",
         properties: {},
-      });
-    } catch (err) {
-      console.error(
-        "[analytics] Failed to capture payment_setup_started:",
-        err,
-      );
-    }
+      }),
+    );
 
     return { hostedUrl: flow.hostedUrl };
   },

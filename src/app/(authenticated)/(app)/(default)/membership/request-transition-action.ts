@@ -1,13 +1,14 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
 import { user } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
 import { events, inngest } from "@/lib/inngest";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 
 const schema = z.object({
   type: z.enum(["alumni_request", "supporting_alumni_request"]),
@@ -57,21 +58,16 @@ export const requestTransitionAction = actionClient
       },
     });
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: currentUser.id,
         event: "membership_transition_requested",
         properties: {
           transition_type: parsedInput.type,
           had_reason: false,
         },
-      });
-    } catch (err) {
-      console.error(
-        "[analytics] Failed to capture membership_transition_requested:",
-        err,
-      );
-    }
+      }),
+    );
 
     return { requestId: request.id };
   });

@@ -2,6 +2,7 @@
 
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import db from "@/db";
 import {
   addUserToGroup,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/groups/system-groups";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { buildSubjectMetadata, getPostHogClient } from "@/lib/posthog-server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\n"]);
 
@@ -148,12 +149,12 @@ export async function addUserToGroupAction(
     metadata: { groupId, userId },
   });
 
-  try {
+  after(async () => {
     const targetUser = await db.query.user.findFirst({
       where: eq(user.id, userId),
     });
     if (targetUser) {
-      getPostHogClient()?.capture({
+      track({
         distinctId: targetUser.id,
         event: "group_member_added",
         properties: {
@@ -163,12 +164,7 @@ export async function addUserToGroupAction(
         },
       });
     }
-  } catch (error) {
-    console.error(
-      "[analytics] Failed to capture group_member_added event",
-      error,
-    );
-  }
+  });
 }
 
 export async function removeUserFromGroupAction(
@@ -201,12 +197,12 @@ export async function removeUserFromGroupAction(
     metadata: { groupId, userId },
   });
 
-  try {
+  after(async () => {
     const targetUser = await db.query.user.findFirst({
       where: eq(user.id, userId),
     });
     if (targetUser) {
-      getPostHogClient()?.capture({
+      track({
         distinctId: targetUser.id,
         event: "group_member_removed",
         properties: {
@@ -216,10 +212,5 @@ export async function removeUserFromGroupAction(
         },
       });
     }
-  } catch (error) {
-    console.error(
-      "[analytics] Failed to capture group_member_removed event",
-      error,
-    );
-  }
+  });
 }

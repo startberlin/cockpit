@@ -23,7 +23,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { notifyUntil } from "./lib/step-loops";
 
 export const membershipCancellationWorkflow = inngest.createFunction(
@@ -266,21 +266,14 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       });
 
       await step.run("capture-analytics-cancellation-email", async () => {
-        try {
-          getPostHogClient()?.capture({
-            distinctId: userId,
-            event: "workflow_email_sent",
-            properties: {
-              email_type: "membership_cancelled",
-              subject_id: userId,
-            },
-          });
-        } catch (err) {
-          console.error(
-            "[membership-cancellation] posthog capture failed",
-            err,
-          );
-        }
+        track({
+          distinctId: userId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "membership_cancelled",
+            subject_id: userId,
+          },
+        });
       });
     }
 

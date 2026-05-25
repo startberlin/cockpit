@@ -2,12 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import db from "@/db";
 import { batch } from "@/db/schema/batch";
 import { actionClient } from "@/lib/action-client";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { createBatchSchema } from "./create-batch-schema";
 
 export const createBatchAction = actionClient
@@ -48,14 +49,16 @@ export const createBatchAction = actionClient
       );
     }
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "admin_batch_created",
-      properties: {
-        actor_id: ctx.user.id,
-        batch_number: parsedInput.number,
-      },
-    });
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "admin_batch_created",
+        properties: {
+          actor_id: ctx.user.id,
+          batch_number: parsedInput.number,
+        },
+      }),
+    );
 
     return { number: parsedInput.number };
   });

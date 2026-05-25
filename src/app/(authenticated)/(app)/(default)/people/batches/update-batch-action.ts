@@ -2,11 +2,12 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import db from "@/db";
 import { batch } from "@/db/schema/batch";
 import { actionClient } from "@/lib/action-client";
 import { can } from "@/lib/permissions/server";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { updateBatchSchema } from "./update-batch-schema";
 
 export const updateBatchAction = actionClient
@@ -35,8 +36,8 @@ export const updateBatchAction = actionClient
       fieldsChanged.push("startDate");
     }
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: ctx.user.id,
         event: "admin_batch_updated",
         properties: {
@@ -44,8 +45,6 @@ export const updateBatchAction = actionClient
           batch_number: parsedInput.number,
           fields_changed: fieldsChanged,
         },
-      });
-    } catch (err) {
-      console.error("[analytics] Failed to capture admin_batch_updated:", err);
-    }
+      }),
+    );
   });

@@ -3,7 +3,7 @@ import MandateSetupNeededEmail from "@/emails/membership/payment/mandate-setup-n
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import {
   notifyUntil,
   REMINDER_INTERVAL_DAYS,
@@ -62,18 +62,14 @@ export const mandateSetupReminderWorkflow = inngest.createFunction(
           }),
         });
 
-        try {
-          getPostHogClient()?.capture({
-            distinctId: userId,
-            event: "workflow_email_sent",
-            properties: {
-              email_type: "mandate_setup_reminder",
-              subject_id: userId,
-            },
-          });
-        } catch (err) {
-          console.error("[mandate-setup-reminder] posthog capture failed", err);
-        }
+        track({
+          distinctId: userId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "mandate_setup_reminder",
+            subject_id: userId,
+          },
+        });
       },
     });
   },

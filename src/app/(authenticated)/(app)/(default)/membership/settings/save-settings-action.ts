@@ -1,10 +1,11 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { track } from "@/lib/posthog-server";
 import { settingsSchema } from "./settings-validation";
 
 export const saveSettingsAction = actionClient
@@ -72,15 +73,13 @@ export const saveSettingsAction = actionClient
       changedFields.push("eventInviteEmail");
     }
 
-    try {
-      getPostHogClient()?.capture({
+    after(() =>
+      track({
         distinctId: ctx.user.id,
         event: "profile_updated",
         properties: { changed_fields: changedFields },
-      });
-    } catch (err) {
-      console.error("[analytics] Failed to capture profile_updated:", err);
-    }
+      }),
+    );
 
     return { success: true };
   });
