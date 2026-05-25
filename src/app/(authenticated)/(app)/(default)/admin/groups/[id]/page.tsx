@@ -67,7 +67,7 @@ export default async function AdminGroupPage({
     const systemGroup = getSystemGroupBySlug(id);
     if (!systemGroup) notFound();
 
-    const [users, positions] = await Promise.all([
+    const [userRows, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
           id: true,
@@ -78,6 +78,7 @@ export default async function AdminGroupPage({
           firstName: true,
           lastName: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         columns: {
@@ -88,6 +89,17 @@ export default async function AdminGroupPage({
         },
       }),
     ]);
+
+    const users = userRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
 
     const members = getMembersOfSystemGroup(id, users, positions);
 

@@ -128,7 +128,7 @@ export function CreateGroupDialog() {
     (watchedSlug !== debouncedSlug || slugQuery.isFetching);
 
   const prefixChecking =
-    emailEnabled &&
+    !!emailEnabled &&
     prefixValid &&
     (watchedPrefix ?? "").length > 0 &&
     (watchedPrefix !== debouncedPrefix || prefixQuery.isFetching);

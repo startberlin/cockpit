@@ -362,7 +362,7 @@ export async function exportMultipleGroupsCsvAction(
   const memberIdSet = new Set<string>();
 
   if (systemIds.length > 0) {
-    const [minimalUsers, positions] = await Promise.all([
+    const [minimalUserRows, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
           id: true,
@@ -370,6 +370,7 @@ export async function exportMultipleGroupsCsvAction(
           department: true,
           batchNumber: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         columns: {
@@ -380,6 +381,13 @@ export async function exportMultipleGroupsCsvAction(
         },
       }),
     ]);
+    const minimalUsers = minimalUserRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
     for (const id of systemIds) {
       for (const m of getMembersOfSystemGroup(id, minimalUsers, positions)) {
         memberIdSet.add(m.id);
