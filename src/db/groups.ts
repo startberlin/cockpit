@@ -12,6 +12,7 @@ export interface PublicGroup {
   slug: string;
   memberCount: number;
   isMember: boolean;
+  googleGroupEmail: string | null;
 }
 
 export interface GroupMember extends PublicUser {
@@ -55,6 +56,7 @@ export async function listGroupsForViewer(
         slug: group.slug,
         memberCount: sql<number>`(count(${usersToGroups.userId}) filter (where ${user.email} is null or ${user.email} != ${SYSTEM_USER_EMAIL}))::int`,
         isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+        googleGroupEmail: group.googleGroupEmail,
       })
       .from(group)
       .leftJoin(usersToGroups, eq(group.id, usersToGroups.groupId))
@@ -68,7 +70,11 @@ export async function listGroupsForViewer(
   ]);
 
   return {
-    groups: rows.map((g) => ({ ...g, isMember: g.isMember ?? false })),
+    groups: rows.map((g) => ({
+      ...g,
+      isMember: g.isMember ?? false,
+      googleGroupEmail: g.googleGroupEmail ?? null,
+    })),
     total,
     pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
   };
@@ -84,6 +90,7 @@ export async function listMemberGroupsForViewer(
       slug: group.slug,
       memberCount: sql<number>`count(${usersToGroups.userId})::int`,
       isMember: sql<boolean>`bool_or(${usersToGroups.userId} = ${viewerId})`,
+      googleGroupEmail: group.googleGroupEmail,
     })
     .from(group)
     .innerJoin(
@@ -96,7 +103,11 @@ export async function listMemberGroupsForViewer(
     .groupBy(group.id)
     .orderBy(group.name);
 
-  return rows.map((g) => ({ ...g, isMember: true }));
+  return rows.map((g) => ({
+    ...g,
+    isMember: true,
+    googleGroupEmail: g.googleGroupEmail ?? null,
+  }));
 }
 
 export async function listManualGroupsForUser(

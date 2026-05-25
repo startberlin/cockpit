@@ -178,11 +178,7 @@ function evaluateGroupScopedAction(
 ): boolean {
   switch (action) {
     case "group.view":
-      return (
-        hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        scope.isGroupMember
-      );
+      return true;
     case "group.members.manage":
       return hasAdminGrant(authority);
     case "group.export":
