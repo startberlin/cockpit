@@ -26,15 +26,22 @@ export const completeOnboardingMasterDataStep = actionClient
       })
       .where(eq(userTable.id, user.id));
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "onboarding_master_data_submitted",
-      properties: {
-        had_personal_email: Boolean(parsedInput.personalEmail),
-        had_phone: Boolean(parsedInput.phone),
-        had_birth_date: Boolean(parsedInput.birthDate),
-      },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "onboarding_master_data_submitted",
+        properties: {
+          had_personal_email: Boolean(parsedInput.personalEmail),
+          had_phone: Boolean(parsedInput.phone),
+          had_birth_date: Boolean(parsedInput.birthDate),
+        },
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture onboarding_master_data_submitted:",
+        err,
+      );
+    }
 
     return { success: true };
   });

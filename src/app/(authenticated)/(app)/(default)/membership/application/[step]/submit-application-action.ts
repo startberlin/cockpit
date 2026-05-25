@@ -199,11 +199,18 @@ export const submitApplicationAction = actionClient
       metadata: { legalMembershipId: parsedInput.legalMembershipId },
     });
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "membership_application_submitted",
-      properties: {},
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "membership_application_submitted",
+        properties: {},
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture membership_application_submitted:",
+        err,
+      );
+    }
 
     return { success: true };
   });

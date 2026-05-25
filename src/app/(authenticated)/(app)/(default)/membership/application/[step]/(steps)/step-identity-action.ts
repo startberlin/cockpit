@@ -65,11 +65,18 @@ export const saveIdentityDeclarationsAction = actionClient
       }
     });
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "membership_application_step_completed",
-      properties: { step: "identity" },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "membership_application_step_completed",
+        properties: { step: "identity" },
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture membership_application_step_completed:",
+        err,
+      );
+    }
 
     return { success: true };
   });

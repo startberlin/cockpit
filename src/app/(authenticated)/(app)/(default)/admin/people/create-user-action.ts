@@ -43,12 +43,12 @@ export const createUserAction = actionClient
       .where(eq(userTable.email, companyEmail))
       .limit(1);
 
-    const subjectId = existingDbUser?.id ?? newId("user");
+    const provisionalSubjectId = existingDbUser?.id ?? newId("user");
 
-    await db
+    const [upsertedUser] = await db
       .insert(userTable)
       .values({
-        id: subjectId,
+        id: provisionalSubjectId,
         email: companyEmail,
         firstName,
         lastName,
@@ -68,7 +68,10 @@ export const createUserAction = actionClient
           department: department ?? null,
           status: status ?? "onboarding",
         },
-      });
+      })
+      .returning({ id: userTable.id });
+
+    const subjectId = upsertedUser?.id ?? provisionalSubjectId;
 
     await inngest.send({
       name: events.userCreated.name,
