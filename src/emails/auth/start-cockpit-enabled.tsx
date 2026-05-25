@@ -13,11 +13,13 @@ type StatusContext = Extract<
 interface StartCockpitEnabledEmailProps {
   firstName: string;
   statusContext?: StatusContext;
+  isReminder?: boolean;
 }
 
 export const StartCockpitEnabledEmail = ({
   firstName,
   statusContext,
+  isReminder,
 }: StartCockpitEnabledEmailProps) => {
   const isOnboarding = statusContext === "onboarding";
   const statusLabel = statusContext
@@ -26,7 +28,12 @@ export const StartCockpitEnabledEmail = ({
   const eyebrow = statusLabel ? `Welcome, ${statusLabel}` : "Your account";
 
   return (
-    <EmailShell preview="Your START Cockpit access is ready" eyebrow={eyebrow}>
+    <EmailShell
+      preview="Your START Cockpit access is ready"
+      eyebrow={eyebrow}
+      campaign="start-cockpit-enabled"
+      isReminder={isReminder}
+    >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         Your START Cockpit access is ready
       </Heading>
@@ -50,7 +57,12 @@ export const StartCockpitEnabledEmail = ({
         Sign in with your START Berlin Google Account and complete your member
         profile to get started.
       </Text>
-      <EmailCta href={COCKPIT_URL} label="Sign in to START Cockpit" />
+      <EmailCta
+        href={COCKPIT_URL}
+        label="Sign in to START Cockpit"
+        campaign="start-cockpit-enabled"
+        isReminder={isReminder}
+      />
       <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
         If you have any questions, reach out to{" "}
         <a

@@ -11,6 +11,7 @@ export const MembershipSupportingAlumniConfirmedEmail = ({
   <EmailShell
     preview="You're now a Supporting Alumni of START Berlin"
     eyebrow="Membership"
+    campaign="membership-supporting-alumni-confirmed"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       You're now a Supporting Alumni

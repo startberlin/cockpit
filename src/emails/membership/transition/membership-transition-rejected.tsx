@@ -23,6 +23,7 @@ export const MembershipTransitionRejectedEmail = ({
     <EmailShell
       preview="Your transition request was not approved at this time"
       eyebrow="Membership"
+      campaign="membership-transition-rejected"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         Transition request not approved

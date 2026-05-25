@@ -62,6 +62,7 @@ export const PaymentProposalsDigestEmail = ({
       preview={`${count} membership payment proposal${count === 1 ? "" : "s"} awaiting review`}
       eyebrow="Finance"
       receivingReason={receivingReason}
+      campaign="payment-proposals-digest"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         {count} payment proposal{count === 1 ? "" : "s"} need review
@@ -115,6 +116,7 @@ export const PaymentProposalsDigestEmail = ({
       <EmailCta
         href={`${COCKPIT_URL}/admin/payments`}
         label="Review proposals"
+        campaign="payment-proposals-digest"
       />
     </EmailShell>
   );

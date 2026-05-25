@@ -13,6 +13,7 @@ export const PositionRemovedEmail = ({
   <EmailShell
     preview={`Your role as ${positionLabel} at START Berlin has ended`}
     eyebrow="Position update"
+    campaign="position-removed"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       Your role as {positionLabel} has ended

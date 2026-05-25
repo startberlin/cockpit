@@ -1,5 +1,4 @@
 import { Column, Heading, Row, Text } from "react-email";
-import { EmailCta } from "@/emails/components/email-cta";
 import { EmailDetailBlock } from "@/emails/components/email-detail-block";
 import { EmailShell } from "@/emails/components/email-shell";
 
@@ -17,6 +16,7 @@ export const SignInInstructionsEmail = ({
   <EmailShell
     preview="Your START Berlin sign-in details"
     eyebrow="Your START Berlin account"
+    campaign="signin-instructions"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       Sign in to your START Berlin account

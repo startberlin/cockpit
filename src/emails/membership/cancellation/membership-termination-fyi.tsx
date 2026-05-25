@@ -33,6 +33,7 @@ export const MembershipTerminationFyiEmail = ({
     eyebrow="Membership · FYI"
     footerAudience="board"
     receivingReason={receivingReason}
+    campaign="membership-termination-fyi"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       Membership terminated for {subjectName}

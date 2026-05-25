@@ -13,6 +13,7 @@ export const PositionAssignedEmail = ({
   <EmailShell
     preview={`You've been assigned as ${positionLabel} at START Berlin`}
     eyebrow="Position update"
+    campaign="position-assigned"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       You've been assigned as {positionLabel}

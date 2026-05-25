@@ -94,7 +94,10 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
               index === 0
                 ? "Your START Cockpit access is ready"
                 : "Reminder: sign in to START Cockpit",
-            react: StartCockpitEnabledEmail({ firstName: u.firstName ?? "" }),
+            react: StartCockpitEnabledEmail({
+              firstName: u.firstName ?? "",
+              isReminder: index > 0,
+            }),
           });
         }
 

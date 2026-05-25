@@ -11,6 +11,7 @@ export const MembershipApplicationSubmittedEmail = ({
   <EmailShell
     preview="We've received your membership application"
     eyebrow="Membership application"
+    campaign="membership-application-submitted"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       Application received
