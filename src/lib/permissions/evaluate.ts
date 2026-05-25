@@ -55,7 +55,6 @@ const globalActions = [
   "settings.positions.manage",
   "users.view_inactive",
   "audit_log.read",
-  "tasks.view_any",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -201,13 +200,6 @@ function evaluateGlobalAction(
     case "membership.transition.view":
     case "membership.cancellation.view":
       return (
-        hasPeopleAdminGrant(authority) ||
-        isLegalOfficer(authority) ||
-        isDepartmentHead(authority)
-      );
-    case "tasks.view_any":
-      return (
-        hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority)

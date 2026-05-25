@@ -6,8 +6,16 @@ export default async function AdminTasksLayout({
 }: {
   children: React.ReactNode;
 }) {
-  if (!(await can("tasks.view_any"))) {
+  const [canViewAdmission, canViewTransitions, canViewCancellations] =
+    await Promise.all([
+      can("membership.resolution.admission.view"),
+      can("membership.transition.view"),
+      can("membership.cancellation.view"),
+    ]);
+
+  if (!canViewAdmission && !canViewTransitions && !canViewCancellations) {
     redirect("/membership");
   }
+
   return <>{children}</>;
 }
