@@ -25,7 +25,7 @@ export const MembershipCancellationAcknowledgementNeededEmail = ({
     eyebrow="Membership"
     footerAudience="board"
     receivingReason={receivingReason}
-    campaign="membership-cancellation-acknowledgement"
+    campaign="membership-cancellation-acknowledgement-needed"
     isReminder={isReminder}
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
@@ -49,7 +49,7 @@ export const MembershipCancellationAcknowledgementNeededEmail = ({
     <EmailCta
       href={profileUrl}
       label="Review in START Cockpit"
-      campaign="membership-cancellation-acknowledgement"
+      campaign="membership-cancellation-acknowledgement-needed"
       isReminder={isReminder}
     />
   </EmailShell>
