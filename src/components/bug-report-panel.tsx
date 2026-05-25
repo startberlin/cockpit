@@ -8,7 +8,7 @@ import {
   CircleCheck,
   LightbulbIcon,
   MessageSquareMoreIcon,
-  MessageSquareWarningIcon,
+  MessageSquareWarning,
   SendIcon,
   XIcon,
 } from "lucide-react";
@@ -315,14 +315,15 @@ export function BugReportButton() {
     setOpen(false);
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
     try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        scale: 1,
-        logging: false,
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(document.documentElement, {
+        pixelRatio: 1,
+        skipFonts: true,
+        filter: (node) => node.nodeName !== "IFRAME",
       });
-      setScreenshotDataUrl(canvas.toDataURL("image/png"));
-    } catch {
+      setScreenshotDataUrl(dataUrl);
+    } catch (err) {
+      console.error("[screenshot]", err);
       toast.error("Couldn't capture screenshot. Please try again.");
     } finally {
       setIsCapturing(false);
@@ -361,7 +362,7 @@ export function BugReportButton() {
         onClick={() => setOpen(true)}
         aria-label="Report an issue"
       >
-        <MessageSquareWarningIcon className="size-4" />
+        <MessageSquareWarning className="size-4" />
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpen}>
