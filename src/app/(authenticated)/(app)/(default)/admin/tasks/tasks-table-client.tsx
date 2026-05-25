@@ -54,6 +54,7 @@ interface AdminTaskRow {
   deadline: Date;
   taskStatus: AdminTaskStatus;
   completedStatus: AdminTaskCompletedStatus | null;
+  canAct: boolean;
 }
 
 interface TaskMember {
@@ -67,6 +68,7 @@ interface TasksPageClientProps {
   pageCount: number;
   allMembers: TaskMember[];
   viewableKinds: AdminTaskKind[];
+  canViewUserDetails: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -79,10 +81,10 @@ const ALL_KINDS = [
 ] as const satisfies readonly AdminTaskKind[];
 
 const KIND_LABELS: Record<AdminTaskKind, string> = {
-  admission: "Admission vote",
-  alumni_request: "Alumni request",
-  supporting_alumni_request: "Supporting alumni",
-  cancellation: "Cancellation",
+  admission: "Board resolution",
+  alumni_request: "Alumni transition approval",
+  supporting_alumni_request: "Alumni transition approval",
+  cancellation: "Cancellation acknowledgement",
 };
 
 const COMPLETED_STATUS_LABELS: Record<AdminTaskCompletedStatus, string> = {
@@ -221,6 +223,7 @@ export default function TasksPageClient({
   pageCount,
   allMembers,
   viewableKinds,
+  canViewUserDetails,
 }: TasksPageClientProps) {
   const [page, setPage] = useQueryState(
     "page",
@@ -320,49 +323,67 @@ export default function TasksPageClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row, index) => {
-              const href = getTaskHref(row);
-              const isOpen = row.taskStatus === "open";
-              const label = isOpen ? getOpenCtaLabel(row.kind) : "View";
-              const buttonVariant = index === 0 ? "default" : "outline";
-
-              return (
-                <TableRow
-                  key={row.legalMembershipId ?? row.transitionRequestId}
-                >
-                  <TableCell className="font-medium">{row.userName}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {KIND_LABELS[row.kind]}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {row.createdAt.toLocaleDateString("en-GB", {
-                      dateStyle: "medium",
-                    })}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {row.deadline.toLocaleDateString("en-GB", {
-                      dateStyle: "medium",
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    {isOpen ? (
-                      <Badge variant="secondary">Open</Badge>
-                    ) : (
-                      <Badge variant="outline">
-                        {row.completedStatus
-                          ? COMPLETED_STATUS_LABELS[row.completedStatus]
-                          : "Completed"}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant={buttonVariant} size="sm" asChild>
-                      <Link href={href}>{label}</Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
+            {(() => {
+              const firstActionableIndex = rows.findIndex(
+                (r) => r.taskStatus === "open" && r.canAct,
               );
-            })}
+              return rows.map((row, index) => {
+                const href = getTaskHref(row);
+                const isOpen = row.taskStatus === "open";
+                const label =
+                  isOpen && row.canAct ? getOpenCtaLabel(row.kind) : "View";
+                const buttonVariant =
+                  index === firstActionableIndex ? "default" : "outline";
+
+                return (
+                  <TableRow
+                    key={row.legalMembershipId ?? row.transitionRequestId}
+                  >
+                    <TableCell className="font-medium">
+                      {canViewUserDetails ? (
+                        <Link
+                          href={`/admin/people/${row.userId}`}
+                          className="hover:underline"
+                        >
+                          {row.userName}
+                        </Link>
+                      ) : (
+                        row.userName
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {KIND_LABELS[row.kind]}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {row.createdAt.toLocaleDateString("en-GB", {
+                        dateStyle: "medium",
+                      })}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {row.deadline.toLocaleDateString("en-GB", {
+                        dateStyle: "medium",
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {isOpen ? (
+                        <Badge variant="secondary">Open</Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          {row.completedStatus
+                            ? COMPLETED_STATUS_LABELS[row.completedStatus]
+                            : "Completed"}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant={buttonVariant} size="sm" asChild>
+                        <Link href={href}>{label}</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              });
+            })()}
           </TableBody>
         </Table>
       )}

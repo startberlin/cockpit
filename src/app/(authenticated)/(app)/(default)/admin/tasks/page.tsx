@@ -8,6 +8,8 @@ import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import {
+  evaluateAuth,
+  evaluateUnscopedViewDetails,
   hasAdminGrant,
   hasPeopleAdminGrant,
   isLegalOfficer,
@@ -99,13 +101,31 @@ export default async function AdminTasksPage({
     getAllVisibleTaskMembers(authority),
   ]);
 
+  const enrichedRows = rows.map((row) => ({
+    ...row,
+    canAct:
+      row.kind === "admission"
+        ? evaluateAuth(authority, "membership.resolution.admission.vote")
+        : row.kind === "alumni_request" ||
+            row.kind === "supporting_alumni_request"
+          ? evaluateAuth(authority, "membership.transition.decide", {
+              targetDepartment: row.department,
+            })
+          : evaluateAuth(authority, "membership.cancellation.acknowledge", {
+              targetDepartment: row.department,
+            }),
+  }));
+
+  const canViewUserDetails = evaluateUnscopedViewDetails(authority);
+
   return (
     <TasksPageClient
-      rows={rows}
+      rows={enrichedRows}
       total={total}
       pageCount={pageCount}
       allMembers={allMembers}
       viewableKinds={viewableKinds}
+      canViewUserDetails={canViewUserDetails}
     />
   );
 }

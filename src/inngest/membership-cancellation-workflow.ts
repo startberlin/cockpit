@@ -124,7 +124,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                   firstName: recipient.firstName,
                   subjectName,
                   requestedAt,
-                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/${userId}`,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/acknowledge-cancellation/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
                     : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
