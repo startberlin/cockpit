@@ -59,7 +59,7 @@ describe("permissions", () => {
     );
   });
 
-  it("fails closed when scoped permissions are missing target context", () => {
+  it("gate check (no scope) allows any department head", () => {
     assert.equal(
       evaluateAuth(
         authority({
@@ -72,11 +72,8 @@ describe("permissions", () => {
           ],
         }),
         "user.view_details",
-        undefined as unknown as {
-          targetDepartment: null;
-        },
       ),
-      false,
+      true,
     );
   });
 
@@ -801,6 +798,55 @@ describe("permissions", () => {
         false,
       );
     });
+
+    it("allows department head scoped to their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "growth",
+              },
+            ],
+          }),
+          "membership.transition.view",
+          { targetDepartment: "growth" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head scoped to a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "growth",
+              },
+            ],
+          }),
+          "membership.transition.view",
+          { targetDepartment: "events" },
+        ),
+        false,
+      );
+    });
+
+    it("allows people_admin scoped to any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "membership.transition.view",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
   });
 
   describe("membership.cancellation.view", () => {
@@ -849,6 +895,44 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
           "membership.cancellation.view",
+        ),
+        false,
+      );
+    });
+
+    it("allows department head scoped to their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.view",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("denies department head scoped to a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.view",
+          { targetDepartment: "operations" },
         ),
         false,
       );

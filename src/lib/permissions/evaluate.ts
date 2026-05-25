@@ -4,12 +4,20 @@ import {
   type UserAuthority,
 } from "@/lib/authority/model";
 
-export type UserScopedAction =
+// Actions that are user-scoped but whose department argument is optional.
+// When called without a department (gate check), they behave as "any department".
+export type UnscopedViewAction =
   | "user.view_details"
+  | "membership.transition.view"
+  | "membership.cancellation.view"
+  | "membership.resolution.admission.view";
+
+export type UserScopedAction =
   | "user.payment.view"
   | "user.membership.propose"
   | "membership.transition.decide"
-  | "membership.cancellation.acknowledge";
+  | "membership.cancellation.acknowledge"
+  | UnscopedViewAction;
 
 const userScopedActions = [
   "user.view_details",
@@ -17,7 +25,23 @@ const userScopedActions = [
   "user.membership.propose",
   "membership.transition.decide",
   "membership.cancellation.acknowledge",
+  "membership.transition.view",
+  "membership.cancellation.view",
+  "membership.resolution.admission.view",
 ] as const;
+
+const unscopedViewActions: readonly UnscopedViewAction[] = [
+  "user.view_details",
+  "membership.transition.view",
+  "membership.cancellation.view",
+  "membership.resolution.admission.view",
+];
+
+export function isUnscopedViewAction(
+  action: Action,
+): action is UnscopedViewAction {
+  return (unscopedViewActions as readonly Action[]).includes(action);
+}
 
 export function isUserScopedAction(action: Action): action is UserScopedAction {
   return (userScopedActions as readonly Action[]).includes(action);
@@ -31,7 +55,8 @@ export type GroupScopedAction =
 export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
 export type UserScope = {
-  targetDepartment: Department | null;
+  // undefined = gate check (any department); null = subject has no department
+  targetDepartment: Department | null | undefined;
 };
 
 export type GroupScope = {
@@ -44,9 +69,6 @@ const globalActions = [
   "users.manage_authority",
   "users.impersonate",
   "membership.resolution.admission.vote",
-  "membership.resolution.admission.view",
-  "membership.transition.view",
-  "membership.cancellation.view",
   "membership.cancel_member",
   "groups.view_all",
   "groups.create",
@@ -136,10 +158,7 @@ function isDepartmentHead(
 
 function hasUserScope(scope: unknown): scope is UserScope {
   return (
-    typeof scope === "object" &&
-    scope !== null &&
-    "targetDepartment" in scope &&
-    (scope as UserScope).targetDepartment !== undefined
+    typeof scope === "object" && scope !== null && "targetDepartment" in scope
   );
 }
 
@@ -191,19 +210,6 @@ function evaluateGlobalAction(
       return isHeadOfFinance(authority) || hasFinanceAdminGrant(authority);
     case "membership.resolution.admission.vote":
       return isLegalOfficer(authority);
-    case "membership.resolution.admission.view":
-      return (
-        hasAdminGrant(authority) ||
-        isLegalOfficer(authority) ||
-        isDepartmentHead(authority)
-      );
-    case "membership.transition.view":
-    case "membership.cancellation.view":
-      return (
-        hasPeopleAdminGrant(authority) ||
-        isLegalOfficer(authority) ||
-        isDepartmentHead(authority)
-      );
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
     case "groups.view_all":
@@ -254,22 +260,30 @@ function evaluateUserScopedAction(
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
+    case "membership.transition.view":
+    case "membership.cancellation.view":
+      return (
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority, scope.targetDepartment)
+      );
+    case "membership.resolution.admission.view":
+      return (
+        hasAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority, scope.targetDepartment)
+      );
   }
-}
-
-export function evaluateUnscopedViewDetails(authority: UserAuthority): boolean {
-  if (!isActiveAuthorityStatus(authority.status)) return false;
-  return (
-    hasAdminGrant(authority) ||
-    hasPeopleAdminGrant(authority) ||
-    isLegalOfficer(authority) ||
-    isDepartmentHead(authority)
-  );
 }
 
 export function evaluateAuth(
   authority: UserAuthority,
   action: GlobalAction,
+): boolean;
+export function evaluateAuth(
+  authority: UserAuthority,
+  action: UnscopedViewAction,
+  scope?: UserScope,
 ): boolean;
 export function evaluateAuth(
   authority: UserAuthority,
@@ -299,9 +313,18 @@ export function evaluateAuth(
     return evaluateGroupScopedAction(authority, action, scope);
   }
 
-  if (!hasUserScope(scope) || !isUserScopedAction(action)) {
+  if (!isUserScopedAction(action)) {
     return false;
   }
 
-  return evaluateUserScopedAction(authority, action, scope);
+  // UnscopedViewActions allow omitting scope for a gate check (any department).
+  const userScope: UserScope = hasUserScope(scope)
+    ? scope
+    : { targetDepartment: undefined };
+
+  if (!hasUserScope(scope) && !isUnscopedViewAction(action)) {
+    return false;
+  }
+
+  return evaluateUserScopedAction(authority, action, userScope);
 }

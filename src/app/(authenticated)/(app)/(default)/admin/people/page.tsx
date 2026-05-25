@@ -15,7 +15,6 @@ import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import {
   evaluateAuth,
-  evaluateUnscopedViewDetails,
   hasAdminGrant,
   hasPeopleAdminGrant,
   isLegalOfficer,
@@ -63,16 +62,18 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
 
   const canViewInactive = evaluateAuth(authority, "users.view_inactive");
   const isUnrestrictedViewer =
-    evaluateUnscopedViewDetails(authority) &&
-    (hasAdminGrant(authority) ||
-      hasPeopleAdminGrant(authority) ||
-      isLegalOfficer(authority));
+    hasAdminGrant(authority) ||
+    hasPeopleAdminGrant(authority) ||
+    isLegalOfficer(authority);
 
-  const forcedDeptHead = !isUnrestrictedViewer
-    ? (authority.positions.find(
-        (p) => p.scope === "department" && p.position === "department_head",
-      )?.department ?? null)
-    : null;
+  const forcedDepts: Department[] = isUnrestrictedViewer
+    ? []
+    : authority.positions
+        .filter(
+          (p): p is Extract<typeof p, { scope: "department" }> =>
+            p.scope === "department" && p.position === "department_head",
+        )
+        .map((p) => p.department);
 
   const {
     page: pageParam,
@@ -103,13 +104,14 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
 
   const validDepartments = new Set<string>(departmentEnum.enumValues);
 
-  const deptFilter: Department[] | undefined = forcedDeptHead
-    ? [forcedDeptHead]
-    : department
-      ? (department
-          .split(",")
-          .filter((d) => validDepartments.has(d)) as Department[])
-      : undefined;
+  const deptFilter: Department[] | undefined =
+    forcedDepts.length > 0
+      ? forcedDepts
+      : department
+        ? (department
+            .split(",")
+            .filter((d) => validDepartments.has(d)) as Department[])
+        : undefined;
 
   const validBatches = batchNumber
     ? batchNumber
@@ -147,7 +149,7 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
       batches={await batches}
       initialSearch={search}
       canViewInactive={canViewInactive}
-      isDeptHeadScoped={forcedDeptHead !== null}
+      isDeptHeadScoped={forcedDepts.length > 0}
       canCreate={canCreate}
       canImport={canImport}
     />

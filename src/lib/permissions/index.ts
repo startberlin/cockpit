@@ -10,7 +10,6 @@ export type {
 export {
   type Action,
   evaluateAuth,
-  evaluateUnscopedViewDetails,
   type GlobalAction,
   type GroupScope,
   type GroupScopedAction,
@@ -19,7 +18,9 @@ export {
   isGlobalAction,
   isGroupScopedAction,
   isLegalOfficer,
+  isUnscopedViewAction,
   isUserScopedAction,
+  type UnscopedViewAction,
   type UserScope,
   type UserScopedAction,
 } from "./evaluate";

@@ -6,13 +6,14 @@ import type { Department } from "@/db/schema/auth";
 import {
   type Action,
   evaluateAuth,
-  evaluateUnscopedViewDetails,
   type GlobalAction,
   type GroupScope,
   type GroupScopedAction,
   isGlobalAction,
   isGroupScopedAction,
+  isUnscopedViewAction,
   isUserScopedAction,
+  type UnscopedViewAction,
   type UserScope,
   type UserScopedAction,
 } from "@/lib/permissions";
@@ -21,11 +22,11 @@ import { useAuthority } from "@/lib/permissions/authority-context";
 export type CanCheck = {
   (permission: GlobalAction): boolean;
   (
-    permission: "user.view_details",
+    permission: UnscopedViewAction,
     user?: { department: Department | null },
   ): boolean;
   (
-    permission: Exclude<UserScopedAction, "user.view_details">,
+    permission: Exclude<UserScopedAction, UnscopedViewAction>,
     user: { department: Department | null },
   ): boolean;
   (permission: GroupScopedAction, group: { isMember: boolean }): boolean;
@@ -38,11 +39,11 @@ interface CanComponentProps {
 
 type CanProps =
   | (CanComponentProps & {
-      permission: "user.view_details";
+      permission: UnscopedViewAction;
       context?: { department: Department | null };
     })
   | (CanComponentProps & {
-      permission: Exclude<UserScopedAction, "user.view_details">;
+      permission: Exclude<UserScopedAction, UnscopedViewAction>;
       context: { department: Department | null };
     })
   | (CanComponentProps & {
@@ -57,11 +58,11 @@ type CanProps =
 export function useCan(): CanCheck;
 export function useCan(permission: GlobalAction): boolean;
 export function useCan(
-  permission: "user.view_details",
+  permission: UnscopedViewAction,
   user?: { department: Department | null },
 ): boolean;
 export function useCan(
-  permission: Exclude<UserScopedAction, "user.view_details">,
+  permission: Exclude<UserScopedAction, UnscopedViewAction>,
   user: { department: Department | null },
 ): boolean;
 export function useCan(
@@ -88,17 +89,18 @@ export function useCan(
         return false;
       }
 
-      if (action === "user.view_details" && !checkResource) {
-        return evaluateUnscopedViewDetails(authority);
-      }
-
       if (isGlobalAction(action)) {
         return evaluateAuth(authority, action);
       }
 
       if (isUserScopedAction(action)) {
         const scope: UserScope = {
-          targetDepartment: checkResource?.department ?? null,
+          targetDepartment:
+            checkResource !== undefined
+              ? (checkResource.department ?? null)
+              : isUnscopedViewAction(action)
+                ? undefined
+                : null,
         };
         return evaluateAuth(authority, action, scope);
       }
@@ -123,9 +125,9 @@ export function useCan(
     return check(permission);
   }
 
-  if (permission === "user.view_details") {
+  if (isUnscopedViewAction(permission)) {
     return check(
-      "user.view_details",
+      permission,
       resource as { department: Department | null } | undefined,
     );
   }
@@ -149,9 +151,9 @@ export function Can(props: CanProps) {
   let granted: boolean;
   if (isGlobalAction(props.permission)) {
     granted = check(props.permission);
-  } else if (props.permission === "user.view_details") {
+  } else if (isUnscopedViewAction(props.permission)) {
     granted = check(
-      "user.view_details",
+      props.permission,
       props.context as { department: Department | null } | undefined,
     );
   } else if (isUserScopedAction(props.permission)) {
