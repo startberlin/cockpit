@@ -10,7 +10,6 @@ import { MembershipHeroCard } from "./membership-hero-card";
 import { MembershipNoticeBlock } from "./membership-notice-block";
 import { deriveMembershipNotice } from "./membership-notice-state";
 import { MembershipOptions } from "./membership-options";
-import { TransitionRequestCard } from "./transition-request-card";
 
 interface MembershipPageContentProps {
   user: User;
@@ -54,9 +53,6 @@ export function MembershipPageContent({
           pendingTransition={pendingTransition}
         />
       </div>
-      {pendingTransition && (
-        <TransitionRequestCard request={pendingTransition} />
-      )}
       {showMembershipDetails && (
         <Suspense fallback={<MembershipDetailsSkeleton />}>
           <MembershipDetailsCard user={user} />

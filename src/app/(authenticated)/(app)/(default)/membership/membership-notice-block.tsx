@@ -19,6 +19,7 @@ import {
   type MembershipNoticeType,
 } from "./membership-notice-state";
 import { PaymentButton } from "./payment-button";
+import { TransitionWithdrawButton } from "./transition-withdraw-button";
 
 export { deriveMembershipNotice, type MembershipNoticeType };
 
@@ -177,6 +178,11 @@ export function MembershipNoticeBlock({
         icon={<ClockIcon className="size-5" />}
         title={label.title}
         body={label.body}
+        action={
+          pendingTransition && (
+            <TransitionWithdrawButton request={pendingTransition} />
+          )
+        }
         className="bg-amber-50 border-amber-200"
         iconClassName="text-amber-600"
       />
