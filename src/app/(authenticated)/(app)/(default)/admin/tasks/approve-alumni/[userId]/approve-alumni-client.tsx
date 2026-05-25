@@ -1,6 +1,7 @@
 "use client";
 
-import { CircleXIcon } from "lucide-react";
+import { ArrowLeftIcon, CircleXIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -158,6 +159,12 @@ export default function ApproveAlumniClient({
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2" asChild>
+          <Link href="/admin/tasks">
+            <ArrowLeftIcon className="size-4" />
+            Tasks
+          </Link>
+        </Button>
         <h1 className="text-2xl font-semibold tracking-tight">
           {transitionLabel} Request
         </h1>
@@ -167,22 +174,28 @@ export default function ApproveAlumniClient({
         </p>
       </div>
 
-      <div className="rounded-lg border p-4 space-y-2 text-sm">
-        <div className="flex gap-2">
-          <span className="text-muted-foreground w-24 shrink-0">Member</span>
-          <span className="font-medium">{subjectUser.name}</span>
+      <div className="grid grid-cols-3 overflow-hidden rounded-lg border">
+        <div className="px-4 py-3 border-r">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Member
+          </p>
+          <p className="mt-0.5 text-sm font-medium">{subjectUser.name}</p>
         </div>
-        <div className="flex gap-2">
-          <span className="text-muted-foreground w-24 shrink-0">Type</span>
-          <span>{transitionLabel} transition</span>
+        <div className="px-4 py-3 border-r">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Type
+          </p>
+          <p className="mt-0.5 text-sm font-medium">{transitionLabel}</p>
         </div>
-        <div className="flex gap-2">
-          <span className="text-muted-foreground w-24 shrink-0">Submitted</span>
-          <span>
+        <div className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Submitted
+          </p>
+          <p className="mt-0.5 text-sm font-medium">
             {request.requestedAt.toLocaleDateString("en-GB", {
               dateStyle: "medium",
             })}
-          </span>
+          </p>
         </div>
       </div>
 

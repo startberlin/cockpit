@@ -24,6 +24,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   "supporting-alumni": "Supporting Alumni",
   "org-chart": "Org Chart",
   "audit-log": "Audit log",
+  tasks: "Tasks",
 };
 
 /**

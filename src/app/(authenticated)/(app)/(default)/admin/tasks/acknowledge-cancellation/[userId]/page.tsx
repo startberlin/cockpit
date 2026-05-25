@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
 import { getCurrentUser } from "@/db/user";
@@ -63,13 +64,22 @@ export default async function AcknowledgeCancellationPage({
     }));
 
   return (
-    <AcknowledgeCancellationClient
-      request={request}
-      subjectUser={{
-        id: subjectUser.id,
-        name: `${subjectUser.firstName} ${subjectUser.lastName}`.trim(),
-      }}
-      canAct={canAct}
-    />
+    <>
+      <BreadcrumbCrumb
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Tasks", href: "/admin/tasks" },
+          { label: "Cancellation acknowledgement" },
+        ]}
+      />
+      <AcknowledgeCancellationClient
+        request={request}
+        subjectUser={{
+          id: subjectUser.id,
+          name: `${subjectUser.firstName} ${subjectUser.lastName}`.trim(),
+        }}
+        canAct={canAct}
+      />
+    </>
   );
 }

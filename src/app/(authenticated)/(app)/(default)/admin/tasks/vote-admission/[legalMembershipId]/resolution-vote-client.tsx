@@ -1,17 +1,12 @@
 "use client";
 
+import { ArrowLeftIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -118,9 +113,20 @@ export default function ResolutionVoteClient({
     }
   }
 
+  const statusLabel =
+    resolution.status === "admission_pending"
+      ? "Pending"
+      : resolution.status.replace(/_/g, " ");
+
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2" asChild>
+          <Link href="/admin/tasks">
+            <ArrowLeftIcon className="size-4" />
+            Tasks
+          </Link>
+        </Button>
         <h1 className="text-2xl font-semibold tracking-tight">
           Board Resolution
         </h1>
@@ -132,29 +138,42 @@ export default function ResolutionVoteClient({
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Resolution Text</CardTitle>
-          <CardDescription>
-            You are voting on the following resolution. The hash below ensures
-            you are seeing the canonical text.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <p className="text-sm leading-relaxed border rounded-md p-4 bg-muted/50">
-            {resolution.resolutionText}
+      <div className="grid grid-cols-2 overflow-hidden rounded-lg border">
+        <div className="px-4 py-3 border-r">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Member
           </p>
-          <p className="text-xs text-muted-foreground font-mono break-all">
-            SHA-256: {resolution.resolutionTextHash}
+          <p className="mt-0.5 text-sm font-medium">
+            {resolution.subject.name}
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Status
+          </p>
+          <p className="mt-0.5 text-sm font-medium capitalize">{statusLabel}</p>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Board Vote Status</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Resolution Text</p>
+        <p className="text-xs text-muted-foreground">
+          You are voting on the following resolution. The hash below ensures you
+          are seeing the canonical text.
+        </p>
+        <p className="text-sm leading-relaxed border rounded-md p-4 bg-muted/50">
+          {resolution.resolutionText}
+        </p>
+        <p className="text-xs text-muted-foreground font-mono break-all">
+          SHA-256: {resolution.resolutionTextHash}
+        </p>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Board Vote Status</p>
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -209,74 +228,72 @@ export default function ResolutionVoteClient({
               })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {resolution.status !== "admission_pending" && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              Voting is closed for this resolution. Current status:{" "}
-              <span className="font-medium text-foreground">
-                {resolution.status.replace(/_/g, " ")}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        </div>
+      </div>
 
       {roles && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Verfahren</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2 text-sm">
-            <p>
-              <span className="text-muted-foreground mr-2">Sitzungsleiter</span>
-              {resolution.participants.find(
-                (p) => p.userId === roles.sitzungsleiter.userId,
-              )?.name ?? roles.sitzungsleiter.userId}{" "}
-              <span className="text-muted-foreground">
-                ({officerFunctionLabel(roles.sitzungsleiter.officerFunction)})
-              </span>
-            </p>
-            <p>
-              <span className="text-muted-foreground mr-2">
+        <>
+          <Separator />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+                Sitzungsleiter
+              </p>
+              <p className="text-sm font-medium">
+                {resolution.participants.find(
+                  (p) => p.userId === roles.sitzungsleiter.userId,
+                )?.name ?? roles.sitzungsleiter.userId}{" "}
+                <span className="font-normal text-muted-foreground">
+                  ({officerFunctionLabel(roles.sitzungsleiter.officerFunction)})
+                </span>
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
                 Protokollführer
-              </span>
-              {resolution.participants.find(
-                (p) => p.userId === roles.protokollfuehrer.userId,
-              )?.name ?? roles.protokollfuehrer.userId}{" "}
-              <span className="text-muted-foreground">
-                ({officerFunctionLabel(roles.protokollfuehrer.officerFunction)})
-              </span>
-            </p>
-          </CardContent>
-        </Card>
+              </p>
+              <p className="text-sm font-medium">
+                {resolution.participants.find(
+                  (p) => p.userId === roles.protokollfuehrer.userId,
+                )?.name ?? roles.protokollfuehrer.userId}{" "}
+                <span className="font-normal text-muted-foreground">
+                  (
+                  {officerFunctionLabel(roles.protokollfuehrer.officerFunction)}
+                  )
+                </span>
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {resolution.status !== "admission_pending" && (
+        <p className="text-sm text-muted-foreground">
+          Voting is closed for this resolution. Current status:{" "}
+          <span className="font-medium text-foreground capitalize">
+            {statusLabel}
+          </span>
+        </p>
       )}
 
       {resolution.status === "admission_pending" &&
         isParticipant &&
         hasVoted && (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">
-                You have already submitted your vote for this resolution.
-              </p>
-            </CardContent>
-          </Card>
+          <p className="text-sm text-muted-foreground">
+            You have already submitted your vote for this resolution.
+          </p>
         )}
 
       {canVote && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Cast Your Vote</CardTitle>
-            <CardDescription>
-              Your vote is final and cannot be changed after submission.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Separator className="mb-4" />
+        <>
+          <Separator />
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold">Cast Your Vote</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your vote is final and cannot be changed after submission.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-3">
               {VOTE_BUTTONS.map(({ value, label, variant }) => (
                 <Button
@@ -289,8 +306,8 @@ export default function ResolutionVoteClient({
                 </Button>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </>
       )}
     </div>
   );

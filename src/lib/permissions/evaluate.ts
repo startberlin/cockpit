@@ -263,6 +263,7 @@ function evaluateUserScopedAction(
     case "membership.transition.view":
     case "membership.cancellation.view":
       return (
+        hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
