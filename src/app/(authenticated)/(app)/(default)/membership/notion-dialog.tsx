@@ -60,7 +60,12 @@ export function NotionDialog({
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" size="sm" asChild>
-              <Link href="https://www.notion.so/start-berlin" target="_blank">
+              <Link
+                href="https://www.notion.so/start-berlin"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-ph-capture-attribute-service="notion"
+              >
                 <ExternalLink />
                 Open Notion
               </Link>

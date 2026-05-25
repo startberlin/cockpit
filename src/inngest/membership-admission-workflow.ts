@@ -25,6 +25,7 @@ import {
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
+import { track } from "@/lib/posthog-server";
 import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
 import { notifyUntil } from "./lib/step-loops";
 
@@ -109,7 +110,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
                 react: BoardResolutionTaskAssignedEmail({
                   firstName: u.firstName ?? "",
                   subjectName,
-                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
+                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
                   isReminder,
                 }),
               }),
@@ -434,6 +435,36 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
+    await step.run(
+      "capture-analytics-application-submitted-email",
+      async () => {
+        track({
+          distinctId: subjectUserId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "membership_application_submitted",
+            subject_id: subjectUserId,
+          },
+        });
+      },
+    );
+
+    // Step 9d: Read user state before activation (replay-safe before-state).
+    const userBeforeActivation = await step.run(
+      "read-user-state-before-activation",
+      async () => {
+        const u = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, subjectUserId),
+          columns: { status: true, department: true, batchNumber: true },
+        });
+        return {
+          status: u?.status ?? null,
+          department: u?.department ?? null,
+          batchNumber: u?.batchNumber ?? null,
+        };
+      },
+    );
+
     // Step 10: Activate the legal membership.
     const activatedAt = await step.run(
       "activate-legal-membership",
@@ -463,6 +494,22 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     await step.sendEvent("user-status-changed", {
       name: events.cockpitUserUpdated.name,
       data: { id: subjectUserId },
+    });
+
+    await step.sendEvent("sync-system-groups-after-activation", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId: subjectUserId,
+        before: userBeforeActivation,
+        after: {
+          status:
+            userBeforeActivation.status === "onboarding"
+              ? "member"
+              : userBeforeActivation.status,
+          department: userBeforeActivation.department,
+          batchNumber: userBeforeActivation.batchNumber,
+        },
+      },
     });
 
     // Kick off the mandate-setup reminder workflow; it self-checks current
@@ -576,6 +623,17 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           firstName: subject.firstName,
         }),
         attachments,
+      });
+    });
+
+    await step.run("capture-analytics-admission-confirmed-email", async () => {
+      track({
+        distinctId: subjectUserId,
+        event: "workflow_email_sent",
+        properties: {
+          email_type: "membership_admission_confirmed",
+          subject_id: subjectUserId,
+        },
       });
     });
 

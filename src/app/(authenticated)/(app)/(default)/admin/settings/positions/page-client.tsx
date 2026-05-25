@@ -95,21 +95,16 @@ export default function AdminSettingsPageClient({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Officer Assignments
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage START Berlin org positions. Saving will notify any affected
-          members by email.
+          Each position can be held by exactly one member with an active
+          membership. Search by name or leave unassigned.
         </p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Positions</CardTitle>
-          <CardDescription>
-            Each position can be held by exactly one member with an active
-            membership. Search by name or leave unassigned.
-          </CardDescription>
-        </CardHeader>
         <CardContent className="space-y-4">
           {GLOBAL_POSITIONS.map(({ key, label }) => (
             <PositionRow

@@ -3,6 +3,7 @@
 import {
   AppWindow,
   ChevronRight,
+  ClipboardList,
   CreditCard,
   IdCard,
   Layers,
@@ -13,8 +14,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useLayoutEffect } from "react";
-import { Can } from "@/components/can";
+import { useContext, useId, useLayoutEffect } from "react";
+import { Can, useCan } from "@/components/can";
 import {
   HidableGroupContext,
   useHidableGroupContext,
@@ -104,12 +105,12 @@ export function NavMain() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === "/people/org-chart"}
-                tooltip="Org Chart"
+                isActive={pathname === "/org-chart"}
+                tooltip="Org chart"
               >
-                <Link href="/people/org-chart" onClick={closeMobile}>
+                <Link href="/org-chart" onClick={closeMobile}>
                   <Network />
-                  <span>Org Chart</span>
+                  <span>Org chart</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -134,6 +135,22 @@ export function NavMain() {
       {/* Admin — auto-hides when user has no admin permissions */}
       <HidableSidebarGroup label="Admin">
         <SidebarMenu>
+          {/* Admin > Tasks */}
+          <CanViewAnyTask>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith("/admin/tasks")}
+                tooltip="Tasks"
+              >
+                <Link href="/admin/tasks" onClick={closeMobile}>
+                  <ClipboardList />
+                  <span>Tasks</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </CanViewAnyTask>
+
           {/* Admin > People (collapsible) */}
           <HidableNavCollapsibleItem
             label="People"
@@ -184,7 +201,7 @@ export function NavMain() {
               >
                 <Link href="/admin/groups" onClick={closeMobile}>
                   <Layers />
-                  <span>Groups</span>
+                  <span>All groups</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -249,6 +266,24 @@ export function NavMain() {
       </HidableSidebarGroup>
     </>
   );
+}
+
+function CanViewAnyTask({ children }: { children: React.ReactNode }) {
+  const hidable = useContext(HidableGroupContext);
+  const id = useId();
+  const check = useCan();
+  const granted =
+    check("membership.resolution.admission.view") ||
+    check("membership.transition.view") ||
+    check("membership.cancellation.view");
+
+  useLayoutEffect(() => {
+    if (!hidable) return;
+    hidable.report(id, granted);
+    return () => hidable.report(id, false);
+  }, [hidable, id, granted]);
+
+  return granted ? children : null;
 }
 
 function HidableSidebarGroup({

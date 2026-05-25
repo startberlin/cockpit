@@ -3,8 +3,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function ProfileLoading() {
   return (
     <div className="w-full space-y-6">
-      {/* breadcrumb + back button */}
-      <Skeleton className="h-4 w-32" />
       <Skeleton className="h-8 w-20" />
 
       {/* header: avatar + name + badges */}

@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
@@ -9,6 +10,7 @@ import { findWorkspaceUserByEmail } from "@/lib/google-workspace/directory";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { track } from "@/lib/posthog-server";
 import { createUserSchema } from "./create-user-schema";
 
 export const createUserAction = actionClient
@@ -42,10 +44,12 @@ export const createUserAction = actionClient
       .where(eq(userTable.email, companyEmail))
       .limit(1);
 
-    await db
+    const provisionalSubjectId = existingDbUser?.id ?? newId("user");
+
+    const [upsertedUser] = await db
       .insert(userTable)
       .values({
-        id: newId("user"),
+        id: provisionalSubjectId,
         email: companyEmail,
         firstName,
         lastName,
@@ -65,7 +69,10 @@ export const createUserAction = actionClient
           department: department ?? null,
           status: status ?? "onboarding",
         },
-      });
+      })
+      .returning({ id: userTable.id });
+
+    const subjectId = upsertedUser?.id ?? provisionalSubjectId;
 
     await inngest.send({
       name: events.userCreated.name,
@@ -84,4 +91,18 @@ export const createUserAction = actionClient
       },
       description: companyEmail,
     });
+
+    after(() =>
+      track({
+        distinctId: subjectId,
+        event: existingDbUser ? "admin_user_updated" : "admin_user_created",
+        properties: {
+          actor_id: ctx.user.id,
+          company_email: companyEmail,
+          status: status ?? "onboarding",
+          department: department ?? null,
+          batch_number: batchNumber ?? null,
+        },
+      }),
+    );
   });

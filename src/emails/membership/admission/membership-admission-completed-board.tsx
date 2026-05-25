@@ -30,6 +30,7 @@ export const MembershipAdmissionCompletedBoardEmail = ({
       eyebrow="Admission complete"
       footerAudience="board"
       receivingReason={receivingReason}
+      campaign="membership-admission-completed-board"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         {subjectName} is now a member

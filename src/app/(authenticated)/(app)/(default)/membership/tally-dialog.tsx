@@ -114,7 +114,12 @@ function TallyDialogContent({
               </EmptyHeader>
               <EmptyContent>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="https://tally.so/login" target="_blank">
+                  <Link
+                    href="https://tally.so/login"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-ph-capture-attribute-service="tally"
+                  >
                     <ExternalLink />
                     Open Tally
                   </Link>

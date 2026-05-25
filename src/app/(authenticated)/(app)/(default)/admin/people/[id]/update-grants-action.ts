@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { getUserAuthority, replaceUserGrants } from "@/db/authority";
@@ -9,6 +10,7 @@ import { user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const accessGrants = [
   "super_admin",
@@ -50,7 +52,15 @@ export const updateGrantsAction = actionClient
     revalidatePath(`/admin/people/${parsedInput.userId}`);
 
     const [targetUser] = await db
-      .select({ id: userTable.id, name: userTable.name })
+      .select({
+        id: userTable.id,
+        name: userTable.name,
+        status: userTable.status,
+        department: userTable.department,
+        batchNumber: userTable.batchNumber,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
+      })
       .from(userTable)
       .where(eq(userTable.id, parsedInput.userId))
       .limit(1);
@@ -83,4 +93,19 @@ export const updateGrantsAction = actionClient
       metadata: { grants: newGrants },
       description,
     });
+
+    if (targetUser) {
+      after(() =>
+        track({
+          distinctId: targetUser.id,
+          event: "admin_permissions_updated",
+          properties: {
+            actor_id: ctx.user.id,
+            permissions_added: added,
+            permissions_removed: removed,
+            ...buildSubjectMetadata(targetUser),
+          },
+        }),
+      );
+    }
   });

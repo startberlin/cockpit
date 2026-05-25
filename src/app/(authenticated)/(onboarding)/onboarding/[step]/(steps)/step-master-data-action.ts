@@ -2,9 +2,11 @@
 
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { track } from "@/lib/posthog-server";
 import { stepMasterDataSchema } from "../onboarding-validation";
 
 export const completeOnboardingMasterDataStep = actionClient
@@ -24,6 +26,18 @@ export const completeOnboardingMasterDataStep = actionClient
         birthDate: parsedInput.birthDate,
       })
       .where(eq(userTable.id, user.id));
+
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "onboarding_master_data_submitted",
+        properties: {
+          had_personal_email: Boolean(parsedInput.personalEmail),
+          had_phone: Boolean(parsedInput.phone),
+          had_birth_date: Boolean(parsedInput.birthDate),
+        },
+      }),
+    );
 
     return { success: true };
   });

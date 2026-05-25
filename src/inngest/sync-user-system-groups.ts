@@ -1,0 +1,83 @@
+import "server-only";
+
+import db from "@/db";
+import {
+  addGroupMember,
+  removeGroupMember,
+} from "@/lib/google-workspace/directory";
+import { getSystemGroupsForUser } from "@/lib/groups/system-groups";
+import { events, inngest } from "@/lib/inngest";
+
+export const syncUserSystemGroupsWorkflow = inngest.createFunction(
+  {
+    id: "sync-user-system-groups",
+    triggers: [{ event: events.userSystemGroupsSync }],
+    concurrency: {
+      scope: "account",
+      key: "event.data.userId",
+      limit: 1,
+    },
+  },
+  async ({ event, step }) => {
+    const { userId, before, after } = event.data;
+
+    const syncData = await step.run("compute-diff", async () => {
+      const [positions, batches, userRecord] = await Promise.all([
+        db.query.userOrganizationPosition.findMany({
+          where: (p, { eq }) => eq(p.userId, userId),
+          columns: { position: true, scope: true, department: true },
+        }),
+        db.query.batch.findMany({ columns: { number: true } }),
+        db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.id, userId),
+          columns: { email: true },
+          with: { accessGrants: { columns: { grant: true } } },
+        }),
+      ]);
+
+      const email = userRecord?.email ?? null;
+      const grants = userRecord?.accessGrants.map((g) => g.grant) ?? [];
+
+      const beforeGroups = getSystemGroupsForUser(
+        { id: userId, ...before, grants },
+        positions,
+        batches,
+      );
+      const afterGroups = getSystemGroupsForUser(
+        { id: userId, ...after, grants },
+        positions,
+        batches,
+      );
+
+      const beforeSlugs = new Set(beforeGroups.map((g) => g.slug));
+      const afterSlugs = new Set(afterGroups.map((g) => g.slug));
+
+      return {
+        email,
+        toAdd: afterGroups.filter((g) => !beforeSlugs.has(g.slug)),
+        toRemove: beforeGroups.filter((g) => !afterSlugs.has(g.slug)),
+      };
+    });
+
+    if (!syncData.email) return { skipped: true };
+
+    if (syncData.toAdd.length === 0 && syncData.toRemove.length === 0) {
+      return { added: 0, removed: 0 };
+    }
+
+    const { email } = syncData;
+
+    for (const g of syncData.toAdd) {
+      await step.run(`add-${g.slug}`, () =>
+        addGroupMember(g.googleGroupEmail, email),
+      );
+    }
+    for (const g of syncData.toRemove) {
+      await step.run(`remove-${g.slug}`, () =>
+        removeGroupMember(g.googleGroupEmail, email),
+      );
+    }
+
+    return { added: syncData.toAdd.length, removed: syncData.toRemove.length };
+  },
+);

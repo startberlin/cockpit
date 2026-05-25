@@ -11,6 +11,7 @@ export const MembershipSupportingAlumniConfirmedEmail = ({
   <EmailShell
     preview="You're now a Supporting Alumni of START Berlin"
     eyebrow="Membership"
+    campaign="membership-supporting-alumni-confirmed"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       You're now a Supporting Alumni
@@ -21,7 +22,7 @@ export const MembershipSupportingAlumniConfirmedEmail = ({
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Your transition to Supporting Alumni of START Berlin e.V. is confirmed.
       You'll still be invited to events and community activities, and we're glad
-      to keep you in the START Berlin family.
+      to keep you in the START Berlin community.
     </Text>
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
       Thanks for your continued support.

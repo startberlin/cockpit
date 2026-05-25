@@ -23,6 +23,7 @@ import {
 import { events, inngest } from "@/lib/inngest";
 import { archiveLegalDocument } from "@/lib/legal-documents/drive-archive";
 import { renderMembershipTransitionTemplate } from "@/lib/legal-documents/templates/membership-transition";
+import { track } from "@/lib/posthog-server";
 import { notifyUntil } from "./lib/step-loops";
 
 export const membershipCancellationWorkflow = inngest.createFunction(
@@ -124,7 +125,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
                   firstName: recipient.firstName,
                   subjectName,
                   requestedAt,
-                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/people/${userId}`,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/acknowledge-cancellation/${userId}`,
                   receivingReason: boardMemberIds.has(recipient.userId)
                     ? "You're receiving this because you're a board member of START Berlin."
                     : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
@@ -146,6 +147,22 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         send: (index) => sendAckEmails({ isReminder: index > 0 }),
       });
     }
+
+    // Read user state before cancellation for replay-safe before/after diff.
+    const userBeforeCancellation = await step.run(
+      "read-user-state-before-cancellation",
+      async () => {
+        const u = await db.query.user.findFirst({
+          where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+          columns: { status: true, department: true, batchNumber: true },
+        });
+        return {
+          status: u?.status ?? null,
+          department: u?.department ?? null,
+          batchNumber: u?.batchNumber ?? null,
+        };
+      },
+    );
 
     // Step 3: Atomic cancellation transaction.
     await step.run("execute-cancellation-transaction", async () => {
@@ -247,6 +264,17 @@ export const membershipCancellationWorkflow = inngest.createFunction(
           }),
         });
       });
+
+      await step.run("capture-analytics-cancellation-email", async () => {
+        track({
+          distinctId: userId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "membership_cancelled",
+            subject_id: userId,
+          },
+        });
+      });
     }
 
     // Step 8: Notify board and department head that the membership has ended.
@@ -305,6 +333,19 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     await step.sendEvent("fire-group-reconciliation", {
       name: events.cockpitUserUpdated.name,
       data: { id: userId },
+    });
+
+    await step.sendEvent("sync-system-groups-after-cancellation", {
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId,
+        before: userBeforeCancellation,
+        after: {
+          status: "cancelled",
+          department: userBeforeCancellation.department,
+          batchNumber: userBeforeCancellation.batchNumber,
+        },
+      },
     });
 
     // Step 11: Erase personal data and mark request executed.

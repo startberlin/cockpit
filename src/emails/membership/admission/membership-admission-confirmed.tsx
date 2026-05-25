@@ -12,6 +12,7 @@ export const MembershipAdmissionConfirmedEmail = ({
   <EmailShell
     preview="Your START Berlin membership is active"
     eyebrow="Welcome to START Berlin"
+    campaign="membership-admission-confirmed"
   >
     <Heading className="mt-0 mb-[16px] p-0 font-bold text-[24px] text-[#1C1917]">
       Your membership is active

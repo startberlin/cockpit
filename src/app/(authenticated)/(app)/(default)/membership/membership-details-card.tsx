@@ -85,16 +85,32 @@ function formatDuration(from: Date, to: Date): string {
   return unit(Math.max(days, 1), "day");
 }
 
-function formatPaymentPeriod(activationDate: string): {
+function formatPaymentPeriod(
+  activationDate: string,
+  status: string,
+): {
   term: string;
   nextDue: string;
 } {
+  const monthYear = (d: Date) =>
+    d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  if (status === "proposed") {
+    // activationDate is when the next payment is due; current term is the year before it
+    const nextDue = new Date(`${activationDate}T00:00:00`);
+    const termStart = new Date(nextDue);
+    termStart.setFullYear(termStart.getFullYear() - 1);
+    const termEnd = new Date(nextDue);
+    termEnd.setDate(termEnd.getDate() - 1);
+    return {
+      term: `${monthYear(termStart)} – ${monthYear(termEnd)}`,
+      nextDue: formatDate(nextDue),
+    };
+  }
+
   const start = new Date(`${activationDate}T00:00:00`);
   const end = new Date(start);
   end.setFullYear(end.getFullYear() + 1);
-
-  const monthYear = (d: Date) =>
-    d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   return {
     term: `${monthYear(start)} – ${monthYear(end)}`,
@@ -119,7 +135,7 @@ export async function MembershipDetailsCard({
     rawDepartmentHead?.id === user.id ? null : rawDepartmentHead;
 
   const payment = paymentTerm
-    ? formatPaymentPeriod(paymentTerm.activationDate)
+    ? formatPaymentPeriod(paymentTerm.activationDate, paymentTerm.status)
     : null;
   const duration = memberSince ? formatDuration(memberSince, new Date()) : null;
 

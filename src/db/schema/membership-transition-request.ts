@@ -26,6 +26,7 @@ export const membershipTransitionReason = pgEnum(
 export type MembershipTransitionReason =
   (typeof membershipTransitionReason.enumValues)[number];
 
+// Records must never be deleted — admin tasks history depends on them.
 export const membershipTransitionRequest = pgTable(
   "membership_transition_request",
   {

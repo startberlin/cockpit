@@ -20,6 +20,7 @@ export const MembershipPaymentUpcomingEmail = ({
     <EmailShell
       preview="Your START Berlin membership payment is coming up"
       eyebrow="Membership payment"
+      campaign="membership-payment-upcoming"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         Your membership payment is coming up

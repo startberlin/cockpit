@@ -9,11 +9,6 @@ export default function GroupDetailSkeleton() {
         <Skeleton className="h-4 w-56" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Skeleton className="h-[76px] rounded-xl" />
-        <Skeleton className="h-[76px] rounded-xl" />
-      </div>
-
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between pb-1">
           <Skeleton className="h-4 w-20" />

@@ -104,7 +104,12 @@ export function CanvaDialog({
                   </EmptyHeader>
                   <EmptyContent>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href="https://www.canva.com/signup" target="_blank">
+                      <Link
+                        href="https://www.canva.com/signup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-ph-capture-attribute-service="canva"
+                      >
                         <ExternalLink />
                         Open Canva
                       </Link>

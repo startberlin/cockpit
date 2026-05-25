@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
@@ -13,6 +14,7 @@ import {
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 import { buildImportedUserNotificationEmail } from "./import-google-user-email";
 import {
   fetchWorkspaceUsersPageSchema,
@@ -97,6 +99,21 @@ export const importGoogleWorkspaceUserAction = actionClient
         name: events.cockpitUserUpdated.name,
         data: { id: existingUser.id },
       });
+      await inngest.send({
+        name: events.userSystemGroupsSync.name,
+        data: {
+          userId: existingUser.id,
+          before: { status: null, department: null, batchNumber: null },
+          after: {
+            status: parsedInput.status,
+            department: normalizeImportedDepartment(
+              parsedInput.status,
+              parsedInput.department,
+            ),
+            batchNumber: parsedInput.batchNumber ?? null,
+          },
+        },
+      });
       const existingLm = await db.query.legalMembership.findFirst({
         where: (lm, { and, eq, inArray }) =>
           and(
@@ -152,6 +169,30 @@ export const importGoogleWorkspaceUserAction = actionClient
           status: parsedInput.status,
         },
         description: `${parsedInput.status} · ${workspaceUser.primaryEmail}`,
+      });
+
+      after(async () => {
+        const importedUserRecord = await db.query.user.findFirst({
+          where: (users, { eq: eqFn }) => eqFn(users.id, existingUser.id),
+          columns: {
+            id: true,
+            status: true,
+            department: true,
+            batchNumber: true,
+            legalMembershipState: true,
+            memberSinceDate: true,
+          },
+        });
+        if (importedUserRecord) {
+          track({
+            distinctId: existingUser.id,
+            event: "admin_user_imported",
+            properties: {
+              actor_id: ctx.user.id,
+              ...buildSubjectMetadata(importedUserRecord),
+            },
+          });
+        }
       });
 
       return { id: existingUser.id };
@@ -227,6 +268,22 @@ export const importGoogleWorkspaceUserAction = actionClient
       data: { id: createdUser.id },
     });
 
+    await inngest.send({
+      name: events.userSystemGroupsSync.name,
+      data: {
+        userId: createdUser.id,
+        before: { status: null, department: null, batchNumber: null },
+        after: {
+          status: parsedInput.status,
+          department: normalizeImportedDepartment(
+            parsedInput.status,
+            parsedInput.department,
+          ),
+          batchNumber: parsedInput.batchNumber ?? null,
+        },
+      },
+    });
+
     if (createdUser.createdLegalMembershipId) {
       // Kicks the reconfirmation reminder workflow. Its first run sends the
       // "Your START Cockpit access is ready" email when the user has not yet
@@ -271,6 +328,30 @@ export const importGoogleWorkspaceUserAction = actionClient
         email: workspaceUser.primaryEmail,
         status: parsedInput.status,
       },
+    });
+
+    after(async () => {
+      const importedUserRecord = await db.query.user.findFirst({
+        where: (users, { eq: eqFn }) => eqFn(users.id, createdUser.id),
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+          legalMembershipState: true,
+          memberSinceDate: true,
+        },
+      });
+      if (importedUserRecord) {
+        track({
+          distinctId: createdUser.id,
+          event: "admin_user_imported",
+          properties: {
+            actor_id: ctx.user.id,
+            ...buildSubjectMetadata(importedUserRecord),
+          },
+        });
+      }
     });
 
     return { id: createdUser.id };

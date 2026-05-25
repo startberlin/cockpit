@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { createTransitionRequest } from "@/db/membership-transitions";
@@ -9,6 +10,7 @@ import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const schema = z.object({
   targetUserId: z.string().min(1),
@@ -45,7 +47,15 @@ export const boardKickAction = actionClient
       .where(eq(session.userId, parsedInput.targetUserId));
 
     const [targetUser] = await db
-      .select({ id: userTable.id, name: userTable.name })
+      .select({
+        id: userTable.id,
+        name: userTable.name,
+        status: userTable.status,
+        department: userTable.department,
+        batchNumber: userTable.batchNumber,
+        legalMembershipState: userTable.legalMembershipState,
+        memberSinceDate: userTable.memberSinceDate,
+      })
       .from(userTable)
       .where(eq(userTable.id, parsedInput.targetUserId))
       .limit(1);
@@ -58,6 +68,19 @@ export const boardKickAction = actionClient
       metadata: { requestId: request.id },
       description: "Removed by board",
     });
+
+    if (targetUser) {
+      after(() =>
+        track({
+          distinctId: targetUser.id,
+          event: "admin_user_removed",
+          properties: {
+            actor_id: ctx.user.id,
+            ...buildSubjectMetadata(targetUser),
+          },
+        }),
+      );
+    }
 
     return { requestId: request.id };
   });

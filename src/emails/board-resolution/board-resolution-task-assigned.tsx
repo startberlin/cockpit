@@ -19,6 +19,8 @@ export const BoardResolutionTaskAssignedEmail = ({
     preview={`Action required: vote on ${subjectName}'s membership`}
     eyebrow="Board resolution"
     footerAudience="board"
+    campaign="board-resolution-task-assigned"
+    isReminder={isReminder}
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       {isReminder && "Reminder: "}Membership vote required
@@ -35,14 +37,20 @@ export const BoardResolutionTaskAssignedEmail = ({
       Open the resolution in START Cockpit to view the application details and
       record your vote.
     </Text>
-    <EmailCta href={resolutionUrl} label="View resolution" />
+    <EmailCta
+      href={resolutionUrl}
+      label="View resolution"
+      campaign="board-resolution-task-assigned"
+      isReminder={isReminder}
+    />
   </EmailShell>
 );
 
 BoardResolutionTaskAssignedEmail.PreviewProps = {
   firstName: "Marie",
   subjectName: "Sönke Peters",
-  resolutionUrl: "https://cockpit.start-berlin.com/people/resolutions/res_123",
+  resolutionUrl:
+    "https://cockpit.start-berlin.com/admin/tasks/vote-admission/res_123",
 } as BoardResolutionTaskAssignedEmailProps;
 
 export default BoardResolutionTaskAssignedEmail;

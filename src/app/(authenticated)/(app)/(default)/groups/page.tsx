@@ -1,37 +1,64 @@
-import { listGroupsPublic } from "@/db/groups";
+import db from "@/db";
+import { listGroupsForViewer } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
+import {
+  getAllSystemGroups,
+  getSystemGroupsForUser,
+} from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
-import GroupsPageClient from "./page-client";
+import GroupsClient from "./page-client";
 
 export const metadata = createMetadata({
   title: "Groups",
-  description: "Browse groups in the START Berlin community.",
+  description: "All START Berlin groups.",
 });
 
-interface GroupsPageProps {
-  searchParams: Promise<{ page?: string; q?: string }>;
-}
-
-export default async function GroupsPage({ searchParams }: GroupsPageProps) {
+export default async function GroupsPage() {
   const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return <p>No groups found</p>;
-  }
+  if (!currentUser) return null;
 
-  const { page: pageParam, q: search = "" } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const [userRecord, positions, batches, manualGroupsResult] =
+    await Promise.all([
+      db.query.user.findFirst({
+        where: (u, { eq }) => eq(u.id, currentUser.id),
+        columns: { status: true, department: true, batchNumber: true },
+        with: { accessGrants: { columns: { grant: true } } },
+      }),
+      db.query.userOrganizationPosition.findMany({
+        where: (p, { eq }) => eq(p.userId, currentUser.id),
+        columns: { position: true, scope: true, department: true },
+      }),
+      db.query.batch.findMany({ columns: { number: true } }),
+      listGroupsForViewer(currentUser.id),
+    ]);
 
-  const { groups, total, pageCount } = await listGroupsPublic(currentUser.id, {
-    page,
-    search,
-  });
+  const userSystemGroupSlugs = new Set(
+    userRecord
+      ? getSystemGroupsForUser(
+          {
+            id: currentUser.id,
+            status: userRecord.status,
+            department: userRecord.department,
+            batchNumber: userRecord.batchNumber,
+            grants: userRecord.accessGrants.map((g) => g.grant),
+          },
+          positions,
+          batches,
+        ).map((g) => g.slug)
+      : [],
+  );
+
+  const allSystemGroups = getAllSystemGroups(batches);
 
   return (
-    <GroupsPageClient
-      groups={groups}
-      total={total}
-      pageCount={pageCount}
-      initialSearch={search}
+    <GroupsClient
+      systemGroups={allSystemGroups.map((sg) => ({
+        slug: sg.slug,
+        name: sg.name,
+        email: sg.googleGroupEmail,
+        isMember: userSystemGroupSlugs.has(sg.slug),
+      }))}
+      manualGroups={manualGroupsResult.groups}
     />
   );
 }

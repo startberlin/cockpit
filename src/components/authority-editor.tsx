@@ -99,8 +99,9 @@ export function AuthorityEditor({
                   <span className="flex flex-col gap-0.5">
                     <span>Super Admin</span>
                     <span className="text-muted-foreground text-xs">
-                      All Admin permissions, plus can impersonate any user. Only
-                      Super Admins can grant this role.
+                      All Admin permissions, plus can impersonate users, manage
+                      officer assignments, and cancel memberships. Only Super
+                      Admins can grant this role.
                     </span>
                   </span>
                 </span>
@@ -116,8 +117,8 @@ export function AuthorityEditor({
                 <span className="flex flex-col gap-0.5">
                   <span>Admin</span>
                   <span className="text-muted-foreground text-xs">
-                    Can manage members, groups, positions, and permissions
-                    across START Cockpit.
+                    Can manage members, groups, intake batches, and permissions.
+                    Has full access to the audit log.
                   </span>
                 </span>
               </span>
@@ -134,8 +135,8 @@ export function AuthorityEditor({
                 <span className="flex flex-col gap-0.5">
                   <span>Finance Admin</span>
                   <span className="text-muted-foreground text-xs">
-                    Can view and manage membership payments across START
-                    Cockpit.
+                    Can view and manage membership payments, and see individual
+                    member payment details.
                   </span>
                 </span>
               </span>
@@ -152,8 +153,8 @@ export function AuthorityEditor({
                 <span className="flex flex-col gap-0.5">
                   <span>People Admin</span>
                   <span className="text-muted-foreground text-xs">
-                    Can create groups, manage group members, and manage matching
-                    rules across START Cockpit.
+                    Can add and import members, view all member profiles and
+                    groups, and view membership tasks.
                   </span>
                 </span>
               </span>

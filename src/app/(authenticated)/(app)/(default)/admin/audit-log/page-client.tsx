@@ -168,9 +168,9 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Event</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead className="text-right">Time</TableHead>
+              <TableHead className="w-40">Subject</TableHead>
+              <TableHead className="w-40">Actor</TableHead>
+              <TableHead className="w-24 text-right">Time</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -207,7 +207,7 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
                   </TableCell>
                   <TableCell>
                     {row.subjectName ? (
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-medium truncate block">
                         {row.subjectName}
                       </span>
                     ) : (
@@ -217,7 +217,7 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
                   <TableCell>
                     <span
                       className={cn(
-                        "text-sm",
+                        "text-sm truncate block",
                         !row.actorName && "text-muted-foreground",
                       )}
                     >

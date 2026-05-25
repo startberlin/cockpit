@@ -19,6 +19,7 @@ export const MembershipCancelledEmail = ({
         : "Your START Berlin membership has ended"
     }
     eyebrow="Membership"
+    campaign="membership-cancelled"
   >
     {reason === "removed_by_board" ? (
       <>

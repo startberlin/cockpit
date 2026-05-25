@@ -1,3 +1,5 @@
+import { authCleanupCron } from "./auth-cleanup";
+import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
 import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { mandateFixReminderWorkflow } from "./mandate-fix-reminder-workflow";
@@ -12,17 +14,21 @@ import {
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
 } from "./position-assignment-notifications";
-import { reconcileGroupMembershipWorkflow } from "./reconcile-group-membership";
-import { reconcileUserGroupMembershipWorkflow } from "./reconcile-user-group-membership";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
-import { syncGroupsCron } from "./sync-groups-cron";
+import { syncManualGroupMemberWorkflow } from "./sync-manual-group-member";
+import { syncPositionSystemGroupsWorkflow } from "./sync-position-system-groups";
+import { syncSystemGroupsCron } from "./sync-system-groups-cron";
+import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  authCleanupCron,
+  bootstrapBatchSystemGroupWorkflow,
   financePaymentProposalsDigest,
   gocardlessEventsCleanupCron,
   mandateFixReminderWorkflow,
   mandateSetupReminderWorkflow,
-  syncGroupsCron,
+  syncManualGroupMemberWorkflow,
+  syncSystemGroupsCron,
   membershipAdmissionWorkflow,
   membershipCancellationWorkflow,
   membershipPaymentProposalsCron,
@@ -31,7 +37,7 @@ export const inngestFunctions = [
   onboardNewUserWorkflow,
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
-  reconcileGroupMembershipWorkflow,
-  reconcileUserGroupMembershipWorkflow,
   reconfirmationReminderWorkflow,
+  syncPositionSystemGroupsWorkflow,
+  syncUserSystemGroupsWorkflow,
 ];

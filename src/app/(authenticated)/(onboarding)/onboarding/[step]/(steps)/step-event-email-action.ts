@@ -1,10 +1,12 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { track } from "@/lib/posthog-server";
 
 const schema = z
   .object({
@@ -38,6 +40,20 @@ export const saveEventEmailPreferenceAction = actionClient
             : null,
       })
       .where(eq(userTable.id, ctx.user.id));
+
+    after(() => {
+      track({
+        distinctId: ctx.user.id,
+        event: "onboarding_email_preference_selected",
+        properties: {
+          preference: parsedInput.eventEmailPreference,
+        },
+      });
+      track({
+        distinctId: ctx.user.id,
+        event: "onboarding_completed",
+      });
+    });
 
     return { success: true };
   });

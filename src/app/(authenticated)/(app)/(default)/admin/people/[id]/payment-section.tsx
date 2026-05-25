@@ -94,18 +94,20 @@ export async function PaymentSection({ userId }: PaymentSectionProps) {
         }, null)
       : null;
 
-  const nextDueDate = paymentTerm
-    ? formatDate(
-        new Date(
-          new Date(`${paymentTerm.activationDate}T00:00:00`).setFullYear(
-            new Date(`${paymentTerm.activationDate}T00:00:00`).getFullYear() +
-              1,
-          ),
-        )
-          .toISOString()
-          .slice(0, 10),
-      )
-    : null;
+  let nextDueDate: string | null = null;
+  if (paymentTerm) {
+    if (paymentTerm.status === "proposed") {
+      // For a proposed payment the collection date is the activation date itself
+      nextDueDate = formatDate(paymentTerm.activationDate);
+    } else {
+      const d = new Date(`${paymentTerm.activationDate}T00:00:00`);
+      d.setFullYear(d.getFullYear() + 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      nextDueDate = formatDate(`${yyyy}-${mm}-${dd}`);
+    }
+  }
 
   return (
     <Card className="overflow-hidden">

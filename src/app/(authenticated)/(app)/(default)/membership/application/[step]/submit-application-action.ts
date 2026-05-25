@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { after } from "next/server";
 import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
@@ -17,6 +18,7 @@ import {
   readFinanzordnungBuffer,
   readSatzungBuffer,
 } from "@/lib/legal-documents/static-documents";
+import { track } from "@/lib/posthog-server";
 import { submitApplicationSchema } from "./application-validation";
 
 export const submitApplicationAction = actionClient
@@ -197,6 +199,13 @@ export const submitApplicationAction = actionClient
       subject: { id: user.id, name: user.name },
       metadata: { legalMembershipId: parsedInput.legalMembershipId },
     });
+
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "membership_application_submitted",
+      }),
+    );
 
     return { success: true };
   });

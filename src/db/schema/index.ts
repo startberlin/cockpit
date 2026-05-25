@@ -21,8 +21,6 @@ import { emailSuppression, emailSuppressionReason } from "./email-suppression";
 import { gocardlessProcessedEvents } from "./gocardless-processed-events";
 import {
   group,
-  groupCriteria,
-  groupCriteriaRelations,
   groupRelations,
   usersToGroups,
   usersToGroupsRelations,
@@ -103,10 +101,8 @@ export const schema = {
   usersRelations,
   batchRelations,
   group,
-  groupCriteria,
   usersToGroups,
   groupRelations,
-  groupCriteriaRelations,
   usersToGroupsRelations,
   membershipPayments,
   membershipPaymentsRelations,
