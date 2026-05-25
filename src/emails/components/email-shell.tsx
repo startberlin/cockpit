@@ -15,12 +15,15 @@ import {
   Text,
 } from "react-email";
 import { COCKPIT_URL } from "@/emails/components/cockpit-url";
+import { withUtm } from "@/emails/components/utm";
 
 interface EmailShellProps {
   preview: string;
   eyebrow?: string;
   footerAudience?: "member" | "board";
   receivingReason?: string;
+  campaign: string;
+  isReminder?: boolean;
   children: ReactNode;
 }
 
@@ -29,6 +32,8 @@ export function EmailShell({
   eyebrow,
   footerAudience = "member",
   receivingReason,
+  campaign,
+  isReminder,
   children,
 }: EmailShellProps) {
   const defaultReason =
@@ -118,7 +123,14 @@ export function EmailShell({
                   Berlin
                 </Text>
                 <Text className="mt-[8px] mb-0 text-[11px] text-[#78716C] leading-[18px]">
-                  <Link href={COCKPIT_URL} className="text-[#1C1917] underline">
+                  <Link
+                    href={withUtm(COCKPIT_URL, {
+                      campaign,
+                      content: "footer",
+                      isReminder,
+                    })}
+                    className="text-[#1C1917] underline"
+                  >
                     Open START Cockpit
                   </Link>
                 </Text>

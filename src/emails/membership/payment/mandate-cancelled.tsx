@@ -16,6 +16,8 @@ export const MandateCancelledEmail = ({
   <EmailShell
     preview="Action needed: set up your direct debit for START Berlin membership"
     eyebrow="Membership payment"
+    campaign="mandate-cancelled"
+    isReminder={isReminder}
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
       {isReminder && "Reminder: "}Your direct debit needs to be set up again
@@ -35,7 +37,12 @@ export const MandateCancelledEmail = ({
       before. You will be guided through a short bank authorization step to
       confirm the direct debit.
     </Text>
-    <EmailCta href={membershipUrl} label="Set up direct debit" />
+    <EmailCta
+      href={membershipUrl}
+      label="Set up direct debit"
+      campaign="mandate-cancelled"
+      isReminder={isReminder}
+    />
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
       If you run into any issues or have questions, reach out to{" "}
       <a href="mailto:operations@start-berlin.com" style={{ color: "#1C1917" }}>

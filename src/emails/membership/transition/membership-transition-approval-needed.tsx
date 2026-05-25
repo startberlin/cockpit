@@ -37,6 +37,8 @@ export const MembershipTransitionApprovalNeededEmail = ({
       eyebrow="Membership"
       footerAudience="board"
       receivingReason={receivingReason}
+      campaign="membership-transition-approval-needed"
+      isReminder={isReminder}
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
         {isReminder && "Reminder: "}
@@ -61,7 +63,12 @@ export const MembershipTransitionApprovalNeededEmail = ({
           { label: "Requested on", value: requestedAt },
         ]}
       />
-      <EmailCta href={profileUrl} label="Review in START Cockpit" />
+      <EmailCta
+        href={profileUrl}
+        label="Review in START Cockpit"
+        campaign="membership-transition-approval-needed"
+        isReminder={isReminder}
+      />
     </EmailShell>
   );
 };
