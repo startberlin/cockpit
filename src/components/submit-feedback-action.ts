@@ -9,7 +9,7 @@ import { getSystemGroupBySlug } from "@/lib/groups/system-groups";
 const FROM =
   "Cockpit Feedback <no-reply@notification.cockpit.start-berlin.com>";
 
-export const CATEGORY_LABEL = {
+const CATEGORY_LABEL = {
   bug: "Something is broken",
   suggestion: "Suggestion",
   other: "Something else",

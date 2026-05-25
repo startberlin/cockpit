@@ -12,7 +12,12 @@ import {
   Tailwind,
   Text,
 } from "react-email";
-import { CATEGORY_LABEL } from "@/components/submit-feedback-action";
+
+const CATEGORY_LABEL = {
+  bug: "Something is broken",
+  suggestion: "Suggestion",
+  other: "Something else",
+} as const;
 
 type Category = keyof typeof CATEGORY_LABEL;
 
