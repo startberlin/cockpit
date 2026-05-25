@@ -34,8 +34,8 @@ export const createBatchAction = actionClient
       .insert(batch)
       .values({ number: parsedInput.number, startDate: parsedInput.startDate });
 
-    revalidatePath("/people/batches");
-    revalidatePath("/people");
+    revalidatePath("/admin/people/batches");
+    revalidatePath("/admin/people");
 
     try {
       await inngest.send({

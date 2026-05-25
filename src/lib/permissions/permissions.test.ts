@@ -168,7 +168,7 @@ describe("permissions", () => {
           positions: [{ position: "president", scope: "global" }],
         }),
         "group.members.manage",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       false,
     );
@@ -179,7 +179,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
         "group.members.manage",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       true,
     );
@@ -190,7 +190,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "group.members.manage",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       false,
     );
@@ -237,8 +237,40 @@ describe("permissions", () => {
     assert.equal(
       evaluateAuth(authority(), "group.members.manage", {
         isGroupMember: true,
+        isGroupManager: false,
       }),
       false,
+    );
+  });
+
+  it("allows group managers to manage group members", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.members.manage", {
+        isGroupMember: true,
+        isGroupManager: true,
+      }),
+      true,
+    );
+  });
+
+  it("denies group managers from managing group managers", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.managers.manage", {
+        isGroupMember: true,
+        isGroupManager: true,
+      }),
+      false,
+    );
+  });
+
+  it("allows admins to manage group managers", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "admin" }] }),
+        "group.managers.manage",
+        { isGroupMember: false, isGroupManager: false },
+      ),
+      true,
     );
   });
 
@@ -247,7 +279,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
         "group.export",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       true,
     );
@@ -258,7 +290,7 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "group.export",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       true,
     );
@@ -266,14 +298,30 @@ describe("permissions", () => {
 
   it("denies plain group members from exporting", () => {
     assert.equal(
-      evaluateAuth(authority(), "group.export", { isGroupMember: true }),
+      evaluateAuth(authority(), "group.export", {
+        isGroupMember: true,
+        isGroupManager: false,
+      }),
       false,
+    );
+  });
+
+  it("allows group managers to export their group", () => {
+    assert.equal(
+      evaluateAuth(authority(), "group.export", {
+        isGroupMember: true,
+        isGroupManager: true,
+      }),
+      true,
     );
   });
 
   it("denies non-members from exporting", () => {
     assert.equal(
-      evaluateAuth(authority(), "group.export", { isGroupMember: false }),
+      evaluateAuth(authority(), "group.export", {
+        isGroupMember: false,
+        isGroupManager: false,
+      }),
       false,
     );
   });
@@ -309,7 +357,7 @@ describe("permissions", () => {
             grants: [{ grant: "admin" }],
           }),
           "group.members.manage",
-          { isGroupMember: false },
+          { isGroupMember: false, isGroupManager: false },
         ),
         false,
       );
@@ -324,7 +372,7 @@ describe("permissions", () => {
           grants: [{ grant: "admin" }],
         }),
         "group.members.manage",
-        { isGroupMember: false },
+        { isGroupMember: false, isGroupManager: false },
       ),
       true,
     );

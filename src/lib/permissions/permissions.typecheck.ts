@@ -8,8 +8,14 @@ declare const check: CanCheck;
 evaluateAuth(authority, "groups.view_all");
 evaluateAuth(authority, "users.view_inactive");
 evaluateAuth(authority, "user.view_details", { targetDepartment: "events" });
-evaluateAuth(authority, "group.members.manage", { isGroupMember: true });
-evaluateAuth(authority, "group.export", { isGroupMember: false });
+evaluateAuth(authority, "group.members.manage", {
+  isGroupMember: true,
+  isGroupManager: false,
+});
+evaluateAuth(authority, "group.export", {
+  isGroupMember: false,
+  isGroupManager: false,
+});
 
 // UnscopedViewActions — valid both with and without dept scope.
 evaluateAuth(authority, "user.view_details"); // gate check

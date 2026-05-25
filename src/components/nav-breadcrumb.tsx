@@ -22,9 +22,13 @@ const SEGMENT_LABELS: Record<string, string> = {
   "become-alumni": "Choose alumni status",
   alumni: "Alumni",
   "supporting-alumni": "Supporting Alumni",
-  "org-chart": "Org Chart",
+  "org-chart": "Org chart",
   "audit-log": "Audit log",
   tasks: "Tasks",
+  positions: "Officer Assignments",
+  permissions: "Permissions",
+  propose: "Propose for membership",
+  remove: "Remove member",
 };
 
 /**
@@ -54,6 +58,45 @@ const PATH_PREFIX_CRUMBS: [prefix: string, crumbs: Crumb[]][] = [
       { label: "Alumni" },
     ],
   ],
+  [
+    "/admin/groups/",
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "All groups", href: "/admin/groups" },
+      { label: "", skeleton: true },
+    ],
+  ],
+  [
+    "/admin/groups",
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "All groups", href: "/admin/groups" },
+    ],
+  ],
+  [
+    "/admin/tasks/acknowledge-cancellation/",
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "Tasks", href: "/admin/tasks" },
+      { label: "Cancellation acknowledgement" },
+    ],
+  ],
+  [
+    "/admin/tasks/approve-alumni/",
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "Tasks", href: "/admin/tasks" },
+      { label: "Alumni transition approval" },
+    ],
+  ],
+  [
+    "/admin/tasks/vote-admission/",
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "Tasks", href: "/admin/tasks" },
+      { label: "Board resolution" },
+    ],
+  ],
 ];
 
 function looksLikeId(segment: string): boolean {
@@ -71,10 +114,15 @@ function buildDefaultCrumbs(pathname: string): Crumb[] {
   return segments.map((seg, i) => {
     const isLast = i === segments.length - 1;
     const href = `/${segments.slice(0, i + 1).join("/")}`;
-    const label = looksLikeId(seg)
-      ? "Details"
-      : (SEGMENT_LABELS[seg] ?? decodeURIComponent(seg));
-    return isLast ? { label } : { label, href };
+    const staticLabel = SEGMENT_LABELS[seg];
+    if (!isLast) {
+      if (staticLabel !== undefined) return { label: staticLabel, href };
+      if (looksLikeId(seg)) return { label: "", skeleton: true, href };
+      return { label: decodeURIComponent(seg), href };
+    }
+    return staticLabel !== undefined
+      ? { label: staticLabel }
+      : { label: "", skeleton: true };
   });
 }
 

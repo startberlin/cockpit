@@ -28,8 +28,8 @@ export const updateBatchAction = actionClient
       .set({ startDate: parsedInput.startDate })
       .where(eq(batch.number, parsedInput.number));
 
-    revalidatePath("/people/batches");
-    revalidatePath("/people");
+    revalidatePath("/admin/people/batches");
+    revalidatePath("/admin/people");
 
     const fieldsChanged: string[] = [];
     if (currentBatch && currentBatch.startDate !== parsedInput.startDate) {

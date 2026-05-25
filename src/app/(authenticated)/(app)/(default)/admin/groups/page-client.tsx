@@ -1,20 +1,26 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import Link from "next/link";
-import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Can } from "@/components/can";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useCan } from "@/components/can";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -23,53 +29,84 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AdminGroup } from "@/db/groups";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { AdminGroup, GroupManager } from "@/db/groups";
 import type { SystemGroup } from "@/lib/groups/system-groups";
-import { exportGroupCsvAction } from "../../groups/[id]/actions";
+import { exportMultipleGroupsCsvAction } from "../../groups/[id]/actions";
 import { CreateGroupDialog } from "./create-group-dialog";
 
-async function handleExport(groupId: string) {
-  try {
-    const csv = await exportGroupCsvAction(groupId);
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "group-members-luma.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch (_error) {
-    toast.error(
-      "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-    );
-  }
+function ManagerAvatarStack({ managers }: { managers: GroupManager[] }) {
+  if (managers.length === 0)
+    return <span className="text-muted-foreground">—</span>;
+
+  return (
+    <TooltipProvider>
+      <AvatarGroup>
+        {managers.map((m) => (
+          <Tooltip key={m.id}>
+            <TooltipTrigger asChild>
+              <Avatar size="sm">
+                {m.image && (
+                  <AvatarImage
+                    src={m.image}
+                    alt={`${m.firstName} ${m.lastName}`}
+                  />
+                )}
+                <AvatarFallback>
+                  {m.firstName?.[0]}
+                  {m.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+            </TooltipTrigger>
+            <TooltipContent>
+              {m.firstName} {m.lastName}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </AvatarGroup>
+    </TooltipProvider>
+  );
 }
 
 interface SystemGroupWithCount extends SystemGroup {
   memberCount: number;
 }
 
+interface UnifiedGroup {
+  key: string;
+  exportId: string;
+  href: string;
+  name: string;
+  googleGroupEmail: string | null;
+  memberCount: number;
+  managers: GroupManager[];
+  isSystem: boolean;
+  canExport: boolean;
+}
+
 interface AdminGroupsPageClientProps {
   systemGroups: SystemGroupWithCount[];
   manualGroups: AdminGroup[];
   total: number;
-  pageCount: number;
   initialSearch: string;
+  canExportAll: boolean;
+  viewerManagerGroupIds: string[];
 }
 
 export default function AdminGroupsPageClient({
   systemGroups,
   manualGroups,
   total,
-  pageCount,
   initialSearch,
+  canExportAll,
+  viewerManagerGroupIds,
 }: AdminGroupsPageClientProps) {
-  const [page, setPage] = useQueryState(
-    "page",
-    parseAsInteger.withDefault(1).withOptions({ shallow: false }),
-  );
+  const viewerManagerGroupIdSet = new Set(viewerManagerGroupIds);
   const [search, setSearch] = useQueryState(
     "q",
     parseAsString
@@ -77,171 +114,231 @@ export default function AdminGroupsPageClient({
       .withOptions({ throttleMs: 300, clearOnDefault: true, shallow: false }),
   );
 
+  const [selectedRows, setSelectedRows] = useState(
+    new Map<string, UnifiedGroup>(),
+  );
+
+  const can = useCan();
+  const canExportAny =
+    can("group.export", { isMember: true }) ||
+    (!canExportAll && viewerManagerGroupIds.length > 0);
+
+  const systemRows: UnifiedGroup[] = systemGroups.map((sg) => ({
+    key: sg.slug,
+    exportId: sg.slug,
+    href: `/admin/groups/${sg.slug}`,
+    name: sg.name,
+    googleGroupEmail: sg.googleGroupEmail,
+    memberCount: sg.memberCount,
+    managers: [],
+    isSystem: true,
+    canExport: canExportAll,
+  }));
+
+  const manualRows: UnifiedGroup[] = manualGroups.map((g) => ({
+    key: g.id,
+    exportId: g.id,
+    href: `/admin/groups/${g.id}`,
+    name: g.name,
+    googleGroupEmail: g.googleGroupEmail,
+    memberCount: g.memberCount,
+    managers: g.managers,
+    isSystem: false,
+    canExport: canExportAll || viewerManagerGroupIdSet.has(g.id),
+  }));
+
+  const filteredSystemRows = search
+    ? systemRows.filter((r) =>
+        r.name.toLowerCase().includes(search.toLowerCase()),
+      )
+    : systemRows;
+
+  const allRows = [...filteredSystemRows, ...manualRows].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+
+  const allVisibleSelected =
+    allRows.length > 0 && allRows.every((r) => selectedRows.has(r.key));
+  const someVisibleSelected = allRows.some((r) => selectedRows.has(r.key));
+  const headerChecked = allVisibleSelected
+    ? true
+    : someVisibleSelected
+      ? "indeterminate"
+      : false;
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected || someVisibleSelected) {
+      setSelectedRows((prev) => {
+        const next = new Map(prev);
+        for (const r of allRows) next.delete(r.key);
+        return next;
+      });
+    } else {
+      setSelectedRows((prev) => {
+        const next = new Map(prev);
+        for (const r of allRows) next.set(r.key, r);
+        return next;
+      });
+    }
+  };
+
+  const toggleRow = (row: UnifiedGroup) => {
+    setSelectedRows((prev) => {
+      const next = new Map(prev);
+      if (next.has(row.key)) {
+        next.delete(row.key);
+      } else {
+        next.set(row.key, row);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkExport = async () => {
+    const rows = Array.from(selectedRows.values());
+    const exportIds = rows.map((r) => r.exportId);
+    const fileName =
+      rows.length === 1
+        ? `${rows[0].name.toLowerCase().replace(/\s+/g, "-")}-luma.csv`
+        : "groups-luma.csv";
+    try {
+      const csv = await exportMultipleGroupsCsvAction(exportIds);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (_error) {
+      toast.error(
+        "Could not export groups. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Groups</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">All groups</h1>
+        <CreateGroupDialog />
       </div>
 
-      {/* System groups */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          System groups
-        </h2>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Members</TableHead>
-                <TableHead>Email</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {systemGroups.map((sg) => (
-                <TableRow key={sg.slug} className="cursor-pointer">
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/groups/${sg.slug}`}
-                      className="hover:underline"
-                    >
-                      <div className="flex items-center gap-2">
-                        {sg.name}
-                        <Badge variant="secondary" className="text-xs">
-                          Auto
-                        </Badge>
-                      </div>
-                    </Link>
-                  </TableCell>
-                  <TableCell>{sg.memberCount}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {sg.googleGroupEmail}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      {/* Manual groups */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Manual groups
-          </h2>
-          <CreateGroupDialog />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search groups..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value || null);
-              setPage(1);
-            }}
-            className="max-w-sm"
-          />
-          <span className="text-sm text-muted-foreground ml-auto">
-            {total} group{total === 1 ? "" : "s"}
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Search groups..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value || null);
+          }}
+          className="max-w-sm"
+        />
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {allRows.length} group
+            {allRows.length === 1 ? "" : "s"}
           </span>
+          {canExportAny &&
+            selectedRows.size > 0 &&
+            (() => {
+              const canExportAllSelected = Array.from(
+                selectedRows.values(),
+              ).every((r) => r.canExport);
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canExportAllSelected}
+                      title={
+                        canExportAllSelected
+                          ? undefined
+                          : "You don't have export permission for one or more selected groups"
+                      }
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Export {selectedRows.size} group
+                      {selectedRows.size === 1 ? "" : "s"}
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleBulkExport}>
+                      CSV for Luma
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })()}
         </div>
+      </div>
 
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={headerChecked}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all groups"
+                />
+              </TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Owners</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {allRows.length === 0 ? (
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Members</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Email enabled</TableHead>
-                <TableHead className="w-12" />
+                <TableCell
+                  colSpan={4}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  {search
+                    ? `No groups found for "${search}".`
+                    : "No groups yet."}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {manualGroups.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    {search
-                      ? `No groups found for "${search}".`
-                      : "No manual groups yet."}
+            ) : (
+              allRows.map((g) => (
+                <TableRow key={g.key}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedRows.has(g.key)}
+                      onCheckedChange={() => toggleRow(g)}
+                      aria-label={`Select ${g.name}`}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={g.href} className="hover:underline">
+                      {g.name}
+                    </Link>
+                    {g.googleGroupEmail && (
+                      <div className="text-xs text-muted-foreground font-normal">
+                        {g.googleGroupEmail}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>{g.memberCount}</TableCell>
+                  <TableCell>
+                    {g.isSystem ? (
+                      <span className="text-sm text-muted-foreground">
+                        System
+                      </span>
+                    ) : (
+                      <ManagerAvatarStack managers={g.managers} />
+                    )}
                   </TableCell>
                 </TableRow>
-              ) : (
-                manualGroups.map((g) => (
-                  <TableRow key={g.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/groups/${g.id}`}
-                        className="hover:underline"
-                      >
-                        {g.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{g.memberCount}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {g.googleGroupEmail ?? "—"}
-                    </TableCell>
-                    <TableCell>{g.emailEnabled ? "Yes" : "No"}</TableCell>
-                    <TableCell>
-                      <Can
-                        permission="group.export"
-                        context={{ isMember: true }}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Export CSV"
-                          onClick={() => handleExport(g.id)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </Can>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {pageCount > 1 && (
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  aria-disabled={page <= 1}
-                  className={
-                    page <= 1
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <span className="text-sm text-muted-foreground px-3">
-                  {page} / {pageCount}
-                </span>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  aria-disabled={page >= pageCount}
-                  className={
-                    page >= pageCount
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

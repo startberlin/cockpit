@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import * as React from "react";
+import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
 import { getCurrentUser } from "@/db/user";
@@ -11,7 +12,7 @@ import {
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
-import GroupDetailClient from "./page-client";
+import GroupDetailClient, { GroupDetailBreadcrumb } from "./page-client";
 import GroupDetailSkeleton from "./skeleton";
 
 function isSystemSlug(id: string) {
@@ -140,14 +141,22 @@ export default async function GroupPage({
     const members = getMembersOfSystemGroup(id, users, positions);
 
     return (
-      <React.Suspense fallback={<GroupDetailSkeleton />}>
-        <GroupDetailClient
-          kind="system"
-          name={systemGroup.name}
-          googleGroupEmail={systemGroup.googleGroupEmail}
-          members={members}
+      <>
+        <BreadcrumbCrumb
+          crumbs={[
+            { label: "Groups", href: "/groups" },
+            { label: systemGroup.name },
+          ]}
         />
-      </React.Suspense>
+        <React.Suspense fallback={<GroupDetailSkeleton />}>
+          <GroupDetailClient
+            kind="system"
+            name={systemGroup.name}
+            googleGroupEmail={systemGroup.googleGroupEmail}
+            members={members}
+          />
+        </React.Suspense>
+      </>
     );
   }
 
@@ -157,11 +166,25 @@ export default async function GroupPage({
   const groupDetailPromise = getGroupDetail(id, page);
 
   return (
-    <React.Suspense fallback={<GroupDetailSkeleton />}>
-      <GroupDetailClient
-        kind="manual"
-        groupDetailPromise={groupDetailPromise}
-      />
-    </React.Suspense>
+    <>
+      <React.Suspense
+        fallback={
+          <BreadcrumbCrumb
+            crumbs={[
+              { label: "Groups", href: "/groups" },
+              { label: "", skeleton: true },
+            ]}
+          />
+        }
+      >
+        <GroupDetailBreadcrumb groupDetailPromise={groupDetailPromise} />
+      </React.Suspense>
+      <React.Suspense fallback={<GroupDetailSkeleton />}>
+        <GroupDetailClient
+          kind="manual"
+          groupDetailPromise={groupDetailPromise}
+        />
+      </React.Suspense>
+    </>
   );
 }

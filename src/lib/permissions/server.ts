@@ -32,11 +32,16 @@ export function can(
   action: GroupScopedAction,
   group: { id: string },
 ): Promise<boolean>;
+export function can(
+  action: GroupScopedAction,
+  scope: { isMember: boolean },
+): Promise<boolean>;
 export async function can(
   action: Action,
   resource?: {
     department?: Department | null;
     id?: string;
+    isMember?: boolean;
   },
 ): Promise<boolean> {
   const currentUser = await getCurrentUser();
@@ -60,10 +65,16 @@ export async function can(
   }
 
   if (isGroupScopedAction(action)) {
+    if (resource && "isMember" in resource) {
+      return evaluateAuth(authority, action, {
+        isGroupMember: resource.isMember ?? false,
+        isGroupManager: false,
+      });
+    }
     const groupId = resource?.id;
     if (!groupId) return false;
     const membership = await db
-      .select({ userId: usersToGroups.userId })
+      .select({ userId: usersToGroups.userId, role: usersToGroups.role })
       .from(usersToGroups)
       .where(
         and(
@@ -74,6 +85,7 @@ export async function can(
       .limit(1);
     return evaluateAuth(authority, action, {
       isGroupMember: membership.length > 0,
+      isGroupManager: membership[0]?.role === "manager",
     });
   }
 

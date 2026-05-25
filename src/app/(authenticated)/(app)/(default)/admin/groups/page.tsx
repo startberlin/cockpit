@@ -1,10 +1,14 @@
+import { eq } from "drizzle-orm";
 import db from "@/db";
 import { listAllGroupsForAdmin } from "@/db/groups";
+import { usersToGroups } from "@/db/schema/group";
+import { getCurrentUser } from "@/db/user";
 import {
   getAllSystemGroups,
   getMembersOfSystemGroup,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
+import { can } from "@/lib/permissions/server";
 import AdminGroupsPageClient from "./page-client";
 
 export const metadata = createMetadata({
@@ -13,14 +17,22 @@ export const metadata = createMetadata({
 });
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
 export default async function AdminGroupsPage({ searchParams }: PageProps) {
-  const { page: pageParam, q: search = "" } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const { q: search = "" } = await searchParams;
 
-  const [userRows, positions, batches, manualGroupsResult] = await Promise.all([
+  const currentUser = await getCurrentUser();
+
+  const [
+    userRows,
+    positions,
+    batches,
+    manualGroupsResult,
+    canExportAll,
+    viewerManagerRows,
+  ] = await Promise.all([
     db.query.user.findMany({
       columns: {
         id: true,
@@ -39,7 +51,14 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
       },
     }),
     db.query.batch.findMany({ columns: { number: true } }),
-    listAllGroupsForAdmin({ page, search }),
+    listAllGroupsForAdmin({ search }),
+    can("group.export", { isMember: false }),
+    currentUser
+      ? db
+          .select({ groupId: usersToGroups.groupId })
+          .from(usersToGroups)
+          .where(eq(usersToGroups.userId, currentUser.id))
+      : Promise.resolve([] as { groupId: string }[]),
   ]);
 
   const users = userRows.map((u) => ({
@@ -55,13 +74,16 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
     memberCount: getMembersOfSystemGroup(sg.slug, users, positions).length,
   }));
 
+  const viewerManagerGroupIds = viewerManagerRows.map((r) => r.groupId);
+
   return (
     <AdminGroupsPageClient
       systemGroups={systemGroups}
       manualGroups={manualGroupsResult.groups}
       total={manualGroupsResult.total}
-      pageCount={manualGroupsResult.pageCount}
       initialSearch={search}
+      canExportAll={canExportAll}
+      viewerManagerGroupIds={viewerManagerGroupIds}
     />
   );
 }

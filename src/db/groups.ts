@@ -18,6 +18,14 @@ export interface PublicGroup {
 export interface GroupMember extends PublicUser {
   personalEmail: string | null;
   eventEmailPreference: "personal_email" | "start_email" | "custom" | null;
+  role: "member" | "manager";
+}
+
+export interface GroupManager {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  image: string | null;
 }
 
 export interface GroupDetail {
@@ -30,6 +38,7 @@ export interface GroupDetail {
   totalMembers: number;
   memberPageCount: number;
   isMember: boolean;
+  isGroupManager: boolean;
 }
 
 export interface PaginatedGroups {
@@ -163,7 +172,7 @@ export async function getGroupDetail(
 
   const viewerMembership = currentUser
     ? await db
-        .select({ userId: usersToGroups.userId })
+        .select({ userId: usersToGroups.userId, role: usersToGroups.role })
         .from(usersToGroups)
         .where(
           and(
@@ -175,6 +184,7 @@ export async function getGroupDetail(
     : [];
 
   const isMember = viewerMembership.length > 0;
+  const isGroupManager = viewerMembership[0]?.role === "manager";
   const offset = (page - 1) * MEMBERS_PAGE_SIZE;
 
   const membersBaseQuery = db
@@ -189,6 +199,7 @@ export async function getGroupDetail(
       department: user.department,
       status: user.status,
       batchNumber: sql<number | null>`${user.batchNumber}`,
+      role: usersToGroups.role,
     })
     .from(usersToGroups)
     .innerJoin(user, eq(usersToGroups.userId, user.id))
@@ -236,6 +247,7 @@ export async function getGroupDetail(
     totalMembers,
     memberPageCount: Math.ceil(totalMembers / MEMBERS_PAGE_SIZE),
     isMember,
+    isGroupManager,
   };
 }
 
@@ -266,6 +278,36 @@ export async function getAllGroupMembersForExport(id: string): Promise<
         or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
       ),
     )
+    .orderBy(user.firstName, user.lastName);
+}
+
+export async function listAllUsersNotInGroup(groupId: string) {
+  const notSystemUser = or(
+    isNull(user.email),
+    ne(user.email, SYSTEM_USER_EMAIL),
+  );
+
+  return db
+    .select({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      image: user.image,
+      department: user.department,
+      status: user.status,
+      batchNumber: sql<number | null>`${user.batchNumber}`,
+      legalMembershipState: user.legalMembershipState,
+    })
+    .from(user)
+    .leftJoin(
+      usersToGroups,
+      and(
+        eq(usersToGroups.userId, user.id),
+        eq(usersToGroups.groupId, groupId),
+      ),
+    )
+    .where(and(sql`${usersToGroups.userId} IS NULL`, notSystemUser))
     .orderBy(user.firstName, user.lastName);
 }
 
@@ -393,22 +435,19 @@ export interface AdminGroup {
   emailEnabled: boolean;
   googleGroupEmail: string | null;
   googleSyncPending: boolean;
+  managers: GroupManager[];
 }
 
-export interface PaginatedAdminGroups {
+export interface AdminGroupsResult {
   groups: AdminGroup[];
   total: number;
-  pageCount: number;
 }
 
 export async function listAllGroupsForAdmin({
-  page = 1,
   search = "",
 }: {
-  page?: number;
   search?: string;
-} = {}): Promise<PaginatedAdminGroups> {
-  const offset = (page - 1) * GROUPS_PAGE_SIZE;
+} = {}): Promise<AdminGroupsResult> {
   const whereClause = search ? unaccentSearch(search, group.name) : undefined;
 
   const [rows, [{ total }]] = await Promise.all([
@@ -427,18 +466,63 @@ export async function listAllGroupsForAdmin({
       .leftJoin(user, eq(usersToGroups.userId, user.id))
       .where(whereClause)
       .groupBy(group.id)
-      .orderBy(group.name)
-      .limit(GROUPS_PAGE_SIZE)
-      .offset(offset),
+      .orderBy(group.name),
     db.select({ total: count() }).from(group).where(whereClause),
   ]);
+
+  const groupIds = rows.map((g) => g.id);
+  const managerRows =
+    groupIds.length > 0
+      ? await db
+          .select({
+            groupId: usersToGroups.groupId,
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            image: user.image,
+          })
+          .from(usersToGroups)
+          .innerJoin(user, eq(usersToGroups.userId, user.id))
+          .where(
+            and(
+              inArray(usersToGroups.groupId, groupIds),
+              eq(usersToGroups.role, "manager"),
+              or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+            ),
+          )
+      : [];
+
+  const managersByGroupId = new Map<string, GroupManager[]>();
+  for (const m of managerRows) {
+    const list = managersByGroupId.get(m.groupId) ?? [];
+    list.push({
+      id: m.id,
+      firstName: m.firstName,
+      lastName: m.lastName,
+      image: m.image,
+    });
+    managersByGroupId.set(m.groupId, list);
+  }
 
   return {
     groups: rows.map((g) => ({
       ...g,
       googleGroupEmail: g.googleGroupEmail ?? null,
+      managers: managersByGroupId.get(g.id) ?? [],
     })),
     total,
-    pageCount: Math.ceil(total / GROUPS_PAGE_SIZE),
   };
+}
+
+export async function updateUserRoleInGroup(
+  userId: string,
+  groupId: string,
+  role: "member" | "manager",
+) {
+  await db
+    .update(usersToGroups)
+    .set({ role })
+    .where(
+      and(eq(usersToGroups.userId, userId), eq(usersToGroups.groupId, groupId)),
+    );
 }

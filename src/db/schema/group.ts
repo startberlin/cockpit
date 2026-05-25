@@ -1,12 +1,18 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+
+export const groupMemberRole = pgEnum("group_member_role", [
+  "member",
+  "manager",
+]);
 
 export const group = pgTable("group", {
   id: text("id").primaryKey(),
@@ -31,6 +37,7 @@ export const usersToGroups = pgTable(
     groupId: text("group_id")
       .notNull()
       .references(() => group.id),
+    role: groupMemberRole("role").notNull().default("member"),
     joinedAt: timestamp("joined_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.groupId] })],
