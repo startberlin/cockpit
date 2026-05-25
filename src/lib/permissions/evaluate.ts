@@ -43,8 +43,10 @@ const globalActions = [
   "users.import",
   "users.manage_authority",
   "users.impersonate",
-  "membership.resolution.vote",
-  "membership.resolution.view",
+  "membership.resolution.admission.vote",
+  "membership.resolution.admission.view",
+  "membership.transition.view",
+  "membership.cancellation.view",
   "membership.cancel_member",
   "groups.view_all",
   "groups.create",
@@ -53,6 +55,7 @@ const globalActions = [
   "settings.positions.manage",
   "users.view_inactive",
   "audit_log.read",
+  "tasks.view_any",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -187,10 +190,28 @@ function evaluateGlobalAction(
       return hasAdminGrant(authority);
     case "payments.manage":
       return isHeadOfFinance(authority) || hasFinanceAdminGrant(authority);
-    case "membership.resolution.vote":
+    case "membership.resolution.admission.vote":
       return isLegalOfficer(authority);
-    case "membership.resolution.view":
-      return hasAdminGrant(authority) || isLegalOfficer(authority);
+    case "membership.resolution.admission.view":
+      return (
+        hasAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority)
+      );
+    case "membership.transition.view":
+    case "membership.cancellation.view":
+      return (
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority)
+      );
+    case "tasks.view_any":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority)
+      );
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
     case "groups.view_all":

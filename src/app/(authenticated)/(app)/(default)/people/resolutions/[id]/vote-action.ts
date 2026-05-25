@@ -23,7 +23,7 @@ export const castVoteAction = actionClient
     const { legalMembershipId, value, displayedResolutionHash } = parsedInput;
     const currentUser = ctx.user;
 
-    if (!(await can("membership.resolution.vote"))) {
+    if (!(await can("membership.resolution.admission.vote"))) {
       throw new Error(
         "Could not cast vote. Please try again. If this keeps happening, email operations@start-berlin.com.",
       );

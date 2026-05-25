@@ -146,7 +146,7 @@ describe("permissions", () => {
     );
   });
 
-  it("does not let department heads vote on legal membership resolutions", () => {
+  it("does not let department heads vote on admission resolutions", () => {
     assert.equal(
       evaluateAuth(
         authority({
@@ -158,7 +158,7 @@ describe("permissions", () => {
             },
           ],
         }),
-        "membership.resolution.vote",
+        "membership.resolution.admission.vote",
       ),
       false,
     );
@@ -667,6 +667,247 @@ describe("permissions", () => {
         ),
         true,
       );
+    });
+  });
+
+  describe("membership.resolution.admission", () => {
+    it("allows legal officer to vote", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.resolution.admission.vote",
+        ),
+        true,
+      );
+    });
+
+    it("denies admin (non-officer) from voting", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "membership.resolution.admission.vote",
+        ),
+        false,
+      );
+    });
+
+    it("allows admin to view admission resolutions", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "membership.resolution.admission.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows legal officer to view admission resolutions", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.resolution.admission.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows department head to view admission resolutions", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.resolution.admission.view",
+        ),
+        true,
+      );
+    });
+
+    it("denies people_admin from viewing admission resolutions", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "membership.resolution.admission.view",
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("membership.transition.view", () => {
+    it("allows people_admin", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "membership.transition.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows legal officer", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.transition.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows department head", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "growth",
+              },
+            ],
+          }),
+          "membership.transition.view",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain admin without officer/depthead position", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "membership.transition.view",
+        ),
+        false,
+      );
+    });
+
+    it("denies plain member", () => {
+      assert.equal(
+        evaluateAuth(authority(), "membership.transition.view"),
+        false,
+      );
+    });
+  });
+
+  describe("membership.cancellation.view", () => {
+    it("allows people_admin", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "membership.cancellation.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows legal officer", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "membership.cancellation.view",
+        ),
+        true,
+      );
+    });
+
+    it("allows department head", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "membership.cancellation.view",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain admin without officer/depthead", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "membership.cancellation.view",
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("tasks.view_any", () => {
+    it("allows admin", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "tasks.view_any",
+        ),
+        true,
+      );
+    });
+
+    it("allows people_admin", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "tasks.view_any",
+        ),
+        true,
+      );
+    });
+
+    it("allows legal officer", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "tasks.view_any",
+        ),
+        true,
+      );
+    });
+
+    it("allows department head", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "tasks.view_any",
+        ),
+        true,
+      );
+    });
+
+    it("denies plain member", () => {
+      assert.equal(evaluateAuth(authority(), "tasks.view_any"), false);
     });
   });
 
