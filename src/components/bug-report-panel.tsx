@@ -2,7 +2,6 @@
 
 import {
   ArrowLeftIcon,
-  ArrowRightIcon,
   BugIcon,
   CircleCheck,
   LightbulbIcon,
@@ -61,38 +60,19 @@ type Step = "category" | "details" | "submitted";
 
 const STEP_LABELS = ["Category", "Details"] as const;
 
-function CategoryStep({
-  value,
-  onChange,
-}: {
-  value: Category | null;
-  onChange: (c: Category) => void;
-}) {
+function CategoryStep({ onChange }: { onChange: (c: Category) => void }) {
   return (
     <div className="flex flex-col gap-1.5">
       {CATEGORIES.map((cat) => {
         const Icon = cat.icon;
-        const selected = value === cat.value;
         return (
           <button
             key={cat.value}
             type="button"
             onClick={() => onChange(cat.value)}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 border p-3 text-left transition-colors",
-              selected
-                ? "border-foreground bg-accent"
-                : "border-border bg-background hover:bg-muted",
-            )}
+            className="flex cursor-pointer items-start gap-3 border border-border bg-background p-3 text-left transition-colors hover:bg-muted"
           >
-            <span
-              className={cn(
-                "mt-0.5 flex size-8 shrink-0 items-center justify-center",
-                selected
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-foreground",
-              )}
-            >
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center bg-muted text-foreground">
               <Icon className="size-4" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -100,16 +80,6 @@ function CategoryStep({
               <span className="text-xs leading-snug text-muted-foreground">
                 {cat.description}
               </span>
-            </span>
-            <span
-              className={cn(
-                "relative mt-2 flex size-4 shrink-0 items-center justify-center rounded-full border",
-                selected ? "border-foreground bg-foreground" : "border-border",
-              )}
-            >
-              {selected && (
-                <span className="size-2 rounded-full bg-background" />
-              )}
             </span>
           </button>
         );
@@ -333,7 +303,6 @@ export function BugReportButton() {
 
           {step === "category" && (
             <CategoryStep
-              value={category}
               onChange={(c) => {
                 setCategory(c);
                 setStep("details");
@@ -352,18 +321,9 @@ export function BugReportButton() {
           {step !== "submitted" && (
             <div className="flex justify-between gap-2">
               {step === "category" ? (
-                <>
-                  <Button variant="outline" onClick={() => handleOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    disabled={!category}
-                    onClick={() => setStep("details")}
-                  >
-                    Continue
-                    <ArrowRightIcon className="size-4" />
-                  </Button>
-                </>
+                <Button variant="outline" onClick={() => handleOpen(false)}>
+                  Cancel
+                </Button>
               ) : (
                 <>
                   <Button
