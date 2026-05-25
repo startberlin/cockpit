@@ -42,16 +42,17 @@ export default async function AdminTasksPage({
     authority,
     "membership.transition.view",
   );
+  const canViewCancellations = evaluateAuth(
+    authority,
+    "membership.cancellation.view",
+  );
 
   const viewableKinds: AdminTaskKind[] = [
     ...(canViewAdmission ? (["admission"] as const) : []),
     ...(canViewTransitions
-      ? ([
-          "alumni_request",
-          "supporting_alumni_request",
-          "cancellation",
-        ] as const)
+      ? (["alumni_request", "supporting_alumni_request"] as const)
       : []),
+    ...(canViewCancellations ? (["cancellation"] as const) : []),
   ];
 
   const params = await searchParams;
