@@ -21,6 +21,7 @@ function user(overrides: Partial<SystemGroupUser> = {}): SystemGroupUser {
     status: "member",
     department: null,
     batchNumber: null,
+    grants: [],
     ...overrides,
   };
 }

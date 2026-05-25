@@ -31,18 +31,20 @@ export const syncUserSystemGroupsWorkflow = inngest.createFunction(
         db.query.user.findFirst({
           where: (u, { eq }) => eq(u.id, userId),
           columns: { email: true },
+          with: { accessGrants: { columns: { grant: true } } },
         }),
       ]);
 
       const email = userRecord?.email ?? null;
+      const grants = userRecord?.accessGrants.map((g) => g.grant) ?? [];
 
       const beforeGroups = getSystemGroupsForUser(
-        { id: userId, ...before },
+        { id: userId, ...before, grants },
         positions,
         batches,
       );
       const afterGroups = getSystemGroupsForUser(
-        { id: userId, ...after },
+        { id: userId, ...after, grants },
         positions,
         batches,
       );

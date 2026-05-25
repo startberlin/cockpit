@@ -20,7 +20,7 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
   const { page: pageParam, q: search = "" } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [users, positions, batches, manualGroupsResult] = await Promise.all([
+  const [userRows, positions, batches, manualGroupsResult] = await Promise.all([
     db.query.user.findMany({
       columns: {
         id: true,
@@ -28,6 +28,7 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
         department: true,
         batchNumber: true,
       },
+      with: { accessGrants: { columns: { grant: true } } },
     }),
     db.query.userOrganizationPosition.findMany({
       columns: {
@@ -40,6 +41,14 @@ export default async function AdminGroupsPage({ searchParams }: PageProps) {
     db.query.batch.findMany({ columns: { number: true } }),
     listAllGroupsForAdmin({ page, search }),
   ]);
+
+  const users = userRows.map((u) => ({
+    id: u.id,
+    status: u.status,
+    department: u.department,
+    batchNumber: u.batchNumber,
+    grants: u.accessGrants.map((g) => g.grant),
+  }));
 
   const systemGroups = getAllSystemGroups(batches).map((sg) => ({
     ...sg,

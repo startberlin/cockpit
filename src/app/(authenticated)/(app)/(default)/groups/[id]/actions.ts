@@ -62,7 +62,7 @@ export async function exportGroupCsvAction(groupId: string): Promise<string> {
   }
 
   if (isSystemGroupSlug(groupId, []) || groupId.startsWith("batch-")) {
-    const [minimalUsers, positions] = await Promise.all([
+    const [userRows, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
           id: true,
@@ -70,6 +70,7 @@ export async function exportGroupCsvAction(groupId: string): Promise<string> {
           department: true,
           batchNumber: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         columns: {
@@ -80,6 +81,14 @@ export async function exportGroupCsvAction(groupId: string): Promise<string> {
         },
       }),
     ]);
+
+    const minimalUsers = userRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
 
     const memberIds = getMembersOfSystemGroup(
       groupId,

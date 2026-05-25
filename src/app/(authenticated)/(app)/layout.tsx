@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BreadcrumbProvider } from "@/components/breadcrumb-bridge";
+import { BugReportButton } from "@/components/bug-report-panel";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { NavBreadcrumb } from "@/components/nav-breadcrumb";
 import {
@@ -46,6 +47,9 @@ export default async function AppLayout({ children }: AppLayoutProps) {
             <header className="flex h-14 min-h-14 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger className="-ml-1" />
               <NavBreadcrumb />
+              <div className="ml-auto">
+                <BugReportButton />
+              </div>
             </header>
             {children}
           </SidebarInset>

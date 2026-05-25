@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import * as React from "react";
 import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
+import { getCurrentUser } from "@/db/user";
 import {
   getMembersOfSystemGroup,
   getSystemGroupBySlug,
+  getSystemGroupsForUser,
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
@@ -66,7 +68,42 @@ export default async function GroupPage({
     const systemGroup = getSystemGroupBySlug(id);
     if (!systemGroup) notFound();
 
-    const [users, positions] = await Promise.all([
+    const isAdmin = await can("users.import");
+    if (!isAdmin) {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) notFound();
+
+      const [userRecord, userPositions, batches] = await Promise.all([
+        db.query.user.findFirst({
+          where: (u, { eq }) => eq(u.id, currentUser.id),
+          columns: { status: true, department: true, batchNumber: true },
+          with: { accessGrants: { columns: { grant: true } } },
+        }),
+        db.query.userOrganizationPosition.findMany({
+          where: (p, { eq }) => eq(p.userId, currentUser.id),
+          columns: { position: true, scope: true, department: true },
+        }),
+        db.query.batch.findMany({ columns: { number: true } }),
+      ]);
+
+      const memberOfGroup =
+        userRecord &&
+        getSystemGroupsForUser(
+          {
+            id: currentUser.id,
+            status: userRecord.status,
+            department: userRecord.department,
+            batchNumber: userRecord.batchNumber,
+            grants: userRecord.accessGrants.map((g) => g.grant),
+          },
+          userPositions,
+          batches,
+        ).some((g) => g.slug === id);
+
+      if (!memberOfGroup) notFound();
+    }
+
+    const [userRows, positions] = await Promise.all([
       db.query.user.findMany({
         columns: {
           id: true,
@@ -77,6 +114,7 @@ export default async function GroupPage({
           firstName: true,
           lastName: true,
         },
+        with: { accessGrants: { columns: { grant: true } } },
       }),
       db.query.userOrganizationPosition.findMany({
         columns: {
@@ -87,6 +125,17 @@ export default async function GroupPage({
         },
       }),
     ]);
+
+    const users = userRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
 
     const members = getMembersOfSystemGroup(id, users, positions);
 
