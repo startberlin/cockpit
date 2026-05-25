@@ -59,6 +59,11 @@ export const chargeAction = actionClient
       throw new Error("Member has no stored GoCardless mandate ID.");
     }
 
+    if (member.legalMembershipState !== "active_member") {
+      await advancePaymentStatus(row.id, "pending", "proposed");
+      throw new Error("Member does not have an active legal membership.");
+    }
+
     try {
       const { id: gcPaymentId } = await createOneTimePayment({
         mandateId: member.gocardlessMandateId,

@@ -322,6 +322,7 @@ export async function getMembersNeedingProposal(): Promise<
     .where(
       and(
         inArray(user.status, ["member", "supporting_alumni"]),
+        eq(user.legalMembershipState, "active_member"),
         isNotNull(user.gocardlessMandateId),
         // Exclude members who are already covered for this cycle
         sql`NOT EXISTS (
