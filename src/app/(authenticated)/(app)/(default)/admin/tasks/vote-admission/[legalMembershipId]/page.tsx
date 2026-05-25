@@ -7,46 +7,38 @@ import ResolutionVoteClient from "./resolution-vote-client";
 
 export const metadata = createMetadata({
   title: "Board Resolution",
-  description: "Cast your vote on a membership admission board resolution.",
+  description: "View and vote on a membership admission board resolution.",
 });
 
-export default async function ResolutionDetailPage({
+export default async function VoteAdmissionPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ legalMembershipId: string }>;
 }) {
-  const { id } = await params;
+  const { legalMembershipId } = await params;
 
-  if (!(await can("membership.resolution.view"))) {
+  if (!(await can("membership.resolution.admission.view"))) {
     notFound();
   }
 
   const [currentUser, resolution] = await Promise.all([
     getCurrentUser(),
-    getResolutionDetail(id),
+    getResolutionDetail(legalMembershipId),
   ]);
 
-  if (!currentUser) {
+  if (!currentUser || !resolution) {
     notFound();
   }
 
-  if (!resolution) {
-    notFound();
-  }
-
-  // Auth gate: current user must be a participant of this resolution
   const isParticipant = resolution.participants.some(
     (p) => p.userId === currentUser.id,
   );
-
-  if (!isParticipant) {
-    notFound();
-  }
 
   return (
     <ResolutionVoteClient
       resolution={resolution}
       currentUserId={currentUser.id}
+      isParticipant={isParticipant}
     />
   );
 }

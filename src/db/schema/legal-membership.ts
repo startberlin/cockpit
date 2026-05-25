@@ -79,6 +79,7 @@ export const ACTIVE_TENURE_STATUSES = [
   "manual_followup",
 ] as const satisfies LegalMembershipStatus[];
 
+// Records must never be deleted — admin tasks history depends on them.
 export const legalMembership = pgTable(
   "legal_membership",
   {

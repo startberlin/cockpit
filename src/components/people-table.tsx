@@ -194,7 +194,7 @@ export function PeopleTable({
               {pendingAction && (
                 <Button asChild size="sm">
                   <Link
-                    href={`/people/resolutions/${pendingAction.legalMembershipId}`}
+                    href={`/admin/tasks/vote-admission/${pendingAction.legalMembershipId}`}
                     aria-label={`Vote on ${user.firstName} ${user.lastName}`}
                   >
                     Vote

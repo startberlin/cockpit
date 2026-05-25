@@ -61,11 +61,13 @@ const VOTE_BUTTONS: {
 interface ResolutionVoteClientProps {
   resolution: ResolutionDetail;
   currentUserId: string;
+  isParticipant: boolean;
 }
 
 export default function ResolutionVoteClient({
   resolution,
   currentUserId,
+  isParticipant,
 }: ResolutionVoteClientProps) {
   const router = useRouter();
   const [isPending, setIsPending] = React.useState(false);
@@ -74,7 +76,8 @@ export default function ResolutionVoteClient({
     (p) => p.userId === currentUserId,
   );
   const hasVoted = currentParticipant?.vote != null;
-  const canVote = !hasVoted && resolution.status === "admission_pending";
+  const canVote =
+    isParticipant && !hasVoted && resolution.status === "admission_pending";
 
   const allVoted = resolution.participants.every((p) => p.vote != null);
 
@@ -107,7 +110,7 @@ export default function ResolutionVoteClient({
       }
 
       toast.success("Vote recorded.");
-      router.push("/people?view=actions");
+      router.push("/admin/tasks");
     } catch {
       toast.error("An unexpected error occurred. Please try again.");
     } finally {
@@ -178,7 +181,6 @@ export default function ResolutionVoteClient({
                     </Badge>
                   );
                 } else if (allVoted) {
-                  // All votes are in — reveal everyone's vote
                   statusCell = (
                     <Badge variant="outline">
                       {voteValueLabel(participant.vote.value)}
@@ -253,15 +255,17 @@ export default function ResolutionVoteClient({
         </Card>
       )}
 
-      {resolution.status === "admission_pending" && hasVoted && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              You have already submitted your vote for this resolution.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {resolution.status === "admission_pending" &&
+        isParticipant &&
+        hasVoted && (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">
+                You have already submitted your vote for this resolution.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
       {canVote && (
         <Card>

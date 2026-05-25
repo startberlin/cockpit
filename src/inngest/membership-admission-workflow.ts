@@ -110,7 +110,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
                 react: BoardResolutionTaskAssignedEmail({
                   firstName: u.firstName ?? "",
                   subjectName,
-                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/people/resolutions/${legalMembershipId}`,
+                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
                   isReminder,
                 }),
               }),

@@ -42,7 +42,8 @@ export const BoardResolutionTaskAssignedEmail = ({
 BoardResolutionTaskAssignedEmail.PreviewProps = {
   firstName: "Marie",
   subjectName: "Sönke Peters",
-  resolutionUrl: "https://cockpit.start-berlin.com/people/resolutions/res_123",
+  resolutionUrl:
+    "https://cockpit.start-berlin.com/admin/tasks/vote-admission/res_123",
 } as BoardResolutionTaskAssignedEmailProps;
 
 export default BoardResolutionTaskAssignedEmail;
