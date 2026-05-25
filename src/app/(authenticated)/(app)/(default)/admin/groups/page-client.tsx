@@ -280,13 +280,15 @@ export default function AdminGroupsPageClient({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  checked={headerChecked}
-                  onCheckedChange={toggleSelectAll}
-                  aria-label="Select all groups"
-                />
-              </TableHead>
+              {canExportAny && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={headerChecked}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all groups"
+                  />
+                </TableHead>
+              )}
               <TableHead>Name</TableHead>
               <TableHead>Members</TableHead>
               <TableHead>Owners</TableHead>
@@ -296,7 +298,7 @@ export default function AdminGroupsPageClient({
             {allRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={canExportAny ? 4 : 3}
                   className="text-center text-muted-foreground py-8"
                 >
                   {search
@@ -307,13 +309,15 @@ export default function AdminGroupsPageClient({
             ) : (
               allRows.map((g) => (
                 <TableRow key={g.key}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedRows.has(g.key)}
-                      onCheckedChange={() => toggleRow(g)}
-                      aria-label={`Select ${g.name}`}
-                    />
-                  </TableCell>
+                  {canExportAny && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedRows.has(g.key)}
+                        onCheckedChange={() => toggleRow(g)}
+                        aria-label={`Select ${g.name}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">
                     <Link href={g.href} className="hover:underline">
                       {g.name}
