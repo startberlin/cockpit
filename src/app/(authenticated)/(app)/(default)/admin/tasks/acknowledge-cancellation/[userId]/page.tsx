@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import db from "@/db";
 import { membershipTransitionRequest } from "@/db/schema/membership-transition-request";
+import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import AcknowledgeCancellationClient from "./acknowledge-cancellation-client";
@@ -53,9 +54,13 @@ export default async function AcknowledgeCancellationPage({
     notFound();
   }
 
-  const canAct = await can("membership.cancellation.acknowledge", {
-    department: subjectUser.department,
-  });
+  const currentUser = await getCurrentUser();
+
+  const canAct =
+    currentUser?.id !== subjectUser.id &&
+    (await can("membership.cancellation.acknowledge", {
+      department: subjectUser.department,
+    }));
 
   return (
     <AcknowledgeCancellationClient

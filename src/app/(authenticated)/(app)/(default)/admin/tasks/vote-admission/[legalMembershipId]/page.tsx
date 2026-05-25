@@ -30,9 +30,9 @@ export default async function VoteAdmissionPage({
     notFound();
   }
 
-  const isParticipant = resolution.participants.some(
-    (p) => p.userId === currentUser.id,
-  );
+  const isParticipant =
+    currentUser.id !== resolution.subject.id &&
+    resolution.participants.some((p) => p.userId === currentUser.id);
 
   return (
     <ResolutionVoteClient

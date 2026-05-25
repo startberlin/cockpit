@@ -53,6 +53,10 @@ export const acknowledgeCancellationAction = actionClient
       throw new Error("Not authorized to acknowledge this cancellation.");
     }
 
+    if (row.userId === currentUser.id) {
+      throw new Error("You cannot acknowledge your own cancellation request.");
+    }
+
     await inngest.send({
       name: events.cancellationAcknowledged.name,
       data: {
