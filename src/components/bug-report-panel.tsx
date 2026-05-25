@@ -29,8 +29,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
@@ -165,6 +172,7 @@ function SuccessStep({ progress }: { progress: number }) {
 }
 
 export function BugReportButton() {
+  const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<Step>("category");
   const [category, setCategory] = React.useState<Category | null>(null);
@@ -235,115 +243,151 @@ export function BugReportButton() {
   const activeCat = CATEGORIES.find((c) => c.value === category) ?? null;
   const stepIndex = step === "category" ? 0 : 1;
 
+  const onCategoryChange = (c: Category) => {
+    setCategory(c);
+    setStep("details");
+  };
+
+  const breadcrumb = (
+    <Breadcrumb>
+      <BreadcrumbList>
+        {STEP_LABELS.map((label, i) => {
+          const isActive = i === stepIndex;
+          const isCompleted = i < stepIndex;
+          return (
+            <React.Fragment key={label}>
+              {i > 0 && <BreadcrumbSeparator />}
+              <BreadcrumbItem
+                className={cn(
+                  "rounded-md px-1.5 py-0.5",
+                  isActive && "bg-muted",
+                )}
+              >
+                <BreadcrumbPage
+                  className={cn(
+                    "flex items-center gap-1 font-regular",
+                    !isActive && !isCompleted && "text-muted-foreground",
+                  )}
+                >
+                  {isCompleted && (
+                    <CircleCheck className="size-4 fill-success text-primary-foreground" />
+                  )}
+                  {label}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </React.Fragment>
+          );
+        })}
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+
+  const stepContent = (
+    <>
+      {step === "category" && <CategoryStep onChange={onCategoryChange} />}
+      {step === "details" && activeCat && (
+        <DetailsStep
+          category={activeCat}
+          description={description}
+          onDescriptionChange={setDescription}
+        />
+      )}
+      {step === "submitted" && <SuccessStep progress={progress} />}
+    </>
+  );
+
+  const footerButtons =
+    step === "category" ? (
+      <Button variant="outline" onClick={() => handleOpen(false)}>
+        Cancel
+      </Button>
+    ) : (
+      <>
+        <Button
+          variant="outline"
+          disabled={isPending}
+          onClick={() => setStep("category")}
+        >
+          <ArrowLeftIcon className="size-4" />
+          Back
+        </Button>
+        <Button
+          disabled={!description.trim() || isPending}
+          onClick={handleSubmit}
+        >
+          {isPending ? <Spinner /> : <SendIcon className="size-4" />}
+          {isPending ? "Sending…" : "Send report"}
+        </Button>
+      </>
+    );
+
+  const titleText =
+    step === "category" ? "Report an issue" : "Tell us what happened";
+  const descriptionText =
+    step === "category"
+      ? "Pick the option that best matches what you ran into."
+      : "Describe the issue in as much detail as you can.";
+
+  const trigger = (
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-7 w-7"
+      onClick={() => setOpen(true)}
+      aria-label="Report an issue"
+    >
+      <MessageSquareWarning className="size-4" />
+    </Button>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {trigger}
+        <Drawer open={open} onOpenChange={handleOpen}>
+          <DrawerContent>
+            {step !== "submitted" && (
+              <div className="flex flex-col gap-3 px-4 pt-2 pb-0">
+                <div>{breadcrumb}</div>
+                <div className="flex flex-col gap-1.5">
+                  <DrawerTitle className="text-lg font-semibold">
+                    {titleText}
+                  </DrawerTitle>
+                  <DrawerDescription>{descriptionText}</DrawerDescription>
+                </div>
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {stepContent}
+            </div>
+            {step !== "submitted" && (
+              <div className="flex justify-between gap-2 px-4 pt-2 pb-8">
+                {footerButtons}
+              </div>
+            )}
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
+
   return (
     <>
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => setOpen(true)}
-        aria-label="Report an issue"
-      >
-        <MessageSquareWarning className="size-4" />
-      </Button>
-
+      {trigger}
       <Dialog open={open} onOpenChange={handleOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           {step !== "submitted" && (
             <DialogHeader className="gap-4 text-left">
-              <div>
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    {STEP_LABELS.map((label, i) => {
-                      const isActive = i === stepIndex;
-                      const isCompleted = i < stepIndex;
-                      return (
-                        <React.Fragment key={label}>
-                          {i > 0 && <BreadcrumbSeparator />}
-                          <BreadcrumbItem
-                            className={cn(
-                              "rounded-md px-1.5 py-0.5",
-                              isActive && "bg-muted",
-                            )}
-                          >
-                            <BreadcrumbPage
-                              className={cn(
-                                "flex items-center gap-1 font-regular",
-                                !isActive &&
-                                  !isCompleted &&
-                                  "text-muted-foreground",
-                              )}
-                            >
-                              {isCompleted && (
-                                <CircleCheck className="size-4 fill-success text-primary-foreground" />
-                              )}
-                              {label}
-                            </BreadcrumbPage>
-                          </BreadcrumbItem>
-                        </React.Fragment>
-                      );
-                    })}
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
+              <div>{breadcrumb}</div>
               <div className="flex flex-col gap-2">
-                <DialogTitle>
-                  {step === "category"
-                    ? "Report an issue"
-                    : "Tell us what happened"}
-                </DialogTitle>
-                <DialogDescription>
-                  {step === "category"
-                    ? "Pick the option that best matches what you ran into."
-                    : "Describe the issue in as much detail as you can."}
-                </DialogDescription>
+                <DialogTitle>{titleText}</DialogTitle>
+                <DialogDescription>{descriptionText}</DialogDescription>
               </div>
             </DialogHeader>
           )}
-
-          {step === "category" && (
-            <CategoryStep
-              onChange={(c) => {
-                setCategory(c);
-                setStep("details");
-              }}
-            />
-          )}
-          {step === "details" && activeCat && (
-            <DetailsStep
-              category={activeCat}
-              description={description}
-              onDescriptionChange={setDescription}
-            />
-          )}
-          {step === "submitted" && <SuccessStep progress={progress} />}
-
+          {stepContent}
           {step !== "submitted" && (
-            <div className="flex justify-between gap-2">
-              {step === "category" ? (
-                <Button variant="outline" onClick={() => handleOpen(false)}>
-                  Cancel
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() => setStep("category")}
-                  >
-                    <ArrowLeftIcon className="size-4" />
-                    Back
-                  </Button>
-                  <Button
-                    disabled={!description.trim() || isPending}
-                    onClick={handleSubmit}
-                  >
-                    {isPending ? <Spinner /> : <SendIcon className="size-4" />}
-                    {isPending ? "Sending…" : "Send report"}
-                  </Button>
-                </>
-              )}
-            </div>
+            <div className="flex justify-between gap-2">{footerButtons}</div>
           )}
         </DialogContent>
       </Dialog>
