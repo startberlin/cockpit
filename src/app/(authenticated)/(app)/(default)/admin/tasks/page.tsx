@@ -7,7 +7,7 @@ import {
 import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
-import { evaluateAuth, evaluateUnscopedViewDetails } from "@/lib/permissions";
+import { evaluateAuth } from "@/lib/permissions";
 import TasksPageClient from "./tasks-table-client";
 
 export const metadata = createMetadata({
@@ -104,7 +104,7 @@ export default async function AdminTasksPage({
             }),
   }));
 
-  const canViewUserDetails = evaluateUnscopedViewDetails(authority);
+  const canViewUserDetails = evaluateAuth(authority, "user.view_details");
 
   return (
     <TasksPageClient

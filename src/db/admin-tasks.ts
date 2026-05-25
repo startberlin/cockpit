@@ -67,10 +67,13 @@ function canViewAllTransitions(authority: UserAuthority): boolean {
   return hasPeopleAdminGrant(authority) || isLegalOfficer(authority);
 }
 
+function canViewAllAdmissions(authority: UserAuthority): boolean {
+  return hasAdminGrant(authority) || isLegalOfficer(authority);
+}
+
 function canViewAnyAdmission(authority: UserAuthority): boolean {
   return (
-    hasAdminGrant(authority) ||
-    isLegalOfficer(authority) ||
+    canViewAllAdmissions(authority) ||
     getHeadedDepartments(authority).length > 0
   );
 }
@@ -82,11 +85,17 @@ function addDeadlineDays(date: Date, days: number): Date {
 }
 
 async function fetchAdmissionTasks(
+  departmentFilter: Department[] | null,
   memberIdFilter?: string[],
 ): Promise<AdminTaskRow[]> {
+  if (departmentFilter !== null && departmentFilter.length === 0) return [];
+
   const conditions = [isNotNull(legalMembership.boardResolutionText)];
   if (memberIdFilter && memberIdFilter.length > 0) {
     conditions.push(inArray(legalMembership.userId, memberIdFilter));
+  }
+  if (departmentFilter !== null && departmentFilter.length > 0) {
+    conditions.push(inArray(user.department, departmentFilter));
   }
 
   const rows = await db
@@ -256,6 +265,11 @@ export async function getAdminTasksPage(
   const transitionDeptFilter: Department[] | null = canViewAllTrans
     ? null
     : headedDepartments;
+  const admissionDeptFilter: Department[] | null = canViewAllAdmissions(
+    authority,
+  )
+    ? null
+    : headedDepartments;
 
   const fetchPromises: Promise<AdminTaskRow[]>[] = [];
 
@@ -263,7 +277,7 @@ export async function getAdminTasksPage(
     !types || types.length === 0 || types.includes(kind);
 
   if (canViewAnyAdmission(authority) && includeKind("admission")) {
-    fetchPromises.push(fetchAdmissionTasks(memberIds));
+    fetchPromises.push(fetchAdmissionTasks(admissionDeptFilter, memberIds));
   }
 
   const canViewTransitions = canViewAllTrans || headedDepartments.length > 0;
@@ -300,11 +314,16 @@ export async function getAllVisibleTaskMembers(
   const transitionDeptFilter: Department[] | null = canViewAllTrans
     ? null
     : headedDepartments;
+  const admissionDeptFilter: Department[] | null = canViewAllAdmissions(
+    authority,
+  )
+    ? null
+    : headedDepartments;
 
   const fetchPromises: Promise<AdminTaskRow[]>[] = [];
 
   if (canViewAnyAdmission(authority)) {
-    fetchPromises.push(fetchAdmissionTasks());
+    fetchPromises.push(fetchAdmissionTasks(admissionDeptFilter));
   }
 
   const canViewTransitions = canViewAllTrans || headedDepartments.length > 0;
