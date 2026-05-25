@@ -319,7 +319,18 @@ export function BugReportButton() {
       const dataUrl = await toPng(document.documentElement, {
         pixelRatio: 1,
         skipFonts: true,
-        filter: (node) => node.nodeName !== "IFRAME",
+        filter: (node) => {
+          if (node.nodeName === "IFRAME") return false;
+          // Skip cross-origin images — they violate CSP and crash the capture
+          if (node instanceof HTMLImageElement && node.src) {
+            try {
+              return new URL(node.src).origin === window.location.origin;
+            } catch {
+              return false;
+            }
+          }
+          return true;
+        },
       });
       setScreenshotDataUrl(dataUrl);
     } catch (err) {
