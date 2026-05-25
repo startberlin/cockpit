@@ -2,7 +2,6 @@
 
 import { ChevronDownIcon, FilterIcon, SearchIcon } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -190,12 +189,9 @@ export default function AuditLogPageClient({ rows, total, pageSize }: Props) {
                 <TableRow key={row.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-xs shrink-0 w-[82px] justify-center"
-                      >
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">
                         {CATEGORY_LABELS[row.category] ?? row.category}
-                      </Badge>
+                      </span>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm">
                           {formatEventLabel(row.eventType)}
