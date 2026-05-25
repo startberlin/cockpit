@@ -9,6 +9,7 @@ import {
   getAllGroupMembersForExport,
   removeUserFromGroup,
   searchUsersNotInGroup,
+  updateUserRoleInGroup,
 } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import { user } from "@/db/schema/auth";
@@ -213,4 +214,28 @@ export async function removeUserFromGroupAction(
       });
     }
   });
+}
+
+export async function promoteToManagerAction(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+  await updateUserRoleInGroup(userId, groupId, "manager");
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function demoteFromManagerAction(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group members.");
+  }
+  await updateUserRoleInGroup(userId, groupId, "member");
+  revalidatePath(`/groups/${groupId}`);
 }

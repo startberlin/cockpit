@@ -8,8 +8,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export type Crumb = { label: string; href?: string };
+export type Crumb = { label: string; href?: string; skeleton?: boolean };
 
 export function BreadcrumbView({ crumbs }: { crumbs: Crumb[] }) {
   if (crumbs.length === 0) return null;
@@ -21,7 +22,9 @@ export function BreadcrumbView({ crumbs }: { crumbs: Crumb[] }) {
           <Fragment key={`${crumb.label}-${i}`}>
             {i > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
-              {crumb.href ? (
+              {crumb.skeleton ? (
+                <Skeleton className="h-4 w-20" />
+              ) : crumb.href ? (
                 <BreadcrumbLink asChild>
                   <Link href={crumb.href}>{crumb.label}</Link>
                 </BreadcrumbLink>

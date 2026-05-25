@@ -137,7 +137,6 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
     },
   });
 
-  // Populate edit form when a batch is selected for editing
   React.useEffect(() => {
     if (editTarget) {
       editForm.reset({
@@ -198,7 +197,6 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
         </div>
       )}
 
-      {/* Create batch dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -263,7 +261,6 @@ export default function BatchesPageClient({ batches }: BatchesPageClientProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit batch start date dialog */}
       <Dialog
         open={editTarget !== null}
         onOpenChange={(open) => !open && setEditTarget(null)}

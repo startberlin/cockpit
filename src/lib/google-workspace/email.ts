@@ -18,12 +18,19 @@ const UMLAUT_MAP: [RegExp, string][] = [
   [/Å/g, "Aa"],
 ];
 
-function replaceUmlauts(str: string): string {
+export function replaceUmlauts(str: string): string {
   let result = str;
   for (const [regex, replacement] of UMLAUT_MAP) {
     result = result.replace(regex, replacement);
   }
   return result;
+}
+
+export function slugifyGroupName(name: string): string {
+  return slugify(replaceUmlauts(name).replace(/\s+/g, "-"), {
+    lower: true,
+    strict: true,
+  });
 }
 
 export function generateCompanyEmail(firstName: string, lastName: string) {

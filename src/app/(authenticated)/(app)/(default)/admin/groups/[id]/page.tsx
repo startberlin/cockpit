@@ -10,8 +10,8 @@ import {
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
-import GroupDetailClient, { GroupDetailBreadcrumb } from "./page-client";
-import GroupDetailSkeleton from "./skeleton";
+import AdminGroupDetailClient from "./page-client";
+import AdminGroupDetailSkeleton from "./skeleton";
 
 function isSystemSlug(id: string) {
   return isSystemGroupSlug(id, []) || id.startsWith("batch-");
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: GroupPageProps) {
     const sg = getSystemGroupBySlug(id);
     return createMetadata({
       title: sg?.name ?? "Group",
-      description: `View members of ${sg?.name ?? id}.`,
+      description: `Manage members of ${sg?.name ?? id}.`,
     });
   }
 
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: GroupPageProps) {
   if (!mayViewGroup) {
     return createMetadata({
       title: "Group",
-      description: "View a START Berlin group.",
+      description: "Manage a START Berlin group.",
     });
   }
 
@@ -51,11 +51,11 @@ export async function generateMetadata({ params }: GroupPageProps) {
 
   return createMetadata({
     title: group.name,
-    description: `View and manage members of ${group.name}.`,
+    description: `Manage members of ${group.name}.`,
   });
 }
 
-export default async function GroupPage({
+export default async function AdminGroupPage({
   params,
   searchParams,
 }: GroupPageProps) {
@@ -95,13 +95,15 @@ export default async function GroupPage({
       <>
         <BreadcrumbCrumb
           crumbs={[
-            { label: "Groups", href: "/groups" },
+            { label: "Admin", href: "/admin" },
+            { label: "All groups", href: "/admin/groups" },
             { label: systemGroup.name },
           ]}
         />
-        <React.Suspense fallback={<GroupDetailSkeleton />}>
-          <GroupDetailClient
+        <React.Suspense fallback={<AdminGroupDetailSkeleton />}>
+          <AdminGroupDetailClient
             kind="system"
+            slug={id}
             name={systemGroup.name}
             googleGroupEmail={systemGroup.googleGroupEmail}
             members={members}
@@ -115,23 +117,20 @@ export default async function GroupPage({
   if (!mayViewGroup) notFound();
 
   const groupDetailPromise = getGroupDetail(id, page);
+  const group = await groupDetailPromise;
+  if (!group) notFound();
 
   return (
     <>
-      <React.Suspense
-        fallback={
-          <BreadcrumbCrumb
-            crumbs={[
-              { label: "Groups", href: "/groups" },
-              { label: "", skeleton: true },
-            ]}
-          />
-        }
-      >
-        <GroupDetailBreadcrumb groupDetailPromise={groupDetailPromise} />
-      </React.Suspense>
-      <React.Suspense fallback={<GroupDetailSkeleton />}>
-        <GroupDetailClient
+      <BreadcrumbCrumb
+        crumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "All groups", href: "/admin/groups" },
+          { label: group.name },
+        ]}
+      />
+      <React.Suspense fallback={<AdminGroupDetailSkeleton />}>
+        <AdminGroupDetailClient
           kind="manual"
           groupDetailPromise={groupDetailPromise}
         />

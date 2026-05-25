@@ -105,12 +105,12 @@ export function NavMain() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === "/people/org-chart"}
-                tooltip="Org Chart"
+                isActive={pathname === "/org-chart"}
+                tooltip="Org chart"
               >
-                <Link href="/people/org-chart" onClick={closeMobile}>
+                <Link href="/org-chart" onClick={closeMobile}>
                   <Network />
-                  <span>Org Chart</span>
+                  <span>Org chart</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -201,7 +201,7 @@ export function NavMain() {
               >
                 <Link href="/admin/groups" onClick={closeMobile}>
                   <Layers />
-                  <span>Groups</span>
+                  <span>All groups</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
