@@ -1,6 +1,6 @@
 import { lt, sql } from "drizzle-orm";
 import db from "@/db";
-import { session, verification } from "@/db/schema/auth";
+import { verification } from "@/db/schema/auth";
 import { inngest } from "@/lib/inngest";
 
 export const authCleanupCron = inngest.createFunction(
@@ -10,14 +10,21 @@ export const authCleanupCron = inngest.createFunction(
     triggers: [{ cron: "TZ=Europe/Berlin 15 3 * * *" }],
   },
   async ({ step }) => {
-    const now = sql`NOW()`;
-
     const sessions = await step.run("delete-expired-sessions", async () => {
-      const result = await db
-        .delete(session)
-        .where(lt(session.expiresAt, now))
-        .returning({ id: session.id });
-      return { deletedCount: result.length };
+      // Keep the most recent session per user (even if expired) so the admin
+      // "Last sign-in" column in member-summary-strip.tsx still has a row to
+      // read from. Only purge older expired rows.
+      const result = await db.execute(sql`
+        DELETE FROM "session"
+        WHERE "expires_at" < NOW()
+          AND "id" NOT IN (
+            SELECT DISTINCT ON ("user_id") "id"
+            FROM "session"
+            ORDER BY "user_id", "updated_at" DESC
+          )
+        RETURNING "id"
+      `);
+      return { deletedCount: result.rowCount ?? 0 };
     });
 
     const verifications = await step.run(
@@ -25,7 +32,7 @@ export const authCleanupCron = inngest.createFunction(
       async () => {
         const result = await db
           .delete(verification)
-          .where(lt(verification.expiresAt, now))
+          .where(lt(verification.expiresAt, sql`NOW()`))
           .returning({ id: verification.id });
         return { deletedCount: result.length };
       },
