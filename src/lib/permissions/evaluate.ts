@@ -50,6 +50,7 @@ export function isUserScopedAction(action: Action): action is UserScopedAction {
 export type GroupScopedAction =
   | "group.view"
   | "group.members.manage"
+  | "group.managers.manage"
   | "group.export";
 
 export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
@@ -61,6 +62,7 @@ export type UserScope = {
 
 export type GroupScope = {
   isGroupMember: boolean;
+  isGroupManager: boolean;
 };
 
 const globalActions = [
@@ -88,6 +90,7 @@ export function isGlobalAction(action: Action): action is GlobalAction {
 const groupScopedActions = [
   "group.view",
   "group.members.manage",
+  "group.managers.manage",
   "group.export",
 ] as const;
 
@@ -167,7 +170,9 @@ function hasGroupScope(scope: unknown): scope is GroupScope {
     typeof scope === "object" &&
     scope !== null &&
     "isGroupMember" in scope &&
-    typeof (scope as GroupScope).isGroupMember === "boolean"
+    typeof (scope as GroupScope).isGroupMember === "boolean" &&
+    "isGroupManager" in scope &&
+    typeof (scope as GroupScope).isGroupManager === "boolean"
   );
 }
 
@@ -180,9 +185,15 @@ function evaluateGroupScopedAction(
     case "group.view":
       return true;
     case "group.members.manage":
+      return hasAdminGrant(authority) || scope.isGroupManager;
+    case "group.managers.manage":
       return hasAdminGrant(authority);
     case "group.export":
-      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        scope.isGroupManager
+      );
   }
 }
 

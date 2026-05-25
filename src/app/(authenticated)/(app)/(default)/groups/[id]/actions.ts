@@ -177,8 +177,25 @@ export async function removeUserFromGroupAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
+  if (!currentUser) {
     throw new Error("You are not authorized to manage group members.");
+  }
+
+  const targetMembership = await db
+    .select({ role: usersToGroups.role })
+    .from(usersToGroups)
+    .where(
+      and(eq(usersToGroups.groupId, groupId), eq(usersToGroups.userId, userId)),
+    )
+    .limit(1);
+
+  const targetIsManager = targetMembership[0]?.role === "manager";
+  const requiredPermission = targetIsManager
+    ? "group.managers.manage"
+    : "group.members.manage";
+
+  if (!(await can(requiredPermission, { id: groupId }))) {
+    throw new Error("You are not authorized to remove this group member.");
   }
 
   await removeUserFromGroup(userId, groupId);
@@ -237,8 +254,8 @@ export async function demoteFromManagerAction(
   groupId: string,
 ): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("group.members.manage", { id: groupId }))) {
-    throw new Error("You are not authorized to manage group members.");
+  if (!currentUser || !(await can("group.managers.manage", { id: groupId }))) {
+    throw new Error("You are not authorized to manage group managers.");
   }
   await updateUserRoleInGroup(userId, groupId, "member");
   revalidatePath(`/groups/${groupId}`);

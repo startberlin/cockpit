@@ -38,6 +38,7 @@ export interface GroupDetail {
   totalMembers: number;
   memberPageCount: number;
   isMember: boolean;
+  isGroupManager: boolean;
 }
 
 export interface PaginatedGroups {
@@ -171,7 +172,7 @@ export async function getGroupDetail(
 
   const viewerMembership = currentUser
     ? await db
-        .select({ userId: usersToGroups.userId })
+        .select({ userId: usersToGroups.userId, role: usersToGroups.role })
         .from(usersToGroups)
         .where(
           and(
@@ -183,6 +184,7 @@ export async function getGroupDetail(
     : [];
 
   const isMember = viewerMembership.length > 0;
+  const isGroupManager = viewerMembership[0]?.role === "manager";
   const offset = (page - 1) * MEMBERS_PAGE_SIZE;
 
   const membersBaseQuery = db
@@ -245,6 +247,7 @@ export async function getGroupDetail(
     totalMembers,
     memberPageCount: Math.ceil(totalMembers / MEMBERS_PAGE_SIZE),
     isMember,
+    isGroupManager,
   };
 }
 

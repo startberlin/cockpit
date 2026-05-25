@@ -68,12 +68,13 @@ export async function can(
     if (resource && "isMember" in resource) {
       return evaluateAuth(authority, action, {
         isGroupMember: resource.isMember ?? false,
+        isGroupManager: false,
       });
     }
     const groupId = resource?.id;
     if (!groupId) return false;
     const membership = await db
-      .select({ userId: usersToGroups.userId })
+      .select({ userId: usersToGroups.userId, role: usersToGroups.role })
       .from(usersToGroups)
       .where(
         and(
@@ -84,6 +85,7 @@ export async function can(
       .limit(1);
     return evaluateAuth(authority, action, {
       isGroupMember: membership.length > 0,
+      isGroupManager: membership[0]?.role === "manager",
     });
   }
 

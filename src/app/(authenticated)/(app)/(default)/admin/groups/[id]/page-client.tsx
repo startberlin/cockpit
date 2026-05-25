@@ -54,7 +54,6 @@ import {
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import type { LegalMembershipState, UserStatus } from "@/db/schema/auth";
-import { authClient } from "@/lib/auth-client";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import {
@@ -241,8 +240,6 @@ function ManualGroupView({
 }) {
   const can = useCan();
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const currentUserId = session?.user?.id ?? null;
   const groupDetail = use(groupDetailPromise);
 
   if (!groupDetail) {
@@ -432,8 +429,12 @@ function ManualGroupView({
     }
   };
 
-  const groupScope = { isMember: group.isMember };
+  const groupScope = {
+    isMember: group.isMember,
+    isManager: group.isGroupManager,
+  };
   const canManageMembers = can("group.members.manage", groupScope);
+  const canManageManagers = can("group.managers.manage", groupScope);
   const canExport = can("group.export", groupScope);
   const canViewMemberProfile = (member: GroupMember) =>
     can("user.view_details", member);
@@ -758,14 +759,16 @@ function ManualGroupView({
             <TableHeader>
               <TableRow>
                 <TableHead>Member</TableHead>
-                {canManageMembers && <TableHead className="w-12" />}
+                {(canManageMembers || canManageManagers) && (
+                  <TableHead className="w-12" />
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {group.totalMembers === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={canManageMembers ? 2 : 1}
+                    colSpan={canManageMembers || canManageManagers ? 2 : 1}
                     className="py-10 text-center text-muted-foreground text-sm"
                   >
                     No members yet.
@@ -774,7 +777,10 @@ function ManualGroupView({
               ) : (
                 group.members.map((member) => {
                   const canViewProfile = canViewMemberProfile(member);
-                  const isSelf = member.id === currentUserId;
+                  const memberIsManager = member.role === "manager";
+                  const showActions =
+                    (canManageMembers && !memberIsManager) ||
+                    (canManageManagers && memberIsManager);
 
                   return (
                     <TableRow key={member.id}>
@@ -800,7 +806,7 @@ function ManualGroupView({
                                   {member.firstName} {member.lastName}
                                 </span>
                               )}
-                              {member.role === "manager" && (
+                              {memberIsManager && (
                                 <Crown className="h-3 w-3 text-amber-500 shrink-0" />
                               )}
                             </div>
@@ -810,9 +816,9 @@ function ManualGroupView({
                           </div>
                         </div>
                       </TableCell>
-                      {canManageMembers && (
+                      {(canManageMembers || canManageManagers) && (
                         <TableCell>
-                          {!isSelf && (
+                          {showActions && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -821,7 +827,7 @@ function ManualGroupView({
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {member.role === "manager" ? (
+                                {memberIsManager ? (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       handleDemoteFromManager(member)
