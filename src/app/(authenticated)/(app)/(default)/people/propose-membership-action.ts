@@ -2,6 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { getAllUserAuthorities } from "@/db/authority";
@@ -15,6 +16,7 @@ import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 export const proposeMembershipAction = actionClient
@@ -70,6 +72,17 @@ export const proposeMembershipAction = actionClient
           },
           metadata: { legalMembershipId: existingTenure.id },
         });
+
+        after(() =>
+          track({
+            distinctId: targetUser.id,
+            event: "admin_membership_proposed",
+            properties: {
+              actor_id: ctx.user.id,
+              ...buildSubjectMetadata(targetUser),
+            },
+          }),
+        );
 
         return { legalMembershipId: existingTenure.id };
       }
@@ -138,6 +151,17 @@ export const proposeMembershipAction = actionClient
       },
       metadata: { legalMembershipId: lm.id },
     });
+
+    after(() =>
+      track({
+        distinctId: targetUser.id,
+        event: "admin_membership_proposed",
+        properties: {
+          actor_id: ctx.user.id,
+          ...buildSubjectMetadata(targetUser),
+        },
+      }),
+    );
 
     return { legalMembershipId: lm.id };
   });

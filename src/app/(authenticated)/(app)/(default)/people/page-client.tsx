@@ -14,6 +14,7 @@ import {
   parseAsString,
   useQueryState,
 } from "nuqs";
+import posthog from "posthog-js";
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -379,17 +380,63 @@ export default function DirectoryPageClient({
       .withOptions({ shallow: false, clearOnDefault: true }),
   );
 
+  const activeDept = department ?? [];
+  const activeBatch = batchNumber ?? [];
+  const activeStatus = status ?? [];
+
   const handleDepartmentChange = (next: Department[]) => {
+    const addedDepts = next.filter((v) => !activeDept.includes(v));
+    const removedDepts = activeDept.filter((v) => !next.includes(v));
+    for (const added of addedDepts) {
+      posthog.capture("people_filter_applied", {
+        filter: "department",
+        value: added,
+      });
+    }
+    for (const removed of removedDepts) {
+      posthog.capture("people_filter_cleared", {
+        filter: "department",
+        value: removed,
+      });
+    }
     setDepartment(next.length ? next : null);
     setPage(1);
   };
 
   const handleBatchChange = (next: number[]) => {
+    const addedBatches = next.filter((v) => !activeBatch.includes(v));
+    const removedBatches = activeBatch.filter((v) => !next.includes(v));
+    for (const added of addedBatches) {
+      posthog.capture("people_filter_applied", {
+        filter: "batch",
+        value: added,
+      });
+    }
+    for (const removed of removedBatches) {
+      posthog.capture("people_filter_cleared", {
+        filter: "batch",
+        value: removed,
+      });
+    }
     setBatchNumber(next.length ? next : null);
     setPage(1);
   };
 
   const handleStatusChange = (next: UserStatus[]) => {
+    const addedStatuses = next.filter((v) => !activeStatus.includes(v));
+    const removedStatuses = activeStatus.filter((v) => !next.includes(v));
+    for (const added of addedStatuses) {
+      posthog.capture("people_filter_applied", {
+        filter: "status",
+        value: added,
+      });
+    }
+    for (const removed of removedStatuses) {
+      posthog.capture("people_filter_cleared", {
+        filter: "status",
+        value: removed,
+      });
+    }
     setStatus(next.length ? next : null);
     setPage(1);
   };
@@ -401,10 +448,6 @@ export default function DirectoryPageClient({
     setStatus(null);
     setPage(1);
   };
-
-  const activeDept = department ?? [];
-  const activeBatch = batchNumber ?? [];
-  const activeStatus = status ?? [];
   const hasFilters =
     !!search ||
     activeDept.length > 0 ||
@@ -445,8 +488,12 @@ export default function DirectoryPageClient({
             placeholder="Find someone by name…"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              const query = e.target.value;
+              setSearch(query);
               setPage(1);
+              if (query) {
+                posthog.capture("people_search_performed", {});
+              }
             }}
           />
         </div>

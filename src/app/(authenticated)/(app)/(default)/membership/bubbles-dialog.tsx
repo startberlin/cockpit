@@ -58,7 +58,12 @@ export function BubblesDialog({
           </EmptyHeader>
           <EmptyContent>
             <Button variant="outline" size="sm" asChild>
-              <Link href="https://app.usebubbles.com/" target="_blank">
+              <Link
+                href="https://app.usebubbles.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-ph-capture-attribute-service="bubbles"
+              >
                 <ExternalLink />
                 Open Bubbles
               </Link>

@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { advancePaymentStatus, getPaymentById } from "@/db/membership-payments";
@@ -11,6 +12,7 @@ import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createOneTimePayment } from "@/lib/gocardless/payments";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 export const chargeAction = actionClient
   .inputSchema(z.object({ id: z.string() }))
@@ -40,7 +42,16 @@ export const chargeAction = actionClient
 
     const member = await db.query.user.findFirst({
       where: eq(user.id, row.userId),
-      columns: { gocardlessMandateId: true, name: true },
+      columns: {
+        gocardlessMandateId: true,
+        name: true,
+        id: true,
+        status: true,
+        department: true,
+        batchNumber: true,
+        legalMembershipState: true,
+        memberSinceDate: true,
+      },
     });
 
     if (!member?.gocardlessMandateId) {
@@ -75,6 +86,20 @@ export const chargeAction = actionClient
       metadata: { paymentId: row.id, amount: row.amount },
       description: `€${(row.amount / 100).toFixed(2)}`,
     });
+
+    if (member) {
+      after(() =>
+        track({
+          distinctId: row.userId,
+          event: "admin_payment_charged",
+          properties: {
+            actor_id: ctx.user.id,
+            payment_amount_cents: row.amount,
+            ...buildSubjectMetadata(member, row.activationDate),
+          },
+        }),
+      );
+    }
 
     return { alreadyProcessed: false };
   });

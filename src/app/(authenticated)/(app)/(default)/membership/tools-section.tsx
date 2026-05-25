@@ -83,7 +83,11 @@ export function ToolsSection({
               </CardHeader>
               <CardFooter className="mt-auto">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="https://mail.google.com" target="_blank">
+                  <Link
+                    href="https://mail.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <ExternalLink />
                     {actionLabel} Gmail
                   </Link>
@@ -108,7 +112,11 @@ export function ToolsSection({
               </CardHeader>
               <CardFooter className="mt-auto">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="https://meet.google.com" target="_blank">
+                  <Link
+                    href="https://meet.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <ExternalLink />
                     {actionLabel} Google Meet
                   </Link>
@@ -159,7 +167,11 @@ export function ToolsSection({
               </CardHeader>
               <CardFooter className="mt-auto">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="https://drive.google.com" target="_blank">
+                  <Link
+                    href="https://drive.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <ExternalLink />
                     {actionLabel} Google Drive
                   </Link>

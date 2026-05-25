@@ -1,6 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
 import { env } from "@/env";
@@ -8,6 +9,7 @@ import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
 import { nanoid } from "@/lib/id";
 import { getStructuredMembershipState } from "@/lib/membership-status";
+import { track } from "@/lib/posthog-server";
 
 export const startMembershipPaymentAction = actionClient.action(
   async ({ ctx }) => {
@@ -69,6 +71,13 @@ export const startMembershipPaymentAction = actionClient.action(
         .set({ gocardlessCustomerId: flow.customerId })
         .where(eq(user.id, ctx.user.id));
     }
+
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "payment_setup_started",
+      }),
+    );
 
     return { hostedUrl: flow.hostedUrl };
   },

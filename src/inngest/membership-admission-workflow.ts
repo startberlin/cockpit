@@ -25,6 +25,7 @@ import {
 import { renderAdmissionConfirmationTemplate } from "@/lib/legal-documents/templates/admission-confirmation";
 import { renderBoardResolutionTemplate } from "@/lib/legal-documents/templates/board-resolution";
 import { ROLE_DISPLAY } from "@/lib/legal-documents/templates/brand";
+import { track } from "@/lib/posthog-server";
 import { archiveMembershipApplicationPdf } from "./lib/archive-application-pdf";
 import { notifyUntil } from "./lib/step-loops";
 
@@ -434,6 +435,20 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
+    await step.run(
+      "capture-analytics-application-submitted-email",
+      async () => {
+        track({
+          distinctId: subjectUserId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "membership_application_submitted",
+            subject_id: subjectUserId,
+          },
+        });
+      },
+    );
+
     // Step 9d: Read user state before activation (replay-safe before-state).
     const userBeforeActivation = await step.run(
       "read-user-state-before-activation",
@@ -608,6 +623,17 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           firstName: subject.firstName,
         }),
         attachments,
+      });
+    });
+
+    await step.run("capture-analytics-admission-confirmed-email", async () => {
+      track({
+        distinctId: subjectUserId,
+        event: "workflow_email_sent",
+        properties: {
+          email_type: "membership_admission_confirmed",
+          subject_id: subjectUserId,
+        },
       });
     });
 

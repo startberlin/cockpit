@@ -1,7 +1,8 @@
 "use server";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import db from "@/db";
 import {
   addUserToGroup,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/groups/system-groups";
 import { events, inngest } from "@/lib/inngest";
 import { can } from "@/lib/permissions/server";
+import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 
 const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\n"]);
 
@@ -146,6 +148,23 @@ export async function addUserToGroupAction(
     actor: { id: currentUser.id, name: currentUser.name },
     metadata: { groupId, userId },
   });
+
+  after(async () => {
+    const targetUser = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+    });
+    if (targetUser) {
+      track({
+        distinctId: targetUser.id,
+        event: "group_member_added",
+        properties: {
+          actor_id: currentUser.id,
+          group_id: groupId,
+          ...buildSubjectMetadata(targetUser),
+        },
+      });
+    }
+  });
 }
 
 export async function removeUserFromGroupAction(
@@ -176,5 +195,22 @@ export async function removeUserFromGroupAction(
     eventType: "group.member_removed",
     actor: { id: currentUser.id, name: currentUser.name },
     metadata: { groupId, userId },
+  });
+
+  after(async () => {
+    const targetUser = await db.query.user.findFirst({
+      where: eq(user.id, userId),
+    });
+    if (targetUser) {
+      track({
+        distinctId: targetUser.id,
+        event: "group_member_removed",
+        properties: {
+          actor_id: currentUser.id,
+          group_id: groupId,
+          ...buildSubjectMetadata(targetUser),
+        },
+      });
+    }
   });
 }

@@ -3,6 +3,7 @@ import MandateSetupNeededEmail from "@/emails/membership/payment/mandate-setup-n
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
+import { track } from "@/lib/posthog-server";
 import {
   notifyUntil,
   REMINDER_INTERVAL_DAYS,
@@ -59,6 +60,15 @@ export const mandateSetupReminderWorkflow = inngest.createFunction(
             membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,
             isReminder: index > 0,
           }),
+        });
+
+        track({
+          distinctId: userId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "mandate_setup_reminder",
+            subject_id: userId,
+          },
         });
       },
     });

@@ -4,6 +4,7 @@ import MembershipApplicationReadyEmail from "@/emails/membership/admission/membe
 import { env } from "@/env";
 import { sendEmail } from "@/lib/email";
 import { events, inngest } from "@/lib/inngest";
+import { track } from "@/lib/posthog-server";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import { notifyUntil, REMINDER_TOTAL_DAYS } from "./lib/step-loops";
 
@@ -96,6 +97,15 @@ export const reconfirmationReminderWorkflow = inngest.createFunction(
             react: StartCockpitEnabledEmail({ firstName: u.firstName ?? "" }),
           });
         }
+
+        track({
+          distinctId: userId,
+          event: "workflow_email_sent",
+          properties: {
+            email_type: "reconfirmation_reminder",
+            subject_id: userId,
+          },
+        });
       },
     });
   },

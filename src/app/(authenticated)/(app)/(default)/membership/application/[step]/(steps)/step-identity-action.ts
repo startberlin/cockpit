@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { returnValidationErrors } from "next-safe-action";
 import db from "@/db";
 import {
@@ -8,6 +9,7 @@ import {
   membershipApplication,
 } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
+import { track } from "@/lib/posthog-server";
 import { declarationStepSchema } from "../application-validation";
 
 export const saveIdentityDeclarationsAction = actionClient
@@ -63,6 +65,14 @@ export const saveIdentityDeclarationsAction = actionClient
         });
       }
     });
+
+    after(() =>
+      track({
+        distinctId: ctx.user.id,
+        event: "membership_application_step_completed",
+        properties: { step: "identity" },
+      }),
+    );
 
     return { success: true };
   });
