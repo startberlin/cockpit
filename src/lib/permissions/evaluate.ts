@@ -257,6 +257,7 @@ function evaluateUserScopedAction(
     case "membership.transition.decide":
     case "membership.cancellation.acknowledge":
       return (
+        hasSuperAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
@@ -271,6 +272,7 @@ function evaluateUserScopedAction(
     case "membership.resolution.admission.view":
       return (
         hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
       );
