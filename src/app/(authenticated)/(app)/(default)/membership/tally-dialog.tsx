@@ -117,6 +117,7 @@ function TallyDialogContent({
                   <Link
                     href="https://tally.so/login"
                     target="_blank"
+                    rel="noopener noreferrer"
                     data-ph-capture-attribute-service="tally"
                   >
                     <ExternalLink />

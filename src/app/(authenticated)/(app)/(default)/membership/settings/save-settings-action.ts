@@ -61,18 +61,26 @@ export const saveSettingsAction = actionClient
     ) {
       changedFields.push("eventEmailPreference");
     }
-    if (
-      parsedInput.eventEmailPreference === "custom" &&
-      parsedInput.eventInviteEmail !== current.eventInviteEmail
-    ) {
+    const nextEventInviteEmail =
+      parsedInput.eventEmailPreference === undefined
+        ? current.eventInviteEmail
+        : parsedInput.eventEmailPreference === "custom"
+          ? (parsedInput.eventInviteEmail ?? null)
+          : null;
+
+    if (nextEventInviteEmail !== current.eventInviteEmail) {
       changedFields.push("eventInviteEmail");
     }
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "profile_updated",
-      properties: { changed_fields: changedFields },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "profile_updated",
+        properties: { changed_fields: changedFields },
+      });
+    } catch (err) {
+      console.error("[analytics] Failed to capture profile_updated:", err);
+    }
 
     return { success: true };
   });

@@ -61,6 +61,7 @@ export function BubblesDialog({
               <Link
                 href="https://app.usebubbles.com/"
                 target="_blank"
+                rel="noopener noreferrer"
                 data-ph-capture-attribute-service="bubbles"
               >
                 <ExternalLink />

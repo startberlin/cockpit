@@ -43,10 +43,12 @@ export const createUserAction = actionClient
       .where(eq(userTable.email, companyEmail))
       .limit(1);
 
+    const subjectId = existingDbUser?.id ?? newId("user");
+
     await db
       .insert(userTable)
       .values({
-        id: newId("user"),
+        id: subjectId,
         email: companyEmail,
         firstName,
         lastName,
@@ -86,16 +88,19 @@ export const createUserAction = actionClient
       description: companyEmail,
     });
 
-    const posthog = getPostHogClient();
-    posthog?.capture({
-      distinctId: ctx.user.id,
-      event: "admin_user_created",
-      properties: {
-        actor_id: ctx.user.id,
-        company_email: companyEmail,
-        status: status ?? "onboarding",
-        department: department ?? null,
-        batch_number: batchNumber ?? null,
-      },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: subjectId,
+        event: existingDbUser ? "admin_user_updated" : "admin_user_created",
+        properties: {
+          actor_id: ctx.user.id,
+          company_email: companyEmail,
+          status: status ?? "onboarding",
+          department: department ?? null,
+          batch_number: batchNumber ?? null,
+        },
+      });
+    } catch (err) {
+      console.error("[analytics] Failed to capture admin_user event:", err);
+    }
   });

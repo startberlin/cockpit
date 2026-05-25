@@ -386,15 +386,18 @@ export default function DirectoryPageClient({
 
   const handleDepartmentChange = (next: Department[]) => {
     const addedDepts = next.filter((v) => !activeDept.includes(v));
-    const removedDeptCount = activeDept.filter((v) => !next.includes(v)).length;
+    const removedDepts = activeDept.filter((v) => !next.includes(v));
     for (const added of addedDepts) {
       posthog.capture("people_filter_applied", {
         filter: "department",
         value: added,
       });
     }
-    for (let i = 0; i < removedDeptCount; i++) {
-      posthog.capture("people_filter_cleared", { filter: "department" });
+    for (const removed of removedDepts) {
+      posthog.capture("people_filter_cleared", {
+        filter: "department",
+        value: removed,
+      });
     }
     setDepartment(next.length ? next : null);
     setPage(1);
@@ -402,17 +405,18 @@ export default function DirectoryPageClient({
 
   const handleBatchChange = (next: number[]) => {
     const addedBatches = next.filter((v) => !activeBatch.includes(v));
-    const removedBatchCount = activeBatch.filter(
-      (v) => !next.includes(v),
-    ).length;
+    const removedBatches = activeBatch.filter((v) => !next.includes(v));
     for (const added of addedBatches) {
       posthog.capture("people_filter_applied", {
         filter: "batch",
         value: added,
       });
     }
-    for (let i = 0; i < removedBatchCount; i++) {
-      posthog.capture("people_filter_cleared", { filter: "batch" });
+    for (const removed of removedBatches) {
+      posthog.capture("people_filter_cleared", {
+        filter: "batch",
+        value: removed,
+      });
     }
     setBatchNumber(next.length ? next : null);
     setPage(1);
@@ -420,17 +424,18 @@ export default function DirectoryPageClient({
 
   const handleStatusChange = (next: UserStatus[]) => {
     const addedStatuses = next.filter((v) => !activeStatus.includes(v));
-    const removedStatusCount = activeStatus.filter(
-      (v) => !next.includes(v),
-    ).length;
+    const removedStatuses = activeStatus.filter((v) => !next.includes(v));
     for (const added of addedStatuses) {
       posthog.capture("people_filter_applied", {
         filter: "status",
         value: added,
       });
     }
-    for (let i = 0; i < removedStatusCount; i++) {
-      posthog.capture("people_filter_cleared", { filter: "status" });
+    for (const removed of removedStatuses) {
+      posthog.capture("people_filter_cleared", {
+        filter: "status",
+        value: removed,
+      });
     }
     setStatus(next.length ? next : null);
     setPage(1);

@@ -36,11 +36,18 @@ export const retractTransitionAction = actionClient
       subject: { id: currentUser.id, name: currentUser.name },
     });
 
-    getPostHogClient()?.capture({
-      distinctId: currentUser.id,
-      event: "membership_transition_retracted",
-      properties: {
-        transition_type: existing?.type ?? null,
-      },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: currentUser.id,
+        event: "membership_transition_retracted",
+        properties: {
+          transition_type: existing?.type ?? null,
+        },
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture membership_transition_retracted:",
+        err,
+      );
+    }
   });

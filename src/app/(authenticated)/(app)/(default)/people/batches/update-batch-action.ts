@@ -35,14 +35,17 @@ export const updateBatchAction = actionClient
       fieldsChanged.push("startDate");
     }
 
-    const posthog = getPostHogClient();
-    posthog?.capture({
-      distinctId: ctx.user.id,
-      event: "admin_batch_updated",
-      properties: {
-        actor_id: ctx.user.id,
-        batch_number: parsedInput.number,
-        fields_changed: fieldsChanged,
-      },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "admin_batch_updated",
+        properties: {
+          actor_id: ctx.user.id,
+          batch_number: parsedInput.number,
+          fields_changed: fieldsChanged,
+        },
+      });
+    } catch (err) {
+      console.error("[analytics] Failed to capture admin_batch_updated:", err);
+    }
   });

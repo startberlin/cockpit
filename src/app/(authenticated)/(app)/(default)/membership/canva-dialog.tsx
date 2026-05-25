@@ -107,6 +107,7 @@ export function CanvaDialog({
                       <Link
                         href="https://www.canva.com/signup"
                         target="_blank"
+                        rel="noopener noreferrer"
                         data-ph-capture-attribute-service="canva"
                       >
                         <ExternalLink />

@@ -83,6 +83,7 @@ function SlackDialogContent({
                   <Link
                     href="https://start-berlin-e-v.slack.com/signup#/domain-signup"
                     target="_blank"
+                    rel="noopener noreferrer"
                     data-ph-capture-attribute-service="slack"
                   >
                     <ExternalLink />
@@ -114,6 +115,7 @@ function SlackDialogContent({
                   <Link
                     href="https://start-berlin-e-v.slack.com"
                     target="_blank"
+                    rel="noopener noreferrer"
                     data-ph-capture-attribute-service="slack"
                   >
                     <ExternalLink />

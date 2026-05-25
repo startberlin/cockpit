@@ -57,14 +57,21 @@ export const requestTransitionAction = actionClient
       },
     });
 
-    getPostHogClient()?.capture({
-      distinctId: currentUser.id,
-      event: "membership_transition_requested",
-      properties: {
-        transition_type: parsedInput.type,
-        had_reason: false,
-      },
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: currentUser.id,
+        event: "membership_transition_requested",
+        properties: {
+          transition_type: parsedInput.type,
+          had_reason: false,
+        },
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture membership_transition_requested:",
+        err,
+      );
+    }
 
     return { requestId: request.id };
   });

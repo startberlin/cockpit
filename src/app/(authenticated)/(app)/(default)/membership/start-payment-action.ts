@@ -71,11 +71,18 @@ export const startMembershipPaymentAction = actionClient.action(
         .where(eq(user.id, ctx.user.id));
     }
 
-    getPostHogClient()?.capture({
-      distinctId: ctx.user.id,
-      event: "payment_setup_started",
-      properties: {},
-    });
+    try {
+      getPostHogClient()?.capture({
+        distinctId: ctx.user.id,
+        event: "payment_setup_started",
+        properties: {},
+      });
+    } catch (err) {
+      console.error(
+        "[analytics] Failed to capture payment_setup_started:",
+        err,
+      );
+    }
 
     return { hostedUrl: flow.hostedUrl };
   },
