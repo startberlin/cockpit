@@ -19,7 +19,6 @@ export async function checkMandateReadyAction(): Promise<boolean> {
         track({
           distinctId: user.id,
           event: "payment_mandate_confirmed",
-          properties: {},
         });
       }
     });

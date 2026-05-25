@@ -52,7 +52,6 @@ export const saveEventEmailPreferenceAction = actionClient
       track({
         distinctId: ctx.user.id,
         event: "onboarding_completed",
-        properties: {},
       });
     });
 

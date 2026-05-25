@@ -204,7 +204,6 @@ export const submitApplicationAction = actionClient
       track({
         distinctId: ctx.user.id,
         event: "membership_application_submitted",
-        properties: {},
       }),
     );
 

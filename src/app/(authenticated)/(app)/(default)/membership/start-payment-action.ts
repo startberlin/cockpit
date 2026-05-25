@@ -76,7 +76,6 @@ export const startMembershipPaymentAction = actionClient.action(
       track({
         distinctId: ctx.user.id,
         event: "payment_setup_started",
-        properties: {},
       }),
     );
 
