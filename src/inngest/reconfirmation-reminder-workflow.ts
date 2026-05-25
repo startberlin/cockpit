@@ -12,11 +12,11 @@ import { notifyUntil, REMINDER_TOTAL_DAYS } from "./lib/step-loops";
 // membership, so they should keep receiving reminders.
 const INACTIVE_STATUSES: readonly string[] = ["cancelled", "alumni"];
 
-// Every 7 days until reconfirmation.submitted: if the user hasn't logged in yet
+// Every 3 days until reconfirmation.submitted: if the user hasn't logged in yet
 // send a "sign in" nudge, otherwise send a reconfirmation reminder.
-const REMINDER_INTERVAL_DAYS = 7;
+const REMINDER_INTERVAL_DAYS = 3;
 
-// Fires immediately (index 0), then nudges every 7 days on the same branch
+// Fires immediately (index 0), then nudges every 3 days on the same branch
 // logic until reconfirmation.submitted fires or 90 days elapse.
 export const reconfirmationReminderWorkflow = inngest.createFunction(
   {
