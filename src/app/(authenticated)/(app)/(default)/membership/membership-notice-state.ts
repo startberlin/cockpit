@@ -31,6 +31,8 @@ export function deriveMembershipNotice(
 
   if (pendingTransition) return "transition_pending";
 
+  if (legalMembershipStatus === "processing") return "payment_not_started";
+
   if (legalMembershipStatus === "active") {
     if (membershipState.mandateCancelled) return "payment_cancelled";
     if (membershipState.payment === "not_started") return "payment_not_started";
