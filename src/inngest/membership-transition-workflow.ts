@@ -11,6 +11,7 @@ import { membershipTransitionRequest } from "@/db/schema/membership-transition-r
 import MembershipCancelledEmail from "@/emails/membership/cancellation/membership-cancelled";
 import MembershipTerminationFyiEmail from "@/emails/membership/cancellation/membership-termination-fyi";
 import MembershipSupportingAlumniConfirmedEmail from "@/emails/membership/transition/membership-supporting-alumni-confirmed";
+import MembershipTransitionAcknowledgementNeededEmail from "@/emails/membership/transition/membership-transition-acknowledgement-needed";
 import MembershipTransitionApprovalNeededEmail from "@/emails/membership/transition/membership-transition-approval-needed";
 import MembershipTransitionRejectedEmail from "@/emails/membership/transition/membership-transition-rejected";
 import { env } from "@/env";
@@ -55,6 +56,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           personalEmail: true,
           gocardlessMandateId: true,
           department: true,
+          status: true,
         },
       });
 
@@ -75,12 +77,20 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         personalEmail: userRecord.personalEmail,
         mandateId: userRecord.gocardlessMandateId,
         department: userRecord.department,
+        status: userRecord.status,
         legalMembershipId: lm?.id ?? null,
       };
     });
 
-    // Step 2: Notify board / department head that approval is required, then
-    // wait for the decision with a 3-day reminder cadence (30-day total budget).
+    // Supporting alumni transitioning to alumni do not require board
+    // approval, only acknowledgement, with a 7-day auto-execute timer
+    // (mirroring self-service cancellation).
+    const isSupportingAlumniDeparture =
+      type === "alumni_request" && requestData.status === "supporting_alumni";
+
+    // Step 2: Notify board / department head, then wait for either
+    // an explicit decision (approval flow, 30-day budget) or an
+    // acknowledgement (supporting_alumni → alumni, 7-day auto-execute).
     const subjectName =
       `${requestData.firstName} ${requestData.lastName}`.trim() || userId;
     const requestedAt = new Date().toISOString().substring(0, 10);
@@ -106,228 +116,276 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           positions.head_of_finance,
         ].flatMap((p) => (p ? [p.userId] : [])),
       );
+
+      const isAck = isSupportingAlumniDeparture;
       const label = type === "alumni_request" ? "alumni" : "supporting alumni";
       const subjectPrefix = opts.isReminder ? "Reminder: " : "";
+      const subjectLine = isAck
+        ? `${subjectPrefix}Action required: acknowledge ${subjectName}'s transition to alumni`
+        : `${subjectPrefix}Action required: review ${subjectName}'s transition to ${label}`;
+
+      const recipientsWithEmail = recipients.filter(
+        (r): r is typeof r & { email: string } => Boolean(r.email),
+      );
 
       await Promise.all(
-        recipients
-          .filter((r) => r.email)
-          .map((recipient) =>
-            sendEmail({
-              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: recipient.email!,
-              subject: `${subjectPrefix}Action required: review ${subjectName}'s transition to ${label}`,
-              react: MembershipTransitionApprovalNeededEmail({
-                firstName: recipient.firstName,
-                subjectName,
-                transitionType: type,
-                requestedAt,
-                profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
-                receivingReason: boardMemberIds.has(recipient.userId)
-                  ? "You're receiving this because you're a board member of START Berlin."
-                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
-                isReminder: opts.isReminder,
-              }),
-            }),
-          ),
+        recipientsWithEmail.map((recipient) => {
+          const receivingReason = boardMemberIds.has(recipient.userId)
+            ? "You're receiving this because you're a board member of START Berlin."
+            : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`;
+
+          return sendEmail({
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+            to: recipient.email,
+            subject: subjectLine,
+            react: isAck
+              ? MembershipTransitionAcknowledgementNeededEmail({
+                  firstName: recipient.firstName,
+                  subjectName,
+                  requestedAt,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
+                  receivingReason,
+                  isReminder: opts.isReminder,
+                })
+              : MembershipTransitionApprovalNeededEmail({
+                  firstName: recipient.firstName,
+                  subjectName,
+                  transitionType: type,
+                  requestedAt,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
+                  receivingReason,
+                  isReminder: opts.isReminder,
+                }),
+          });
+        }),
       );
     };
 
-    const decisionEvent = (await notifyUntil(step, {
-      id: "decision",
-      terminateOn: {
-        eventName: events.transitionDecided.name,
-        match: "transitionRequestId",
-      },
-      timeoutDays: 30,
-      remindEveryDays: 3,
-      send: (index) => sendApprovalEmails({ isReminder: index > 0 }),
-    })) as Awaited<ReturnType<typeof step.waitForEvent>> | null;
+    let decidedByUserId: string | null = null;
 
-    // Step 3a: Timeout — mark expired and notify via START Berlin email.
-    if (decisionEvent === null) {
-      await step.run("mark-request-expired", async () => {
-        await db
-          .update(membershipTransitionRequest)
-          .set({ status: "expired" })
-          .where(eq(membershipTransitionRequest.id, transitionRequestId));
-      });
-
-      if (requestData.startEmail) {
-        await step.run("send-expiry-notification", async () => {
-          await sendEmail({
-            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-            to: requestData.startEmail!,
-            subject: "Your transition request was not approved at this time",
-            react: MembershipTransitionRejectedEmail({
-              firstName: requestData.firstName,
-              transitionType: type,
-            }),
-          });
-        });
-
-        await step.run("capture-analytics-expiry-email", async () => {
-          track({
-            distinctId: userId,
-            event: "workflow_email_sent",
-            properties: {
-              email_type: "membership_transition_expired",
-              subject_id: userId,
-            },
-          });
-        });
-      }
-
-      return { outcome: "expired", transitionRequestId };
-    }
-
-    // Step 3b: Rejected — mark and notify via START Berlin email.
-    if (decisionEvent.data.decision === "rejected") {
-      await step.run("mark-request-rejected", async () => {
-        await db
-          .update(membershipTransitionRequest)
-          .set({
-            status: "expired",
-            decidedAt: new Date(),
-            decidedByUserId: decisionEvent.data.decidedByUserId,
-          })
-          .where(eq(membershipTransitionRequest.id, transitionRequestId));
-      });
-
-      if (requestData.startEmail) {
-        await step.run("send-rejection-notification", async () => {
-          await sendEmail({
-            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-            to: requestData.startEmail!,
-            subject: "Your transition request was not approved at this time",
-            react: MembershipTransitionRejectedEmail({
-              firstName: requestData.firstName,
-              transitionType: type,
-            }),
-          });
-        });
-
-        await step.run("capture-analytics-rejection-email", async () => {
-          track({
-            distinctId: userId,
-            event: "workflow_email_sent",
-            properties: {
-              email_type: "membership_transition_rejected",
-              subject_id: userId,
-            },
-          });
-        });
-      }
-
-      await step.run("write-audit-log-transition-rejected", async () => {
-        await writeAuditLog({
-          category: "membership",
-          eventType: "membership.transition_rejected",
-          subject: { id: userId, name: subjectName },
-          metadata: { type, transitionRequestId },
-          description:
-            type === "alumni_request"
-              ? "Alumni request"
-              : "Supporting alumni request",
-        });
-      });
-
-      return { outcome: "rejected", transitionRequestId };
-    }
-
-    // Step 4: Approved — execute based on type.
-    if (type === "supporting_alumni_request") {
-      // Read user state before the transition for replay-safe before/after diff.
-      const userBeforeTransition = await step.run(
-        "read-user-state-before-transition",
-        async () => {
-          const u = await db.query.user.findFirst({
-            where: (u, { eq: eqFn }) => eqFn(u.id, userId),
-            columns: { status: true, department: true, batchNumber: true },
-          });
-          return {
-            status: u?.status ?? null,
-            department: u?.department ?? null,
-            batchNumber: u?.batchNumber ?? null,
-          };
+    if (isSupportingAlumniDeparture) {
+      const ackEvent = (await notifyUntil(step, {
+        id: "acknowledgement",
+        terminateOn: {
+          eventName: events.transitionAcknowledged.name,
+          match: "transitionRequestId",
         },
-      );
+        timeoutDays: 7,
+        remindEveryDays: 3,
+        send: (index) => sendApprovalEmails({ isReminder: index > 0 }),
+      })) as Awaited<ReturnType<typeof step.waitForEvent>> | null;
 
-      // Supporting alumni: status change only, Google + mandate unchanged.
-      await step.run("execute-supporting-alumni-transition", async () => {
-        await db.transaction(async (tx) => {
-          await tx
-            .update(user)
-            .set({ status: "supporting_alumni", department: null })
-            .where(eq(user.id, userId));
+      if (ackEvent !== null) {
+        decidedByUserId = ackEvent.data.acknowledgedByUserId as string;
+      }
+      // Whether acknowledged or timed out, fall through to alumni execution.
+    } else {
+      const decisionEvent = (await notifyUntil(step, {
+        id: "decision",
+        terminateOn: {
+          eventName: events.transitionDecided.name,
+          match: "transitionRequestId",
+        },
+        timeoutDays: 30,
+        remindEveryDays: 3,
+        send: (index) => sendApprovalEmails({ isReminder: index > 0 }),
+      })) as Awaited<ReturnType<typeof step.waitForEvent>> | null;
 
-          await tx
+      // Step 3a: Timeout. Mark expired and notify via START Berlin email.
+      if (decisionEvent === null) {
+        await step.run("mark-request-expired", async () => {
+          await db
+            .update(membershipTransitionRequest)
+            .set({ status: "expired" })
+            .where(eq(membershipTransitionRequest.id, transitionRequestId));
+        });
+
+        if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
+          await step.run("send-expiry-notification", async () => {
+            await sendEmail({
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+              to: startEmail,
+              subject: "Your transition request was not approved at this time",
+              react: MembershipTransitionRejectedEmail({
+                firstName: requestData.firstName,
+                transitionType: type,
+              }),
+            });
+          });
+
+          await step.run("capture-analytics-expiry-email", async () => {
+            track({
+              distinctId: userId,
+              event: "workflow_email_sent",
+              properties: {
+                email_type: "membership_transition_expired",
+                subject_id: userId,
+              },
+            });
+          });
+        }
+
+        return { outcome: "expired", transitionRequestId };
+      }
+
+      // Step 3b: Rejected. Mark and notify via START Berlin email.
+      if (decisionEvent.data.decision === "rejected") {
+        await step.run("mark-request-rejected", async () => {
+          await db
             .update(membershipTransitionRequest)
             .set({
-              status: "executed",
+              status: "expired",
               decidedAt: new Date(),
               decidedByUserId: decisionEvent.data.decidedByUserId,
             })
             .where(eq(membershipTransitionRequest.id, transitionRequestId));
         });
-      });
 
-      if (requestData.startEmail) {
-        await step.run("send-supporting-alumni-confirmation", async () => {
-          await sendEmail({
-            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-            to: requestData.startEmail!,
-            subject: "You're now a Supporting Alumni of START Berlin",
-            react: MembershipSupportingAlumniConfirmedEmail({
-              firstName: requestData.firstName,
-            }),
+        if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
+          await step.run("send-rejection-notification", async () => {
+            await sendEmail({
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+              to: startEmail,
+              subject: "Your transition request was not approved at this time",
+              react: MembershipTransitionRejectedEmail({
+                firstName: requestData.firstName,
+                transitionType: type,
+              }),
+            });
           });
-        });
 
-        await step.run(
-          "capture-analytics-supporting-alumni-email",
-          async () => {
+          await step.run("capture-analytics-rejection-email", async () => {
             track({
               distinctId: userId,
               event: "workflow_email_sent",
               properties: {
-                email_type: "membership_transition_supporting_alumni",
+                email_type: "membership_transition_rejected",
                 subject_id: userId,
               },
             });
-          },
-        );
+          });
+        }
+
+        await step.run("write-audit-log-transition-rejected", async () => {
+          await writeAuditLog({
+            category: "membership",
+            eventType: "membership.transition_rejected",
+            subject: { id: userId, name: subjectName },
+            metadata: { type, transitionRequestId },
+            description:
+              type === "alumni_request"
+                ? "Alumni request"
+                : "Supporting alumni request",
+          });
+        });
+
+        return { outcome: "rejected", transitionRequestId };
       }
 
-      await step.sendEvent("fire-group-reconciliation", {
-        name: events.cockpitUserUpdated.name,
-        data: { id: userId },
-      });
+      decidedByUserId = decisionEvent.data.decidedByUserId as string;
 
-      await step.sendEvent("sync-system-groups-after-supporting-alumni", {
-        name: events.userSystemGroupsSync.name,
-        data: {
-          userId,
-          before: userBeforeTransition,
-          after: {
-            status: "supporting_alumni",
-            department: null,
-            batchNumber: userBeforeTransition.batchNumber,
+      // Step 4: Approved. Supporting alumni branch terminates here. Alumni
+      // requests fall through to the alumni execution below (shared with the
+      // supporting-alumni-departure acknowledgement path).
+      if (type === "supporting_alumni_request") {
+        // Read user state before the transition for replay-safe before/after diff.
+        const userBeforeTransition = await step.run(
+          "read-user-state-before-transition",
+          async () => {
+            const u = await db.query.user.findFirst({
+              where: (u, { eq: eqFn }) => eqFn(u.id, userId),
+              columns: { status: true, department: true, batchNumber: true },
+            });
+            return {
+              status: u?.status ?? null,
+              department: u?.department ?? null,
+              batchNumber: u?.batchNumber ?? null,
+            };
           },
-        },
-      });
+        );
 
-      await step.run("write-audit-log-supporting-alumni", async () => {
-        await writeAuditLog({
-          category: "membership",
-          eventType: "membership.transition_completed",
-          subject: { id: userId, name: subjectName },
-          metadata: { type: "supporting_alumni_request", transitionRequestId },
-          description: "To supporting alumni",
+        // Supporting alumni: status change only, Google + mandate unchanged.
+        await step.run("execute-supporting-alumni-transition", async () => {
+          await db.transaction(async (tx) => {
+            await tx
+              .update(user)
+              .set({ status: "supporting_alumni", department: null })
+              .where(eq(user.id, userId));
+
+            await tx
+              .update(membershipTransitionRequest)
+              .set({
+                status: "executed",
+                decidedAt: new Date(),
+                decidedByUserId,
+              })
+              .where(eq(membershipTransitionRequest.id, transitionRequestId));
+          });
         });
-      });
 
-      return { outcome: "supporting_alumni", transitionRequestId };
+        if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
+          await step.run("send-supporting-alumni-confirmation", async () => {
+            await sendEmail({
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+              to: startEmail,
+              subject: "Welcome to Supporting Alumni at START Berlin",
+              react: MembershipSupportingAlumniConfirmedEmail({
+                firstName: requestData.firstName,
+              }),
+            });
+          });
+
+          await step.run(
+            "capture-analytics-supporting-alumni-email",
+            async () => {
+              track({
+                distinctId: userId,
+                event: "workflow_email_sent",
+                properties: {
+                  email_type: "membership_transition_supporting_alumni",
+                  subject_id: userId,
+                },
+              });
+            },
+          );
+        }
+
+        await step.sendEvent("fire-group-reconciliation", {
+          name: events.cockpitUserUpdated.name,
+          data: { id: userId },
+        });
+
+        await step.sendEvent("sync-system-groups-after-supporting-alumni", {
+          name: events.userSystemGroupsSync.name,
+          data: {
+            userId,
+            before: userBeforeTransition,
+            after: {
+              status: "supporting_alumni",
+              department: null,
+              batchNumber: userBeforeTransition.batchNumber,
+            },
+          },
+        });
+
+        await step.run("write-audit-log-supporting-alumni", async () => {
+          await writeAuditLog({
+            category: "membership",
+            eventType: "membership.transition_completed",
+            subject: { id: userId, name: subjectName },
+            metadata: {
+              type: "supporting_alumni_request",
+              transitionRequestId,
+            },
+            description: "To supporting alumni",
+          });
+        });
+
+        return { outcome: "supporting_alumni", transitionRequestId };
+      }
     }
 
     // Alumni request: full exit sequence.
@@ -369,7 +427,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           .update(membershipTransitionRequest)
           .set({
             decidedAt: new Date(),
-            decidedByUserId: decisionEvent.data.decidedByUserId,
+            decidedByUserId,
           })
           .where(eq(membershipTransitionRequest.id, transitionRequestId));
       });
@@ -377,15 +435,17 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 6: Suspend Google account.
     if (requestData.startEmail) {
+      const startEmail = requestData.startEmail;
       await step.run("suspend-google-account", async () => {
-        await suspendWorkspaceUser(requestData.startEmail!);
+        await suspendWorkspaceUser(startEmail);
       });
     }
 
     // Step 7: Cancel GoCardless mandate.
     if (requestData.mandateId) {
+      const mandateId = requestData.mandateId;
       await step.run("cancel-gocardless-mandate", async () => {
-        await cancelMembershipMandate(requestData.mandateId!);
+        await cancelMembershipMandate(mandateId);
         await db
           .update(user)
           .set({
@@ -425,10 +485,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 9: Send confirmation email using cached personal email.
     if (requestData.personalEmail) {
+      const personalEmail = requestData.personalEmail;
       await step.run("send-cancellation-email", async () => {
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-          to: requestData.personalEmail!,
+          to: personalEmail,
           subject: "Your START Berlin membership has ended",
           react: MembershipCancelledEmail({
             firstName: requestData.firstName,
@@ -478,25 +539,27 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         ].flatMap((p) => (p ? [p.userId] : [])),
       );
 
+      const recipientsWithEmail = recipients.filter(
+        (r): r is typeof r & { email: string } => Boolean(r.email),
+      );
+
       const results = await Promise.allSettled(
-        recipients
-          .filter((r) => r.email)
-          .map((recipient) =>
-            sendEmail({
-              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: recipient.email!,
-              subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
-              react: MembershipTerminationFyiEmail({
-                firstName: recipient.firstName,
-                subjectName,
-                terminatedOn,
-                context: "alumni",
-                receivingReason: boardMemberIds.has(recipient.userId)
-                  ? "You're receiving this because you're a board member of START Berlin."
-                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
-              }),
+        recipientsWithEmail.map((recipient) =>
+          sendEmail({
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+            to: recipient.email,
+            subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
+            react: MembershipTerminationFyiEmail({
+              firstName: recipient.firstName,
+              subjectName,
+              terminatedOn,
+              context: "alumni",
+              receivingReason: boardMemberIds.has(recipient.userId)
+                ? "You're receiving this because you're a board member of START Berlin."
+                : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
             }),
-          ),
+          }),
+        ),
       );
 
       for (const r of results) {
@@ -564,8 +627,9 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 14: Hard-delete Google Workspace account.
     if (requestData.startEmail) {
+      const startEmail = requestData.startEmail;
       await step.run("hard-delete-google-account", async () => {
-        await deleteWorkspaceUser(requestData.startEmail!);
+        await deleteWorkspaceUser(startEmail);
       });
     }
 

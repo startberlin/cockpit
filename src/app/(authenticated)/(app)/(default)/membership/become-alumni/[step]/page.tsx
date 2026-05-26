@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { getActiveMembershipTransitionRequest } from "@/db/membership-transitions";
-import { getDepartmentHeadForDepartment } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
 import {
   StepAlumniCommunity,
@@ -22,7 +21,7 @@ export default async function BecomeAlumniStepPage({
 
   if (!isEligible) redirect("/membership");
 
-  // Already has a pending board-review request — nothing more to do here
+  // Already has a pending board-review request: nothing more to do here.
   const pendingTransition = await getActiveMembershipTransitionRequest(user.id);
   if (pendingTransition) redirect("/membership");
 
@@ -35,8 +34,15 @@ export default async function BecomeAlumniStepPage({
     return <StepSupportingAlumni />;
   }
 
+  const isSupportingAlumni = user.status === "supporting_alumni";
+
   if (step === "alumni-confirm") {
-    return <StepAlumniConfirm companyEmail={user.email ?? ""} />;
+    return (
+      <StepAlumniConfirm
+        companyEmail={user.email ?? ""}
+        isSupportingAlumni={isSupportingAlumni}
+      />
+    );
   }
 
   if (step === "alumni-community") {
@@ -48,6 +54,7 @@ export default async function BecomeAlumniStepPage({
       <StepAlumniFinalize
         currentPersonalEmail={user.personalEmail}
         companyEmail={user.email ?? ""}
+        isSupportingAlumni={isSupportingAlumni}
       />
     );
   }
