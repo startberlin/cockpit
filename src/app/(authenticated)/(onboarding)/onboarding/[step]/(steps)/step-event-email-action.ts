@@ -6,6 +6,7 @@ import { z } from "zod";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { events, inngest } from "@/lib/inngest";
 import { track } from "@/lib/posthog-server";
 
 const schema = z
@@ -41,6 +42,17 @@ export const saveEventEmailPreferenceAction = actionClient
       })
       .where(eq(userTable.id, ctx.user.id));
 
+    try {
+      await inngest.send({
+        name: events.profileOnboardingCompleted.name,
+        data: { userId: ctx.user.id },
+      });
+    } catch (err) {
+      console.error(
+        `[step-event-email] Failed to send profileOnboardingCompleted event for user ${ctx.user.id}`,
+        err,
+      );
+    }
     after(() => {
       track({
         distinctId: ctx.user.id,

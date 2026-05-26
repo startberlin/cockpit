@@ -128,6 +128,12 @@ export const events = {
       decidedByUserId: string;
     }>(),
   }),
+  transitionAcknowledged: eventType("membership/transition.acknowledged", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      acknowledgedByUserId: string;
+    }>(),
+  }),
   paymentProposalCreated: eventType("membership/payment-proposal.created", {
     schema: staticSchema<{ count: number }>(),
   }),
@@ -141,6 +147,12 @@ export const events = {
     schema: staticSchema<{ userId: string }>(),
   }),
   reconfirmationPending: eventType("membership/reconfirmation.pending", {
+    schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
+  }),
+  profileOnboardingCompleted: eventType("onboarding/profile.completed", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  applicationDraftStarted: eventType("membership/application-draft.started", {
     schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
   }),
 };

@@ -21,7 +21,7 @@ export const BECOME_ALUMNI_STEP_META: Record<
   },
   "supporting-alumni": {
     label: "Supporting Alumni",
-    title: "Become a Supporting Alumni",
+    title: "Move to Supporting Alumni status",
     subtitle: "We're happy you're staying!",
   },
   "alumni-confirm": {
@@ -38,7 +38,8 @@ export const BECOME_ALUMNI_STEP_META: Record<
   "alumni-finalize": {
     label: "Confirm",
     title: "Cancel START Berlin e.V. membership",
-    subtitle: "End your membership, leave START Berlin and become an alumni.",
+    subtitle:
+      "End your membership, leave START Berlin and join the alumni network.",
   },
 };
 

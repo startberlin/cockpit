@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import db from "@/db";
 import { getUserByCustomerId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
@@ -78,15 +78,20 @@ async function reconcileMembershipPayment(
     };
   }
 
+  // Conditional write: if a concurrent reconciliation already stored a mandate
+  // (two fulfilled webhooks racing), don't overwrite it with a different one.
   await db
     .update(user)
     .set({
       gocardlessMandateId: mandateId,
       gocardlessCustomerId: customerId,
       gocardlessSetupSessionId: null,
+      gocardlessBillingRequestId: null,
     })
-    .where(eq(user.id, member.id));
+    .where(and(eq(user.id, member.id), isNull(user.gocardlessMandateId)));
 
+  // Send mandateActivated regardless — if another concurrent write won, the
+  // reminder workflows still need to be cancelled.
   await inngest.send({
     name: events.mandateActivated.name,
     data: { userId: member.id },

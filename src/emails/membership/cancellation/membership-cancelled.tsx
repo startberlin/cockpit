@@ -5,77 +5,126 @@ interface MembershipCancelledEmailProps {
   firstName: string;
   keepInTouch: boolean;
   reason?: "resigned" | "removed_by_board";
+  hadLegalMembership?: boolean;
 }
 
 export const MembershipCancelledEmail = ({
   firstName,
   keepInTouch,
   reason = "resigned",
-}: MembershipCancelledEmailProps) => (
-  <EmailShell
-    preview={
-      reason === "removed_by_board"
-        ? "Your START Berlin membership has been terminated"
-        : "Your START Berlin membership has ended"
-    }
-    eyebrow="Membership"
-    campaign="membership-cancelled"
-  >
-    {reason === "removed_by_board" ? (
-      <>
-        <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-          Your membership has been terminated
-        </Heading>
-        <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-          Hi {firstName},
-        </Text>
-        <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-          Your membership in START Berlin e.V. has been terminated by the board
-          in accordance with the association's bylaws (Satzung). Your account
-          and all associated memberships have been closed.
-        </Text>
-        <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-          If you have questions regarding this decision, reach out to{" "}
-          <a
-            href="mailto:vorstand@start-berlin.com"
-            style={{ color: "#1C1917" }}
-          >
-            vorstand@start-berlin.com
-          </a>
-          .
-        </Text>
-      </>
-    ) : (
-      <>
-        <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-          Your membership has ended
-        </Heading>
-        <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-          Hi {firstName},
-        </Text>
-        <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-          Your membership in START Berlin e.V. has ended. We've closed your
-          account and any associated memberships.
-        </Text>
-        {keepInTouch ? (
-          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-            You chose to stay in touch as an alumni. We'll use this email
-            address to contact you in the future.
-          </Text>
+  hadLegalMembership = true,
+}: MembershipCancelledEmailProps) => {
+  const preview = hadLegalMembership
+    ? reason === "removed_by_board"
+      ? "Your START Berlin membership has been terminated"
+      : "Your START Berlin membership has ended"
+    : reason === "removed_by_board"
+      ? "You have been removed from START Berlin"
+      : "Your START Berlin account has been closed";
+
+  return (
+    <EmailShell
+      preview={preview}
+      eyebrow="Membership"
+      campaign="membership-cancelled"
+    >
+      {hadLegalMembership ? (
+        reason === "removed_by_board" ? (
+          <>
+            <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+              Your membership has been terminated
+            </Heading>
+            <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+              Hi {firstName},
+            </Text>
+            <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+              Your membership in START Berlin e.V. has been terminated by the
+              board in accordance with the association's bylaws (Satzung). Your
+              account and all associated memberships have been closed.
+            </Text>
+            <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+              If you have questions regarding this decision, reach out to{" "}
+              <a
+                href="mailto:vorstand@start-berlin.com"
+                style={{ color: "#1C1917" }}
+              >
+                vorstand@start-berlin.com
+              </a>
+              .
+            </Text>
+          </>
         ) : (
+          <>
+            <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+              Your membership has ended
+            </Heading>
+            <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+              Hi {firstName},
+            </Text>
+            <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+              Your membership in START Berlin e.V. has ended. We've closed your
+              account and any associated memberships.
+            </Text>
+            {keepInTouch ? (
+              <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+                You chose to stay in touch as part of the alumni network. We'll
+                use this email address to contact you in the future.
+              </Text>
+            ) : (
+              <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+                Thanks for being part of START Berlin. We wish you all the best.
+              </Text>
+            )}
+          </>
+        )
+      ) : reason === "removed_by_board" ? (
+        <>
+          <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+            You have been removed from START Berlin
+          </Heading>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Hi {firstName},
+          </Text>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            You have been removed from START Berlin by the board. Your account
+            has been closed.
+          </Text>
+          <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
+            If you have questions regarding this decision, reach out to{" "}
+            <a
+              href="mailto:vorstand@start-berlin.com"
+              style={{ color: "#1C1917" }}
+            >
+              vorstand@start-berlin.com
+            </a>
+            .
+          </Text>
+        </>
+      ) : (
+        <>
+          <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
+            Your START Berlin account has been closed
+          </Heading>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Hi {firstName},
+          </Text>
+          <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+            Your START Berlin account has been closed.
+          </Text>
           <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
             Thanks for being part of START Berlin. We wish you all the best.
           </Text>
-        )}
-      </>
-    )}
-  </EmailShell>
-);
+        </>
+      )}
+    </EmailShell>
+  );
+};
 
 MembershipCancelledEmail.PreviewProps = {
   firstName: "Sönke",
   keepInTouch: false,
   reason: "resigned",
+  hadLegalMembership: true,
 } as MembershipCancelledEmailProps;
 
 export default MembershipCancelledEmail;

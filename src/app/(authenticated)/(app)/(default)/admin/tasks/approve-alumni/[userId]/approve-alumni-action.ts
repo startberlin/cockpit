@@ -12,7 +12,7 @@ import { can } from "@/lib/permissions/server";
 
 const approveAlumniInputSchema = z.object({
   transitionRequestId: z.string().min(1),
-  decision: z.enum(["approved", "rejected"]),
+  decision: z.enum(["approved", "rejected", "acknowledged"]),
 });
 
 export const approveAlumniAction = actionClient
@@ -27,6 +27,7 @@ export const approveAlumniAction = actionClient
         status: membershipTransitionRequest.status,
         userId: membershipTransitionRequest.userId,
         department: user.department,
+        subjectStatus: user.status,
       })
       .from(membershipTransitionRequest)
       .innerJoin(user, eq(user.id, membershipTransitionRequest.userId))
@@ -55,6 +56,43 @@ export const approveAlumniAction = actionClient
 
     if (row.userId === currentUser.id) {
       throw new Error("You cannot decide on your own transition request.");
+    }
+
+    const isSupportingAlumniDeparture =
+      row.type === "alumni_request" &&
+      row.subjectStatus === "supporting_alumni";
+
+    if (decision === "acknowledged") {
+      if (!isSupportingAlumniDeparture) {
+        throw new Error(
+          "Acknowledgement is only valid for supporting alumni transitioning to alumni.",
+        );
+      }
+
+      await inngest.send({
+        name: events.transitionAcknowledged.name,
+        data: {
+          transitionRequestId,
+          acknowledgedByUserId: currentUser.id,
+        },
+      });
+
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.transition_acknowledged",
+        actor: { id: currentUser.id, name: currentUser.name },
+        subject: { id: row.userId, name: row.userId },
+        metadata: { transitionRequestId, type: row.type },
+        description: "Acknowledged supporting alumni departure",
+      });
+
+      return { success: true };
+    }
+
+    if (isSupportingAlumniDeparture) {
+      throw new Error(
+        "Supporting alumni departures only support acknowledgement.",
+      );
     }
 
     await inngest.send({

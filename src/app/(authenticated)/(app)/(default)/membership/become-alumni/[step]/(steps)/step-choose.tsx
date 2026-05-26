@@ -4,7 +4,7 @@ import Link from "next/link";
 const SUPPORTING_ALUMNI_BENEFITS = [
   "Receive invites to every START Berlin event, attend whenever you like",
   "No department work, no attendance obligations, no expectations",
-  "Keep your Google account, email, and Slack access",
+  "Keep access to your Google account, email, Slack and other tools such as Canva Pro",
   "Join the START Berlin and START Network alumni community",
   "Your membership stays unchanged at 40€ per year",
 ];
@@ -30,8 +30,8 @@ export function StepChoose() {
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            Become a Supporting Alumni. Stay connected with reduced obligations
-            and keep your membership.
+            Move to Supporting Alumni status. Stay connected with reduced
+            obligations and keep your membership.
           </p>
         </div>
         <ul className="flex flex-col gap-2">
@@ -58,7 +58,7 @@ export function StepChoose() {
             Cancel START Berlin e.V. membership
           </span>
           <p className="text-sm text-muted-foreground">
-            End your membership, leave START Berlin and become an alumni.
+            End your membership, leave START Berlin and join the alumni network.
           </p>
         </div>
         <ul className="flex flex-col gap-2">

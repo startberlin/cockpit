@@ -14,6 +14,7 @@ export function PaymentReturnRedirect() {
   const activeRef = useRef(true);
 
   useEffect(() => {
+    activeRef.current = true;
     const startedAt = Date.now();
 
     async function poll() {
