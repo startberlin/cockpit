@@ -187,7 +187,11 @@ export function TallyDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          data-ph-capture-attribute-service="tally"
+        >
           {title}
         </Button>
       </DialogTrigger>
