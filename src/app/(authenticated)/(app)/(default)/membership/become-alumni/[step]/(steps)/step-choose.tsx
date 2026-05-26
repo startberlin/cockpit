@@ -30,8 +30,8 @@ export function StepChoose() {
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            Become a Supporting Alumni. Stay connected with reduced obligations
-            and keep your membership.
+            Move to Supporting Alumni status. Stay connected with reduced
+            obligations and keep your membership.
           </p>
         </div>
         <ul className="flex flex-col gap-2">
@@ -58,7 +58,7 @@ export function StepChoose() {
             Cancel START Berlin e.V. membership
           </span>
           <p className="text-sm text-muted-foreground">
-            End your membership, leave START Berlin and become an alumni.
+            End your membership, leave START Berlin and join the alumni network.
           </p>
         </div>
         <ul className="flex flex-col gap-2">

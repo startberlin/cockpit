@@ -331,7 +331,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
             await sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
               to: startEmail,
-              subject: "You're now a Supporting Alumni of START Berlin",
+              subject: "Welcome to Supporting Alumni at START Berlin",
               react: MembershipSupportingAlumniConfirmedEmail({
                 firstName: requestData.firstName,
               }),

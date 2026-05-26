@@ -152,9 +152,9 @@ function AlumniDepartureAcknowledgementForm({
         <InfoIcon />
         <AlertTitle>No approval needed</AlertTitle>
         <AlertDescription>
-          {subjectUser.name} is already a Supporting Alumni, so this transition
-          does not require board approval. It will auto-confirm 7 days after
-          submission. Acknowledge to process it immediately.
+          {subjectUser.name} already has Supporting Alumni status, so this
+          transition does not require board approval. It will auto-confirm 7
+          days after submission. Acknowledge to process it immediately.
         </AlertDescription>
       </Alert>
       <div className="rounded-lg border border-destructive/25 bg-destructive/8 p-4 space-y-4">
@@ -221,8 +221,8 @@ export default function ApproveAlumniClient({
     ? "Alumni Departure"
     : `${transitionLabel} Request`;
   const subheading = isSupportingAlumniDeparture
-    ? `${subjectUser.name} is currently a Supporting Alumni and has requested to become an alumni.`
-    : `${subjectUser.name} has requested to become a ${transitionLabel.toLowerCase()} member.`;
+    ? `${subjectUser.name} currently has Supporting Alumni status and has requested to move to alumni status.`
+    : `${subjectUser.name} has requested to move to ${transitionLabel.toLowerCase()} status.`;
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">

@@ -166,15 +166,15 @@ export function MembershipNoticeBlock({
         userStatus === "supporting_alumni"
           ? {
               title: "Alumni transition in progress",
-              body: "Your request to become an alumni has been submitted and is being processed by the board. You'll receive an email once it's confirmed.",
+              body: "Your request to move to alumni status has been submitted and is being processed by the board. You'll receive an email once it's confirmed.",
             }
           : {
               title: "Alumni transition in progress",
-              body: "Your request to become an alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+              body: "Your request to move to alumni status has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
             },
       supporting_alumni_request: {
         title: "Supporting alumni transition in progress",
-        body: "Your request to become a Supporting Alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+        body: "Your request to move to Supporting Alumni status has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
       },
     };
     const transitionType = pendingTransition?.type ?? "cancellation";
