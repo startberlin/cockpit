@@ -86,6 +86,7 @@ async function reconcileMembershipPayment(
       gocardlessMandateId: mandateId,
       gocardlessCustomerId: customerId,
       gocardlessSetupSessionId: null,
+      gocardlessBillingRequestId: null,
     })
     .where(and(eq(user.id, member.id), isNull(user.gocardlessMandateId)));
 

@@ -78,7 +78,14 @@ export const startMembershipPaymentAction = actionClient.action(
       existingCustomerId,
     });
 
-    // Immediately persist the GoCardless customer ID so retries reuse the same customer.
+    // Store the billing request ID so the redirect page can reconcile
+    // directly without waiting for the webhook.
+    await db
+      .update(user)
+      .set({ gocardlessBillingRequestId: flow.billingRequestId })
+      .where(eq(user.id, ctx.user.id));
+
+    // Persist customer ID so retries reuse the same GC customer.
     if (flow.customerId && !existingCustomerId) {
       await db
         .update(user)

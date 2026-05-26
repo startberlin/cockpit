@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "gocardless_billing_request_id" text;

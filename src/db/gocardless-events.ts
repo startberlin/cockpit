@@ -64,7 +64,11 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
 
     await db
       .update(user)
-      .set({ gocardlessMandateId: null, gocardlessSetupSessionId: null })
+      .set({
+        gocardlessMandateId: null,
+        gocardlessSetupSessionId: null,
+        gocardlessBillingRequestId: null,
+      })
       .where(eq(user.gocardlessMandateId, event.links.mandate));
 
     const reSetupActions = ["cancelled", "expired", "failed"];

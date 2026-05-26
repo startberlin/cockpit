@@ -8,11 +8,7 @@ import { checkMandateReadyAction } from "./check-mandate-action";
 const POLL_INTERVAL_MS = 3_000;
 const TIMEOUT_MS = 60_000;
 
-export function PaymentReturnRedirect({
-  billingRequestId,
-}: {
-  billingRequestId?: string;
-}) {
+export function PaymentReturnRedirect() {
   const router = useRouter();
   const [timedOut, setTimedOut] = useState(false);
   const activeRef = useRef(true);
@@ -30,7 +26,7 @@ export function PaymentReturnRedirect({
       }
 
       try {
-        const ready = await checkMandateReadyAction(billingRequestId);
+        const ready = await checkMandateReadyAction();
         if (!activeRef.current) return;
         if (ready) {
           router.replace("/membership");
@@ -50,7 +46,7 @@ export function PaymentReturnRedirect({
     return () => {
       activeRef.current = false;
     };
-  }, [router, billingRequestId]);
+  }, [router]);
 
   if (timedOut) {
     return (
