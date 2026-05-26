@@ -1,11 +1,13 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { auth } from "@/lib/auth";
 import { track } from "@/lib/posthog-server";
 
 const schema = z
@@ -40,6 +42,14 @@ export const saveEventEmailPreferenceAction = actionClient
             : null,
       })
       .where(eq(userTable.id, ctx.user.id));
+
+    // Refresh the signed cookie cache so the onboarding gate in the app
+    // layout sees the updated `eventEmailPreference` on the next request
+    // instead of looping back here.
+    await auth.api.getSession({
+      headers: await headers(),
+      disableCookieCache: true,
+    });
 
     after(() => {
       track({
