@@ -1,8 +1,8 @@
 import { createVerify } from "node:crypto";
-import { NonRetriableError, step } from "inngest";
+import { after } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
-import { events, inngest } from "@/lib/inngest";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // SNS always sends Content-Type: text/plain even though the body is JSON.
 // The outer envelope is the SNS message; the inner Message field (when
@@ -81,6 +81,8 @@ const SesEngagementSchema = z.discriminatedUnion("eventType", [
   }),
 ]);
 
+type SesEngagement = z.infer<typeof SesEngagementSchema>;
+
 // Only trust URLs served from SNS's own domain.
 const SNS_URL_PATTERN = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//;
 
@@ -131,12 +133,8 @@ function buildCanonicalString(
 
 async function verifySnsSignature(
   envelope: z.infer<typeof SnsEnvelopeSchema>,
-): Promise<void> {
-  if (!SNS_URL_PATTERN.test(envelope.SigningCertURL)) {
-    throw new NonRetriableError(
-      `Untrusted SigningCertURL: ${envelope.SigningCertURL}`,
-    );
-  }
+): Promise<boolean> {
+  if (!SNS_URL_PATTERN.test(envelope.SigningCertURL)) return false;
 
   const cert = await fetchCert(envelope.SigningCertURL);
   const canonical = buildCanonicalString(envelope);
@@ -145,36 +143,86 @@ async function verifySnsSignature(
 
   const verifier = createVerify(algorithm);
   verifier.update(canonical);
-
-  if (!verifier.verify(cert, envelope.Signature, "base64")) {
-    throw new NonRetriableError("Invalid SNS signature");
-  }
+  return verifier.verify(cert, envelope.Signature, "base64");
 }
 
-export const POST = inngest.endpoint(async (req: Request) => {
-  // Read the raw body before any steps. On Inngest replays the body will be
-  // empty, but the first step is memoized so its closure never re-runs.
-  const rawBody = await req.text();
+function captureEngagement(event: SesEngagement): void {
+  const posthog = getPostHogClient();
+  if (!posthog) return;
 
-  // Step 1: Parse and cryptographically verify the SNS envelope.
-  // Transient cert-fetch failures are retried by Inngest; invalid signatures
-  // throw NonRetriableError so they are never retried.
-  const envelope = await step.run("verify-and-parse-sns", async () => {
-    const parsed = SnsEnvelopeSchema.parse(JSON.parse(rawBody));
-    await verifySnsSignature(parsed);
-    if (parsed.TopicArn !== env.AWS_SES_SNS_TOPIC_ARN) {
-      throw new NonRetriableError(`Unexpected TopicArn: ${parsed.TopicArn}`);
-    }
-    return parsed;
+  const { eventType, mail } = event;
+  const userId = mail.tags?.userId?.[0];
+  const emailType = mail.tags?.emailType?.[0];
+  const recipient = mail.destination[0];
+
+  posthog.capture({
+    distinctId: userId ?? recipient,
+    event: eventType === "Open" ? "email_opened" : "email_link_clicked",
+    properties: {
+      // SES occasionally emits duplicate events. Dedupe on messageId +
+      // event type (+ link, for clicks) keeps PostHog clean if so.
+      $insert_id:
+        event.eventType === "Click"
+          ? `${mail.messageId}:Click:${event.click.link}`
+          : `${mail.messageId}:Open`,
+      $email: recipient,
+      email_subject: mail.commonHeaders?.subject,
+      email_type: emailType,
+      message_id: mail.messageId,
+      timestamp: mail.timestamp,
+      ...(event.eventType === "Click" && {
+        clicked_url: event.click.link,
+        clicked_url_tags: event.click.linkTags,
+        user_agent: event.click.userAgent,
+      }),
+      ...(event.eventType === "Open" && {
+        user_agent: event.open.userAgent,
+      }),
+    },
   });
+}
+
+export async function POST(req: Request): Promise<Response> {
+  let envelope: z.infer<typeof SnsEnvelopeSchema>;
+  try {
+    envelope = SnsEnvelopeSchema.parse(JSON.parse(await req.text()));
+  } catch (err) {
+    console.error("[ses-webhook] failed to parse SNS envelope:", err);
+    return new Response("Bad Request", { status: 400 });
+  }
+
+  if (envelope.TopicArn !== env.AWS_SES_SNS_TOPIC_ARN) {
+    console.error(`[ses-webhook] unexpected TopicArn: ${envelope.TopicArn}`);
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const signatureValid = await verifySnsSignature(envelope);
+  if (!signatureValid) {
+    console.error("[ses-webhook] invalid SNS signature");
+    return new Response("Forbidden", { status: 403 });
+  }
 
   if (envelope.Type === "SubscriptionConfirmation") {
     if (!SNS_URL_PATTERN.test(envelope.SubscribeURL)) {
-      throw new NonRetriableError(
-        `Untrusted SubscribeURL: ${envelope.SubscribeURL}`,
-      );
+      return new Response("Bad Request", { status: 400 });
     }
-    await step.run("confirm-subscription", () => fetch(envelope.SubscribeURL));
+    // Confirm synchronously: if we 200 before the SubscribeURL fetch
+    // succeeds the subscription stays in PendingConfirmation, and SNS
+    // never retries because the delivery already succeeded. Returning
+    // 502 on failure tells SNS to redeliver this SubscriptionConfirmation.
+    try {
+      const res = await fetch(envelope.SubscribeURL);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error(
+          `[ses-webhook] subscription confirmation failed: ${res.status} ${body}`,
+        );
+        return new Response("Bad Gateway", { status: 502 });
+      }
+    } catch (err) {
+      console.error("[ses-webhook] subscription confirmation failed:", err);
+      return new Response("Bad Gateway", { status: 502 });
+    }
     return new Response("OK");
   }
 
@@ -182,28 +230,40 @@ export const POST = inngest.endpoint(async (req: Request) => {
     return new Response("OK");
   }
 
-  // Only Open / Click are forwarded. Bounce / Complaint / Delivery / etc. are
-  // ignored because SES manages suppression on its own.
+  // Only Open / Click reach PostHog. Bounce / Complaint / Delivery / etc. are
+  // ignored because SES manages its own suppression list.
   //
-  // Defence in depth: even though staging / preview deployments use the same
-  // SES identity, we never want their engagement events in PostHog. SNS
-  // *should* filter on `mail.tags.environment` ⊆ ["production"] at the
-  // subscription level, but if that filter is misconfigured the webhook
-  // still drops non-production events here.
-  const engagement = await step.run("parse-ses-engagement", () => {
+  // Defence in depth: staging / preview deployments share the SES identity,
+  // so events from non-prod environments would otherwise leak into PostHog
+  // if the SNS subscription filter policy is missing or misconfigured.
+  let engagement: SesEngagement;
+  try {
     const json = JSON.parse(envelope.Message);
-    if (json.eventType !== "Open" && json.eventType !== "Click") return null;
+    if (json?.eventType !== "Open" && json?.eventType !== "Click") {
+      return new Response("OK");
+    }
     const environment = json?.mail?.tags?.environment?.[0];
-    if (environment && environment !== "production") return null;
-    return SesEngagementSchema.parse(json);
-  });
-
-  if (engagement) {
-    await step.sendEvent("forward-to-ses-engagement", {
-      name: events.sesEngagement.name,
-      data: engagement,
-    });
+    if (environment && environment !== "production") {
+      return new Response("OK");
+    }
+    engagement = SesEngagementSchema.parse(json);
+  } catch (err) {
+    console.error("[ses-webhook] failed to parse SES engagement event:", err);
+    // Don't make SNS retry on malformed payloads.
+    return new Response("OK");
   }
 
+  // Fire-and-forget the PostHog capture after returning 200 to SNS. PostHog's
+  // node client retries internally; if the function shuts down mid-flush the
+  // event is lost, which is acceptable for engagement analytics.
+  after(async () => {
+    try {
+      captureEngagement(engagement);
+      await getPostHogClient()?.flush();
+    } catch (err) {
+      console.error("[ses-webhook] PostHog capture failed:", err);
+    }
+  });
+
   return new Response("OK");
-});
+}
