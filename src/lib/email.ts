@@ -5,7 +5,6 @@ import { after } from "next/server";
 import nodemailer from "nodemailer";
 import type { ReactElement } from "react";
 import { render } from "react-email";
-import db from "@/db";
 import { env } from "@/env";
 import { writeAuditLog } from "@/lib/audit-log";
 
@@ -33,7 +32,51 @@ type SendEmailOptions = {
   subject: string;
   react: ReactElement;
   attachments?: Attachment[];
+  /**
+   * PostHog distinct id of the recipient. Forwarded to SES as a message tag
+   * so engagement events (open / click) can be attributed to a known user.
+   */
+  userId?: string;
+  /**
+   * Optional category for segmenting engagement events in PostHog
+   * (e.g. "welcome", "invoice", "reminder").
+   */
+  emailType?: string;
 };
+
+// SES message tag values must match [A-Za-z0-9_-]{1,256}. Sanitise to avoid
+// InvalidParameterValue from SendEmail when callers pass arbitrary ids.
+const TAG_VALUE_PATTERN = /[^A-Za-z0-9_-]/g;
+function sanitizeTagValue(value: string): string {
+  return value.replace(TAG_VALUE_PATTERN, "_").slice(0, 256);
+}
+
+// Matches the convention used elsewhere in the codebase (see system-groups.ts):
+// production  → "production"
+// preview     → "staging"
+// anything else / unset → "development"
+// Used to tag every outbound email so SNS can filter out engagement events
+// from non-production environments at the topic level.
+function getEnvironmentTag(): string {
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv === "production") return "production";
+  if (vercelEnv === "preview") return "staging";
+  return "development";
+}
+
+function buildEmailTags(opts: {
+  userId?: string;
+  emailType?: string;
+}): { Name: string; Value: string }[] {
+  const tags: { Name: string; Value: string }[] = [
+    { Name: "environment", Value: getEnvironmentTag() },
+  ];
+  if (opts.userId)
+    tags.push({ Name: "userId", Value: sanitizeTagValue(opts.userId) });
+  if (opts.emailType)
+    tags.push({ Name: "emailType", Value: sanitizeTagValue(opts.emailType) });
+  return tags;
+}
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
@@ -45,22 +88,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     return;
   }
 
-  const suppressed = await db.query.emailSuppression.findMany({
-    where: (t, { inArray }) => inArray(t.email, recipients),
-    columns: { email: true },
-  });
-
-  const suppressedEmails = new Set(suppressed.map((s) => s.email));
-  const activeRecipients = recipients.filter((r) => !suppressedEmails.has(r));
-
-  if (activeRecipients.length === 0) return;
+  // SES manages its own account-level / configuration-set suppression list,
+  // so we don't filter recipients locally — SES will reject the SendEmail
+  // call if a recipient is suppressed.
 
   const logEmail = () => {
     after(() =>
       writeAuditLog({
         category: "email",
         eventType: "email.sent",
-        metadata: { to: activeRecipients, subject: options.subject },
+        metadata: { to: recipients, subject: options.subject },
         description: options.subject,
       }).catch((err) => {
         console.error("[email] audit log write failed", err);
@@ -73,10 +110,18 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     render(options.react, { plainText: true }),
   ]);
 
+  // The Configuration Set is attached as the default on the verified sending
+  // identity (see SES console / put-email-identity-configuration-set-attributes),
+  // so we only need to pass per-message EmailTags here.
+  const EmailTags = buildEmailTags({
+    userId: options.userId,
+    emailType: options.emailType,
+  });
+
   if (options.attachments && options.attachments.length > 0) {
     const info = await mimeBuilder.sendMail({
       from: options.from,
-      to: activeRecipients,
+      to: recipients,
       subject: options.subject,
       html,
       text,
@@ -96,6 +141,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     await ses.send(
       new SendEmailCommand({
         Content: { Raw: { Data: rawEmail } },
+        EmailTags,
       }),
     );
     logEmail();
@@ -103,7 +149,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     await ses.send(
       new SendEmailCommand({
         FromEmailAddress: options.from,
-        Destination: { ToAddresses: activeRecipients },
+        Destination: { ToAddresses: recipients },
         Content: {
           Simple: {
             Subject: { Data: options.subject, Charset: "UTF-8" },
@@ -113,6 +159,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
             },
           },
         },
+        EmailTags,
       }),
     );
     logEmail();
