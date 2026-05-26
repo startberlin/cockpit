@@ -95,7 +95,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     render(options.react, { plainText: true }),
   ]);
 
-  const ConfigurationSetName = env.AWS_SES_CONFIGURATION_SET;
+  // The Configuration Set is attached as the default on the verified sending
+  // identity (see SES console / put-email-identity-configuration-set-attributes),
+  // so we only need to pass per-message EmailTags here.
   const EmailTags = buildEmailTags({
     userId: options.userId,
     emailType: options.emailType,
@@ -124,7 +126,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     await ses.send(
       new SendEmailCommand({
         Content: { Raw: { Data: rawEmail } },
-        ConfigurationSetName,
         EmailTags,
       }),
     );
@@ -143,7 +144,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
             },
           },
         },
-        ConfigurationSetName,
         EmailTags,
       }),
     );
