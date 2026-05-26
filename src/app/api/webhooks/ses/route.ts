@@ -1,10 +1,8 @@
 import { createVerify } from "node:crypto";
 import { NonRetriableError, step } from "inngest";
 import { z } from "zod";
-import db from "@/db";
-import { emailSuppression } from "@/db/schema";
 import { env } from "@/env";
-import { inngest } from "@/lib/inngest";
+import { events, inngest } from "@/lib/inngest";
 
 // SNS always sends Content-Type: text/plain even though the body is JSON.
 // The outer envelope is the SNS message; the inner Message field (when
@@ -48,22 +46,38 @@ const SnsEnvelopeSchema = z.discriminatedUnion("Type", [
   }),
 ]);
 
-const SesNotificationSchema = z.discriminatedUnion("notificationType", [
+// SES event-publishing payload (Configuration Set → SNS). We only care about
+// Open and Click; everything else (Send, Delivery, Bounce, Complaint, …) is
+// ignored — SES manages its own suppression list.
+const SesMailSchema = z.object({
+  timestamp: z.string(),
+  messageId: z.string(),
+  source: z.string().optional(),
+  destination: z.array(z.string()),
+  commonHeaders: z.object({ subject: z.string().optional() }).optional(),
+  tags: z.record(z.string(), z.array(z.string())).optional(),
+});
+
+const SesEngagementSchema = z.discriminatedUnion("eventType", [
   z.object({
-    notificationType: z.literal("Bounce"),
-    bounce: z.object({
-      bounceType: z.string(),
-      bouncedRecipients: z.array(z.object({ emailAddress: z.string() })),
+    eventType: z.literal("Open"),
+    mail: SesMailSchema,
+    open: z.object({
+      timestamp: z.string().optional(),
+      userAgent: z.string().optional(),
+      ipAddress: z.string().optional(),
     }),
   }),
   z.object({
-    notificationType: z.literal("Complaint"),
-    complaint: z.object({
-      complainedRecipients: z.array(z.object({ emailAddress: z.string() })),
+    eventType: z.literal("Click"),
+    mail: SesMailSchema,
+    click: z.object({
+      timestamp: z.string().optional(),
+      userAgent: z.string().optional(),
+      ipAddress: z.string().optional(),
+      link: z.string(),
+      linkTags: z.record(z.string(), z.array(z.string())).optional(),
     }),
-  }),
-  z.object({
-    notificationType: z.literal("Delivery"),
   }),
 ]);
 
@@ -168,59 +182,27 @@ export const POST = inngest.endpoint(async (req: Request) => {
     return new Response("OK");
   }
 
-  const sesEvent = await step.run("parse-ses-notification", () => {
-    return SesNotificationSchema.parse(JSON.parse(envelope.Message));
+  // Only Open / Click are forwarded. Bounce / Complaint / Delivery / etc. are
+  // ignored because SES manages suppression on its own.
+  //
+  // Defence in depth: even though staging / preview deployments use the same
+  // SES identity, we never want their engagement events in PostHog. SNS
+  // *should* filter on `mail.tags.environment` ⊆ ["production"] at the
+  // subscription level, but if that filter is misconfigured the webhook
+  // still drops non-production events here.
+  const engagement = await step.run("parse-ses-engagement", () => {
+    const json = JSON.parse(envelope.Message);
+    if (json.eventType !== "Open" && json.eventType !== "Click") return null;
+    const environment = json?.mail?.tags?.environment?.[0];
+    if (environment && environment !== "production") return null;
+    return SesEngagementSchema.parse(json);
   });
 
-  if (sesEvent.notificationType === "Bounce") {
-    // Only suppress hard (Permanent) bounces; transient bounces are temporary.
-    if (sesEvent.bounce.bounceType !== "Permanent") {
-      return new Response("OK");
-    }
-
-    for (const recipient of sesEvent.bounce.bouncedRecipients) {
-      const email = recipient.emailAddress;
-      await step.run(`suppress-bounce-${email}`, () =>
-        db
-          .insert(emailSuppression)
-          .values({
-            email,
-            reason: "bounce",
-            detail: "Permanent bounce",
-          })
-          .onConflictDoUpdate({
-            target: emailSuppression.email,
-            set: {
-              reason: "bounce",
-              detail: "Permanent bounce",
-              suppressedAt: new Date(),
-            },
-          }),
-      );
-    }
-  }
-
-  if (sesEvent.notificationType === "Complaint") {
-    for (const recipient of sesEvent.complaint.complainedRecipients) {
-      const email = recipient.emailAddress;
-      await step.run(`suppress-complaint-${email}`, () =>
-        db
-          .insert(emailSuppression)
-          .values({
-            email,
-            reason: "complaint",
-            detail: "Spam complaint",
-          })
-          .onConflictDoUpdate({
-            target: emailSuppression.email,
-            set: {
-              reason: "complaint",
-              detail: "Spam complaint",
-              suppressedAt: new Date(),
-            },
-          }),
-      );
-    }
+  if (engagement) {
+    await step.sendEvent("forward-to-ses-engagement", {
+      name: events.sesEngagement.name,
+      data: engagement,
+    });
   }
 
   return new Response("OK");

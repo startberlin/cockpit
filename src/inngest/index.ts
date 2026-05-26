@@ -18,6 +18,7 @@ import {
 import { quickMandateSetupReminderWorkflow } from "./quick-mandate-setup-reminder-workflow";
 import { quickReconfirmationReminderWorkflow } from "./quick-reconfirmation-reminder-workflow";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
+import { sesEngagementWorkflow } from "./ses-engagement";
 import { syncManualGroupMemberWorkflow } from "./sync-manual-group-member";
 import { syncPositionSystemGroupsWorkflow } from "./sync-position-system-groups";
 import { syncSystemGroupsCron } from "./sync-system-groups-cron";
@@ -44,6 +45,7 @@ export const inngestFunctions = [
   quickMandateSetupReminderWorkflow,
   quickReconfirmationReminderWorkflow,
   reconfirmationReminderWorkflow,
+  sesEngagementWorkflow,
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,
 ];
