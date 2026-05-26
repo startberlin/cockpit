@@ -149,27 +149,6 @@ export const events = {
   applicationDraftStarted: eventType("membership/application-draft.started", {
     schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
   }),
-  sesEngagement: eventType("ses/engagement", {
-    schema: staticSchema<{
-      eventType: "Open" | "Click";
-      mail: {
-        timestamp: string;
-        messageId: string;
-        source?: string;
-        destination: string[];
-        commonHeaders?: { subject?: string };
-        tags?: Record<string, string[]>;
-      };
-      open?: { timestamp?: string; userAgent?: string; ipAddress?: string };
-      click?: {
-        timestamp?: string;
-        userAgent?: string;
-        ipAddress?: string;
-        link: string;
-        linkTags?: Record<string, string[]>;
-      };
-    }>(),
-  }),
 };
 
 export const inngest = new Inngest({
