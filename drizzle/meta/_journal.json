@@ -344,6 +344,13 @@
       "when": 1779731781953,
       "tag": "0048_illegal_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1779830572813,
+      "tag": "0049_eminent_bastion",
+      "breakpoints": true
     }
   ]
 }
