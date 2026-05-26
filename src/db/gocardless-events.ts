@@ -40,12 +40,35 @@ export async function recordAndProcessGoCardlessEvent(event: GoCardlessEvent) {
     const mandateUser = await db.query.user.findFirst({
       where: (u, { eq: eqFn }) =>
         eqFn(u.gocardlessMandateId, event.links.mandate as string),
-      columns: { id: true, email: true, firstName: true },
+      columns: {
+        id: true,
+        email: true,
+        firstName: true,
+        gocardlessCustomerId: true,
+      },
     });
+
+    // If the event includes a customer ID, verify it matches what we have on
+    // file before clearing. This prevents a duplicate-customer cleanup from
+    // wiping a legitimate mandate: if two GC customers were created for the
+    // same user (race condition) and admin cancels the orphaned one, we must
+    // not touch the user whose stored customer belongs to a different account.
+    if (
+      mandateUser &&
+      event.links.customer &&
+      mandateUser.gocardlessCustomerId &&
+      mandateUser.gocardlessCustomerId !== event.links.customer
+    ) {
+      return { status: "ignored" as const };
+    }
 
     await db
       .update(user)
-      .set({ gocardlessMandateId: null, gocardlessSetupSessionId: null })
+      .set({
+        gocardlessMandateId: null,
+        gocardlessSetupSessionId: null,
+        gocardlessBillingRequestId: null,
+      })
       .where(eq(user.gocardlessMandateId, event.links.mandate));
 
     const reSetupActions = ["cancelled", "expired", "failed"];
