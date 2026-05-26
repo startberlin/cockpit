@@ -38,8 +38,7 @@ export const BECOME_ALUMNI_STEP_META: Record<
   "alumni-finalize": {
     label: "Confirm",
     title: "Cancel START Berlin e.V. membership",
-    subtitle:
-      "End your membership, leave START Berlin and join the alumni network.",
+    subtitle: "End your membership and leave START Berlin.",
   },
 };
 

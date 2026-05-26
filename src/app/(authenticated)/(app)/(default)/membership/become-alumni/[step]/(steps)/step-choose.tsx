@@ -5,8 +5,12 @@ const SUPPORTING_ALUMNI_BENEFITS = [
   "Receive invites to every START Berlin event, attend whenever you like",
   "No department work, no attendance obligations, no expectations",
   "Keep your Google account, email, and Slack access",
-  "Join the START Berlin and START Network alumni community for life. You'll stay in the network even if you later end your membership",
+  "Join the START Berlin and START Network alumni community",
   "Your membership stays unchanged at 40€ per year",
+];
+
+const ALUMNI_UPSIDES = [
+  "Join the START Berlin and START Network alumni community",
 ];
 
 const ALUMNI_DOWNSIDES = [
@@ -58,10 +62,16 @@ export function StepChoose() {
             Cancel START Berlin e.V. membership
           </span>
           <p className="text-sm text-muted-foreground">
-            End your membership, leave START Berlin and join the alumni network.
+            End your membership and leave START Berlin.
           </p>
         </div>
         <ul className="flex flex-col gap-2">
+          {ALUMNI_UPSIDES.map((upside) => (
+            <li key={upside} className="flex items-start gap-2 text-sm">
+              <Check className="size-4 mt-0.5 shrink-0 text-success/70" />
+              <span>{upside}</span>
+            </li>
+          ))}
           {ALUMNI_DOWNSIDES.map((downside) => (
             <li key={downside} className="flex items-start gap-2 text-sm">
               <CircleX className="size-4 mt-0.5 shrink-0 text-destructive/60" />
