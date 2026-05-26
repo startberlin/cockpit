@@ -24,7 +24,7 @@ export default async function BecomeAlumniPage() {
 
   // Supporting alumni can only go full alumni — skip the choice
   if (user.status === "supporting_alumni") {
-    redirect("/membership/become-alumni/alumni");
+    redirect("/membership/become-alumni/alumni-confirm");
   }
 
   return (

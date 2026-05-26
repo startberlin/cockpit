@@ -7,14 +7,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { UserStatus } from "@/db/schema/auth";
 
 interface MembershipOptionsProps {
   hasActiveLegalMembership: boolean;
+  userStatus: UserStatus;
 }
 
 export function MembershipOptions({
   hasActiveLegalMembership,
+  userStatus,
 }: MembershipOptionsProps) {
+  const isSupportingAlumni = userStatus === "supporting_alumni";
+
   return (
     <div className="flex flex-col gap-6">
       <span className="flex flex-col gap-1">
@@ -29,14 +34,17 @@ export function MembershipOptions({
           <CardHeader className="gap-2 mb-auto">
             <CardTitle>Become an alumni</CardTitle>
             <CardDescription>
-              After one year of active contribution, you can become a START
-              Berlin alumni.
+              {isSupportingAlumni
+                ? "End your supporting membership, leave START Berlin e.V. and become a full alumni."
+                : "After one year of active contribution, you can become a START Berlin alumni."}
             </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button variant="outline" size="sm" asChild>
               <Link href="/membership/become-alumni">
-                Request alumni status
+                {isSupportingAlumni
+                  ? "Become an alumni"
+                  : "Request alumni status"}
               </Link>
             </Button>
           </CardFooter>
