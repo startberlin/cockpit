@@ -48,7 +48,7 @@ export const saveEventEmailPreferenceAction = actionClient
     // instead of looping back here.
     await auth.api.getSession({
       headers: await headers(),
-      disableCookieCache: true,
+      query: { disableCookieCache: true },
     });
 
     after(() => {
