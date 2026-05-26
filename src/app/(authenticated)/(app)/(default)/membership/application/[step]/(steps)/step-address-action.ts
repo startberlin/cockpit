@@ -81,13 +81,20 @@ export const saveApplicationPersonalInfoAction = actionClient
         });
     });
 
-    await inngest.send({
-      name: events.applicationDraftStarted.name,
-      data: {
-        userId: user.id,
-        legalMembershipId: parsedInput.legalMembershipId,
-      },
-    });
+    try {
+      await inngest.send({
+        name: events.applicationDraftStarted.name,
+        data: {
+          userId: user.id,
+          legalMembershipId: parsedInput.legalMembershipId,
+        },
+      });
+    } catch (err) {
+      console.error(
+        `[step-address] Failed to send applicationDraftStarted event for legalMembership ${parsedInput.legalMembershipId} (user ${user.id})`,
+        err,
+      );
+    }
 
     after(() =>
       track({

@@ -42,10 +42,17 @@ export const saveEventEmailPreferenceAction = actionClient
       })
       .where(eq(userTable.id, ctx.user.id));
 
-    await inngest.send({
-      name: events.profileOnboardingCompleted.name,
-      data: { userId: ctx.user.id },
-    });
+    try {
+      await inngest.send({
+        name: events.profileOnboardingCompleted.name,
+        data: { userId: ctx.user.id },
+      });
+    } catch (err) {
+      console.error(
+        `[step-event-email] Failed to send profileOnboardingCompleted event for user ${ctx.user.id}`,
+        err,
+      );
+    }
 
     after(() => {
       track({
