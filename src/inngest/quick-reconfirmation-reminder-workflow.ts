@@ -68,7 +68,7 @@ export const quickReconfirmationReminderWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: u.email,
-        subject: "One more step to reconfirm your START Berlin membership",
+        subject: "Confirm your START Berlin membership",
         react: ReconfirmationAbandonmentReminderEmail({
           firstName: u.firstName ?? "",
           reconfirmationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,

@@ -12,26 +12,27 @@ export const MandateSetupAbandonmentReminderEmail = ({
   membershipUrl,
 }: MandateSetupAbandonmentReminderEmailProps) => (
   <EmailShell
-    preview="One last step to activate your START Berlin membership"
+    preview="Authorize your direct debit to finish your START Berlin membership setup"
     eyebrow="Membership payment"
     campaign="mandate-setup-abandonment-reminder"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      One last step: set up your direct debit
+      Authorize your direct debit
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-      Your START Berlin membership is active — congratulations! There&apos;s
-      just one item left on your todo list: authorizing the direct debit so we
-      can collect your{" "}
-      <strong style={{ color: "#1C1917" }}>40 EUR yearly membership fee</strong>
-      .
+      Your START Berlin membership is active. To finish setting it up, we need
+      you to authorize a direct debit so we can collect the{" "}
+      <strong style={{ color: "#1C1917" }}>40 EUR yearly membership fee</strong>{" "}
+      automatically each year.
     </Text>
     <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-      It only takes a minute — you&apos;ll be guided through a short bank
-      authorization step.
+      You won&apos;t be charged anything now — this only authorizes our payment
+      provider GoCardless to collect future yearly payments, and we&apos;ll
+      notify you before each one. The bank authorization takes less than a
+      minute.
     </Text>
     <EmailCta
       href={membershipUrl}
