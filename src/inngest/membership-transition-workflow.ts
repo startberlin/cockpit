@@ -125,38 +125,40 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         ? `${subjectPrefix}Action required: acknowledge ${subjectName}'s transition to alumni`
         : `${subjectPrefix}Action required: review ${subjectName}'s transition to ${label}`;
 
-      await Promise.all(
-        recipients
-          .filter((r) => r.email)
-          .map((recipient) => {
-            const receivingReason = boardMemberIds.has(recipient.userId)
-              ? "You're receiving this because you're a board member of START Berlin."
-              : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`;
+      const recipientsWithEmail = recipients.filter(
+        (r): r is typeof r & { email: string } => Boolean(r.email),
+      );
 
-            return sendEmail({
-              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: recipient.email!,
-              subject: subjectLine,
-              react: isAck
-                ? MembershipTransitionAcknowledgementNeededEmail({
-                    firstName: recipient.firstName,
-                    subjectName,
-                    requestedAt,
-                    profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
-                    receivingReason,
-                    isReminder: opts.isReminder,
-                  })
-                : MembershipTransitionApprovalNeededEmail({
-                    firstName: recipient.firstName,
-                    subjectName,
-                    transitionType: type,
-                    requestedAt,
-                    profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
-                    receivingReason,
-                    isReminder: opts.isReminder,
-                  }),
-            });
-          }),
+      await Promise.all(
+        recipientsWithEmail.map((recipient) => {
+          const receivingReason = boardMemberIds.has(recipient.userId)
+            ? "You're receiving this because you're a board member of START Berlin."
+            : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`;
+
+          return sendEmail({
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+            to: recipient.email,
+            subject: subjectLine,
+            react: isAck
+              ? MembershipTransitionAcknowledgementNeededEmail({
+                  firstName: recipient.firstName,
+                  subjectName,
+                  requestedAt,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
+                  receivingReason,
+                  isReminder: opts.isReminder,
+                })
+              : MembershipTransitionApprovalNeededEmail({
+                  firstName: recipient.firstName,
+                  subjectName,
+                  transitionType: type,
+                  requestedAt,
+                  profileUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/approve-alumni/${userId}`,
+                  receivingReason,
+                  isReminder: opts.isReminder,
+                }),
+          });
+        }),
       );
     };
 

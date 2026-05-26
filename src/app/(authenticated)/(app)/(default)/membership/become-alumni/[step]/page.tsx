@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { getActiveMembershipTransitionRequest } from "@/db/membership-transitions";
-import { getDepartmentHeadForDepartment } from "@/db/people";
 import { getCurrentUser } from "@/db/user";
 import {
   StepAlumniCommunity,
