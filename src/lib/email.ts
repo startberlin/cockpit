@@ -51,16 +51,31 @@ function sanitizeTagValue(value: string): string {
   return value.replace(TAG_VALUE_PATTERN, "_").slice(0, 256);
 }
 
+// Matches the convention used elsewhere in the codebase (see system-groups.ts):
+// production  → "production"
+// preview     → "staging"
+// anything else / unset → "development"
+// Used to tag every outbound email so SNS can filter out engagement events
+// from non-production environments at the topic level.
+function getEnvironmentTag(): string {
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv === "production") return "production";
+  if (vercelEnv === "preview") return "staging";
+  return "development";
+}
+
 function buildEmailTags(opts: {
   userId?: string;
   emailType?: string;
-}): { Name: string; Value: string }[] | undefined {
-  const tags: { Name: string; Value: string }[] = [];
+}): { Name: string; Value: string }[] {
+  const tags: { Name: string; Value: string }[] = [
+    { Name: "environment", Value: getEnvironmentTag() },
+  ];
   if (opts.userId)
     tags.push({ Name: "userId", Value: sanitizeTagValue(opts.userId) });
   if (opts.emailType)
     tags.push({ Name: "emailType", Value: sanitizeTagValue(opts.emailType) });
-  return tags.length > 0 ? tags : undefined;
+  return tags;
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {

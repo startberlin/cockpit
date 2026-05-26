@@ -184,9 +184,17 @@ export const POST = inngest.endpoint(async (req: Request) => {
 
   // Only Open / Click are forwarded. Bounce / Complaint / Delivery / etc. are
   // ignored because SES manages suppression on its own.
+  //
+  // Defence in depth: even though staging / preview deployments use the same
+  // SES identity, we never want their engagement events in PostHog. SNS
+  // *should* filter on `mail.tags.environment` ⊆ ["production"] at the
+  // subscription level, but if that filter is misconfigured the webhook
+  // still drops non-production events here.
   const engagement = await step.run("parse-ses-engagement", () => {
     const json = JSON.parse(envelope.Message);
     if (json.eventType !== "Open" && json.eventType !== "Click") return null;
+    const environment = json?.mail?.tags?.environment?.[0];
+    if (environment && environment !== "production") return null;
     return SesEngagementSchema.parse(json);
   });
 
