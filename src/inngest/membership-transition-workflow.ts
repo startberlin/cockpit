@@ -86,8 +86,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     // approval — only acknowledgement, with a 7-day auto-execute timer
     // (mirroring self-service cancellation).
     const isSupportingAlumniDeparture =
-      type === "alumni_request" &&
-      requestData.status === "supporting_alumni";
+      type === "alumni_request" && requestData.status === "supporting_alumni";
 
     // Step 2: Notify board / department head, then wait for either
     // an explicit decision (approval flow, 30-day budget) or an
@@ -202,10 +201,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         });
 
         if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
           await step.run("send-expiry-notification", async () => {
             await sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: requestData.startEmail!,
+              to: startEmail,
               subject: "Your transition request was not approved at this time",
               react: MembershipTransitionRejectedEmail({
                 firstName: requestData.firstName,
@@ -243,10 +243,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         });
 
         if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
           await step.run("send-rejection-notification", async () => {
             await sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: requestData.startEmail!,
+              to: startEmail,
               subject: "Your transition request was not approved at this time",
               react: MembershipTransitionRejectedEmail({
                 firstName: requestData.firstName,
@@ -325,10 +326,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         });
 
         if (requestData.startEmail) {
+          const startEmail = requestData.startEmail;
           await step.run("send-supporting-alumni-confirmation", async () => {
             await sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: requestData.startEmail!,
+              to: startEmail,
               subject: "You're now a Supporting Alumni of START Berlin",
               react: MembershipSupportingAlumniConfirmedEmail({
                 firstName: requestData.firstName,
@@ -433,15 +435,17 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 6: Suspend Google account.
     if (requestData.startEmail) {
+      const startEmail = requestData.startEmail;
       await step.run("suspend-google-account", async () => {
-        await suspendWorkspaceUser(requestData.startEmail!);
+        await suspendWorkspaceUser(startEmail);
       });
     }
 
     // Step 7: Cancel GoCardless mandate.
     if (requestData.mandateId) {
+      const mandateId = requestData.mandateId;
       await step.run("cancel-gocardless-mandate", async () => {
-        await cancelMembershipMandate(requestData.mandateId!);
+        await cancelMembershipMandate(mandateId);
         await db
           .update(user)
           .set({
@@ -481,10 +485,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 9: Send confirmation email using cached personal email.
     if (requestData.personalEmail) {
+      const personalEmail = requestData.personalEmail;
       await step.run("send-cancellation-email", async () => {
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-          to: requestData.personalEmail!,
+          to: personalEmail,
           subject: "Your START Berlin membership has ended",
           react: MembershipCancelledEmail({
             firstName: requestData.firstName,
@@ -534,25 +539,27 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         ].flatMap((p) => (p ? [p.userId] : [])),
       );
 
+      const recipientsWithEmail = recipients.filter(
+        (r): r is typeof r & { email: string } => Boolean(r.email),
+      );
+
       const results = await Promise.allSettled(
-        recipients
-          .filter((r) => r.email)
-          .map((recipient) =>
-            sendEmail({
-              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: recipient.email!,
-              subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
-              react: MembershipTerminationFyiEmail({
-                firstName: recipient.firstName,
-                subjectName,
-                terminatedOn,
-                context: "alumni",
-                receivingReason: boardMemberIds.has(recipient.userId)
-                  ? "You're receiving this because you're a board member of START Berlin."
-                  : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
-              }),
+        recipientsWithEmail.map((recipient) =>
+          sendEmail({
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+            to: recipient.email,
+            subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
+            react: MembershipTerminationFyiEmail({
+              firstName: recipient.firstName,
+              subjectName,
+              terminatedOn,
+              context: "alumni",
+              receivingReason: boardMemberIds.has(recipient.userId)
+                ? "You're receiving this because you're a board member of START Berlin."
+                : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
             }),
-          ),
+          }),
+        ),
       );
 
       for (const r of results) {
@@ -620,8 +627,9 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
     // Step 14: Hard-delete Google Workspace account.
     if (requestData.startEmail) {
+      const startEmail = requestData.startEmail;
       await step.run("hard-delete-google-account", async () => {
-        await deleteWorkspaceUser(requestData.startEmail!);
+        await deleteWorkspaceUser(startEmail);
       });
     }
 
