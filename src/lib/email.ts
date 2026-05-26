@@ -5,8 +5,9 @@ import { after } from "next/server";
 import nodemailer from "nodemailer";
 import type { ReactElement } from "react";
 import { render } from "react-email";
+import db from "@/db";
 import { env } from "@/env";
-import { writeAuditLog } from "@/lib/audit-log";
+import { type AuditSubject, writeAuditLog } from "@/lib/audit-log";
 
 const ses = new SESv2Client({
   region: env.AWS_REGION,
@@ -78,6 +79,39 @@ function buildEmailTags(opts: {
   return tags;
 }
 
+async function resolveRecipientSubjects(
+  recipients: string[],
+): Promise<Map<string, NonNullable<AuditSubject>>> {
+  const lowered = recipients.map((r) => r.toLowerCase());
+  const users = await db.query.user.findMany({
+    where: (u, { or, inArray, sql }) =>
+      or(
+        inArray(sql<string>`lower(${u.email})`, lowered),
+        inArray(sql<string>`lower(${u.personalEmail})`, lowered),
+        inArray(sql<string>`lower(${u.eventInviteEmail})`, lowered),
+      ),
+    columns: {
+      id: true,
+      name: true,
+      email: true,
+      personalEmail: true,
+      eventInviteEmail: true,
+    },
+  });
+
+  const byEmail = new Map<string, NonNullable<AuditSubject>>();
+  for (const u of users) {
+    const subject = { id: u.id, name: u.name };
+    for (const addr of [u.email, u.personalEmail, u.eventInviteEmail]) {
+      if (!addr) continue;
+      const key = addr.toLowerCase();
+      // First match wins; user.email is unique, others may collide across users.
+      if (!byEmail.has(key)) byEmail.set(key, subject);
+    }
+  }
+  return byEmail;
+}
+
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
@@ -93,16 +127,24 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   // call if a recipient is suppressed.
 
   const logEmail = () => {
-    after(() =>
-      writeAuditLog({
-        category: "email",
-        eventType: "email.sent",
-        metadata: { to: recipients, subject: options.subject },
-        description: options.subject,
-      }).catch((err) => {
+    after(async () => {
+      try {
+        const subjectByRecipient = await resolveRecipientSubjects(recipients);
+        await Promise.all(
+          recipients.map((recipient) =>
+            writeAuditLog({
+              category: "email",
+              eventType: "email.sent",
+              subject: subjectByRecipient.get(recipient.toLowerCase()) ?? null,
+              metadata: { to: recipient, subject: options.subject },
+              description: options.subject,
+            }),
+          ),
+        );
+      } catch (err) {
         console.error("[email] audit log write failed", err);
-      }),
-    );
+      }
+    });
   };
 
   const [html, text] = await Promise.all([
