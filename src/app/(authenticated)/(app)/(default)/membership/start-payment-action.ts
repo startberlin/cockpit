@@ -1,13 +1,13 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { after } from "next/server";
 import db from "@/db";
+import { newMembershipSessionId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
-import { nanoid } from "@/lib/id";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { track } from "@/lib/posthog-server";
 
@@ -26,16 +26,30 @@ export const startMembershipPaymentAction = actionClient.action(
     }
 
     // Reuse the stored setup session so concurrent/repeated calls during one
-    // setup attempt hit the same GoCardless billing request. Generate a fresh
-    // session if none exists — this happens on first setup and after each
-    // mandate invalidation (the webhook clears the session).
+    // setup attempt hit the same GoCardless billing request. Use a conditional
+    // UPDATE (WHERE session IS NULL) so concurrent calls don't each generate a
+    // different session — the loser re-reads and adopts the winner's session,
+    // producing the same idempotency key and therefore the same GC customer.
     let localSessionId = ctx.user.gocardlessSetupSessionId;
+    let existingCustomerId = ctx.user.gocardlessCustomerId;
+
     if (!localSessionId) {
-      localSessionId = `mps_${nanoid(16)}`;
+      const candidate = newMembershipSessionId();
       await db
         .update(user)
-        .set({ gocardlessSetupSessionId: localSessionId })
-        .where(eq(user.id, ctx.user.id));
+        .set({ gocardlessSetupSessionId: candidate })
+        .where(
+          and(eq(user.id, ctx.user.id), isNull(user.gocardlessSetupSessionId)),
+        );
+
+      // Re-read: if a concurrent call stored its session first, adopt that one.
+      const freshUser = await db.query.user.findFirst({
+        where: eq(user.id, ctx.user.id),
+        columns: { gocardlessSetupSessionId: true, gocardlessCustomerId: true },
+      });
+      localSessionId = freshUser?.gocardlessSetupSessionId ?? candidate;
+      existingCustomerId =
+        freshUser?.gocardlessCustomerId ?? existingCustomerId;
     }
 
     const returnUrl = `${env.NEXT_PUBLIC_COCKPIT_URL}/membership/payment-return`;
@@ -61,15 +75,17 @@ export const startMembershipPaymentAction = actionClient.action(
       returnUrl,
       exitUrl,
       localSessionId,
-      existingCustomerId: ctx.user.gocardlessCustomerId,
+      existingCustomerId,
     });
 
     // Immediately persist the GoCardless customer ID so retries reuse the same customer.
-    if (flow.customerId && !ctx.user.gocardlessCustomerId) {
+    if (flow.customerId && !existingCustomerId) {
       await db
         .update(user)
         .set({ gocardlessCustomerId: flow.customerId })
-        .where(eq(user.id, ctx.user.id));
+        .where(
+          and(eq(user.id, ctx.user.id), isNull(user.gocardlessCustomerId)),
+        );
     }
 
     after(() =>
