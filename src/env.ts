@@ -12,6 +12,7 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: z.string().min(1),
     AWS_SECRET_ACCESS_KEY: z.string().min(1),
     AWS_SES_SNS_TOPIC_ARN: z.string().min(1),
+    AWS_SES_CONFIGURATION_SET: z.string().min(1).optional(),
     GOOGLE_APPLICATION_CREDENTIALS_BASE64: z.string().min(1),
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     GOCARDLESS_API_KEY: z.string().min(1).optional(),
@@ -47,6 +48,7 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_SES_SNS_TOPIC_ARN: process.env.AWS_SES_SNS_TOPIC_ARN,
+    AWS_SES_CONFIGURATION_SET: process.env.AWS_SES_CONFIGURATION_SET,
     GOOGLE_APPLICATION_CREDENTIALS_BASE64:
       process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64,
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
