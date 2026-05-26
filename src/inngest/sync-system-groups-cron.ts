@@ -4,6 +4,7 @@ import { eq, isNotNull } from "drizzle-orm";
 import db from "@/db";
 import { user } from "@/db/schema/auth";
 import { group, usersToGroups } from "@/db/schema/group";
+import { env } from "@/env";
 import {
   addGroupMember,
   createGoogleGroup,
@@ -223,6 +224,14 @@ export const syncSystemGroupsCron = inngest.createFunction(
 
       manualAdded += toAdd.length;
       manualRemoved += toRemove.length;
+    }
+
+    if (env.BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION) {
+      await step.run("send-heartbeat", async () => {
+        await fetch(
+          env.BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION as string,
+        );
+      });
     }
 
     return {
