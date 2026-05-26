@@ -34,7 +34,7 @@ export const completeOnboardingMasterDataStep = actionClient
     // of bouncing the user back here.
     await auth.api.getSession({
       headers: await headers(),
-      disableCookieCache: true,
+      query: { disableCookieCache: true },
     });
 
     after(() =>
