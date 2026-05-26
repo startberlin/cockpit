@@ -33,11 +33,13 @@ type FormData = z.infer<typeof schema>;
 interface StepAlumniFinalizeProps {
   currentPersonalEmail: string | null | undefined;
   companyEmail: string;
+  isSupportingAlumni?: boolean;
 }
 
 export function StepAlumniFinalize({
   currentPersonalEmail,
   companyEmail,
+  isSupportingAlumni,
 }: StepAlumniFinalizeProps) {
   const router = useRouter();
 
@@ -158,21 +160,32 @@ export function StepAlumniFinalize({
       <FieldSet>
         <FieldGroup>
           <Field>
-            <FieldLabel>Approval</FieldLabel>
+            <FieldLabel>
+              {isSupportingAlumni ? "What happens next" : "Approval"}
+            </FieldLabel>
             <div className="flex flex-col gap-3">
-              <Alert>
-                <InfoIcon />
-                <AlertTitle>Your request will be reviewed</AlertTitle>
-                <AlertDescription>
-                  The alumni status is granted after 1+ year(s) of active
-                  contributions to START Berlin and will be reviewed by your
-                  department head or the board.
-                </AlertDescription>
-              </Alert>
-              <p className="text-sm text-muted-foreground">
-                You'll receive an email notification as soon as your request has
-                been reviewed.
-              </p>
+              {isSupportingAlumni ? (
+                <p className="text-sm text-muted-foreground">
+                  Your departure will be processed by the board. You'll receive
+                  an email once it's confirmed.
+                </p>
+              ) : (
+                <>
+                  <Alert>
+                    <InfoIcon />
+                    <AlertTitle>Your request will be reviewed</AlertTitle>
+                    <AlertDescription>
+                      The alumni status is granted after 1+ year(s) of active
+                      contributions to START Berlin and will be reviewed by your
+                      department head or the board.
+                    </AlertDescription>
+                  </Alert>
+                  <p className="text-sm text-muted-foreground">
+                    You'll receive an email notification as soon as your request
+                    has been reviewed.
+                  </p>
+                </>
+              )}
             </div>
           </Field>
         </FieldGroup>

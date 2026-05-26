@@ -26,6 +26,7 @@ export default async function ApproveAlumniPage({
       lastName: true,
       department: true,
       email: true,
+      status: true,
     },
   });
 
@@ -80,6 +81,7 @@ export default async function ApproveAlumniPage({
           id: subjectUser.id,
           name: `${subjectUser.firstName} ${subjectUser.lastName}`.trim(),
           email: subjectUser.email ?? "",
+          status: subjectUser.status,
         }}
         canAct={canAct}
       />

@@ -62,6 +62,7 @@ export function MembershipPageContent({
       {showMembershipOptions && (
         <MembershipOptions
           hasActiveLegalMembership={activeLegalMembership !== null}
+          userStatus={user.status}
         />
       )}
     </div>

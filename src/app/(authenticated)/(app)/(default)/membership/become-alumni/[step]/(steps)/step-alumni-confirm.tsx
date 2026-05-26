@@ -4,19 +4,26 @@ import { Button } from "@/components/ui/button";
 
 interface StepAlumniConfirmProps {
   companyEmail: string;
+  isSupportingAlumni?: boolean;
 }
 
-export function StepAlumniConfirm({ companyEmail }: StepAlumniConfirmProps) {
+export function StepAlumniConfirm({
+  companyEmail,
+  isSupportingAlumni,
+}: StepAlumniConfirmProps) {
   return (
     <div className="flex flex-col gap-y-8">
       <div className="rounded-lg border border-destructive/25 bg-destructive/8 p-4 flex flex-col gap-4">
-        <p className="text-sm font-medium">What cancellation means</p>
+        <p className="text-sm font-medium">
+          What {isSupportingAlumni ? "this transition" : "cancellation"} means
+        </p>
         <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
           <li className="flex items-start gap-2">
             <CircleXIcon className="size-4 mt-0.5 shrink-0 text-destructive/60" />
             <span>
-              Your membership with START Berlin e.V. will end immediately upon
-              processing.
+              {isSupportingAlumni
+                ? "Your Supporting Alumni membership with START Berlin e.V. will end, but you'll stay in the alumni network."
+                : "Your membership with START Berlin e.V. will end immediately upon processing."}
             </span>
           </li>
           <li className="flex items-start gap-2">

@@ -67,8 +67,8 @@ export const MembershipCancelledEmail = ({
             </Text>
             {keepInTouch ? (
               <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-                You chose to stay in touch as an alumni. We'll use this email
-                address to contact you in the future.
+                You chose to stay in touch as part of the alumni network. We'll
+                use this email address to contact you in the future.
               </Text>
             ) : (
               <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
