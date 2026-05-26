@@ -152,14 +152,18 @@ async function verifySnsSignature(
 }
 
 export const POST = inngest.endpoint(async (req: Request) => {
-  // Read the raw body before any steps. On Inngest replays the body will be
-  // empty, but the first step is memoized so its closure never re-runs.
-  const rawBody = await req.text();
-
-  // Step 1: Parse and cryptographically verify the SNS envelope.
+  // Step 1: Read, parse and cryptographically verify the SNS envelope.
+  //
+  // The body read MUST be inside this step. Inngest replays the function on
+  // every step boundary, so any code outside step.run re-executes — and a
+  // second `req.text()` throws "Body has already been read" because the
+  // first replay already drained the stream. Memoising it inside a step
+  // means subsequent replays just return the cached envelope.
+  //
   // Transient cert-fetch failures are retried by Inngest; invalid signatures
   // throw NonRetriableError so they are never retried.
   const envelope = await step.run("verify-and-parse-sns", async () => {
+    const rawBody = await req.text();
     const parsed = SnsEnvelopeSchema.parse(JSON.parse(rawBody));
     await verifySnsSignature(parsed);
     if (parsed.TopicArn !== env.AWS_SES_SNS_TOPIC_ARN) {
