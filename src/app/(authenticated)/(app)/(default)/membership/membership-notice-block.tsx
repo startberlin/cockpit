@@ -162,10 +162,16 @@ export function MembershipNoticeBlock({
         title: "Cancellation in progress",
         body: "Your cancellation request has been submitted and is being processed by the board. You'll receive an email once it's confirmed.",
       },
-      alumni_request: {
-        title: "Alumni transition in progress",
-        body: "Your request to become an alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
-      },
+      alumni_request:
+        userStatus === "supporting_alumni"
+          ? {
+              title: "Alumni transition in progress",
+              body: "Your request to become a full Alumni has been submitted. No approval is required — it will auto-confirm 7 days after submission unless the board acknowledges it sooner. You'll receive an email once it's processed.",
+            }
+          : {
+              title: "Alumni transition in progress",
+              body: "Your request to become an alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",
+            },
       supporting_alumni_request: {
         title: "Supporting alumni transition in progress",
         body: "Your request to become a Supporting Alumni has been submitted and is awaiting board approval. You'll receive an email once a decision is made.",

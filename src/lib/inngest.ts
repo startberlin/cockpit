@@ -128,6 +128,12 @@ export const events = {
       decidedByUserId: string;
     }>(),
   }),
+  transitionAcknowledged: eventType("membership/transition.acknowledged", {
+    schema: staticSchema<{
+      transitionRequestId: string;
+      acknowledgedByUserId: string;
+    }>(),
+  }),
   paymentProposalCreated: eventType("membership/payment-proposal.created", {
     schema: staticSchema<{ count: number }>(),
   }),

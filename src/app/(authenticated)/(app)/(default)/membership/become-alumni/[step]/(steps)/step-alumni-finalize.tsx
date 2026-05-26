@@ -33,11 +33,13 @@ type FormData = z.infer<typeof schema>;
 interface StepAlumniFinalizeProps {
   currentPersonalEmail: string | null | undefined;
   companyEmail: string;
+  isSupportingAlumni?: boolean;
 }
 
 export function StepAlumniFinalize({
   currentPersonalEmail,
   companyEmail,
+  isSupportingAlumni,
 }: StepAlumniFinalizeProps) {
   const router = useRouter();
 
@@ -158,21 +160,44 @@ export function StepAlumniFinalize({
       <FieldSet>
         <FieldGroup>
           <Field>
-            <FieldLabel>Approval</FieldLabel>
+            <FieldLabel>
+              {isSupportingAlumni ? "What happens next" : "Approval"}
+            </FieldLabel>
             <div className="flex flex-col gap-3">
-              <Alert>
-                <InfoIcon />
-                <AlertTitle>Your request will be reviewed</AlertTitle>
-                <AlertDescription>
-                  The alumni status is granted after 1+ year(s) of active
-                  contributions to START Berlin and will be reviewed by your
-                  department head or the board.
-                </AlertDescription>
-              </Alert>
-              <p className="text-sm text-muted-foreground">
-                You'll receive an email notification as soon as your request has
-                been reviewed.
-              </p>
+              {isSupportingAlumni ? (
+                <>
+                  <Alert>
+                    <InfoIcon />
+                    <AlertTitle>No approval needed</AlertTitle>
+                    <AlertDescription>
+                      Since you are already a Supporting Alumni, your departure
+                      does not require board approval. It will auto-confirm 7
+                      days after submission unless the board acknowledges it
+                      sooner.
+                    </AlertDescription>
+                  </Alert>
+                  <p className="text-sm text-muted-foreground">
+                    You'll receive an email notification once your transition
+                    has been processed.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Alert>
+                    <InfoIcon />
+                    <AlertTitle>Your request will be reviewed</AlertTitle>
+                    <AlertDescription>
+                      The alumni status is granted after 1+ year(s) of active
+                      contributions to START Berlin and will be reviewed by your
+                      department head or the board.
+                    </AlertDescription>
+                  </Alert>
+                  <p className="text-sm text-muted-foreground">
+                    You'll receive an email notification as soon as your request
+                    has been reviewed.
+                  </p>
+                </>
+              )}
             </div>
           </Field>
         </FieldGroup>

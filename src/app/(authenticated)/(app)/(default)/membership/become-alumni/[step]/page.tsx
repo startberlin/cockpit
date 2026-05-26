@@ -35,8 +35,15 @@ export default async function BecomeAlumniStepPage({
     return <StepSupportingAlumni />;
   }
 
+  const isSupportingAlumni = user.status === "supporting_alumni";
+
   if (step === "alumni-confirm") {
-    return <StepAlumniConfirm companyEmail={user.email ?? ""} />;
+    return (
+      <StepAlumniConfirm
+        companyEmail={user.email ?? ""}
+        isSupportingAlumni={isSupportingAlumni}
+      />
+    );
   }
 
   if (step === "alumni-community") {
@@ -48,6 +55,7 @@ export default async function BecomeAlumniStepPage({
       <StepAlumniFinalize
         currentPersonalEmail={user.personalEmail}
         companyEmail={user.email ?? ""}
+        isSupportingAlumni={isSupportingAlumni}
       />
     );
   }
