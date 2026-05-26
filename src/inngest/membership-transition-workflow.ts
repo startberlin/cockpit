@@ -82,7 +82,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
       };
     });
 
-    // Supporting alumni transitioning to full alumni do not require board
+    // Supporting alumni transitioning to alumni do not require board
     // approval — only acknowledgement, with a 7-day auto-execute timer
     // (mirroring self-service cancellation).
     const isSupportingAlumniDeparture =

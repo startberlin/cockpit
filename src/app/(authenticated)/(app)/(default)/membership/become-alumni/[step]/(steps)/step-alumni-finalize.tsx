@@ -165,22 +165,10 @@ export function StepAlumniFinalize({
             </FieldLabel>
             <div className="flex flex-col gap-3">
               {isSupportingAlumni ? (
-                <>
-                  <Alert>
-                    <InfoIcon />
-                    <AlertTitle>No approval needed</AlertTitle>
-                    <AlertDescription>
-                      Since you are already a Supporting Alumni, your departure
-                      does not require board approval. It will auto-confirm 7
-                      days after submission unless the board acknowledges it
-                      sooner.
-                    </AlertDescription>
-                  </Alert>
-                  <p className="text-sm text-muted-foreground">
-                    You'll receive an email notification once your transition
-                    has been processed.
-                  </p>
-                </>
+                <p className="text-sm text-muted-foreground">
+                  Your departure will be processed by the board. You'll receive
+                  an email once it's confirmed.
+                </p>
               ) : (
                 <>
                   <Alert>

@@ -24,11 +24,12 @@ export function MembershipOptions({
     <div className="flex flex-col gap-6">
       <span className="flex flex-col gap-1">
         <h2 className="text-sm font-semibold">Membership options</h2>
-        <p className="text-sm text-muted-foreground">
-          {isSupportingAlumni
-            ? "Becoming a full alumni does not require approval — it auto-confirms 7 days after submission."
-            : "Changes to your membership status require approval from your department head."}
-        </p>
+        {!isSupportingAlumni && (
+          <p className="text-sm text-muted-foreground">
+            Changes to your membership status require approval from your
+            department head.
+          </p>
+        )}
       </span>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Card>

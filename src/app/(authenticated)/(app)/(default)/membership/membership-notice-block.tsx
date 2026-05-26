@@ -166,7 +166,7 @@ export function MembershipNoticeBlock({
         userStatus === "supporting_alumni"
           ? {
               title: "Alumni transition in progress",
-              body: "Your request to become a full Alumni has been submitted. No approval is required — it will auto-confirm 7 days after submission unless the board acknowledges it sooner. You'll receive an email once it's processed.",
+              body: "Your request to become an alumni has been submitted and is being processed by the board. You'll receive an email once it's confirmed.",
             }
           : {
               title: "Alumni transition in progress",

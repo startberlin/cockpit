@@ -221,7 +221,7 @@ export default function ApproveAlumniClient({
     ? "Alumni Departure"
     : `${transitionLabel} Request`;
   const subheading = isSupportingAlumniDeparture
-    ? `${subjectUser.name} is currently a Supporting Alumni and has requested to become a full Alumni.`
+    ? `${subjectUser.name} is currently a Supporting Alumni and has requested to become an alumni.`
     : `${subjectUser.name} has requested to become a ${transitionLabel.toLowerCase()} member.`;
 
   return (

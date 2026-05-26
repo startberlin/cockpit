@@ -22,7 +22,7 @@ export function StepAlumniConfirm({
             <CircleXIcon className="size-4 mt-0.5 shrink-0 text-destructive/60" />
             <span>
               {isSupportingAlumni
-                ? "Your Supporting Alumni membership with START Berlin e.V. will end and you become a full Alumni."
+                ? "Your Supporting Alumni membership with START Berlin e.V. will end and you'll be listed as alumni."
                 : "Your membership with START Berlin e.V. will end immediately upon processing."}
             </span>
           </li>
