@@ -9,10 +9,6 @@ const SUPPORTING_ALUMNI_BENEFITS = [
   "Your membership stays unchanged at 40€ per year",
 ];
 
-const ALUMNI_UPSIDES = [
-  "Join the START Berlin and START Network alumni community",
-];
-
 const ALUMNI_DOWNSIDES = [
   "Lose access to all internal START Berlin events like startup visits, VC visits, and community events",
   "Lose your Google account, email address, and Slack access",
@@ -62,16 +58,10 @@ export function StepChoose() {
             Cancel START Berlin e.V. membership
           </span>
           <p className="text-sm text-muted-foreground">
-            End your membership and leave START Berlin.
+            End your membership, leave START Berlin and join the alumni network.
           </p>
         </div>
         <ul className="flex flex-col gap-2">
-          {ALUMNI_UPSIDES.map((upside) => (
-            <li key={upside} className="flex items-start gap-2 text-sm">
-              <Check className="size-4 mt-0.5 shrink-0 text-success/70" />
-              <span>{upside}</span>
-            </li>
-          ))}
           {ALUMNI_DOWNSIDES.map((downside) => (
             <li key={downside} className="flex items-start gap-2 text-sm">
               <CircleX className="size-4 mt-0.5 shrink-0 text-destructive/60" />
