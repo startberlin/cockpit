@@ -206,12 +206,23 @@ export async function POST(req: Request): Promise<Response> {
     if (!SNS_URL_PATTERN.test(envelope.SubscribeURL)) {
       return new Response("Bad Request", { status: 400 });
     }
-    // Confirm asynchronously so we can return 200 to SNS straight away.
-    after(() =>
-      fetch(envelope.SubscribeURL).catch((err) =>
-        console.error("[ses-webhook] subscription confirmation failed:", err),
-      ),
-    );
+    // Confirm synchronously: if we 200 before the SubscribeURL fetch
+    // succeeds the subscription stays in PendingConfirmation, and SNS
+    // never retries because the delivery already succeeded. Returning
+    // 502 on failure tells SNS to redeliver this SubscriptionConfirmation.
+    try {
+      const res = await fetch(envelope.SubscribeURL);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error(
+          `[ses-webhook] subscription confirmation failed: ${res.status} ${body}`,
+        );
+        return new Response("Bad Gateway", { status: 502 });
+      }
+    } catch (err) {
+      console.error("[ses-webhook] subscription confirmation failed:", err);
+      return new Response("Bad Gateway", { status: 502 });
+    }
     return new Response("OK");
   }
 
