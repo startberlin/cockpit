@@ -20,7 +20,7 @@ export const ApplicationResumeReminderEmail = ({
 
   return (
     <EmailShell
-      preview={`Pick up where you left off — finish your ${noun}`}
+      preview={`Pick up where you left off and finish your ${noun}`}
       eyebrow={
         isReconfirmation
           ? "Membership reconfirmation"
@@ -35,12 +35,12 @@ export const ApplicationResumeReminderEmail = ({
         Hi {firstName},
       </Text>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-        You started your START Berlin {noun} a moment ago but haven&apos;t
-        submitted it yet. Your progress is saved — just pick up where you left
-        off.
+        You have a START Berlin membership {noun} in progress in START Cockpit.
+        Your draft is saved and you can continue from where you left off.
       </Text>
       <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-        It only takes a few minutes to finish the remaining steps.
+        Once you submit, your official membership documents will be generated
+        and your membership will be confirmed.
       </Text>
       <EmailCta
         href={applicationUrl}

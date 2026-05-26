@@ -23,15 +23,14 @@ export const ReconfirmationAbandonmentReminderEmail = ({
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-      You finished setting up your START Cockpit profile — thanks! Before
-      you&apos;re done, we still need a few more details to update your
-      membership records.
+      You are a member of START Berlin e.V., but we still need to confirm a few
+      of your current details before we can generate your official membership
+      documents.
     </Text>
     <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-      You&apos;re already a member of START Berlin. We just need you to confirm
-      your current details — address, identity, and acceptance of our bylaws —
-      so we can generate your official membership documents (membership
-      application and board resolution). It only takes a few minutes.
+      Review your address, identity, and acceptance of our bylaws in START
+      Cockpit. Once you submit, your membership application and board resolution
+      will be generated.
     </Text>
     <EmailCta
       href={reconfirmationUrl}
