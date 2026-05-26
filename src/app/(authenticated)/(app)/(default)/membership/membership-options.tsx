@@ -32,10 +32,12 @@ export function MembershipOptions({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Card>
           <CardHeader className="gap-2 mb-auto">
-            <CardTitle>Become an alumni</CardTitle>
+            <CardTitle>
+              {isSupportingAlumni ? "Change alumni status" : "Become an alumni"}
+            </CardTitle>
             <CardDescription>
               {isSupportingAlumni
-                ? "End your supporting membership, leave START Berlin e.V. and become a full alumni."
+                ? "End your membership as a Supporting Alumni and leave START Berlin e.V."
                 : "After one year of active contribution, you can become a START Berlin alumni."}
             </CardDescription>
           </CardHeader>
