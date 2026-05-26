@@ -77,10 +77,10 @@ describe("deriveMembershipNotice", () => {
     );
   });
 
-  it("processing → null (no notice)", () => {
+  it("processing → payment_not_started (payment button available immediately)", () => {
     assert.equal(
       deriveMembershipNotice(state(), "processing", "onboarding"),
-      null,
+      "payment_not_started",
     );
   });
 

@@ -218,10 +218,16 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     }
 
     await step.run("mark-processing", async () => {
-      await db
-        .update(legalMembership)
-        .set({ status: "processing" })
-        .where(eq(legalMembership.id, legalMembershipId));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(legalMembership)
+          .set({ status: "processing" })
+          .where(eq(legalMembership.id, legalMembershipId));
+        await tx
+          .update(user)
+          .set({ legalMembershipState: "active_member" })
+          .where(eq(user.id, subjectUserId));
+      });
     });
 
     // Step 9a: Render and archive board resolution PDF.
