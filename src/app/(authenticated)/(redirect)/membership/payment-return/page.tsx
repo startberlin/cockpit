@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/db/user";
 import { PaymentReturnRedirect } from "./payment-return-redirect";
 
-export default async function PaymentReturnPage() {
+export default async function PaymentReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing_request_id?: string }>;
+}) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -13,5 +17,7 @@ export default async function PaymentReturnPage() {
     return redirect("/membership");
   }
 
-  return <PaymentReturnRedirect />;
+  const { billing_request_id: billingRequestId } = await searchParams;
+
+  return <PaymentReturnRedirect billingRequestId={billingRequestId} />;
 }
