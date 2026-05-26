@@ -87,6 +87,7 @@ export function ToolsSection({
                     href="https://mail.google.com"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-ph-capture-attribute-service="gmail"
                   >
                     <ExternalLink />
                     {actionLabel} Gmail
@@ -116,6 +117,7 @@ export function ToolsSection({
                     href="https://meet.google.com"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-ph-capture-attribute-service="google-meet"
                   >
                     <ExternalLink />
                     {actionLabel} Google Meet
@@ -171,6 +173,7 @@ export function ToolsSection({
                     href="https://drive.google.com"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-ph-capture-attribute-service="google-drive"
                   >
                     <ExternalLink />
                     {actionLabel} Google Drive

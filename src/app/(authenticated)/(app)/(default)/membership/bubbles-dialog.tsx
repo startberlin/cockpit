@@ -35,7 +35,11 @@ export function BubblesDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          data-ph-capture-attribute-service="bubbles"
+        >
           {title}
         </Button>
       </DialogTrigger>
