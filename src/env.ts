@@ -21,7 +21,8 @@ export const env = createEnv({
       .default("live"),
     GOCARDLESS_WEBHOOK_SECRET: z.string().min(1).optional(),
     GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: z.string().min(1),
-    BETTERSTACK_HEARTBEAT_URL: z.url().optional(),
+    BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS: z.url().optional(),
+    BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION: z.url().optional(),
     DISABLE_EMAIL: z.stringbool().optional().default(false),
     DISABLE_GOOGLE_WORKSPACE: z.stringbool().optional().default(false),
     DISABLE_SLACK: z.stringbool().optional().default(false),
@@ -55,7 +56,10 @@ export const env = createEnv({
     GOCARDLESS_WEBHOOK_SECRET: process.env.GOCARDLESS_WEBHOOK_SECRET,
     GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID:
       process.env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID,
-    BETTERSTACK_HEARTBEAT_URL: process.env.BETTERSTACK_HEARTBEAT_URL,
+    BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS:
+      process.env.BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS,
+    BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION:
+      process.env.BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION,
     DISABLE_EMAIL: process.env.DISABLE_EMAIL,
     DISABLE_GOOGLE_WORKSPACE: process.env.DISABLE_GOOGLE_WORKSPACE,
     DISABLE_SLACK: process.env.DISABLE_SLACK,

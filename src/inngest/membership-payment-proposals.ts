@@ -25,9 +25,9 @@ export const membershipPaymentProposalsCron = inngest.createFunction(
       });
     }
 
-    if (env.BETTERSTACK_HEARTBEAT_URL) {
+    if (env.BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS) {
       await step.run("send-heartbeat", async () => {
-        await fetch(env.BETTERSTACK_HEARTBEAT_URL as string);
+        await fetch(env.BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS as string);
       });
     }
 
