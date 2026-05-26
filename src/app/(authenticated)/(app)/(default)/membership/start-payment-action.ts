@@ -3,11 +3,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { after } from "next/server";
 import db from "@/db";
+import { newMembershipSessionId } from "@/db/membership";
 import { user } from "@/db/schema/auth";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
 import { createMembershipFlow } from "@/lib/gocardless/membership-flow";
-import { nanoid } from "@/lib/id";
 import { getStructuredMembershipState } from "@/lib/membership-status";
 import { track } from "@/lib/posthog-server";
 
@@ -34,7 +34,7 @@ export const startMembershipPaymentAction = actionClient.action(
     let existingCustomerId = ctx.user.gocardlessCustomerId;
 
     if (!localSessionId) {
-      const candidate = `mps_${nanoid(16)}`;
+      const candidate = newMembershipSessionId();
       await db
         .update(user)
         .set({ gocardlessSetupSessionId: candidate })
@@ -83,7 +83,9 @@ export const startMembershipPaymentAction = actionClient.action(
       await db
         .update(user)
         .set({ gocardlessCustomerId: flow.customerId })
-        .where(eq(user.id, ctx.user.id));
+        .where(
+          and(eq(user.id, ctx.user.id), isNull(user.gocardlessCustomerId)),
+        );
     }
 
     after(() =>
