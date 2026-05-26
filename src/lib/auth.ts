@@ -15,12 +15,7 @@ export const auth = betterAuth({
     additionalFields: betterAuthUserAdditionalFields,
   },
   session: {
-    // Signed cookie cache lets middleware and server components validate the
-    // session without a Postgres round-trip on every request. Revocations
-    // (sign-out, board-kick, impersonate-stop, membership transitions) take
-    // up to `maxAge` to propagate; for sensitive checks call
-    // `auth.api.getSession({ disableCookieCache: true })`.
-    cookieCache: { enabled: true, maxAge: 5 * 60 },
+    cookieCache: { enabled: false },
     additionalFields: {
       impersonatedBy: { type: "string", input: false },
     },
