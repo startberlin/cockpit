@@ -249,18 +249,24 @@ export const membershipCancellationWorkflow = inngest.createFunction(
 
     // Step 7: Send confirmation email to cached personal email.
     if (userData.personalEmail) {
+      const hadLegalMembership = userData.legalMembershipId !== null;
       await step.run("send-cancellation-email", async () => {
+        const subject = hadLegalMembership
+          ? reason === "removed_by_board"
+            ? "Your START Berlin membership has been terminated"
+            : "Your START Berlin membership has ended"
+          : reason === "removed_by_board"
+            ? "You have been removed from START Berlin"
+            : "Your START Berlin account has been closed";
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: userData.personalEmail!,
-          subject:
-            reason === "removed_by_board"
-              ? "Your START Berlin membership has been terminated"
-              : "Your START Berlin membership has ended",
+          subject,
           react: MembershipCancelledEmail({
             firstName: userData.firstName,
             keepInTouch: false,
             reason,
+            hadLegalMembership,
           }),
         });
       });
@@ -288,6 +294,10 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       );
       const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
       const terminatedOn = new Date().toISOString().substring(0, 10);
+      const hadLegalMembership = userData.legalMembershipId !== null;
+      const emailSubject = hadLegalMembership
+        ? `FYI: ${subjectName}'s START Berlin membership has ended`
+        : `FYI: ${subjectName} has been removed from START Berlin`;
       // Non-board recipients can only be the dept head of the subject's
       // department (per getFyiRecipients), so department is non-null here.
       const subjectDepartmentLabel = userData.department
@@ -308,12 +318,13 @@ export const membershipCancellationWorkflow = inngest.createFunction(
             sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
               to: recipient.email!,
-              subject: `FYI: ${subjectName}'s START Berlin membership has ended`,
+              subject: emailSubject,
               react: MembershipTerminationFyiEmail({
                 firstName: recipient.firstName,
                 subjectName,
                 terminatedOn,
                 context: reason,
+                hadLegalMembership,
                 receivingReason: boardMemberIds.has(recipient.userId)
                   ? "You're receiving this because you're a board member of START Berlin."
                   : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
