@@ -8,6 +8,7 @@ import { user as userTable } from "@/db/schema/auth";
 import { membershipApplication } from "@/db/schema/membership-application";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
+import { events, inngest } from "@/lib/inngest";
 import { track } from "@/lib/posthog-server";
 import { applicationPersonalInfoSchema } from "../application-validation";
 
@@ -78,6 +79,14 @@ export const saveApplicationPersonalInfoAction = actionClient
             birthDate: parsedInput.birthDate,
           },
         });
+    });
+
+    await inngest.send({
+      name: events.applicationDraftStarted.name,
+      data: {
+        userId: user.id,
+        legalMembershipId: parsedInput.legalMembershipId,
+      },
     });
 
     after(() =>

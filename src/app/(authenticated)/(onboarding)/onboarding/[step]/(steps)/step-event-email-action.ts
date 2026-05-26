@@ -6,6 +6,7 @@ import { z } from "zod";
 import db from "@/db";
 import { user as userTable } from "@/db/schema/auth";
 import { actionClient } from "@/lib/action-client";
+import { events, inngest } from "@/lib/inngest";
 import { track } from "@/lib/posthog-server";
 
 const schema = z
@@ -40,6 +41,11 @@ export const saveEventEmailPreferenceAction = actionClient
             : null,
       })
       .where(eq(userTable.id, ctx.user.id));
+
+    await inngest.send({
+      name: events.profileOnboardingCompleted.name,
+      data: { userId: ctx.user.id },
+    });
 
     after(() => {
       track({

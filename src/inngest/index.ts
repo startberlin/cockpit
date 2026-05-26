@@ -1,3 +1,4 @@
+import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
 import { authCleanupCron } from "./auth-cleanup";
 import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
 import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
@@ -14,6 +15,8 @@ import {
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
 } from "./position-assignment-notifications";
+import { quickMandateSetupReminderWorkflow } from "./quick-mandate-setup-reminder-workflow";
+import { quickReconfirmationReminderWorkflow } from "./quick-reconfirmation-reminder-workflow";
 import { reconfirmationReminderWorkflow } from "./reconfirmation-reminder-workflow";
 import { syncManualGroupMemberWorkflow } from "./sync-manual-group-member";
 import { syncPositionSystemGroupsWorkflow } from "./sync-position-system-groups";
@@ -21,6 +24,7 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  applicationResumeReminderWorkflow,
   authCleanupCron,
   bootstrapBatchSystemGroupWorkflow,
   financePaymentProposalsDigest,
@@ -37,6 +41,8 @@ export const inngestFunctions = [
   onboardNewUserWorkflow,
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
+  quickMandateSetupReminderWorkflow,
+  quickReconfirmationReminderWorkflow,
   reconfirmationReminderWorkflow,
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,

@@ -143,6 +143,12 @@ export const events = {
   reconfirmationPending: eventType("membership/reconfirmation.pending", {
     schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
   }),
+  profileOnboardingCompleted: eventType("onboarding/profile.completed", {
+    schema: staticSchema<{ userId: string }>(),
+  }),
+  applicationDraftStarted: eventType("membership/application-draft.started", {
+    schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
+  }),
 };
 
 export const inngest = new Inngest({
