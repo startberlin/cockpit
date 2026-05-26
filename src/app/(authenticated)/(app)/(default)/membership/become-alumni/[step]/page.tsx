@@ -21,7 +21,7 @@ export default async function BecomeAlumniStepPage({
 
   if (!isEligible) redirect("/membership");
 
-  // Already has a pending board-review request — nothing more to do here
+  // Already has a pending board-review request: nothing more to do here.
   const pendingTransition = await getActiveMembershipTransitionRequest(user.id);
   if (pendingTransition) redirect("/membership");
 

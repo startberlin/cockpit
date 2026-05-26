@@ -41,7 +41,7 @@ export function MembershipOptions({
             </CardTitle>
             <CardDescription>
               {isSupportingAlumni
-                ? "End your Supporting Alumni membership and join the alumni network."
+                ? "End your Supporting Alumni membership. You'll stay in the alumni network."
                 : "After one year of active contribution, you can request alumni status with START Berlin."}
             </CardDescription>
           </CardHeader>

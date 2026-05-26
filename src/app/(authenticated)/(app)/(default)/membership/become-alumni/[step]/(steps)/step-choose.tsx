@@ -5,7 +5,7 @@ const SUPPORTING_ALUMNI_BENEFITS = [
   "Receive invites to every START Berlin event, attend whenever you like",
   "No department work, no attendance obligations, no expectations",
   "Keep your Google account, email, and Slack access",
-  "Join the START Berlin and START Network alumni community",
+  "Join the START Berlin and START Network alumni community for life. You'll stay in the network even if you later end your membership",
   "Your membership stays unchanged at 40€ per year",
 ];
 

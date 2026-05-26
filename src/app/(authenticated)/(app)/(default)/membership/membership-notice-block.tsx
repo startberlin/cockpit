@@ -81,7 +81,7 @@ export function MembershipNoticeBlock({
       <NoticePanel
         icon={<InfoIcon className="size-5" />}
         title="You're listed as alumni"
-        body="You are no longer a member of START Berlin e.V. If you would like to rejoin, get in touch with us — we'd love to have you back."
+        body="You are no longer a member of START Berlin e.V. If you would like to rejoin, get in touch with us. We'd love to have you back."
         className="bg-secondary/50 border-border"
         iconClassName="text-muted-foreground"
       />

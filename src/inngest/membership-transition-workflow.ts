@@ -83,7 +83,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
     });
 
     // Supporting alumni transitioning to alumni do not require board
-    // approval — only acknowledgement, with a 7-day auto-execute timer
+    // approval, only acknowledgement, with a 7-day auto-execute timer
     // (mirroring self-service cancellation).
     const isSupportingAlumniDeparture =
       type === "alumni_request" && requestData.status === "supporting_alumni";
@@ -191,7 +191,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         send: (index) => sendApprovalEmails({ isReminder: index > 0 }),
       })) as Awaited<ReturnType<typeof step.waitForEvent>> | null;
 
-      // Step 3a: Timeout — mark expired and notify via START Berlin email.
+      // Step 3a: Timeout. Mark expired and notify via START Berlin email.
       if (decisionEvent === null) {
         await step.run("mark-request-expired", async () => {
           await db
@@ -229,7 +229,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
         return { outcome: "expired", transitionRequestId };
       }
 
-      // Step 3b: Rejected — mark and notify via START Berlin email.
+      // Step 3b: Rejected. Mark and notify via START Berlin email.
       if (decisionEvent.data.decision === "rejected") {
         await step.run("mark-request-rejected", async () => {
           await db
@@ -286,7 +286,7 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
       decidedByUserId = decisionEvent.data.decidedByUserId as string;
 
-      // Step 4: Approved — supporting alumni branch terminates here. Alumni
+      // Step 4: Approved. Supporting alumni branch terminates here. Alumni
       // requests fall through to the alumni execution below (shared with the
       // supporting-alumni-departure acknowledgement path).
       if (type === "supporting_alumni_request") {

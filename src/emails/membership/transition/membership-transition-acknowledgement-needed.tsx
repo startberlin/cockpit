@@ -38,7 +38,7 @@ export const MembershipTransitionAcknowledgementNeededEmail = ({
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       <strong style={{ color: "#1C1917" }}>{subjectName}</strong> currently has
       Supporting Alumni status at START Berlin and has requested to move to
-      alumni status. No approval is required — the request will auto-confirm 7
+      alumni status. No approval is required. The request will auto-confirm 7
       days after submission. You can acknowledge it now to process it
       immediately.
     </Text>

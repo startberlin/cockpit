@@ -22,7 +22,7 @@ export default async function BecomeAlumniPage() {
   const pendingTransition = await getActiveMembershipTransitionRequest(user.id);
   if (pendingTransition) redirect("/membership");
 
-  // Supporting alumni can only transition to alumni — skip the choice
+  // Supporting alumni can only transition to alumni, so skip the choice.
   if (user.status === "supporting_alumni") {
     redirect("/membership/become-alumni/alumni-confirm");
   }
