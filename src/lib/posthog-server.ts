@@ -48,6 +48,7 @@ type MembershipTransitionType =
 
 type WorkflowEmailType =
   | "mandate_setup_reminder"
+  | "mandate_setup_abandonment_reminder"
   | "membership_application_submitted"
   | "membership_admission_confirmed"
   | "membership_cancelled"
@@ -56,7 +57,9 @@ type WorkflowEmailType =
   | "membership_transition_rejected"
   | "membership_transition_supporting_alumni"
   | "membership_transition_alumni"
-  | "reconfirmation_reminder";
+  | "reconfirmation_reminder"
+  | "reconfirmation_abandonment_reminder"
+  | "application_resume_reminder";
 
 type TrackingEvent =
   // Onboarding
