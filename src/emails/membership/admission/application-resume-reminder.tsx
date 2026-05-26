@@ -13,34 +13,35 @@ export const ApplicationResumeReminderEmail = ({
   applicationUrl,
   isReconfirmation,
 }: ApplicationResumeReminderEmailProps) => {
-  const noun = isReconfirmation ? "reconfirmation" : "application";
-  const buttonLabel = isReconfirmation
-    ? "Resume reconfirmation"
-    : "Resume application";
+  const heading = isReconfirmation
+    ? "Finish confirming your membership"
+    : "Finish your membership application";
+  const preview = isReconfirmation
+    ? "Finish confirming your START Berlin membership"
+    : "Finish your START Berlin membership application";
+  const intro = isReconfirmation
+    ? "You started confirming your START Berlin membership a few minutes ago but haven't finished yet."
+    : "You started your START Berlin membership application a few minutes ago but haven't finished yet.";
+  const buttonLabel = isReconfirmation ? "Confirm membership" : "Continue";
 
   return (
     <EmailShell
-      preview={`Pick up where you left off and finish your ${noun}`}
-      eyebrow={
-        isReconfirmation
-          ? "Membership reconfirmation"
-          : "Membership application"
-      }
+      preview={preview}
+      eyebrow="Membership"
       campaign="application-resume-reminder"
     >
       <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-        Finish your membership {noun}
+        {heading}
       </Heading>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
         Hi {firstName},
       </Text>
       <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-        You have a START Berlin membership {noun} in progress in START Cockpit.
-        Your draft is saved and you can continue from where you left off.
+        {intro} Your progress is saved in START Cockpit, so you can pick up
+        right where you left off.
       </Text>
       <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-        Once you submit, your official membership documents will be generated
-        and your membership will be confirmed.
+        It only takes a few more minutes to finish.
       </Text>
       <EmailCta
         href={applicationUrl}

@@ -70,8 +70,8 @@ export const applicationResumeReminderWorkflow = inngest.createFunction(
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: u.email,
         subject: isReconfirmation
-          ? "Finish reconfirming your START Berlin membership"
-          : "Finish your START Berlin membership application",
+          ? "Finish confirming your membership"
+          : "Finish your membership application",
         react: ApplicationResumeReminderEmail({
           firstName: u.firstName ?? "",
           applicationUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,

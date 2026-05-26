@@ -49,7 +49,7 @@ export const quickMandateSetupReminderWorkflow = inngest.createFunction(
       await sendEmail({
         from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
         to: u.email,
-        subject: "Authorize your direct debit for START Berlin",
+        subject: "Set up your yearly membership payment",
         react: MandateSetupAbandonmentReminderEmail({
           firstName: u.firstName ?? "",
           membershipUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/membership`,

@@ -12,32 +12,34 @@ export const MandateSetupAbandonmentReminderEmail = ({
   membershipUrl,
 }: MandateSetupAbandonmentReminderEmailProps) => (
   <EmailShell
-    preview="Authorize your direct debit to finish your START Berlin membership setup"
+    preview="Set up your yearly membership payment"
     eyebrow="Membership payment"
     campaign="mandate-setup-abandonment-reminder"
   >
     <Heading className="mt-0 mb-[24px] p-0 font-bold text-[24px] text-[#1C1917]">
-      Authorize your direct debit
+      Set up your yearly membership payment
     </Heading>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-      Your START Berlin membership is active, but the direct debit for your
-      annual membership fee has not been authorized yet. The authorization lets
-      us collect the{" "}
-      <strong style={{ color: "#1C1917" }}>40 EUR yearly membership fee</strong>{" "}
-      automatically each year.
+      Your START Berlin membership is active, but your yearly membership payment
+      is not set up yet.
+    </Text>
+    <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
+      Your START Berlin membership costs{" "}
+      <strong style={{ color: "#1C1917" }}>40 EUR per year</strong>. It covers
+      the essentials that keep the association running and helps fund internal
+      and external events and member benefits throughout the year.
     </Text>
     <Text className="mt-0 mb-[24px] text-[15px] text-[#78716C] leading-[1.65]">
-      You will not be charged anything now. This only authorizes our payment
-      provider GoCardless to collect future yearly payments, and you will be
-      notified before each one. The bank authorization step takes less than a
+      No money is taken now. You will be guided through the payment setup in
+      START Cockpit, and notified before each yearly payment. It only takes a
       minute.
     </Text>
     <EmailCta
       href={membershipUrl}
-      label="Set up direct debit"
+      label="Set up payment"
       campaign="mandate-setup-abandonment-reminder"
     />
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
