@@ -4,7 +4,7 @@ import Link from "next/link";
 const SUPPORTING_ALUMNI_BENEFITS = [
   "Receive invites to every START Berlin event, attend whenever you like",
   "No department work, no attendance obligations, no expectations",
-  "Keep your Google account, email, and Slack access",
+  "Keep access to your Google account, email, Slack and other tools such as Canva Pro",
   "Join the START Berlin and START Network alumni community",
   "Your membership stays unchanged at 40€ per year",
 ];
