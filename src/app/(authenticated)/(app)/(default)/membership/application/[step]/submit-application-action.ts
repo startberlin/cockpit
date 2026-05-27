@@ -104,6 +104,9 @@ export const submitApplicationAction = actionClient
       );
     }
 
+    const isReconfirmation =
+      preSubmissionStatus === "membership_reconfirmation_pending";
+
     const submitted = await db.transaction(async (tx) => {
       const updated = await tx
         .update(membershipApplication)
@@ -130,6 +133,14 @@ export const submitApplicationAction = actionClient
         .set({ status: "processing" })
         .where(eq(legalMembership.id, parsedInput.legalMembershipId));
 
+      // Reconfirmation doesn't need board approval, so activate the user's
+      // legal state in the same transaction. Otherwise paymentSetupAllowed
+      // (gated on legalMembershipState === "active_member") stays false while
+      // the membership page already surfaces the "Set up payment" button
+      // (triggered by lm.status === "processing"), and clicking before the
+      // Inngest workflow catches up throws "An admin needs to complete your
+      // onboarding…". The workflow's activate-legal-membership step re-sets
+      // this and is idempotent.
       await tx
         .update(userTable)
         .set({
@@ -139,6 +150,9 @@ export const submitApplicationAction = actionClient
           zip: draft.zip,
           country: draft.country,
           birthDate: draft.birthDate,
+          ...(isReconfirmation
+            ? { legalMembershipState: "active_member" as const }
+            : {}),
         })
         .where(eq(userTable.id, user.id));
 
@@ -148,9 +162,6 @@ export const submitApplicationAction = actionClient
     if (!submitted) {
       return { success: true };
     }
-
-    const isReconfirmation =
-      preSubmissionStatus === "membership_reconfirmation_pending";
 
     try {
       await inngest.send(
@@ -182,6 +193,12 @@ export const submitApplicationAction = actionClient
           .update(legalMembership)
           .set({ status: preSubmissionStatus })
           .where(eq(legalMembership.id, parsedInput.legalMembershipId));
+        if (isReconfirmation) {
+          await tx
+            .update(userTable)
+            .set({ legalMembershipState: user.legalMembershipState })
+            .where(eq(userTable.id, user.id));
+        }
       });
       return returnValidationErrors(submitApplicationSchema, {
         legalMembershipId: {
