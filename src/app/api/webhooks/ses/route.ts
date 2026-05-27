@@ -55,7 +55,7 @@ const SesMailSchema = z.object({
   source: z.string().optional(),
   destination: z.array(z.string()),
   commonHeaders: z.object({ subject: z.string().optional() }).optional(),
-  tags: z.record(z.string(), z.array(z.string())).optional(),
+  tags: z.record(z.string(), z.array(z.string())).nullish(),
 });
 
 const SesEngagementSchema = z.discriminatedUnion("eventType", [
@@ -76,7 +76,7 @@ const SesEngagementSchema = z.discriminatedUnion("eventType", [
       userAgent: z.string().optional(),
       ipAddress: z.string().optional(),
       link: z.string(),
-      linkTags: z.record(z.string(), z.array(z.string())).optional(),
+      linkTags: z.record(z.string(), z.array(z.string())).nullish(),
     }),
   }),
 ]);
