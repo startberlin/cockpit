@@ -33,14 +33,6 @@ export async function generateMetadata({ params }: GroupPageProps) {
     });
   }
 
-  const mayViewGroup = await can("group.view", { id });
-  if (!mayViewGroup) {
-    return createMetadata({
-      title: "Group",
-      description: "Manage a START Berlin group.",
-    });
-  }
-
   const group = await getGroupDetail(id);
   if (!group) {
     return createMetadata({
@@ -124,9 +116,6 @@ export default async function AdminGroupPage({
       </>
     );
   }
-
-  const mayViewGroup = await can("group.view", { id });
-  if (!mayViewGroup) notFound();
 
   const mayManageMembers = await can("group.members.manage", { id });
   const groupDetailPromise = getGroupDetail(id, page);

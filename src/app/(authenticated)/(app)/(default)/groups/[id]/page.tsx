@@ -3,15 +3,12 @@ import * as React from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
 import { getGroupDetail } from "@/db/groups";
-import { getCurrentUser } from "@/db/user";
 import {
   getMembersOfSystemGroup,
   getSystemGroupBySlug,
-  getSystemGroupsForUser,
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
-import { can } from "@/lib/permissions/server";
 import GroupDetailClient, { GroupDetailBreadcrumb } from "./page-client";
 import GroupDetailSkeleton from "./skeleton";
 
@@ -32,14 +29,6 @@ export async function generateMetadata({ params }: GroupPageProps) {
     return createMetadata({
       title: sg?.name ?? "Group",
       description: `View members of ${sg?.name ?? id}.`,
-    });
-  }
-
-  const mayViewGroup = await can("group.view", { id });
-  if (!mayViewGroup) {
-    return createMetadata({
-      title: "Group",
-      description: "View a START Berlin group.",
     });
   }
 
@@ -68,41 +57,6 @@ export default async function GroupPage({
   if (isSystemSlug(id)) {
     const systemGroup = getSystemGroupBySlug(id);
     if (!systemGroup) notFound();
-
-    const isAdmin = await can("users.import");
-    if (!isAdmin) {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) notFound();
-
-      const [userRecord, userPositions, batches] = await Promise.all([
-        db.query.user.findFirst({
-          where: (u, { eq }) => eq(u.id, currentUser.id),
-          columns: { status: true, department: true, batchNumber: true },
-          with: { accessGrants: { columns: { grant: true } } },
-        }),
-        db.query.userOrganizationPosition.findMany({
-          where: (p, { eq }) => eq(p.userId, currentUser.id),
-          columns: { position: true, scope: true, department: true },
-        }),
-        db.query.batch.findMany({ columns: { number: true } }),
-      ]);
-
-      const memberOfGroup =
-        userRecord &&
-        getSystemGroupsForUser(
-          {
-            id: currentUser.id,
-            status: userRecord.status,
-            department: userRecord.department,
-            batchNumber: userRecord.batchNumber,
-            grants: userRecord.accessGrants.map((g) => g.grant),
-          },
-          userPositions,
-          batches,
-        ).some((g) => g.slug === id);
-
-      if (!memberOfGroup) notFound();
-    }
 
     const [userRows, positions] = await Promise.all([
       db.query.user.findMany({
@@ -159,9 +113,6 @@ export default async function GroupPage({
       </>
     );
   }
-
-  const mayViewGroup = await can("group.view", { id });
-  if (!mayViewGroup) notFound();
 
   const groupDetailPromise = getGroupDetail(id, page);
 
