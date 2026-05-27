@@ -236,7 +236,7 @@ export function MembershipNoticeBlock({
       body={
         distantDueDate ? (
           <>
-            Good news — your membership is already paid until{" "}
+            Your membership is already paid until{" "}
             <strong className="font-semibold text-foreground">
               {formatLongDate(distantDueDate)}
             </strong>
