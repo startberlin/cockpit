@@ -7,7 +7,7 @@ import type { ReactElement } from "react";
 import { render } from "react-email";
 import db from "@/db";
 import { env } from "@/env";
-import { type AuditSubject, writeAuditLog } from "@/lib/audit-log";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const ses = new SESv2Client({
   region: env.AWS_REGION,
@@ -79,9 +79,9 @@ function buildEmailTags(opts: {
   return tags;
 }
 
-async function resolveRecipientSubjects(
+export async function resolveUserIdsByEmail(
   recipients: string[],
-): Promise<Map<string, NonNullable<AuditSubject>>> {
+): Promise<Map<string, { id: string; name: string }>> {
   const lowered = recipients.map((r) => r.toLowerCase());
   const users = await db.query.user.findMany({
     where: (u, { or, inArray, sql }) =>
@@ -99,7 +99,7 @@ async function resolveRecipientSubjects(
     },
   });
 
-  const byEmail = new Map<string, NonNullable<AuditSubject>>();
+  const byEmail = new Map<string, { id: string; name: string }>();
   for (const u of users) {
     const subject = { id: u.id, name: u.name };
     for (const addr of [u.email, u.personalEmail, u.eventInviteEmail]) {
@@ -129,7 +129,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const logEmail = () => {
     after(async () => {
       try {
-        const subjectByRecipient = await resolveRecipientSubjects(recipients);
+        const subjectByRecipient = await resolveUserIdsByEmail(recipients);
         await Promise.all(
           recipients.map((recipient) =>
             writeAuditLog({
@@ -152,11 +152,25 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     render(options.react, { plainText: true }),
   ]);
 
+  // Auto-resolve userId from recipient when the caller didn't pass one, so
+  // engagement events (SES Open / Click → PostHog) attribute to the real user
+  // instead of a separate person keyed by the email address. Only meaningful
+  // for single-recipient messages — SES tags are per-message, not per-recipient.
+  let resolvedUserId = options.userId;
+  if (!resolvedUserId && recipients.length === 1) {
+    try {
+      const subjects = await resolveUserIdsByEmail(recipients);
+      resolvedUserId = subjects.get(recipients[0].toLowerCase())?.id;
+    } catch (err) {
+      console.error("[email] userId resolution failed", err);
+    }
+  }
+
   // The Configuration Set is attached as the default on the verified sending
   // identity (see SES console / put-email-identity-configuration-set-attributes),
   // so we only need to pass per-message EmailTags here.
   const EmailTags = buildEmailTags({
-    userId: options.userId,
+    userId: resolvedUserId,
     emailType: options.emailType,
   });
 
