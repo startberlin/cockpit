@@ -42,3 +42,4 @@ jobs:
 
             For the commit-by-commit history of what's being deployed, compare [`production...main`](../../compare/production...main).
           delete-branch: true
+          sign-commits: true
