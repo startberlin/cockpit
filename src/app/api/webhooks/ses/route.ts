@@ -2,6 +2,7 @@ import { createVerify } from "node:crypto";
 import { after } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
+import { resolveUserIdsByEmail } from "@/lib/email";
 import { getPostHogClient } from "@/lib/posthog-server";
 
 // SNS always sends Content-Type: text/plain even though the body is JSON.
@@ -55,7 +56,7 @@ const SesMailSchema = z.object({
   source: z.string().optional(),
   destination: z.array(z.string()),
   commonHeaders: z.object({ subject: z.string().optional() }).optional(),
-  tags: z.record(z.string(), z.array(z.string())).optional(),
+  tags: z.record(z.string(), z.array(z.string())).nullish(),
 });
 
 const SesEngagementSchema = z.discriminatedUnion("eventType", [
@@ -76,7 +77,7 @@ const SesEngagementSchema = z.discriminatedUnion("eventType", [
       userAgent: z.string().optional(),
       ipAddress: z.string().optional(),
       link: z.string(),
-      linkTags: z.record(z.string(), z.array(z.string())).optional(),
+      linkTags: z.record(z.string(), z.array(z.string())).nullish(),
     }),
   }),
 ]);
@@ -146,17 +147,32 @@ async function verifySnsSignature(
   return verifier.verify(cert, envelope.Signature, "base64");
 }
 
-function captureEngagement(event: SesEngagement): void {
+async function captureEngagement(event: SesEngagement): Promise<void> {
   const posthog = getPostHogClient();
   if (!posthog) return;
 
   const { eventType, mail } = event;
-  const userId = mail.tags?.userId?.[0];
+  const taggedUserId = mail.tags?.userId?.[0];
   const emailType = mail.tags?.emailType?.[0];
-  const recipient = mail.destination[0];
+  // SES doesn't tell us which recipient generated an Open / Click on a
+  // multi-recipient send, so the recipient-email fallback is only safe when
+  // there's exactly one destination — matching the single-recipient guard
+  // in sendEmail's auto-tagging.
+  const recipient =
+    mail.destination.length === 1 ? mail.destination[0] : undefined;
+
+  // Fallback for legacy messages sent before sendEmail auto-tagged userId, or
+  // recipients added as users after the email went out. If we still can't find
+  // a user, drop the event rather than create a person keyed by raw email.
+  let distinctId = taggedUserId;
+  if (!distinctId && recipient) {
+    const subjects = await resolveUserIdsByEmail([recipient]);
+    distinctId = subjects.get(recipient.toLowerCase())?.id;
+  }
+  if (!distinctId) return;
 
   posthog.capture({
-    distinctId: userId ?? recipient,
+    distinctId,
     event: eventType === "Open" ? "email_opened" : "email_link_clicked",
     properties: {
       // SES occasionally emits duplicate events. Dedupe on messageId +
@@ -258,7 +274,7 @@ export async function POST(req: Request): Promise<Response> {
   // event is lost, which is acceptable for engagement analytics.
   after(async () => {
     try {
-      captureEngagement(engagement);
+      await captureEngagement(engagement);
       await getPostHogClient()?.flush();
     } catch (err) {
       console.error("[ses-webhook] PostHog capture failed:", err);
