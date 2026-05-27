@@ -232,13 +232,13 @@ export function MembershipNoticeBlock({
   return (
     <NoticePanel
       icon={<LandmarkIcon className="size-5" />}
-      title="Set up your yearly membership payment to finish your setup"
+      title="Set up your membership payment"
       body={
         distantDueDate ? (
           <>
-            Please set up your yearly membership payment now to finish your
-            setup so we can collect future payments automatically. Your
-            membership is already paid until{" "}
+            Set up your yearly membership payment now to finish your setup so we
+            can collect future payments automatically. Your membership is
+            already paid until{" "}
             <strong className="font-semibold text-foreground">
               {formatLongDate(distantDueDate)}
             </strong>
