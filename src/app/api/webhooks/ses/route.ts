@@ -154,7 +154,12 @@ async function captureEngagement(event: SesEngagement): Promise<void> {
   const { eventType, mail } = event;
   const taggedUserId = mail.tags?.userId?.[0];
   const emailType = mail.tags?.emailType?.[0];
-  const recipient = mail.destination[0];
+  // SES doesn't tell us which recipient generated an Open / Click on a
+  // multi-recipient send, so the recipient-email fallback is only safe when
+  // there's exactly one destination — matching the single-recipient guard
+  // in sendEmail's auto-tagging.
+  const recipient =
+    mail.destination.length === 1 ? mail.destination[0] : undefined;
 
   // Fallback for legacy messages sent before sendEmail auto-tagged userId, or
   // recipients added as users after the email went out. If we still can't find

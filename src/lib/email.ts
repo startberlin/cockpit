@@ -82,7 +82,8 @@ function buildEmailTags(opts: {
 export async function resolveUserIdsByEmail(
   recipients: string[],
 ): Promise<Map<string, { id: string; name: string }>> {
-  const lowered = recipients.map((r) => r.toLowerCase());
+  const requested = new Set(recipients.map((r) => r.toLowerCase()));
+  const lowered = [...requested];
   const users = await db.query.user.findMany({
     where: (u, { or, inArray, sql }) =>
       or(
@@ -99,15 +100,37 @@ export async function resolveUserIdsByEmail(
     },
   });
 
-  const byEmail = new Map<string, { id: string; name: string }>();
+  // Fixed priority so collisions resolve deterministically: a recipient that
+  // is one user's primary email always wins over the same string appearing in
+  // another user's personalEmail or eventInviteEmail. Lower number = higher
+  // priority.
+  const PRIMARY = 0;
+  const PERSONAL = 1;
+  const INVITE = 2;
+  const entries = new Map<
+    string,
+    { id: string; name: string; priority: number }
+  >();
   for (const u of users) {
-    const subject = { id: u.id, name: u.name };
-    for (const addr of [u.email, u.personalEmail, u.eventInviteEmail]) {
+    const fields = [
+      [u.email, PRIMARY],
+      [u.personalEmail, PERSONAL],
+      [u.eventInviteEmail, INVITE],
+    ] as const;
+    for (const [addr, priority] of fields) {
       if (!addr) continue;
       const key = addr.toLowerCase();
-      // First match wins; user.email is unique, others may collide across users.
-      if (!byEmail.has(key)) byEmail.set(key, subject);
+      if (!requested.has(key)) continue;
+      const existing = entries.get(key);
+      if (!existing || priority < existing.priority) {
+        entries.set(key, { id: u.id, name: u.name, priority });
+      }
     }
+  }
+
+  const byEmail = new Map<string, { id: string; name: string }>();
+  for (const [key, { id, name }] of entries) {
+    byEmail.set(key, { id, name });
   }
   return byEmail;
 }
