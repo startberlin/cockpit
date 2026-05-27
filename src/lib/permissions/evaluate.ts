@@ -48,7 +48,6 @@ export function isUserScopedAction(action: Action): action is UserScopedAction {
 }
 
 export type GroupScopedAction =
-  | "group.view"
   | "group.members.manage"
   | "group.managers.manage"
   | "group.export";
@@ -88,7 +87,6 @@ export function isGlobalAction(action: Action): action is GlobalAction {
 }
 
 const groupScopedActions = [
-  "group.view",
   "group.members.manage",
   "group.managers.manage",
   "group.export",
@@ -182,8 +180,6 @@ function evaluateGroupScopedAction(
   scope: GroupScope,
 ): boolean {
   switch (action) {
-    case "group.view":
-      return true;
     case "group.members.manage":
       return hasAdminGrant(authority) || scope.isGroupManager;
     case "group.managers.manage":
