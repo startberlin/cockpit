@@ -38,6 +38,7 @@ function formatLongDate(date: Date): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -45,7 +46,7 @@ function getDistantNextPaymentDate(
   nextPaymentDate: string | null,
 ): Date | null {
   if (!nextPaymentDate) return null;
-  const dueDate = new Date(`${nextPaymentDate}T00:00:00`);
+  const dueDate = new Date(`${nextPaymentDate}T00:00:00Z`);
   if (Number.isNaN(dueDate.getTime())) return null;
   if (dueDate.getTime() - Date.now() <= FOURTEEN_DAYS_MS) return null;
   return dueDate;
