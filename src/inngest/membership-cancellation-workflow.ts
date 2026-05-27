@@ -174,9 +174,17 @@ export const membershipCancellationWorkflow = inngest.createFunction(
             .where(eq(legalMembership.id, userData.legalMembershipId));
         }
 
+        // Only transition legalMembershipState to "former_member" if there
+        // was an active/pending legal membership being cancelled. If the user
+        // never had a legal membership (e.g. cancelled during onboarding),
+        // they should remain "not_member" rather than become "former_member".
         await tx
           .update(user)
-          .set({ legalMembershipState: "former_member", status: "cancelled" })
+          .set(
+            userData.legalMembershipId
+              ? { legalMembershipState: "former_member", status: "cancelled" }
+              : { status: "cancelled" },
+          )
           .where(eq(user.id, userId));
 
         await tx.delete(session).where(eq(session.userId, userId));
