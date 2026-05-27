@@ -347,6 +347,28 @@ export async function getMembersNeedingProposal(): Promise<
   >;
 }
 
+export async function getNextPaymentDueDate(
+  userId: string,
+): Promise<string | null> {
+  const term = await getActivePaymentTerm(userId);
+  if (!term) return null;
+
+  // Proposed/pending/submitted: the activation date IS the next charge date.
+  // Confirmed/paid_out: coverage runs through activation + 1 year, which is
+  // when the next charge will be proposed.
+  if (
+    term.status === "proposed" ||
+    term.status === "pending" ||
+    term.status === "submitted"
+  ) {
+    return term.activationDate;
+  }
+
+  const d = new Date(`${term.activationDate}T00:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function getActivePaymentTerm(userId: string): Promise<{
   activationDate: string;
   status: MembershipPaymentCycleStatus;
