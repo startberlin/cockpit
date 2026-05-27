@@ -218,6 +218,16 @@ export function MembershipNoticeBlock({
   }
 
   const distantDueDate = getDistantNextPaymentDate(nextPaymentDate);
+  const gocardlessLink = (
+    <a
+      href="https://payersupport.gocardless.com/hc/articles/5602098685852-Was-ist-GoCardless"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2"
+    >
+      GoCardless
+    </a>
+  );
 
   return (
     <NoticePanel
@@ -232,15 +242,17 @@ export function MembershipNoticeBlock({
             </strong>
             , so there's nothing to pay right now. To wrap up your setup, please
             set up your yearly membership payment now so we can collect future
-            yearly payments automatically when the time comes. We'll always give
-            you a heads-up before any payment.
+            yearly payments automatically when the time comes. You'll be taken
+            to our payment provider {gocardlessLink} to authorise it, and we'll
+            always give you a heads-up before any payment.
           </>
         ) : (
           <>
             This is the last step to activate your START Berlin membership. It
             costs 40 EUR per year and covers the essentials of running the
             association, including events, catering, and member benefits
-            throughout the year. We'll guide you through the setup.
+            throughout the year. You'll be taken to our payment provider{" "}
+            {gocardlessLink} to set it up.
           </>
         )
       }
