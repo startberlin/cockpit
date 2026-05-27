@@ -7,7 +7,7 @@ import type { ReactElement } from "react";
 import { render } from "react-email";
 import db from "@/db";
 import { env } from "@/env";
-import { type AuditSubject, writeAuditLog } from "@/lib/audit-log";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const ses = new SESv2Client({
   region: env.AWS_REGION,
@@ -79,10 +79,11 @@ function buildEmailTags(opts: {
   return tags;
 }
 
-async function resolveRecipientSubjects(
+export async function resolveUserIdsByEmail(
   recipients: string[],
-): Promise<Map<string, NonNullable<AuditSubject>>> {
-  const lowered = recipients.map((r) => r.toLowerCase());
+): Promise<Map<string, { id: string; name: string }>> {
+  const requested = new Set(recipients.map((r) => r.toLowerCase()));
+  const lowered = [...requested];
   const users = await db.query.user.findMany({
     where: (u, { or, inArray, sql }) =>
       or(
@@ -99,15 +100,37 @@ async function resolveRecipientSubjects(
     },
   });
 
-  const byEmail = new Map<string, NonNullable<AuditSubject>>();
+  // Fixed priority so collisions resolve deterministically: a recipient that
+  // is one user's primary email always wins over the same string appearing in
+  // another user's personalEmail or eventInviteEmail. Lower number = higher
+  // priority.
+  const PRIMARY = 0;
+  const PERSONAL = 1;
+  const INVITE = 2;
+  const entries = new Map<
+    string,
+    { id: string; name: string; priority: number }
+  >();
   for (const u of users) {
-    const subject = { id: u.id, name: u.name };
-    for (const addr of [u.email, u.personalEmail, u.eventInviteEmail]) {
+    const fields = [
+      [u.email, PRIMARY],
+      [u.personalEmail, PERSONAL],
+      [u.eventInviteEmail, INVITE],
+    ] as const;
+    for (const [addr, priority] of fields) {
       if (!addr) continue;
       const key = addr.toLowerCase();
-      // First match wins; user.email is unique, others may collide across users.
-      if (!byEmail.has(key)) byEmail.set(key, subject);
+      if (!requested.has(key)) continue;
+      const existing = entries.get(key);
+      if (!existing || priority < existing.priority) {
+        entries.set(key, { id: u.id, name: u.name, priority });
+      }
     }
+  }
+
+  const byEmail = new Map<string, { id: string; name: string }>();
+  for (const [key, { id, name }] of entries) {
+    byEmail.set(key, { id, name });
   }
   return byEmail;
 }
@@ -129,7 +152,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const logEmail = () => {
     after(async () => {
       try {
-        const subjectByRecipient = await resolveRecipientSubjects(recipients);
+        const subjectByRecipient = await resolveUserIdsByEmail(recipients);
         await Promise.all(
           recipients.map((recipient) =>
             writeAuditLog({
@@ -152,11 +175,25 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     render(options.react, { plainText: true }),
   ]);
 
+  // Auto-resolve userId from recipient when the caller didn't pass one, so
+  // engagement events (SES Open / Click → PostHog) attribute to the real user
+  // instead of a separate person keyed by the email address. Only meaningful
+  // for single-recipient messages — SES tags are per-message, not per-recipient.
+  let resolvedUserId = options.userId;
+  if (!resolvedUserId && recipients.length === 1) {
+    try {
+      const subjects = await resolveUserIdsByEmail(recipients);
+      resolvedUserId = subjects.get(recipients[0].toLowerCase())?.id;
+    } catch (err) {
+      console.error("[email] userId resolution failed", err);
+    }
+  }
+
   // The Configuration Set is attached as the default on the verified sending
   // identity (see SES console / put-email-identity-configuration-set-attributes),
   // so we only need to pass per-message EmailTags here.
   const EmailTags = buildEmailTags({
-    userId: options.userId,
+    userId: resolvedUserId,
     emailType: options.emailType,
   });
 
