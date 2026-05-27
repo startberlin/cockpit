@@ -236,15 +236,15 @@ export function MembershipNoticeBlock({
       body={
         distantDueDate ? (
           <>
-            Your membership is already paid until{" "}
+            Please set up your yearly membership payment now to finish your
+            setup so we can collect future payments automatically. Your
+            membership is already paid until{" "}
             <strong className="font-semibold text-foreground">
               {formatLongDate(distantDueDate)}
             </strong>
-            , so there's nothing to pay right now. To wrap up your setup, please
-            set up your yearly membership payment now so we can collect future
-            yearly payments automatically when the time comes. You'll be taken
-            to our payment provider {gocardlessLink} to authorise it, and we'll
-            always give you a heads-up before any payment.
+            , so nothing will be charged right now. You'll be taken to our
+            payment provider {gocardlessLink} to authorise it, and we'll always
+            give you a heads-up before any payment.
           </>
         ) : (
           <>
