@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { getNextPaymentDueDate } from "@/db/membership-payments";
 import type { MembershipTransitionRequest } from "@/db/membership-transitions";
 import type { User } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
@@ -17,7 +18,7 @@ interface MembershipPageContentProps {
   pendingTransition: MembershipTransitionRequest | null;
 }
 
-export function MembershipPageContent({
+export async function MembershipPageContent({
   user,
   activeLegalMembership,
   pendingTransition,
@@ -30,6 +31,11 @@ export function MembershipPageContent({
     user.status,
     pendingTransition,
   );
+
+  const nextPaymentDate =
+    noticeType === "payment_not_started"
+      ? await getNextPaymentDueDate(user.id)
+      : null;
 
   const showMembershipDetails = user.status !== "onboarding";
   const showMembershipOptions =
@@ -51,6 +57,7 @@ export function MembershipPageContent({
           legalMembershipStatus={legalMembershipStatus}
           userStatus={user.status}
           pendingTransition={pendingTransition}
+          nextPaymentDate={nextPaymentDate}
         />
       </div>
       {showMembershipDetails && (
