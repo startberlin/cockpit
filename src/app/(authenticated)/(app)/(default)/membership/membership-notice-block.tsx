@@ -28,6 +28,28 @@ interface MembershipNoticeBlockProps {
   legalMembershipStatus: LegalMembershipStatus | null;
   userStatus: UserStatus;
   pendingTransition?: MembershipTransitionRequest | null;
+  nextPaymentDate?: string | null;
+}
+
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+function formatLongDate(date: Date): string {
+  return date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function getDistantNextPaymentDate(
+  nextPaymentDate: string | null,
+): Date | null {
+  if (!nextPaymentDate) return null;
+  const dueDate = new Date(`${nextPaymentDate}T00:00:00Z`);
+  if (Number.isNaN(dueDate.getTime())) return null;
+  if (dueDate.getTime() - Date.now() <= FOURTEEN_DAYS_MS) return null;
+  return dueDate;
 }
 
 function NoticePanel({
@@ -66,6 +88,7 @@ export function MembershipNoticeBlock({
   legalMembershipStatus,
   userStatus,
   pendingTransition,
+  nextPaymentDate = null,
 }: MembershipNoticeBlockProps) {
   const notice = deriveMembershipNotice(
     membershipState,
@@ -195,23 +218,44 @@ export function MembershipNoticeBlock({
     );
   }
 
+  const distantDueDate = getDistantNextPaymentDate(nextPaymentDate);
+  const gocardlessLink = (
+    <a
+      href="https://payersupport.gocardless.com/hc/articles/5602098685852-Was-ist-GoCardless"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2"
+    >
+      GoCardless
+    </a>
+  );
+
   return (
     <NoticePanel
       icon={<LandmarkIcon className="size-5" />}
-      title="Set up your direct debit"
+      title="Set up your membership payment"
       body={
-        <>
-          Your annual membership fee will be collected automatically via{" "}
-          <a
-            href="https://payersupport.gocardless.com/hc/articles/5602098685852-Was-ist-GoCardless"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2"
-          >
-            GoCardless
-          </a>
-          , our payment provider. We'll notify you before each payment.
-        </>
+        distantDueDate ? (
+          <>
+            Set up your yearly membership payment now to finish your setup so we
+            can collect future payments automatically. Your membership is
+            already paid until{" "}
+            <strong className="font-semibold text-foreground">
+              {formatLongDate(distantDueDate)}
+            </strong>
+            , so nothing will be charged right now. You'll be taken to our
+            payment provider {gocardlessLink} to authorise it, and we'll always
+            give you a heads-up before any payment.
+          </>
+        ) : (
+          <>
+            This is the last step to activate your START Berlin membership. It
+            costs 40 EUR per year and covers the essentials of running the
+            association, including events, catering, and member benefits
+            throughout the year. You'll be taken to our payment provider{" "}
+            {gocardlessLink} to set it up.
+          </>
+        )
       }
       action={<PaymentButton variant="setup" />}
     />

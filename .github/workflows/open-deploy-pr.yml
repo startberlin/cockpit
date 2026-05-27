@@ -1,0 +1,45 @@
+name: Open deploy PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: open-deploy-pr
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out production
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: production
+          fetch-depth: 0
+
+      - name: Sync working tree to main
+        run: |
+          git fetch origin main
+          git read-tree -u --reset FETCH_HEAD
+
+      - name: Create or update deploy PR
+        # Pinned to a tag here; Dependabot will replace with a SHA on its next run.
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: production
+          branch: deploy/main-to-production
+          commit-message: "chore(deploy): sync main to production"
+          title: "Deploy main → production"
+          body: |
+            Auto-opened by `.github/workflows/open-deploy-pr.yml`. Merging this releases the current state of `main` to production.
+
+            For the commit-by-commit history of what's being deployed, compare [`production...main`](../../compare/production...main).
+          delete-branch: true
+          sign-commits: true
