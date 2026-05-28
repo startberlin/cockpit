@@ -27,10 +27,13 @@ evaluateAuth(authority, "membership.cancellation.view", {
   targetDepartment: null,
 }); // user has no dept
 
-// group-scoped permissions are valid without scope (gate check)
-evaluateAuth(authority, "group.members.manage");
+// group-scoped gate checks go through can()/useCan(), not evaluateAuth directly
+evaluateAuth(authority, "group.members.manage", {
+  isGroupMember: false,
+  isGroupManager: false,
+});
 
-// @ts-expect-error group-scoped gate check does not accept user-scoped context.
+// @ts-expect-error group-scoped evaluateAuth does not accept user-scoped context.
 evaluateAuth(authority, "group.members.manage", { targetDepartment: "events" });
 
 can("group.members.manage"); // gate check — valid without group id
