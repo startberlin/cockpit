@@ -1,0 +1,1 @@
+ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_singleton_ck" CHECK ("system_settings"."id" = 'singleton');

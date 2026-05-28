@@ -71,7 +71,6 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.admission.vote",
   "membership.cancel_member",
-  "groups.view_all",
   "groups.create",
   "batches.manage",
   "payments.manage",
@@ -181,13 +180,18 @@ function evaluateGroupScopedAction(
 ): boolean {
   switch (action) {
     case "group.members.manage":
-      return hasAdminGrant(authority) || scope.isGroupManager;
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        scope.isGroupManager
+      );
     case "group.managers.manage":
-      return hasAdminGrant(authority);
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "group.export":
       return (
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
         scope.isGroupManager
       );
   }
@@ -200,10 +204,11 @@ function evaluateGlobalAction(
   switch (action) {
     case "users.create":
     case "users.import":
-      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
-    case "users.manage_authority":
-    case "groups.create":
       return hasAdminGrant(authority);
+    case "users.manage_authority":
+      return hasAdminGrant(authority);
+    case "groups.create":
+      return hasAdminGrant(authority) || hasPeopleAdminGrant(authority);
     case "users.impersonate":
     case "settings.positions.manage":
       return hasSuperAdminGrant(authority);
@@ -215,12 +220,6 @@ function evaluateGlobalAction(
       return isLegalOfficer(authority);
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
-    case "groups.view_all":
-      return (
-        hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        isLegalOfficer(authority)
-      );
     case "users.view_inactive":
       return (
         hasAdminGrant(authority) ||

@@ -28,6 +28,7 @@ export function can(
   action: UserScopedAction,
   user: { department?: Department | null; id?: string },
 ): Promise<boolean>;
+export function can(action: GroupScopedAction): Promise<boolean>;
 export function can(
   action: GroupScopedAction,
   group: { id: string },
@@ -65,13 +66,19 @@ export async function can(
   }
 
   if (isGroupScopedAction(action)) {
-    if (resource && "isMember" in resource) {
+    if (!resource) {
+      return evaluateAuth(authority, action, {
+        isGroupMember: false,
+        isGroupManager: false,
+      });
+    }
+    if ("isMember" in resource) {
       return evaluateAuth(authority, action, {
         isGroupMember: resource.isMember ?? false,
         isGroupManager: false,
       });
     }
-    const groupId = resource?.id;
+    const groupId = resource.id;
     if (!groupId) return false;
     const membership = await db
       .select({ userId: usersToGroups.userId, role: usersToGroups.role })

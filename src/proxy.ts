@@ -1,4 +1,3 @@
-import { get } from "@vercel/edge-config";
 import { headers } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { env } from "@/env";
@@ -8,6 +7,7 @@ import {
   maintenanceBypassSecret,
   safeRedirectPath,
 } from "@/lib/maintenance";
+import { getSystemSettings } from "@/lib/system-settings";
 
 const publicRoutes = ["/auth"];
 const allowedOrigins = [
@@ -20,14 +20,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const [session, settings] = await Promise.all([
+    auth.api.getSession({ headers: await headers() }),
+    getSystemSettings(),
+  ]);
 
   if (!session) {
     const redirectUrl = new URL("/auth", env.NEXT_PUBLIC_COCKPIT_URL);
-
-    // Only store full URL if origin is in whitelist
     const requestOrigin = request.nextUrl.hostname;
 
     if (allowedOrigins.includes(requestOrigin)) {
@@ -40,24 +39,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  let maintenanceMode = false;
-  try {
-    maintenanceMode = (await get<boolean>("maintenanceMode")) === true;
-  } catch {
-    // EDGE_CONFIG not set or unreachable — maintenance mode treated as inactive
-  }
-
   if (request.nextUrl.pathname === "/maintenance") {
-    if (maintenanceMode) return NextResponse.next();
+    if (settings.maintenanceMode) return NextResponse.next();
 
-    // Maintenance is off — redirect to the original destination
     const destination = safeRedirectPath(
       request.nextUrl.searchParams.get("redirect"),
     );
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
-  if (maintenanceMode) {
+  if (settings.maintenanceMode) {
     const bypassCookie = request.cookies.get(MAINTENANCE_BYPASS_COOKIE);
 
     if (bypassCookie?.value === maintenanceBypassSecret()) {
