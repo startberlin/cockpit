@@ -79,6 +79,7 @@ export async function can(
       });
     }
     const groupId = resource.id;
+    if (!groupId) return false;
     const membership = await db
       .select({ userId: usersToGroups.userId, role: usersToGroups.role })
       .from(usersToGroups)
