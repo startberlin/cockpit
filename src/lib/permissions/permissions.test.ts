@@ -90,18 +90,6 @@ describe("permissions", () => {
     );
   });
 
-  it("allows legal officers to view all groups", () => {
-    assert.equal(
-      evaluateAuth(
-        authority({
-          positions: [{ position: "vice_president", scope: "global" }],
-        }),
-        "groups.view_all",
-      ),
-      true,
-    );
-  });
-
   it("allows legal officer positions to propose membership", () => {
     assert.equal(
       evaluateAuth(
@@ -112,34 +100,6 @@ describe("permissions", () => {
         { targetDepartment: "events" },
       ),
       true,
-    );
-  });
-
-  it("allows people admins to view all groups", () => {
-    assert.equal(
-      evaluateAuth(
-        authority({ grants: [{ grant: "people_admin" }] }),
-        "groups.view_all",
-      ),
-      true,
-    );
-  });
-
-  it("denies department heads from viewing all groups", () => {
-    assert.equal(
-      evaluateAuth(
-        authority({
-          positions: [
-            {
-              position: "department_head",
-              scope: "department",
-              department: "events",
-            },
-          ],
-        }),
-        "groups.view_all",
-      ),
-      false,
     );
   });
 
@@ -185,24 +145,35 @@ describe("permissions", () => {
     );
   });
 
-  it("denies people admins from managing group members", () => {
+  it("allows people admins to manage group members", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "group.members.manage",
         { isGroupMember: false, isGroupManager: false },
       ),
-      false,
+      true,
     );
   });
 
-  it("denies people admins from creating groups", () => {
+  it("allows people admins to manage group managers", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "group.managers.manage",
+        { isGroupMember: false, isGroupManager: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows people admins to create groups", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "groups.create",
       ),
-      false,
+      true,
     );
   });
 
@@ -216,20 +187,20 @@ describe("permissions", () => {
     );
   });
 
-  it("allows people admins to create and import users", () => {
+  it("denies people admins from creating and importing users", () => {
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "users.create",
       ),
-      true,
+      false,
     );
     assert.equal(
       evaluateAuth(
         authority({ grants: [{ grant: "people_admin" }] }),
         "users.import",
       ),
-      true,
+      false,
     );
   });
 
@@ -268,6 +239,19 @@ describe("permissions", () => {
       evaluateAuth(
         authority({ grants: [{ grant: "admin" }] }),
         "group.managers.manage",
+        { isGroupMember: false, isGroupManager: false },
+      ),
+      true,
+    );
+  });
+
+  it("allows legal officers to export group members", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({
+          positions: [{ position: "president", scope: "global" }],
+        }),
+        "group.export",
         { isGroupMember: false, isGroupManager: false },
       ),
       true,
@@ -704,11 +688,33 @@ describe("permissions", () => {
       );
     });
 
-    it("allows groups.view_all", () => {
+    it("allows group.members.manage for any group", () => {
       assert.equal(
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
-          "groups.view_all",
+          "group.members.manage",
+          { isGroupMember: false, isGroupManager: false },
+        ),
+        true,
+      );
+    });
+
+    it("allows group.managers.manage for any group", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "group.managers.manage",
+          { isGroupMember: false, isGroupManager: false },
+        ),
+        true,
+      );
+    });
+
+    it("allows groups.create", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "groups.create",
         ),
         true,
       );
