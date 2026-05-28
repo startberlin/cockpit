@@ -1,8 +1,11 @@
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { createLoader, parseAsString } from "nuqs/server";
 import Logo from "@/app/logo-black.png";
 import { Button } from "@/components/ui/button";
+import { safeRedirectPath } from "@/lib/maintenance";
 import { createMetadata } from "@/lib/metadata";
+import { getSystemSettings } from "@/lib/system-settings";
 import { grantMaintenanceBypassAction } from "./actions";
 import { isMaintenanceAdmin } from "./eligibility";
 
@@ -18,7 +21,15 @@ interface PageProps {
 }
 
 export default async function MaintenancePage({ searchParams }: PageProps) {
-  const { redirect } = await loadSearchParams(searchParams);
+  const [{ redirect: redirectParam }, settings] = await Promise.all([
+    loadSearchParams(searchParams),
+    getSystemSettings(),
+  ]);
+
+  if (!settings.maintenanceMode) {
+    redirect(safeRedirectPath(redirectParam));
+  }
+
   const eligible = await isMaintenanceAdmin();
 
   return (
@@ -35,7 +46,7 @@ export default async function MaintenancePage({ searchParams }: PageProps) {
         </p>
         {eligible ? (
           <form action={grantMaintenanceBypassAction} className="mt-6">
-            <input type="hidden" name="redirect" value={redirect ?? "/"} />
+            <input type="hidden" name="redirect" value={redirectParam ?? "/"} />
             <Button type="submit">Skip as admin (30 minutes)</Button>
           </form>
         ) : (

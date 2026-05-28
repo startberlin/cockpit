@@ -29,6 +29,7 @@ export type CanCheck = {
     permission: Exclude<UserScopedAction, UnscopedViewAction>,
     user: { department: Department | null },
   ): boolean;
+  (permission: GroupScopedAction): boolean;
   (
     permission: GroupScopedAction,
     group: { isMember: boolean; isManager?: boolean },
@@ -55,7 +56,7 @@ type CanProps =
     })
   | (CanComponentProps & {
       permission: GroupScopedAction;
-      context: { isMember: boolean; isManager?: boolean };
+      context?: { isMember: boolean; isManager?: boolean };
     });
 
 export function useCan(): CanCheck;
@@ -68,6 +69,7 @@ export function useCan(
   permission: Exclude<UserScopedAction, UnscopedViewAction>,
   user: { department: Department | null },
 ): boolean;
+export function useCan(permission: GroupScopedAction): boolean;
 export function useCan(
   permission: GroupScopedAction,
   group: { isMember: boolean; isManager?: boolean },
@@ -143,7 +145,10 @@ export function useCan(
   }
 
   if (isGroupScopedAction(permission)) {
-    return check(permission, resource as { isMember: boolean });
+    if (resource) {
+      return check(permission, resource as { isMember: boolean });
+    }
+    return check(permission);
   }
 
   return false;
@@ -168,7 +173,12 @@ export function Can(props: CanProps) {
       props.context as { department: Department | null },
     );
   } else if (isGroupScopedAction(props.permission)) {
-    granted = check(props.permission, props.context as { isMember: boolean });
+    granted = props.context
+      ? check(
+          props.permission,
+          props.context as { isMember: boolean; isManager?: boolean },
+        )
+      : check(props.permission);
   } else {
     granted = false;
   }

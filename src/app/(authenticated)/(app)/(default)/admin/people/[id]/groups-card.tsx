@@ -14,7 +14,10 @@ interface GroupsCardProps {
 }
 
 export async function GroupsCard({ userId }: GroupsCardProps) {
-  const canViewGroups = await can("groups.view_all");
+  const canViewGroups =
+    (await can("group.members.manage")) ||
+    (await can("group.managers.manage")) ||
+    (await can("group.export"));
   if (!canViewGroups) return null;
 
   const groups = await getUserGroupMembershipsWithDetails(userId);

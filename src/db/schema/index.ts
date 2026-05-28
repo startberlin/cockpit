@@ -42,6 +42,7 @@ import {
   membershipTransitionStatus,
   membershipTransitionType,
 } from "./membership-transition-request";
+import { systemSettings } from "./system-settings";
 
 // Define relations here to avoid circular dependencies between schema files
 
@@ -122,6 +123,7 @@ export const schema = {
   membershipTransitionType,
   membershipTransitionStatus,
   membershipTransitionReason,
+  systemSettings,
 };
 
 export * from "./audit-log";
@@ -135,3 +137,4 @@ export * from "./legal-membership";
 export * from "./membership-application";
 export * from "./membership-payments";
 export * from "./membership-transition-request";
+export * from "./system-settings";
