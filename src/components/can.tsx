@@ -174,7 +174,10 @@ export function Can(props: CanProps) {
     );
   } else if (isGroupScopedAction(props.permission)) {
     granted = props.context
-      ? check(props.permission, props.context)
+      ? check(
+          props.permission,
+          props.context as { isMember: boolean; isManager?: boolean },
+        )
       : check(props.permission);
   } else {
     granted = false;
