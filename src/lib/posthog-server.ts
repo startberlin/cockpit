@@ -58,6 +58,7 @@ type WorkflowEmailType =
   | "membership_transition_supporting_alumni"
   | "membership_transition_alumni"
   | "reconfirmation_reminder"
+  | "data_confirmation_reminder"
   | "reconfirmation_abandonment_reminder"
   | "application_resume_reminder";
 
