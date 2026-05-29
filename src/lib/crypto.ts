@@ -1,6 +1,10 @@
 import { randomInt } from "node:crypto";
 
 export function generateRandomPassword(length = 15) {
+  if (!Number.isInteger(length) || length < 4) {
+    throw new Error("length must be an integer >= 4");
+  }
+
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghjkmnpqrstuvwxyz";
   const digits = "23456789";

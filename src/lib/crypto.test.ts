@@ -63,4 +63,16 @@ describe("generateRandomPassword", () => {
     const pwd = generateRandomPassword(20);
     assert.ok(hasCharFromSet(pwd, SPECIAL), `No special char in: ${pwd}`);
   });
+
+  it("throws for length 0", () => {
+    assert.throws(() => generateRandomPassword(0));
+  });
+
+  it("throws for length 3", () => {
+    assert.throws(() => generateRandomPassword(3));
+  });
+
+  it("throws for non-integer length", () => {
+    assert.throws(() => generateRandomPassword(5.5));
+  });
 });

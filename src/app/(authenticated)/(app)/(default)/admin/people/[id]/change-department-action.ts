@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
 import { getPositionAssignments } from "@/db/authority";
-import { user as userTable } from "@/db/schema/auth";
+import { user as userTable } from "@/db/schema";
 import { DepartmentChangedDeptHeadEmail } from "@/emails/admin/department-changed-dept-head";
 import { DepartmentChangedMemberEmail } from "@/emails/admin/department-changed-member";
 import { actionClient } from "@/lib/action-client";
@@ -57,18 +57,6 @@ export const changeDepartmentAction = actionClient
     const subjectName =
       `${existingUser.firstName} ${existingUser.lastName}`.trim();
 
-    await writeAuditLog({
-      category: "user",
-      eventType: "user.department_changed",
-      actor: { id: ctx.user.id, name: ctx.user.name },
-      subject: { id: existingUser.id, name: subjectName },
-      metadata: {
-        oldDepartment: existingUser.department,
-        newDepartment: parsedInput.department,
-      },
-      description: `${existingUser.email}`,
-    });
-
     const whereClause =
       existingUser.department === null
         ? and(
@@ -93,6 +81,18 @@ export const changeDepartmentAction = actionClient
         "Department was changed concurrently. Please reload and try again.",
       );
     }
+
+    await writeAuditLog({
+      category: "user",
+      eventType: "user.department_changed",
+      actor: { id: ctx.user.id, name: ctx.user.name },
+      subject: { id: existingUser.id, name: subjectName },
+      metadata: {
+        oldDepartment: existingUser.department,
+        newDepartment: parsedInput.department,
+      },
+      description: `${existingUser.email}`,
+    });
 
     try {
       await inngest.send({

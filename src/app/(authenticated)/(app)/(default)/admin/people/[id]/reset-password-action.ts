@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
-import { user as userTable } from "@/db/schema/auth";
+import { user as userTable } from "@/db/schema";
 import PasswordResetEmail from "@/emails/admin/password-reset";
 import { env } from "@/env";
 import { actionClient } from "@/lib/action-client";
@@ -52,6 +52,12 @@ export const resetPasswordAction = actionClient
     if (!existingUser.personalEmail) {
       throw new Error(
         "Cannot reset password: this user has no personal email address on file.",
+      );
+    }
+
+    if (!existingUser.email) {
+      throw new Error(
+        "Cannot reset password: this user has no Google Workspace email address on file.",
       );
     }
 

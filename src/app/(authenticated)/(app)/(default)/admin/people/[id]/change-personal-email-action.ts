@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
-import { user as userTable } from "@/db/schema/auth";
+import { user as userTable } from "@/db/schema";
 import { PersonalEmailChangedEmail } from "@/emails/admin/personal-email-changed";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";

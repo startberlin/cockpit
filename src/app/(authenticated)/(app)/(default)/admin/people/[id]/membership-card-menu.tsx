@@ -171,7 +171,10 @@ export function MembershipCardMenu({
       <Dialog
         open={deptDialogOpen}
         onOpenChange={(open) => {
-          if (!isDeptPending) setDeptDialogOpen(open);
+          if (!isDeptPending) {
+            if (open) setSelectedDept(currentDepartment ?? "");
+            setDeptDialogOpen(open);
+          }
         }}
       >
         <DialogContent>
