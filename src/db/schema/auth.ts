@@ -83,6 +83,7 @@ export const user = pgTable("user", {
   gocardlessBillingRequestId: text("gocardless_billing_request_id"),
   eventEmailPreference: eventEmailPreference("event_email_preference"),
   eventInviteEmail: text("event_invite_email"),
+  dataLastConfirmedAt: timestamp("data_last_confirmed_at"),
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

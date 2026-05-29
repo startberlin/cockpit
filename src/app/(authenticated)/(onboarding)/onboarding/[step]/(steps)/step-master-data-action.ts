@@ -24,6 +24,7 @@ export const completeOnboardingMasterDataStep = actionClient
         personalEmail: parsedInput.personalEmail,
         phone: parsedInput.phone,
         birthDate: parsedInput.birthDate,
+        dataLastConfirmedAt: new Date(),
       })
       .where(eq(userTable.id, user.id));
 

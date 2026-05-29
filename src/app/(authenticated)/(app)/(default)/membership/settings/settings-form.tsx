@@ -40,9 +40,10 @@ const EVENT_EMAIL_PREF_STATUSES = ["onboarding", "member", "supporting_alumni"];
 
 interface SettingsFormProps {
   user: User;
+  isConfirmMode?: boolean;
 }
 
-export function SettingsForm({ user }: SettingsFormProps) {
+export function SettingsForm({ user, isConfirmMode }: SettingsFormProps) {
   const router = useRouter();
 
   const showEmailPreference = EVENT_EMAIL_PREF_STATUSES.includes(user.status);
@@ -260,7 +261,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         type="submit"
         disabled={!form.formState.isValid || action.isPending}
       >
-        Save changes
+        {isConfirmMode ? "Confirm member data" : "Save changes"}
       </Button>
     </form>
   );

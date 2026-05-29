@@ -1,11 +1,14 @@
 import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
 import { authCleanupCron } from "./auth-cleanup";
 import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
+import { dataConfirmationReminderCron } from "./data-confirmation-reminder-cron";
 import { financePaymentProposalsDigest } from "./finance-payment-proposals-digest";
 import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { mandateFixReminderWorkflow } from "./mandate-fix-reminder-workflow";
 import { mandateSetupReminderWorkflow } from "./mandate-setup-reminder-workflow";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
+import { membershipAnniversaryCron } from "./membership-anniversary-cron";
+import { membershipAnniversaryWorkflow } from "./membership-anniversary-workflow";
 import { membershipCancellationWorkflow } from "./membership-cancellation-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
@@ -25,6 +28,9 @@ import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
   applicationResumeReminderWorkflow,
+  dataConfirmationReminderCron,
+  membershipAnniversaryCron,
+  membershipAnniversaryWorkflow,
   authCleanupCron,
   bootstrapBatchSystemGroupWorkflow,
   financePaymentProposalsDigest,

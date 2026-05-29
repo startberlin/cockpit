@@ -23,6 +23,7 @@ export const saveSettingsAction = actionClient
         state: parsedInput.state,
         zip: parsedInput.zip,
         country: parsedInput.country,
+        dataLastConfirmedAt: new Date(),
         ...(parsedInput.eventEmailPreference !== undefined && {
           eventEmailPreference: parsedInput.eventEmailPreference,
           eventInviteEmail:
