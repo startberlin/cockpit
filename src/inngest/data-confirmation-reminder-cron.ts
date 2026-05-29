@@ -57,8 +57,8 @@ export const dataConfirmationReminderCron = inngest.createFunction(
     for (const member of dueUsers) {
       if (!member.email) continue;
 
-      await step.run(`send-reminder-${member.id}`, async () => {
-        await sendEmail({
+      await step.run(`send-email-${member.id}`, () =>
+        sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
           to: member.email as string,
           subject: "Please confirm your START Berlin member data",
@@ -66,8 +66,10 @@ export const dataConfirmationReminderCron = inngest.createFunction(
             firstName: member.firstName ?? "",
             confirmUrl,
           }),
-        });
+        }),
+      );
 
+      await step.run(`send-reminder-${member.id}`, async () => {
         await db
           .update(user)
           .set({ dataLastConfirmedAt: sql`NOW()` })
