@@ -11,32 +11,50 @@ export const metadata = createMetadata({
   description: "Edit your contact details.",
 });
 
-export default async function MembershipSettingsPage() {
+interface MembershipSettingsPageProps {
+  searchParams: Promise<{ confirm?: string }>;
+}
+
+export default async function MembershipSettingsPage({
+  searchParams,
+}: MembershipSettingsPageProps) {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/auth");
   }
 
+  const { confirm } = await searchParams;
+  const isConfirmMode = confirm === "1";
+
   return (
     <div className="flex flex-col gap-6 max-w-lg">
       <div className="flex flex-col gap-4">
-        <Button variant="ghost" size="sm" asChild className="-ml-2 self-start">
-          <Link href="/membership">
-            <ArrowLeft />
-            Back to membership
-          </Link>
-        </Button>
+        {!isConfirmMode && (
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="-ml-2 self-start"
+          >
+            <Link href="/membership">
+              <ArrowLeft />
+              Back to membership
+            </Link>
+          </Button>
+        )}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Contact details
+            {isConfirmMode ? "Confirm your member data" : "Contact details"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Update your personal contact information.
+            {isConfirmMode
+              ? "Please review your contact details and confirm they're still up to date."
+              : "Update your personal contact information."}
           </p>
         </div>
       </div>
-      <SettingsForm user={user} />
+      <SettingsForm user={user} isConfirmMode={isConfirmMode} />
     </div>
   );
 }

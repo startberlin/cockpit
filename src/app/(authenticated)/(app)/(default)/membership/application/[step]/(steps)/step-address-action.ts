@@ -46,6 +46,7 @@ export const saveApplicationPersonalInfoAction = actionClient
           zip: parsedInput.zip,
           country: parsedInput.country,
           birthDate: parsedInput.birthDate,
+          dataLastConfirmedAt: new Date(),
         })
         .where(eq(userTable.id, user.id));
 
