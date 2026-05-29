@@ -3,7 +3,7 @@ import "server-only";
 import {
   addMonths,
   addYears,
-  differenceInYears,
+  differenceInCalendarYears,
   getDate,
   getMonth,
   getYear,
@@ -77,7 +77,7 @@ export const membershipAnniversaryCron = inngest.createFunction(
       }
 
       // Yearly anniversaries (1 year and beyond)
-      const yearsCompleted = differenceInYears(today, memberSince);
+      const yearsCompleted = differenceInCalendarYears(today, memberSince);
       if (yearsCompleted >= 1) {
         const yearlyMark = addYears(memberSince, yearsCompleted);
         if (
