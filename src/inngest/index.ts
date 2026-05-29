@@ -6,6 +6,8 @@ import { gocardlessEventsCleanupCron } from "./gocardless-events-cleanup";
 import { mandateFixReminderWorkflow } from "./mandate-fix-reminder-workflow";
 import { mandateSetupReminderWorkflow } from "./mandate-setup-reminder-workflow";
 import { membershipAdmissionWorkflow } from "./membership-admission-workflow";
+import { membershipAnniversaryCron } from "./membership-anniversary-cron";
+import { membershipAnniversaryWorkflow } from "./membership-anniversary-workflow";
 import { membershipCancellationWorkflow } from "./membership-cancellation-workflow";
 import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
@@ -25,6 +27,8 @@ import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
   applicationResumeReminderWorkflow,
+  membershipAnniversaryCron,
+  membershipAnniversaryWorkflow,
   authCleanupCron,
   bootstrapBatchSystemGroupWorkflow,
   financePaymentProposalsDigest,
