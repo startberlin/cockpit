@@ -159,6 +159,14 @@ type TrackingEvent =
       properties: { actor_id: string } & SubjectProperties;
     }
   | {
+      event: "admin_user_department_changed";
+      properties: {
+        actor_id: string;
+        old_department: string | null;
+        new_department: string;
+      } & SubjectProperties;
+    }
+  | {
       event: "admin_user_personal_email_changed";
       properties: { actor_id: string } & SubjectProperties;
     }
