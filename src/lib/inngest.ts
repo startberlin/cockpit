@@ -155,6 +155,13 @@ export const events = {
   applicationDraftStarted: eventType("membership/application-draft.started", {
     schema: staticSchema<{ userId: string; legalMembershipId: string }>(),
   }),
+  membershipAnniversaryDue: eventType("membership/anniversary.due", {
+    schema: staticSchema<{
+      userId: string;
+      milestoneMonths: number;
+      anniversaryDate: string;
+    }>(),
+  }),
 };
 
 export const inngest = new Inngest({
