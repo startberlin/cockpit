@@ -1,4 +1,3 @@
-import "server-only";
 import { randomInt } from "node:crypto";
 
 export function generateRandomPassword(length = 15) {

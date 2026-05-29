@@ -8,7 +8,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "biome check",
-    "test": "node --require ./src/test/setup.cjs --import tsx --test",
+    "test": "node --import tsx --test",
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
