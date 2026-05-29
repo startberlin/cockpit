@@ -158,6 +158,10 @@ type TrackingEvent =
       event: "admin_membership_proposed";
       properties: { actor_id: string } & SubjectProperties;
     }
+  | {
+      event: "admin_user_personal_email_changed";
+      properties: { actor_id: string } & SubjectProperties;
+    }
   // Admin — batches
   | {
       event: "admin_batch_created";
