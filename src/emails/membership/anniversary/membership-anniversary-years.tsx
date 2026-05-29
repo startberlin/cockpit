@@ -22,15 +22,13 @@ export const MembershipAnniversaryYearsEmail = ({
       Hi {firstName},
     </Text>
     <Text className="mt-0 mb-[16px] text-[15px] text-[#78716C] leading-[1.65]">
-      You've been a member of START Berlin e.V. for {years} years. Thank you for
-      being part of our community.
+      Today we're celebrating your {years} year anniversary at START Berlin!
+      It's great to have you with us and we're happy you've been part of START
+      for all this time.
     </Text>
     <Text className="mt-0 mb-0 text-[15px] text-[#78716C] leading-[1.65]">
-      If you have any questions, reach out to{" "}
-      <a href="mailto:people@start-berlin.com" style={{ color: "#1C1917" }}>
-        people@start-berlin.com
-      </a>
-      .
+      We hope you're happy to be a member and have enjoyed your time with START
+      so far. See you at the next event!
     </Text>
   </EmailShell>
 );
