@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "data_last_confirmed_at" timestamp;
