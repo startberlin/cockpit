@@ -238,7 +238,7 @@ export async function getAllUsersForAdmin({
   status?: UserStatus[];
   department?: Department[];
   batchNumber?: number[];
-  legalMembershipState?: LegalMembershipState;
+  legalMembershipState?: LegalMembershipState[];
   sortBy?: "name" | "joinDate";
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
@@ -261,8 +261,8 @@ export async function getAllUsersForAdmin({
     batchNumber?.length
       ? inArray(userTable.batchNumber, batchNumber)
       : undefined,
-    legalMembershipState !== undefined
-      ? eq(userTable.legalMembershipState, legalMembershipState)
+    legalMembershipState?.length
+      ? inArray(userTable.legalMembershipState, legalMembershipState)
       : undefined,
     or(isNull(userTable.email), ne(userTable.email, SYSTEM_USER_EMAIL)),
   );
