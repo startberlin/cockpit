@@ -15,6 +15,7 @@ export type UnscopedViewAction =
 export type UserScopedAction =
   | "user.payment.view"
   | "user.membership.propose"
+  | "user.department.change"
   | "membership.transition.decide"
   | "membership.cancellation.acknowledge"
   | UnscopedViewAction;
@@ -23,6 +24,7 @@ const userScopedActions = [
   "user.view_details",
   "user.payment.view",
   "user.membership.propose",
+  "user.department.change",
   "membership.transition.decide",
   "membership.cancellation.acknowledge",
   "membership.transition.view",
@@ -77,6 +79,8 @@ const globalActions = [
   "settings.positions.manage",
   "users.view_inactive",
   "audit_log.read",
+  "user.personal_email.change",
+  "user.password.reset",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -228,6 +232,9 @@ function evaluateGlobalAction(
       );
     case "audit_log.read":
       return hasAdminGrant(authority);
+    case "user.personal_email.change":
+    case "user.password.reset":
+      return hasAdminGrant(authority);
   }
 }
 
@@ -255,6 +262,12 @@ function evaluateUserScopedAction(
         hasAdminGrant(authority) ||
         isLegalOfficer(authority) ||
         isDepartmentHead(authority, scope.targetDepartment)
+      );
+    case "user.department.change":
+      return (
+        isDepartmentHead(authority, scope.targetDepartment) ||
+        isLegalOfficer(authority) ||
+        hasPeopleAdminGrant(authority)
       );
     case "membership.transition.decide":
     case "membership.cancellation.acknowledge":

@@ -1174,4 +1174,275 @@ describe("permissions", () => {
       );
     });
   });
+
+  describe("user.department.change", () => {
+    it("allows dept head for their own department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "operations",
+              },
+            ],
+          }),
+          "user.department.change",
+          { targetDepartment: "operations" },
+        ),
+        true,
+      );
+    });
+
+    it("denies dept head for a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "operations",
+              },
+            ],
+          }),
+          "user.department.change",
+          { targetDepartment: "events" },
+        ),
+        false,
+      );
+    });
+
+    it("denies dept head when targetDepartment is null", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "operations",
+              },
+            ],
+          }),
+          "user.department.change",
+          { targetDepartment: null },
+        ),
+        false,
+      );
+    });
+
+    it("allows legal officer (president) for any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "user.department.change",
+          { targetDepartment: "events" },
+        ),
+        true,
+      );
+    });
+
+    it("allows legal officer when targetDepartment is null", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "user.department.change",
+          { targetDepartment: null },
+        ),
+        true,
+      );
+    });
+
+    it("allows people_admin for any department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.department.change",
+          { targetDepartment: "operations" },
+        ),
+        true,
+      );
+    });
+
+    it("denies finance_admin (no people_admin or legal role)", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "finance_admin" }] }),
+          "user.department.change",
+          { targetDepartment: "events" },
+        ),
+        false,
+      );
+    });
+
+    it("denies inactive user even with dept head position", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            status: "alumni",
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "operations",
+              },
+            ],
+          }),
+          "user.department.change",
+          { targetDepartment: "operations" },
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("user.personal_email.change", () => {
+    it("allows admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "user.personal_email.change",
+        ),
+        true,
+      );
+    });
+
+    it("allows super_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "user.personal_email.change",
+        ),
+        true,
+      );
+    });
+
+    it("denies people_admin only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.personal_email.change",
+        ),
+        false,
+      );
+    });
+
+    it("denies department head only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "user.personal_email.change",
+        ),
+        false,
+      );
+    });
+
+    it("denies legal officer only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "user.personal_email.change",
+        ),
+        false,
+      );
+    });
+
+    it("denies inactive user with admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ status: "alumni", grants: [{ grant: "admin" }] }),
+          "user.personal_email.change",
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("user.password.reset", () => {
+    it("allows admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "admin" }] }),
+          "user.password.reset",
+        ),
+        true,
+      );
+    });
+
+    it("allows super_admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "super_admin" }] }),
+          "user.password.reset",
+        ),
+        true,
+      );
+    });
+
+    it("denies people_admin only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ grants: [{ grant: "people_admin" }] }),
+          "user.password.reset",
+        ),
+        false,
+      );
+    });
+
+    it("denies department head only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "user.password.reset",
+        ),
+        false,
+      );
+    });
+
+    it("denies legal officer only", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          "user.password.reset",
+        ),
+        false,
+      );
+    });
+
+    it("denies inactive user with admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ status: "alumni", grants: [{ grant: "admin" }] }),
+          "user.password.reset",
+        ),
+        false,
+      );
+    });
+  });
 });
