@@ -9,16 +9,9 @@ import { getUserAuthority, replaceUserGrants } from "@/db/authority";
 import { user as userTable } from "@/db/schema";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
+import { accessGrants } from "@/lib/authority/model";
 import { can } from "@/lib/permissions/server";
 import { buildSubjectMetadata, track } from "@/lib/posthog-server";
-
-const accessGrants = [
-  "super_admin",
-  "admin",
-  "finance_admin",
-  "people_admin",
-  "members_group_exporter",
-] as const;
 
 const schema = z.object({
   userId: z.string(),
