@@ -1,5 +1,5 @@
 export const REMINDER_TOTAL_DAYS = 90;
-export const REMINDER_INTERVAL_DAYS = 3;
+export const REMINDER_INTERVAL_DAYS = 7;
 
 // Sends immediately, then waits for `terminateOn.eventName` on a recurring
 // cadence until `timeoutDays` elapse. Returns the event payload on success or

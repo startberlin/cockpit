@@ -70,10 +70,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         : subjectUserId;
 
     // Steps 1b–4: Vote loop. Up to 3 rounds; each round polls for a vote with
-    // 3-day inner waits and re-emails still-pending participants until a vote
+    // 7-day inner waits and re-emails still-pending participants until a vote
     // arrives or the 90-day budget for that round expires.
     const VOTE_TOTAL_DAYS = 90;
-    const VOTE_INTERVAL_DAYS = 3;
+    const VOTE_INTERVAL_DAYS = 7;
 
     let voteRound = 0;
     let resolution: VoteOutcome = "pending";
