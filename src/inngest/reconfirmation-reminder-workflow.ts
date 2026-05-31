@@ -14,7 +14,7 @@ const INACTIVE_STATUSES: readonly string[] = ["cancelled", "alumni"];
 
 // Every 3 days until reconfirmation.submitted: if the user hasn't logged in yet
 // send a "sign in" nudge, otherwise send a reconfirmation reminder.
-const REMINDER_INTERVAL_DAYS = 3;
+const REMINDER_INTERVAL_DAYS = 7;
 
 // Fires immediately (index 0), then nudges every 3 days on the same branch
 // logic until reconfirmation.submitted fires or 90 days elapse.
