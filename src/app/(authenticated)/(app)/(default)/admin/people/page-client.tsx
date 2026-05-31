@@ -25,7 +25,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { PaginatedUsers } from "@/db/people";
-import type { Department, LegalMembershipState } from "@/db/schema/auth";
+import type {
+  Department,
+  LegalMembershipState,
+  UserStatus,
+} from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import { CreateUserDialog } from "./create-user-dialog";
@@ -47,109 +51,34 @@ const LEGAL_MEMBERSHIP_OPTIONS: {
   { label: "Former member", value: "former_member" },
 ];
 
-interface FilterPreset {
-  label: string;
-  status: string;
-}
-
-const ALWAYS_VISIBLE_PRESETS: FilterPreset[] = [
-  { label: "Active", status: "member,supporting_alumni" },
-  { label: "Onboarding", status: "onboarding" },
+const ALWAYS_VISIBLE_STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
+  { value: "onboarding", label: "Onboarding" },
+  { value: "member", label: "Member" },
+  { value: "supporting_alumni", label: "Supporting Alumni" },
 ];
 
-const INACTIVE_PRESETS: FilterPreset[] = [
-  { label: "Alumni", status: "alumni" },
-  { label: "Cancelled / Former", status: "cancelled" },
+const INACTIVE_STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
+  { value: "alumni", label: "Alumni" },
+  { value: "cancelled", label: "Cancelled / Former" },
 ];
 
 const departmentParser = parseAsStringLiteral(
   DEPARTMENT_IDS as unknown as string[],
 );
 
-// ─── FilterDropdown (single-select) ──────────────────────────────────────────
+const statusParser = parseAsStringLiteral([
+  "onboarding",
+  "member",
+  "supporting_alumni",
+  "alumni",
+  "cancelled",
+] as UserStatus[]);
 
-function FilterDropdown({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const selected = options.find((o) => o.value === value);
-  const displayLabel = selected ? selected.label : "All";
-  const hasValue = !!value;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs",
-            hasValue
-              ? "border-foreground bg-muted font-medium"
-              : "border-input text-muted-foreground hover:bg-accent hover:text-foreground",
-          )}
-        >
-          <span className="uppercase tracking-widest font-semibold opacity-60">
-            {label}
-          </span>
-          <span className="text-foreground font-medium">{displayLabel}</span>
-          <ChevronDownIcon className="size-3 opacity-50" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto min-w-44 p-1">
-        {options.map((opt) => {
-          const active = value === opt.value;
-          return (
-            <div
-              key={opt.value}
-              role="option"
-              aria-selected={active}
-              tabIndex={0}
-              onClick={() => onChange(active ? "" : opt.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onChange(active ? "" : opt.value);
-                }
-              }}
-              className="w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 hover:bg-accent rounded-sm cursor-pointer"
-            >
-              <span
-                className={cn(
-                  "size-4 shrink-0 rounded-sm border border-input flex items-center justify-center transition-colors",
-                  active && "bg-primary border-primary",
-                )}
-              >
-                {active && (
-                  <CheckIcon className="size-3 text-primary-foreground" />
-                )}
-              </span>
-              <span className="flex-1">{opt.label}</span>
-            </div>
-          );
-        })}
-        {hasValue && (
-          <>
-            <div className="h-px bg-border my-1" />
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent rounded-sm cursor-pointer"
-            >
-              Clear
-            </button>
-          </>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
+const legalMembershipParser = parseAsStringLiteral([
+  "not_member",
+  "active_member",
+  "former_member",
+] as LegalMembershipState[]);
 
 // ─── FilterMenu (multi-select) ────────────────────────────────────────────────
 
@@ -303,11 +232,11 @@ export default function AdminDirectoryPageClient({
   );
   const [status, setStatus] = useQueryState(
     "status",
-    parseAsString.withOptions({ shallow: false, clearOnDefault: true }),
+    parseAsArrayOf(statusParser).withOptions({ shallow: false }),
   );
   const [legalMembership, setLegalMembership] = useQueryState(
     "legalMembership",
-    parseAsString.withOptions({ shallow: false, clearOnDefault: true }),
+    parseAsArrayOf(legalMembershipParser).withOptions({ shallow: false }),
   );
   const [department, setDepartment] = useQueryState(
     "department",
@@ -324,17 +253,19 @@ export default function AdminDirectoryPageClient({
       .withOptions({ shallow: false, clearOnDefault: true }),
   );
 
-  const presets = canViewInactive
-    ? [...ALWAYS_VISIBLE_PRESETS, ...INACTIVE_PRESETS]
-    : ALWAYS_VISIBLE_PRESETS;
+  const statusOptions = canViewInactive
+    ? [...ALWAYS_VISIBLE_STATUS_OPTIONS, ...INACTIVE_STATUS_OPTIONS]
+    : ALWAYS_VISIBLE_STATUS_OPTIONS;
 
   const activeDept = (department ?? []) as Department[];
   const activeBatch = batchNumber ?? [];
+  const activeStatus = status ?? [];
+  const activeLegalMembership = legalMembership ?? [];
 
   const hasFilters = !!(
     search ||
-    status ||
-    legalMembership ||
+    activeStatus.length ||
+    activeLegalMembership.length ||
     activeDept.length ||
     activeBatch.length
   );
@@ -345,6 +276,16 @@ export default function AdminDirectoryPageClient({
     setLegalMembership(null);
     setDepartment(null);
     setBatchNumber(null);
+    setPage(1);
+  };
+
+  const handleStatusChange = (next: UserStatus[]) => {
+    setStatus(next.length ? next : null);
+    setPage(1);
+  };
+
+  const handleLegalMembershipChange = (next: LegalMembershipState[]) => {
+    setLegalMembership(next.length ? next : null);
     setPage(1);
   };
 
@@ -410,23 +351,17 @@ export default function AdminDirectoryPageClient({
             }}
           />
         </div>
-        <FilterDropdown
+        <FilterMenu
           label="Status"
-          options={presets.map((p) => ({ value: p.status, label: p.label }))}
-          value={status ?? ""}
-          onChange={(v) => {
-            setStatus(v || null);
-            setPage(1);
-          }}
+          options={statusOptions}
+          selected={activeStatus}
+          onChange={handleStatusChange}
         />
-        <FilterDropdown
+        <FilterMenu
           label="Membership"
           options={LEGAL_MEMBERSHIP_OPTIONS}
-          value={legalMembership ?? ""}
-          onChange={(v) => {
-            setLegalMembership(v || null);
-            setPage(1);
-          }}
+          selected={activeLegalMembership}
+          onChange={handleLegalMembershipChange}
         />
         {!isDeptHeadScoped && (
           <FilterMenu

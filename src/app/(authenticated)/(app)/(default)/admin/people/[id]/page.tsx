@@ -1,9 +1,7 @@
-import { ArrowLeft, ShieldX } from "lucide-react";
-import Link from "next/link";
+import { ShieldX } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
-import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -16,6 +14,7 @@ import { getUserDetails } from "@/db/people";
 import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
+import { BackButton } from "./back-button";
 import { ContactCard } from "./contact-card";
 import { GroupsCard } from "./groups-card";
 import { MemberHeader } from "./member-header";
@@ -86,9 +85,7 @@ export default async function UserDetailPage({ params }: PageProps) {
             manage.
           </EmptyDescription>
         </EmptyHeader>
-        <Button variant="outline" asChild>
-          <Link href="/admin/people">Back to people</Link>
-        </Button>
+        <BackButton variant="outline">Back to people</BackButton>
       </Empty>
     );
   }
@@ -116,12 +113,7 @@ export default async function UserDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link href="/admin/people">
-          <ArrowLeft />
-          Back to members
-        </Link>
-      </Button>
+      <BackButton>Back to members</BackButton>
 
       <Suspense
         fallback={

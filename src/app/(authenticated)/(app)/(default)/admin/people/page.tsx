@@ -121,10 +121,11 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
     : undefined;
 
   const validLegalStates = new Set<string>(legalMembershipStateEnum.enumValues);
-  const legalMembershipFilter =
-    legalMembershipParam && validLegalStates.has(legalMembershipParam)
-      ? (legalMembershipParam as LegalMembershipState)
-      : undefined;
+  const legalMembershipFilter = legalMembershipParam
+    ? (legalMembershipParam
+        .split(",")
+        .filter((s) => validLegalStates.has(s)) as LegalMembershipState[])
+    : undefined;
 
   const [usersPromise, batches] = [
     getAllUsersForAdmin({
