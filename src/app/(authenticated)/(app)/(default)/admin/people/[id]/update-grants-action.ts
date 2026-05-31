@@ -17,6 +17,7 @@ const accessGrants = [
   "admin",
   "finance_admin",
   "people_admin",
+  "members_group_exporter",
 ] as const;
 
 const schema = z.object({
@@ -71,6 +72,7 @@ export const updateGrantsAction = actionClient
       admin: "Admin",
       finance_admin: "Finance Admin",
       people_admin: "People Admin",
+      members_group_exporter: "Members Group Exporter",
     };
     const oldSet = new Set(oldGrants);
     const newSet = new Set(newGrants);
