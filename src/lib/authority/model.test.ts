@@ -31,12 +31,14 @@ describe("authority domain model", () => {
       "admin",
       "finance_admin",
       "people_admin",
+      "members_group_exporter",
     ]);
     assert.deepEqual(accessGrants, [
       "super_admin",
       "admin",
       "finance_admin",
       "people_admin",
+      "members_group_exporter",
     ]);
   });
 
