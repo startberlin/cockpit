@@ -43,6 +43,9 @@ export function AuthorityEditor({
   const [isPeopleAdmin, setIsPeopleAdmin] = useState(
     grants.some((a) => a.grant === "people_admin"),
   );
+  const [isMembersGroupExporter, setIsMembersGroupExporter] = useState(
+    grants.some((a) => a.grant === "members_group_exporter"),
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -57,6 +60,8 @@ export function AuthorityEditor({
       if (isAdmin) nextGrants.push({ grant: "admin" });
       if (isFinanceAdmin) nextGrants.push({ grant: "finance_admin" });
       if (isPeopleAdmin) nextGrants.push({ grant: "people_admin" });
+      if (isMembersGroupExporter)
+        nextGrants.push({ grant: "members_group_exporter" });
 
       const result = await updateGrantsAction({ userId, grants: nextGrants });
       if (result?.serverError || result?.validationErrors) {
@@ -155,6 +160,24 @@ export function AuthorityEditor({
                   <span className="text-muted-foreground text-xs">
                     Can add and import members, view all member profiles and
                     groups, and view membership tasks.
+                  </span>
+                </span>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+              <Checkbox
+                checked={isMembersGroupExporter}
+                onCheckedChange={(checked) =>
+                  setIsMembersGroupExporter(checked === true)
+                }
+              />
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck className="size-4" />
+                <span className="flex flex-col gap-0.5">
+                  <span>Members Group Exporter</span>
+                  <span className="text-muted-foreground text-xs">
+                    Can export the members@start-berlin.com group for event
+                    invites. No other access granted.
                   </span>
                 </span>
               </span>

@@ -310,6 +310,39 @@ describe("permissions", () => {
     );
   });
 
+  it("allows members_group_exporter to export the members group", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "members_group_exporter" }] }),
+        "group.export",
+        { isGroupMember: false, isGroupManager: false, groupId: "members" },
+      ),
+      true,
+    );
+  });
+
+  it("denies members_group_exporter from exporting other groups", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "members_group_exporter" }] }),
+        "group.export",
+        { isGroupMember: false, isGroupManager: false, groupId: "board" },
+      ),
+      false,
+    );
+  });
+
+  it("denies members_group_exporter without a groupId", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "members_group_exporter" }] }),
+        "group.export",
+        { isGroupMember: false, isGroupManager: false },
+      ),
+      false,
+    );
+  });
+
   it("allows global admins to manage batches", () => {
     assert.equal(
       evaluateAuth(

@@ -64,6 +64,7 @@ export type UserScope = {
 export type GroupScope = {
   isGroupMember: boolean;
   isGroupManager: boolean;
+  groupId?: string;
 };
 
 const globalActions = [
@@ -118,6 +119,10 @@ function hasFinanceAdminGrant(authority: UserAuthority) {
 
 export function hasPeopleAdminGrant(authority: UserAuthority) {
   return authority.grants.some((a) => a.grant === "people_admin");
+}
+
+export function hasMembersGroupExporterGrant(authority: UserAuthority) {
+  return authority.grants.some((a) => a.grant === "members_group_exporter");
 }
 
 export function isLegalOfficer(authority: UserAuthority) {
@@ -196,7 +201,8 @@ function evaluateGroupScopedAction(
         hasAdminGrant(authority) ||
         hasPeopleAdminGrant(authority) ||
         isLegalOfficer(authority) ||
-        scope.isGroupManager
+        scope.isGroupManager ||
+        (hasMembersGroupExporterGrant(authority) && scope.groupId === "members")
       );
   }
 }
