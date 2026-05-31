@@ -14,7 +14,11 @@ export function BackButton({ children, variant = "ghost" }: BackButtonProps) {
   const router = useRouter();
 
   const handleClick = () => {
-    if (window.history.length > 1) {
+    const cameFromApp =
+      window.history.length > 1 &&
+      document.referrer !== "" &&
+      new URL(document.referrer).origin === window.location.origin;
+    if (cameFromApp) {
       router.back();
     } else {
       router.push("/admin/people");
