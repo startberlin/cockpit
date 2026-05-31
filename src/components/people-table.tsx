@@ -8,7 +8,6 @@ import {
 } from "@tanstack/react-table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { Fragment, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -80,7 +79,6 @@ export function PeopleTable({
   initialSearch,
   hideSearch = false,
 }: PeopleTableProps) {
-  const router = useRouter();
   const can = useCan();
   const [page, setPage] = useQueryState(
     "page",
@@ -105,11 +103,12 @@ export function PeopleTable({
         accessorFn: (row) => `${row.firstName} ${row.lastName}`,
         header: "Name",
         cell: ({ row }) => {
-          const { firstName, lastName, image } = row.original;
+          const { id, firstName, lastName, image } = row.original;
           const initials =
             `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase();
-          return (
-            <div className="flex items-center gap-2.5">
+          const canOpen = can("user.view_details", row.original);
+          const content = (
+            <>
               <Avatar className="h-7 w-7 text-xs">
                 <AvatarImage
                   src={image ?? undefined}
@@ -120,7 +119,17 @@ export function PeopleTable({
               <span className="font-medium">
                 {firstName} {lastName}
               </span>
-            </div>
+            </>
+          );
+          return canOpen ? (
+            <Link
+              href={`/admin/people/${id}`}
+              className="flex items-center gap-2.5 hover:underline"
+            >
+              {content}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2.5">{content}</div>
           );
         },
       },
@@ -223,7 +232,7 @@ export function PeopleTable({
         },
       },
     ],
-    [pendingActionsMap],
+    [can, pendingActionsMap],
   );
 
   const table = useReactTable({
@@ -233,9 +242,6 @@ export function PeopleTable({
     manualPagination: true,
     pageCount,
   });
-
-  const canOpenMemberProfile = (member: PublicUser) =>
-    can("user.view_details", member);
 
   const visibleRows = table.getRowModel().rows;
 
@@ -281,33 +287,11 @@ export function PeopleTable({
           <TableBody>
             {visibleRows.length ? (
               visibleRows.map((row, idx) => {
-                const canOpenProfile = canOpenMemberProfile(row.original);
-
                 return (
                   <Fragment key={row.id}>
-                    <TableRow
-                      key={row.id}
-                      className={
-                        canOpenProfile
-                          ? "cursor-pointer"
-                          : "hover:bg-transparent"
-                      }
-                      onClick={
-                        canOpenProfile
-                          ? () =>
-                              router.push(`/admin/people/${row.original.id}`)
-                          : undefined
-                      }
-                    >
+                    <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          onClick={(e) => {
-                            if (cell.column.id === "actions") {
-                              e.stopPropagation();
-                            }
-                          }}
-                        >
+                        <TableCell key={cell.id}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
