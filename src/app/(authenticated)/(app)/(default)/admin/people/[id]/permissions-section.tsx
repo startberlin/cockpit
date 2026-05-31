@@ -24,6 +24,7 @@ const GRANT_LABELS: Record<AccessGrant, string> = {
   admin: "Admin",
   finance_admin: "Finance Admin",
   people_admin: "People Admin",
+  members_group_exporter: "Members Group Exporter",
 };
 
 interface PermissionsSectionProps {

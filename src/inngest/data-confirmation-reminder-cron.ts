@@ -9,12 +9,12 @@ import { sendEmail } from "@/lib/email";
 import { inngest } from "@/lib/inngest";
 import { track } from "@/lib/posthog-server";
 
-const DATA_CONFIRMATION_INTERVAL_DAYS = 100;
+const DATA_CONFIRMATION_INTERVAL_DAYS = 270;
 
 // Runs daily and emails each active member who hasn't reviewed their contact
-// details in the past 100 days. Fires at 4am Berlin to avoid clashing with
+// details in the past 270 days. Fires at 4am Berlin to avoid clashing with
 // the anniversary cron at 3am. When the email is sent the timestamp resets,
-// so the next reminder won't arrive for another 100 days regardless of whether
+// so the next reminder won't arrive for another 270 days regardless of whether
 // the member clicks through.
 export const dataConfirmationReminderCron = inngest.createFunction(
   {
