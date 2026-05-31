@@ -67,7 +67,7 @@ export const updateGrantsAction = actionClient
       .limit(1);
 
     const newGrants = grants.map((g) => g.grant);
-    const grantLabels: Record<string, string> = {
+    const grantLabels: Record<(typeof accessGrants)[number], string> = {
       super_admin: "Super Admin",
       admin: "Admin",
       finance_admin: "Finance Admin",
@@ -78,10 +78,10 @@ export const updateGrantsAction = actionClient
     const newSet = new Set(newGrants);
     const added = newGrants
       .filter((g) => !oldSet.has(g))
-      .map((g) => grantLabels[g] ?? g);
+      .map((g) => grantLabels[g]);
     const removed = oldGrants
       .filter((g) => !newSet.has(g))
-      .map((g) => grantLabels[g] ?? g);
+      .map((g) => (grantLabels as Record<string, string>)[g] ?? g);
     const parts: string[] = [];
     if (added.length) parts.push(`Added ${added.join(", ")}`);
     if (removed.length) parts.push(`Removed ${removed.join(", ")}`);
