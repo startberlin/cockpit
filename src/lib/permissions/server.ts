@@ -93,6 +93,7 @@ export async function can(
     return evaluateAuth(authority, action, {
       isGroupMember: membership.length > 0,
       isGroupManager: membership[0]?.role === "manager",
+      groupId,
     });
   }
 

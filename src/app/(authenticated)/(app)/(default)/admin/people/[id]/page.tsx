@@ -59,12 +59,18 @@ export default async function UserDetailPage({ params }: PageProps) {
     canImpersonate,
     canManageAuthority,
     canRemoveMemberBase,
+    canChangeDepartment,
+    canChangePersonalEmail,
+    canResetPassword,
   ] = await Promise.all([
     can("user.view_details", { department: user.department }),
     can("user.payment.view", { department: user.department }),
     can("users.impersonate"),
     can("users.manage_authority"),
     can("membership.cancel_member"),
+    can("user.department.change", { department: user.department }),
+    can("user.personal_email.change"),
+    can("user.password.reset"),
   ]);
 
   if (!canViewDetails) {
@@ -152,6 +158,11 @@ export default async function UserDetailPage({ params }: PageProps) {
           userId={id}
           canPropose={canProposeMembership}
           canRemove={canRemoveMember}
+          canChangeDepartment={canChangeDepartment}
+          canChangePersonalEmail={canChangePersonalEmail}
+          canResetPassword={canResetPassword}
+          currentDepartment={user.department}
+          personalEmail={user.personalEmail}
         />
       </Suspense>
 

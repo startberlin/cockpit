@@ -1,0 +1,1 @@
+ALTER TYPE "public"."access_grant" ADD VALUE 'members_group_exporter';

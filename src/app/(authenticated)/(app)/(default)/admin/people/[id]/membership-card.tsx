@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getMemberSinceDate } from "@/db/membership";
 import { getDepartmentHeadForDepartment, getUserDetails } from "@/db/people";
-import type { LegalMembershipState } from "@/db/schema/auth";
+import type { Department, LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { MembershipCardMenu } from "./membership-card-menu";
@@ -87,12 +87,22 @@ interface MembershipCardProps {
   userId: string;
   canPropose: boolean;
   canRemove: boolean;
+  canChangeDepartment: boolean;
+  canChangePersonalEmail: boolean;
+  canResetPassword: boolean;
+  currentDepartment: Department | null;
+  personalEmail: string | null;
 }
 
 export async function MembershipCard({
   userId,
   canPropose,
   canRemove,
+  canChangeDepartment,
+  canChangePersonalEmail,
+  canResetPassword,
+  currentDepartment,
+  personalEmail,
 }: MembershipCardProps) {
   const user = await getUserDetails(userId);
 
@@ -120,6 +130,11 @@ export async function MembershipCard({
           userId={userId}
           canPropose={canPropose}
           canRemove={canRemove}
+          canChangeDepartment={canChangeDepartment}
+          canChangePersonalEmail={canChangePersonalEmail}
+          canResetPassword={canResetPassword}
+          currentDepartment={currentDepartment}
+          personalEmail={personalEmail}
         />
       </CardHeader>
       <CardContent className="space-y-4">
