@@ -133,7 +133,7 @@ function buildPhoneCsv(
     "first name,last name,phone",
     ...members.map(
       (m) =>
-        `${csvField(m.firstName ?? "")},${csvField(m.lastName ?? "")},${csvField(m.phone ?? "")}`,
+        `${csvField(m.firstName ?? "")},${csvField(m.lastName ?? "")},${csvField(m.phone ?? "no phone number")}`,
     ),
   ];
   return rows.join("\n");
