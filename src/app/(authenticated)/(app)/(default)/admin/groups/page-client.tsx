@@ -37,7 +37,10 @@ import {
 } from "@/components/ui/tooltip";
 import type { AdminGroup, GroupManager } from "@/db/groups";
 import type { SystemGroup } from "@/lib/groups/system-groups";
-import { exportMultipleGroupsCsvAction } from "../../groups/[id]/actions";
+import {
+  exportMultipleGroupsCsvAction,
+  exportMultipleGroupsPhoneCsvAction,
+} from "../../groups/[id]/actions";
 import { CreateGroupDialog } from "./create-group-dialog";
 
 function ManagerAvatarStack({ managers }: { managers: GroupManager[] }) {
@@ -219,6 +222,31 @@ export default function AdminGroupsPageClient({
     }
   };
 
+  const handleBulkPhoneExport = async () => {
+    const rows = Array.from(selectedRows.values());
+    const exportIds = rows.map((r) => r.exportId);
+    const fileName =
+      rows.length === 1
+        ? `${rows[0].name.toLowerCase().replace(/\s+/g, "-")}-phone.csv`
+        : "groups-phone.csv";
+    try {
+      const csv = await exportMultipleGroupsPhoneCsvAction(exportIds);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (_error) {
+      toast.error(
+        "Could not export groups. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -268,6 +296,9 @@ export default function AdminGroupsPageClient({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={handleBulkExport}>
                       CSV for Luma
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleBulkPhoneExport}>
+                      Phone list CSV
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

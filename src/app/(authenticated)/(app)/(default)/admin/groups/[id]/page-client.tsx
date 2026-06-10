@@ -60,6 +60,7 @@ import {
   addUsersToGroupAction,
   demoteFromManagerAction,
   exportGroupCsvAction,
+  exportGroupPhoneCsvAction,
   promoteToManagerAction,
   removeUserFromGroupAction,
 } from "../../../groups/[id]/actions";
@@ -108,6 +109,25 @@ function SystemGroupView({
       const a = document.createElement("a");
       a.href = url;
       a.download = "group-members-luma.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (_error) {
+      toast.error(
+        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
+  const handlePhoneExport = async () => {
+    try {
+      const csv = await exportGroupPhoneCsvAction(slug);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "group-members-phone.csv";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -179,6 +199,9 @@ function SystemGroupView({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExport}>
                     CSV for Luma
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePhoneExport}>
+                    Phone list CSV
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -430,6 +453,25 @@ function ManualGroupView({
     }
   };
 
+  const handlePhoneExport = async () => {
+    try {
+      const csv = await exportGroupPhoneCsvAction(group.id);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "group-members-phone.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (_error) {
+      toast.error(
+        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
+      );
+    }
+  };
+
   const groupScope = {
     isMember: group.isMember,
     isManager: group.isGroupManager,
@@ -503,6 +545,9 @@ function ManualGroupView({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExport}>
                     CSV for Luma
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePhoneExport}>
+                    Phone list CSV
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
