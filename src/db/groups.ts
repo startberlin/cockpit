@@ -281,6 +281,30 @@ export async function getAllGroupMembersForExport(id: string): Promise<
     .orderBy(user.firstName, user.lastName);
 }
 
+export async function getAllGroupMembersForPhoneExport(id: string): Promise<
+  {
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+  }[]
+> {
+  return db
+    .select({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+    })
+    .from(usersToGroups)
+    .innerJoin(user, eq(usersToGroups.userId, user.id))
+    .where(
+      and(
+        eq(usersToGroups.groupId, id),
+        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+      ),
+    )
+    .orderBy(user.firstName, user.lastName);
+}
+
 export async function listAllUsersNotInGroup(groupId: string) {
   const notSystemUser = or(
     isNull(user.email),

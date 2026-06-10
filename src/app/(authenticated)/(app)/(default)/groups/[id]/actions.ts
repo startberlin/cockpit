@@ -8,6 +8,7 @@ import {
   addUsersToGroup,
   addUserToGroup,
   getAllGroupMembersForExport,
+  getAllGroupMembersForPhoneExport,
   listAllUsersNotInGroup,
   removeUserFromGroup,
   searchUsersNotInGroup,
@@ -119,6 +120,175 @@ export async function exportGroupCsvAction(groupId: string): Promise<string> {
   }
 
   return buildCsv(await getAllGroupMembersForExport(groupId));
+}
+
+function buildPhoneCsv(
+  members: {
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+  }[],
+): string {
+  const rows = [
+    "first name,last name,phone",
+    ...members.map(
+      (m) =>
+        `${csvField(m.firstName ?? "")},${csvField(m.lastName ?? "")},${csvField(m.phone ?? "no phone number")}`,
+    ),
+  ];
+  return rows.join("\n");
+}
+
+export async function exportGroupPhoneCsvAction(
+  groupId: string,
+): Promise<string> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || !(await can("group.export", { id: groupId }))) {
+    throw new Error("You are not authorized to export this group.");
+  }
+
+  if (isSystemGroupSlug(groupId, []) || groupId.startsWith("batch-")) {
+    const [userRows, positions] = await Promise.all([
+      db.query.user.findMany({
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+        },
+        with: { accessGrants: { columns: { grant: true } } },
+      }),
+      db.query.userOrganizationPosition.findMany({
+        columns: {
+          userId: true,
+          position: true,
+          scope: true,
+          department: true,
+        },
+      }),
+    ]);
+
+    const minimalUsers = userRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
+
+    const memberIds = getMembersOfSystemGroup(
+      groupId,
+      minimalUsers,
+      positions,
+    ).map((m) => m.id);
+    if (memberIds.length === 0) return "first name,last name,phone";
+
+    const members = await db
+      .select({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+      })
+      .from(user)
+      .where(inArray(user.id, memberIds))
+      .orderBy(user.firstName, user.lastName);
+
+    return buildPhoneCsv(members);
+  }
+
+  return buildPhoneCsv(await getAllGroupMembersForPhoneExport(groupId));
+}
+
+export async function exportMultipleGroupsPhoneCsvAction(
+  groupIds: string[],
+): Promise<string> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    throw new Error("You are not authorized to export groups.");
+  }
+  if (groupIds.length === 0) return "first name,last name,phone";
+
+  const systemIds = groupIds.filter(
+    (id) => isSystemGroupSlug(id, []) || id.startsWith("batch-"),
+  );
+  const manualIds = groupIds.filter(
+    (id) => !isSystemGroupSlug(id, []) && !id.startsWith("batch-"),
+  );
+
+  const permissionChecks = [
+    ...(systemIds.length > 0 ? [can("group.export", { isMember: false })] : []),
+    ...manualIds.map((id) => can("group.export", { id })),
+  ];
+  const results = await Promise.all(permissionChecks);
+  if (results.some((ok) => !ok)) {
+    throw new Error(
+      "You are not authorized to export one or more of the selected groups.",
+    );
+  }
+
+  const memberIdSet = new Set<string>();
+
+  if (systemIds.length > 0) {
+    const [minimalUserRows, positions] = await Promise.all([
+      db.query.user.findMany({
+        columns: {
+          id: true,
+          status: true,
+          department: true,
+          batchNumber: true,
+        },
+        with: { accessGrants: { columns: { grant: true } } },
+      }),
+      db.query.userOrganizationPosition.findMany({
+        columns: {
+          userId: true,
+          position: true,
+          scope: true,
+          department: true,
+        },
+      }),
+    ]);
+    const minimalUsers = minimalUserRows.map((u) => ({
+      id: u.id,
+      status: u.status,
+      department: u.department,
+      batchNumber: u.batchNumber,
+      grants: u.accessGrants.map((g) => g.grant),
+    }));
+    for (const id of systemIds) {
+      for (const m of getMembersOfSystemGroup(id, minimalUsers, positions)) {
+        memberIdSet.add(m.id);
+      }
+    }
+  }
+
+  if (manualIds.length > 0) {
+    const rows = await db
+      .select({ userId: usersToGroups.userId })
+      .from(usersToGroups)
+      .innerJoin(user, eq(usersToGroups.userId, user.id))
+      .where(
+        and(
+          inArray(usersToGroups.groupId, manualIds),
+          or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+        ),
+      );
+    for (const r of rows) memberIdSet.add(r.userId);
+  }
+
+  if (memberIdSet.size === 0) return "first name,last name,phone";
+
+  const members = await db
+    .select({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+    })
+    .from(user)
+    .where(inArray(user.id, Array.from(memberIdSet)))
+    .orderBy(user.firstName, user.lastName);
+
+  return buildPhoneCsv(members);
 }
 
 export async function searchUsersNotInGroupAction(
