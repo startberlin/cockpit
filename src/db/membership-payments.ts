@@ -168,9 +168,9 @@ export interface MembershipPaymentCycleWithUser extends MembershipPaymentCycle {
   gocardlessCustomerId: string | null;
 }
 
-export async function getProposedPayments(): Promise<
-  MembershipPaymentCycleWithUser[]
-> {
+export async function getProposedPayments(opts?: {
+  requireMandate?: boolean;
+}): Promise<MembershipPaymentCycleWithUser[]> {
   const today = new Date().toISOString().slice(0, 10);
   return db
     .select(userPaymentColumns)
@@ -180,6 +180,11 @@ export async function getProposedPayments(): Promise<
       and(
         eq(membershipPayments.status, "proposed"),
         sql`${membershipPayments.activationDate}::date <= ${today}::date`,
+        // The finance digest only nudges about proposals it can actually act
+        // on, so it excludes members without a GoCardless mandate — an
+        // unfinished setup would otherwise generate a digest email every single
+        // day. The payments page still lists them (with a "No mandate" badge).
+        opts?.requireMandate ? isNotNull(user.gocardlessMandateId) : undefined,
       ),
     )
     .orderBy(membershipPayments.activationDate);
