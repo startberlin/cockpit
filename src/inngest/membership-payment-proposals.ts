@@ -1,5 +1,6 @@
 import {
   batchCreateProposedPayments,
+  countProposalsBecomingVisibleToday,
   getMembersNeedingProposal,
 } from "@/db/membership-payments";
 import { env } from "@/env";
@@ -18,10 +19,19 @@ export const membershipPaymentProposalsCron = inngest.createFunction(
       return { proposed, eligible: members.length };
     });
 
-    if (result.proposed > 0) {
+    // Proposals created with a future activation date (renewals, imported
+    // members covered through a paid-through date) are invisible to the finance
+    // digest until their activation date arrives. Nothing fires an event at
+    // that moment, so detect the ones crossing into visibility today and
+    // re-trigger the digest for them as well.
+    const becameVisible = await step.run("check-newly-visible", () =>
+      countProposalsBecomingVisibleToday(),
+    );
+
+    if (result.proposed > 0 || becameVisible > 0) {
       await step.sendEvent("fire-finance-digest", {
         name: events.paymentProposalCreated.name,
-        data: { count: result.proposed },
+        data: { count: result.proposed + becameVisible },
       });
     }
 
