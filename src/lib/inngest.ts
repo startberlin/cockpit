@@ -134,9 +134,6 @@ export const events = {
       acknowledgedByUserId: string;
     }>(),
   }),
-  paymentProposalCreated: eventType("membership/payment-proposal.created", {
-    schema: staticSchema<{ count: number }>(),
-  }),
   mandateSetupNeeded: eventType("membership/mandate.setup-needed", {
     schema: staticSchema<{ userId: string }>(),
   }),

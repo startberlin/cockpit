@@ -3,7 +3,7 @@ import {
   getMembersNeedingProposal,
 } from "@/db/membership-payments";
 import { env } from "@/env";
-import { events, inngest } from "@/lib/inngest";
+import { inngest } from "@/lib/inngest";
 
 export const membershipPaymentProposalsCron = inngest.createFunction(
   {
@@ -18,12 +18,9 @@ export const membershipPaymentProposalsCron = inngest.createFunction(
       return { proposed, eligible: members.length };
     });
 
-    if (result.proposed > 0) {
-      await step.sendEvent("fire-finance-digest", {
-        name: events.paymentProposalCreated.name,
-        data: { count: result.proposed },
-      });
-    }
+    // The finance digest is its own daily cron (finance-payment-proposals-digest)
+    // that reads the current proposal set directly, so this cron only needs to
+    // create the due proposals — it does not notify anyone itself.
 
     if (env.BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS) {
       await step.run("send-heartbeat", async () => {
