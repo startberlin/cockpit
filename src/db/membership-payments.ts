@@ -185,29 +185,6 @@ export async function getProposedPayments(): Promise<
     .orderBy(membershipPayments.activationDate);
 }
 
-/**
- * Counts proposed payments whose activation date is exactly today, i.e. the
- * ones that *cross into visibility* on the current day. A proposal created with
- * a future activation date (a renewal, or an imported member still covered
- * through a paid-through date) is invisible to the finance digest until its
- * activation date arrives — and nothing fires an event at that moment. The
- * daily proposals cron uses this to re-trigger the digest for those newly
- * unblocked proposals.
- */
-export async function countProposalsBecomingVisibleToday(): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10);
-  const [row] = await db
-    .select({ value: count() })
-    .from(membershipPayments)
-    .where(
-      and(
-        eq(membershipPayments.status, "proposed"),
-        eq(membershipPayments.activationDate, today),
-      ),
-    );
-  return row?.value ?? 0;
-}
-
 function sanitizeLikeTerm(value: string): string {
   // Strip ILIKE metacharacters — names and emails don't use % or _
   return value.trim().slice(0, 200).replace(/[%_]/g, "");

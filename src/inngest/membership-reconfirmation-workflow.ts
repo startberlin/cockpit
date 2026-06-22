@@ -217,42 +217,24 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 4: Create the first proposed membership payment.
-    const proposalVisible = await step.run(
-      "create-proposed-payment",
-      async () => {
-        const today = new Date().toISOString().slice(0, 10);
-        let activationDate = today;
+    // Step 4: Create the first proposed membership payment. The finance digest
+    // is a separate daily cron that reads the current proposal set, so creating
+    // the row here is enough — it will be picked up on the next run.
+    await step.run("create-proposed-payment", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      let activationDate = today;
 
-        if (subjectData.importedPaidThroughAt) {
-          const d = new Date(subjectData.importedPaidThroughAt);
-          d.setUTCFullYear(d.getUTCFullYear() + 1);
-          const renewalDate = d.toISOString().slice(0, 10);
-          if (renewalDate > today) {
-            activationDate = renewalDate;
-          }
+      if (subjectData.importedPaidThroughAt) {
+        const d = new Date(subjectData.importedPaidThroughAt);
+        d.setUTCFullYear(d.getUTCFullYear() + 1);
+        const renewalDate = d.toISOString().slice(0, 10);
+        if (renewalDate > today) {
+          activationDate = renewalDate;
         }
+      }
 
-        await createProposedPayment(subjectData.userId, activationDate);
-
-        // The proposal is visible to the finance digest immediately when its
-        // activation date is today or in the past (a member with an immediate
-        // payment need). Future-dated proposals stay blocked until their date
-        // arrives, at which point the daily proposals cron re-triggers the
-        // digest.
-        return activationDate <= today;
-      },
-    );
-
-    // Trigger the finance digest for the newly-visible proposal. The digest
-    // function debounces, so a burst of reconfirmations coalesces into a single
-    // email.
-    if (proposalVisible) {
-      await step.sendEvent("fire-finance-digest", {
-        name: events.paymentProposalCreated.name,
-        data: { count: 1 },
-      });
-    }
+      await createProposedPayment(subjectData.userId, activationDate);
+    });
 
     // Step 5: Archive the admission confirmation PDF.
     const { driveFileId: confirmationFileDriveId } = await step.run(
