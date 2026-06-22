@@ -6,21 +6,28 @@ import {
 import { getProposedPayments } from "@/db/membership-payments";
 import PaymentProposalsDigestEmail from "@/emails/membership/payment/payment-proposals-digest";
 import { sendEmail } from "@/lib/email";
-import { events, inngest } from "@/lib/inngest";
+import { inngest } from "@/lib/inngest";
 
 export const financePaymentProposalsDigest = inngest.createFunction(
   {
     id: "finance-payment-proposals-digest",
     name: "Finance Payment Proposals Digest",
-    triggers: [{ event: events.paymentProposalCreated.name }],
-    debounce: {
-      period: "1h",
-      timeout: "7d",
-    },
+    // Runs daily, shortly after the proposal-creation cron (09:00 Berlin). It
+    // reads the current proposal set straight from the DB (the same query the
+    // payments page uses) and emails finance whatever is awaiting review. A
+    // fixed daily schedule keeps the digest in lockstep with the page and
+    // removes any per-trigger asymmetry between how proposals come to exist
+    // (reconfirmation, admission, renewal cron, …).
+    //
+    // It only includes proposals whose member has a GoCardless mandate — the
+    // ones finance can actually charge. No-mandate proposals stay on the page
+    // (with a "No mandate" badge) but are kept out of the email so an unfinished
+    // mandate setup doesn't trigger a daily reminder forever.
+    triggers: [{ cron: "TZ=Europe/Berlin 15 9 * * *" }],
   },
   async ({ step }) => {
     const proposals = await step.run("fetch-proposals", () =>
-      getProposedPayments(),
+      getProposedPayments({ requireMandate: true }),
     );
 
     if (proposals.length === 0) {

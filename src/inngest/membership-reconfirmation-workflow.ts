@@ -217,7 +217,9 @@ export const membershipReconfirmationWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 4: Create the first proposed membership payment.
+    // Step 4: Create the first proposed membership payment. The finance digest
+    // is a separate daily cron that reads the current proposal set, so creating
+    // the row here is enough — it will be picked up on the next run.
     await step.run("create-proposed-payment", async () => {
       const today = new Date().toISOString().slice(0, 10);
       let activationDate = today;
