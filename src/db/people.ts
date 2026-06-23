@@ -51,7 +51,6 @@ export interface PublicUser {
   memberSinceDate?: string | null;
   positionLabel?: string | null;
   isEligibleForMembershipProposal?: boolean;
-  actionItems?: ActionItemType[];
 }
 
 export interface UserDetail {
@@ -386,10 +385,6 @@ export async function getAllUsersForAdmin({
         status: userTable.status,
         legalMembershipState: userTable.legalMembershipState,
         memberSinceDate: userTable.memberSinceDate,
-        gocardlessMandateId: userTable.gocardlessMandateId,
-        legalMembershipStatus: legalMembership.status,
-        hasLoggedIn: exists(hasLoggedInSubquery),
-        onboardingCompleted: onboardingCompletedSql,
       })
       .from(userTable)
       .leftJoin(legalMembership, legalMembershipJoin)
@@ -405,38 +400,18 @@ export async function getAllUsersForAdmin({
   ]);
 
   return {
-    users: rows.map((u) => {
-      const actionItems: ActionItemType[] = [];
-      // Sign-in and onboarding are mutually exclusive and gate everything else.
-      if (!u.hasLoggedIn) {
-        actionItems.push("first_login");
-      } else if (!u.onboardingCompleted) {
-        actionItems.push("complete_onboarding");
-      }
-      // Membership (re)confirmation tasks only surface once onboarding is done.
-      if (u.onboardingCompleted) {
-        if (u.legalMembershipStatus === "application_pending")
-          actionItems.push("submit_application");
-        if (u.legalMembershipStatus === "membership_reconfirmation_pending")
-          actionItems.push("reconfirm_membership");
-      }
-      if (u.legalMembershipStatus === "active" && !u.gocardlessMandateId)
-        actionItems.push("set_up_mandate");
-
-      return {
-        id: u.id,
-        firstName: u.firstName ?? "",
-        lastName: u.lastName ?? "",
-        email: u.email ?? "",
-        image: u.image ?? null,
-        department: u.department ?? null,
-        batchNumber: u.batchNumber ?? null,
-        status: u.status,
-        legalMembershipState: u.legalMembershipState,
-        memberSinceDate: u.memberSinceDate,
-        actionItems,
-      };
-    }),
+    users: rows.map((u) => ({
+      id: u.id,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      email: u.email ?? "",
+      image: u.image ?? null,
+      department: u.department ?? null,
+      batchNumber: u.batchNumber ?? null,
+      status: u.status,
+      legalMembershipState: u.legalMembershipState,
+      memberSinceDate: u.memberSinceDate,
+    })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
     offset,
