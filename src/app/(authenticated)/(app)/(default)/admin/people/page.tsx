@@ -12,6 +12,7 @@ import {
 } from "@/db/schema/auth";
 import { batch } from "@/db/schema/batch";
 import { getCurrentUser } from "@/db/user";
+import { parseActionItemTypes } from "@/lib/action-items";
 import { createMetadata } from "@/lib/metadata";
 import {
   evaluateAuth,
@@ -42,6 +43,7 @@ interface PageProps {
     batchNumber?: string;
     status?: string;
     legalMembership?: string;
+    actionItem?: string;
   }>;
 }
 
@@ -82,6 +84,7 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
     batchNumber,
     status,
     legalMembership: legalMembershipParam,
+    actionItem: actionItemParam,
   } = await searchParams;
 
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
@@ -127,6 +130,8 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
         .filter((s) => validLegalStates.has(s)) as LegalMembershipState[])
     : undefined;
 
+  const actionItemFilter = parseActionItemTypes(actionItemParam);
+
   const [usersPromise, batches] = [
     getAllUsersForAdmin({
       page,
@@ -135,6 +140,7 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
       batchNumber: validBatches?.length ? validBatches : undefined,
       status: statusFilter,
       legalMembershipState: legalMembershipFilter,
+      actionItem: actionItemFilter,
     }),
     db.select({ number: batch.number }).from(batch).orderBy(batch.number),
   ];

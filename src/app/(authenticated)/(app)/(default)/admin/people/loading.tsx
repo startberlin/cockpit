@@ -19,6 +19,7 @@ export default function AdminDirectoryLoading() {
         <Skeleton className="h-9 w-28" />
         <Skeleton className="h-9 w-28" />
         <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-9 w-36" />
         <Skeleton className="h-9 w-20" />
       </div>
       <div className="flex flex-col gap-2">

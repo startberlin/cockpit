@@ -1,5 +1,20 @@
-import { and, asc, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  exists,
+  inArray,
+  isNull,
+  ne,
+  not,
+  notExists,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { cache } from "react";
+import type { ActionItemType } from "@/lib/action-items";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import {
   getStructuredMembershipState,
@@ -13,7 +28,7 @@ import type {
   LegalMembershipState,
   UserStatus,
 } from "./schema/auth";
-import { user as userTable } from "./schema/auth";
+import { account, user as userTable } from "./schema/auth";
 import type {
   AccessGrant,
   AuthorityScope,
@@ -21,6 +36,7 @@ import type {
 } from "./schema/authority";
 import { userOrganizationPosition } from "./schema/authority";
 import { group as groupTable, usersToGroups } from "./schema/group";
+import { legalMembership } from "./schema/legal-membership";
 
 export interface PublicUser {
   id: string;
@@ -35,6 +51,7 @@ export interface PublicUser {
   memberSinceDate?: string | null;
   positionLabel?: string | null;
   isEligibleForMembershipProposal?: boolean;
+  actionItems?: ActionItemType[];
 }
 
 export interface UserDetail {
@@ -224,6 +241,69 @@ const ADMIN_ACTIVE_STATUSES: UserStatus[] = [
   "supporting_alumni",
 ];
 
+// Legal-membership tenure statuses that drive an open action item. All three
+// are part of the live-tenure unique index, so at most one such row exists per
+// user — joining on them never multiplies the result/count rows.
+const ACTION_ITEM_LM_STATUSES = [
+  "application_pending",
+  "membership_reconfirmation_pending",
+  "active",
+] as const;
+
+// Correlated subquery: does this user have any linked auth account? Users that
+// were invited but never signed in have no account row yet.
+const hasLoggedInSubquery = db
+  .select({ x: sql`1` })
+  .from(account)
+  .where(eq(account.userId, userTable.id));
+
+// SQL mirror of `getOnboardingProgress(...) === "completed"`: master data
+// (personal email, phone, birth date) is present, and — for the statuses that
+// require it — the event-email preference has been chosen. These fields are
+// only ever written through validated forms, so a non-null check matches the
+// validated state in practice while remaining expressible in SQL (needed so
+// the filter can paginate).
+const onboardingCompletedSql = sql<boolean>`(
+  ${userTable.personalEmail} IS NOT NULL AND ${userTable.personalEmail} <> ''
+  AND ${userTable.phone} IS NOT NULL AND ${userTable.phone} <> ''
+  AND ${userTable.birthDate} IS NOT NULL
+  AND (
+    ${userTable.status} NOT IN ('onboarding', 'member', 'supporting_alumni')
+    OR ${userTable.eventEmailPreference} IS NOT NULL
+  )
+)`;
+
+// SQL predicate for each action item, evaluated against the user row joined to
+// its live legal-membership tenure (`legalMembership`, may be null). Onboarding
+// gates the membership tasks: a member who hasn't signed in / finished
+// onboarding is nudged to do that first, not to (re)confirm their membership.
+function actionItemPredicate(type: ActionItemType): SQL {
+  switch (type) {
+    case "first_login":
+      return notExists(hasLoggedInSubquery);
+    case "complete_onboarding":
+      return and(
+        exists(hasLoggedInSubquery),
+        not(onboardingCompletedSql),
+      ) as SQL;
+    case "submit_application":
+      return and(
+        onboardingCompletedSql,
+        eq(legalMembership.status, "application_pending"),
+      ) as SQL;
+    case "reconfirm_membership":
+      return and(
+        onboardingCompletedSql,
+        eq(legalMembership.status, "membership_reconfirmation_pending"),
+      ) as SQL;
+    case "set_up_mandate":
+      return and(
+        eq(legalMembership.status, "active"),
+        isNull(userTable.gocardlessMandateId),
+      ) as SQL;
+  }
+}
+
 export async function getAllUsersForAdmin({
   page = 1,
   search = "",
@@ -231,6 +311,7 @@ export async function getAllUsersForAdmin({
   department,
   batchNumber,
   legalMembershipState,
+  actionItem,
   sortBy = "name",
 }: {
   page?: number;
@@ -239,6 +320,7 @@ export async function getAllUsersForAdmin({
   department?: Department[];
   batchNumber?: number[];
   legalMembershipState?: LegalMembershipState[];
+  actionItem?: ActionItemType[];
   sortBy?: "name" | "joinDate";
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
@@ -254,6 +336,10 @@ export async function getAllUsersForAdmin({
       )
     : undefined;
 
+  const actionItemClause = actionItem?.length
+    ? or(...actionItem.map(actionItemPredicate))
+    : undefined;
+
   const whereClause = and(
     searchClause,
     inArray(userTable.status, effectiveStatus),
@@ -264,6 +350,7 @@ export async function getAllUsersForAdmin({
     legalMembershipState?.length
       ? inArray(userTable.legalMembershipState, legalMembershipState)
       : undefined,
+    actionItemClause,
     or(isNull(userTable.email), ne(userTable.email, SYSTEM_USER_EMAIL)),
   );
 
@@ -274,6 +361,12 @@ export async function getAllUsersForAdmin({
           asc(userTable.createdAt),
         ]
       : [asc(userTable.firstName), asc(userTable.lastName)];
+
+  // Join the user's live legal-membership tenure (at most one row, see above).
+  const legalMembershipJoin = and(
+    eq(legalMembership.userId, userTable.id),
+    inArray(legalMembership.status, [...ACTION_ITEM_LM_STATUSES]),
+  );
 
   const [rows, [{ total }]] = await Promise.all([
     db
@@ -288,28 +381,57 @@ export async function getAllUsersForAdmin({
         status: userTable.status,
         legalMembershipState: userTable.legalMembershipState,
         memberSinceDate: userTable.memberSinceDate,
+        gocardlessMandateId: userTable.gocardlessMandateId,
+        legalMembershipStatus: legalMembership.status,
+        hasLoggedIn: exists(hasLoggedInSubquery),
+        onboardingCompleted: onboardingCompletedSql,
       })
       .from(userTable)
+      .leftJoin(legalMembership, legalMembershipJoin)
       .where(whereClause)
       .orderBy(...orderBy)
       .limit(PEOPLE_PAGE_SIZE)
       .offset(offset),
-    db.select({ total: count() }).from(userTable).where(whereClause),
+    db
+      .select({ total: count() })
+      .from(userTable)
+      .leftJoin(legalMembership, legalMembershipJoin)
+      .where(whereClause),
   ]);
 
   return {
-    users: rows.map((u) => ({
-      id: u.id,
-      firstName: u.firstName ?? "",
-      lastName: u.lastName ?? "",
-      email: u.email ?? "",
-      image: u.image ?? null,
-      department: u.department ?? null,
-      batchNumber: u.batchNumber ?? null,
-      status: u.status,
-      legalMembershipState: u.legalMembershipState,
-      memberSinceDate: u.memberSinceDate,
-    })),
+    users: rows.map((u) => {
+      const actionItems: ActionItemType[] = [];
+      // Sign-in and onboarding are mutually exclusive and gate everything else.
+      if (!u.hasLoggedIn) {
+        actionItems.push("first_login");
+      } else if (!u.onboardingCompleted) {
+        actionItems.push("complete_onboarding");
+      }
+      // Membership (re)confirmation tasks only surface once onboarding is done.
+      if (u.onboardingCompleted) {
+        if (u.legalMembershipStatus === "application_pending")
+          actionItems.push("submit_application");
+        if (u.legalMembershipStatus === "membership_reconfirmation_pending")
+          actionItems.push("reconfirm_membership");
+      }
+      if (u.legalMembershipStatus === "active" && !u.gocardlessMandateId)
+        actionItems.push("set_up_mandate");
+
+      return {
+        id: u.id,
+        firstName: u.firstName ?? "",
+        lastName: u.lastName ?? "",
+        email: u.email ?? "",
+        image: u.image ?? null,
+        department: u.department ?? null,
+        batchNumber: u.batchNumber ?? null,
+        status: u.status,
+        legalMembershipState: u.legalMembershipState,
+        memberSinceDate: u.memberSinceDate,
+        actionItems,
+      };
+    }),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
     offset,
