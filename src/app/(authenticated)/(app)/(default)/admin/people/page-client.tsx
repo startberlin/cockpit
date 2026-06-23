@@ -30,6 +30,11 @@ import type {
   LegalMembershipState,
   UserStatus,
 } from "@/db/schema/auth";
+import {
+  ACTION_ITEM_INFO,
+  ACTION_ITEM_TYPES,
+  type ActionItemType,
+} from "@/lib/action-items";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 import { CreateUserDialog } from "./create-user-dialog";
@@ -80,6 +85,16 @@ const legalMembershipParser = parseAsStringLiteral([
   "former_member",
 ] as LegalMembershipState[]);
 
+const ACTION_ITEM_OPTIONS: { value: ActionItemType; label: string }[] =
+  ACTION_ITEM_TYPES.map((value) => ({
+    value,
+    label: ACTION_ITEM_INFO[value].label,
+  }));
+
+const actionItemParser = parseAsStringLiteral(
+  ACTION_ITEM_TYPES as unknown as string[],
+);
+
 // ─── FilterMenu (multi-select) ────────────────────────────────────────────────
 
 function FilterMenu<T extends string | number>({
@@ -87,13 +102,16 @@ function FilterMenu<T extends string | number>({
   options,
   selected,
   onChange,
+  showSelectAll = false,
 }: {
   label: string;
   options: { value: T; label: string }[];
   selected: T[];
   onChange: (next: T[]) => void;
+  showSelectAll?: boolean;
 }) {
   const count = selected.length;
+  const allSelected = count === options.length;
 
   const toggle = (val: T) => {
     onChange(
@@ -130,6 +148,20 @@ function FilterMenu<T extends string | number>({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto min-w-44 p-1">
+        {showSelectAll && (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                onChange(allSelected ? [] : options.map((o) => o.value))
+              }
+              className="w-full text-left px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent rounded-sm cursor-pointer"
+            >
+              {allSelected ? "Deselect all" : "Select all"}
+            </button>
+            <div className="h-px bg-border my-1" />
+          </>
+        )}
         {options.map((opt) => {
           const active = selected.includes(opt.value);
           return (
@@ -197,6 +229,7 @@ function UsersTableSection({
       pendingActions={[]}
       initialSearch={initialSearch}
       hideSearch
+      showActionItems
     />
   );
 }
@@ -246,6 +279,10 @@ export default function AdminDirectoryPageClient({
     "batchNumber",
     parseAsArrayOf(parseAsInteger).withOptions({ shallow: false }),
   );
+  const [actionItem, setActionItem] = useQueryState(
+    "actionItem",
+    parseAsArrayOf(actionItemParser).withOptions({ shallow: false }),
+  );
   const [, setPage] = useQueryState(
     "page",
     parseAsInteger
@@ -261,13 +298,15 @@ export default function AdminDirectoryPageClient({
   const activeBatch = batchNumber ?? [];
   const activeStatus = status ?? [];
   const activeLegalMembership = legalMembership ?? [];
+  const activeActionItem = (actionItem ?? []) as ActionItemType[];
 
   const hasFilters = !!(
     search ||
     activeStatus.length ||
     activeLegalMembership.length ||
     activeDept.length ||
-    activeBatch.length
+    activeBatch.length ||
+    activeActionItem.length
   );
 
   const handleReset = () => {
@@ -276,6 +315,7 @@ export default function AdminDirectoryPageClient({
     setLegalMembership(null);
     setDepartment(null);
     setBatchNumber(null);
+    setActionItem(null);
     setPage(1);
   };
 
@@ -296,6 +336,11 @@ export default function AdminDirectoryPageClient({
 
   const handleBatchChange = (next: number[]) => {
     setBatchNumber(next.length ? next : null);
+    setPage(1);
+  };
+
+  const handleActionItemChange = (next: ActionItemType[]) => {
+    setActionItem(next.length ? next : null);
     setPage(1);
   };
 
@@ -376,6 +421,13 @@ export default function AdminDirectoryPageClient({
           options={batchOptions}
           selected={activeBatch}
           onChange={handleBatchChange}
+        />
+        <FilterMenu
+          label="Action needed"
+          options={ACTION_ITEM_OPTIONS}
+          selected={activeActionItem}
+          onChange={handleActionItemChange}
+          showSelectAll
         />
         {hasFilters && (
           <button
