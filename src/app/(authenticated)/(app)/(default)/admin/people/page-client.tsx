@@ -229,7 +229,6 @@ function UsersTableSection({
       pendingActions={[]}
       initialSearch={initialSearch}
       hideSearch
-      showActionItems
     />
   );
 }

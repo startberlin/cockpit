@@ -35,7 +35,6 @@ import {
 import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
 import type { LegalMembershipState } from "@/db/schema/auth";
-import { ACTION_ITEM_INFO } from "@/lib/action-items";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
 import { useCan } from "./can";
@@ -70,7 +69,6 @@ interface PeopleTableProps {
   pendingActions?: PendingBoardAction[];
   initialSearch: string;
   hideSearch?: boolean;
-  showActionItems?: boolean;
 }
 
 export function PeopleTable({
@@ -80,7 +78,6 @@ export function PeopleTable({
   pendingActions = [],
   initialSearch,
   hideSearch = false,
-  showActionItems = false,
 }: PeopleTableProps) {
   const can = useCan();
   const [page, setPage] = useQueryState(
@@ -194,38 +191,6 @@ export function PeopleTable({
           );
         },
       },
-      ...(showActionItems
-        ? [
-            {
-              id: "actionItems",
-              header: "Action needed",
-              cell: ({ row }) => {
-                const items = row.original.actionItems ?? [];
-                if (items.length === 0)
-                  return <span className="text-muted-foreground">—</span>;
-                return (
-                  <div className="flex flex-wrap gap-1">
-                    {items.map((item) => (
-                      <Tooltip key={item}>
-                        <TooltipTrigger asChild>
-                          <Badge
-                            variant="outline"
-                            className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400"
-                          >
-                            {ACTION_ITEM_INFO[item].label}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          {ACTION_ITEM_INFO[item].description}
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                );
-              },
-            } satisfies ColumnDef<PublicUser>,
-          ]
-        : []),
       {
         id: "actions",
         enableHiding: false,
@@ -267,7 +232,7 @@ export function PeopleTable({
         },
       },
     ],
-    [can, pendingActionsMap, showActionItems],
+    [can, pendingActionsMap],
   );
 
   const table = useReactTable({
