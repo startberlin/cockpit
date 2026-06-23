@@ -299,7 +299,12 @@ function actionItemPredicate(type: ActionItemType): SQL {
     case "set_up_mandate":
       return and(
         eq(legalMembership.status, "active"),
-        isNull(userTable.gocardlessMandateId),
+        // Mirror the truthy `!gocardlessMandateId` convention used for the
+        // badge (and in membership-status.ts): treat NULL and "" alike.
+        or(
+          isNull(userTable.gocardlessMandateId),
+          eq(userTable.gocardlessMandateId, ""),
+        ),
       ) as SQL;
   }
 }
