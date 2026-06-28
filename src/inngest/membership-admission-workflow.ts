@@ -33,6 +33,10 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
   {
     id: "membership-admission-workflow",
     name: "Membership Admission Workflow",
+    // Dedupe concurrent starts for the same tenure: a double-submitted proposal
+    // can emit `admissionWorkflowStarted` twice before `inngestRunId` is written
+    // back, which would otherwise spawn two parallel runs (and duplicate emails).
+    idempotency: "event.data.legalMembershipId",
     triggers: [{ event: events.admissionWorkflowStarted }],
     cancelOn: [
       {
@@ -69,97 +73,114 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
         ? `${subject.firstName} ${subject.lastName}`.trim()
         : subjectUserId;
 
-    // Steps 1b–4: Vote loop. Up to 3 rounds; each round polls for a vote with
-    // 7-day inner waits and re-emails still-pending participants until a vote
-    // arrives or the 90-day budget for that round expires.
+    // Steps 1b–4: Collect board votes. Send the "Action required" notice once,
+    // then wait for votes — re-tallying from the database after each one — and
+    // send a reminder to still-pending participants every 7 days of inactivity,
+    // until a decision is reached or the 90-day budget is exhausted.
+    //
+    // A single vote must NOT restart the notification (which would re-send the
+    // "Action required" email to the other participants); it only triggers a
+    // re-evaluation and resumes waiting for the next vote.
     const VOTE_TOTAL_DAYS = 90;
     const VOTE_INTERVAL_DAYS = 7;
 
-    let voteRound = 0;
-    let resolution: VoteOutcome = "pending";
-
-    while (voteRound < 3 && resolution === "pending") {
-      voteRound++;
-
-      const sendVoteNotifications = async (index: number) => {
-        const lm = await db.query.legalMembership.findFirst({
-          where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
-          columns: { boardParticipants: true, boardVotes: true },
-        });
-        const voted = new Set((lm?.boardVotes ?? []).map((v) => v.voterUserId));
-        const pendingIds = (lm?.boardParticipants ?? [])
-          .map((p) => p.userId)
-          .filter((id) => !voted.has(id));
-        if (pendingIds.length === 0) return;
-
-        const pendingUsers = await db.query.user.findMany({
-          where: (u, { inArray }) => inArray(u.id, pendingIds),
-          columns: { id: true, email: true, firstName: true },
-        });
-        const isReminder = index > 0;
-        await Promise.all(
-          pendingUsers
-            .filter((u) => u.email)
-            .map((u) =>
-              sendEmail({
-                from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-                to: u.email!,
-                subject: isReminder
-                  ? `Reminder: vote on ${subjectName}'s membership`
-                  : `Action required: vote on ${subjectName}'s membership`,
-                react: BoardResolutionTaskAssignedEmail({
-                  firstName: u.firstName ?? "",
-                  subjectName,
-                  resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
-                  isReminder,
-                }),
-              }),
-            ),
-        );
-      };
-
-      const voteEvent = await notifyUntil(step, {
-        id: `board-vote-r${voteRound}`,
-        terminateOn: {
-          eventName: events.boardVoteCast.name,
-          match: "legalMembershipId",
-        },
-        timeoutDays: VOTE_TOTAL_DAYS,
-        remindEveryDays: VOTE_INTERVAL_DAYS,
-        send: sendVoteNotifications,
+    const sendVoteNotifications = async (isReminder: boolean) => {
+      const lm = await db.query.legalMembership.findFirst({
+        where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+        columns: { boardParticipants: true, boardVotes: true },
       });
+      const voted = new Set((lm?.boardVotes ?? []).map((v) => v.voterUserId));
+      const pendingIds = (lm?.boardParticipants ?? [])
+        .map((p) => p.userId)
+        .filter((id) => !voted.has(id));
+      if (pendingIds.length === 0) return;
 
-      if (voteEvent === null) {
-        await step.run(`timeout-to-manual-followup-r${voteRound}`, async () => {
-          await db
-            .update(legalMembership)
-            .set({ status: "manual_followup" })
-            .where(eq(legalMembership.id, legalMembershipId));
-        });
-        return { outcome: "timeout", legalMembershipId };
-      }
+      const pendingUsers = await db.query.user.findMany({
+        where: (u, { inArray }) => inArray(u.id, pendingIds),
+        columns: { id: true, email: true, firstName: true },
+      });
+      await Promise.all(
+        pendingUsers
+          .filter((u) => u.email)
+          .map((u) =>
+            sendEmail({
+              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+              to: u.email!,
+              subject: isReminder
+                ? `Reminder: vote on ${subjectName}'s membership`
+                : `Action required: vote on ${subjectName}'s membership`,
+              react: BoardResolutionTaskAssignedEmail({
+                firstName: u.firstName ?? "",
+                subjectName,
+                resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
+                isReminder,
+              }),
+            }),
+          ),
+      );
+    };
 
-      resolution = await step.run(
-        `evaluate-votes-round-${voteRound}`,
-        async () => {
-          const lm = await db.query.legalMembership.findFirst({
-            where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
-            columns: { boardVotes: true },
-          });
-          const votes = lm?.boardVotes ?? [];
-          return computeVoteOutcome(votes.map((v) => v.value));
+    const evaluateVotes = async (): Promise<VoteOutcome> => {
+      const lm = await db.query.legalMembership.findFirst({
+        where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
+        columns: { boardVotes: true },
+      });
+      const votes = lm?.boardVotes ?? [];
+      return computeVoteOutcome(votes.map((v) => v.value));
+    };
+
+    // Initial "Action required" notice — sent exactly once for the whole tenure.
+    await step.run("send-board-vote-initial", () =>
+      sendVoteNotifications(false),
+    );
+
+    let resolution: VoteOutcome = await step.run(
+      "evaluate-votes-initial",
+      evaluateVotes,
+    );
+
+    // `elapsed` only advances on a reminder-interval timeout, not when a vote
+    // wakes the wait early — so the deadline is effectively "90 days without a
+    // vote". Votes are finite (one per participant), so the loop stays bounded.
+    let elapsed = 0;
+    let iteration = 0;
+
+    while (resolution === "pending" && elapsed < VOTE_TOTAL_DAYS) {
+      const wait = Math.min(VOTE_INTERVAL_DAYS, VOTE_TOTAL_DAYS - elapsed);
+      const voteEvent = await step.waitForEvent(
+        `wait-board-vote-${iteration}`,
+        {
+          event: events.boardVoteCast.name,
+          timeout: `${wait}d`,
+          if: "async.data.legalMembershipId == event.data.legalMembershipId",
         },
       );
+
+      // Re-tally from the database (the source of truth) on every wake-up,
+      // whether a vote arrived or the interval timed out, so the outcome stays
+      // correct even if a vote event was missed.
+      resolution = await step.run(`evaluate-votes-${iteration}`, evaluateVotes);
+
+      if (voteEvent === null) {
+        elapsed += wait;
+        if (resolution === "pending" && elapsed < VOTE_TOTAL_DAYS) {
+          await step.run(`send-board-vote-reminder-${iteration}`, () =>
+            sendVoteNotifications(true),
+          );
+        }
+      }
+
+      iteration += 1;
     }
 
-    if (resolution === "manual_followup") {
-      await step.run("reject-to-manual-followup", async () => {
+    if (resolution === "pending") {
+      await step.run("vote-timeout-to-manual-followup", async () => {
         await db
           .update(legalMembership)
           .set({ status: "manual_followup" })
           .where(eq(legalMembership.id, legalMembershipId));
       });
-      return { outcome: "manual_followup", legalMembershipId };
+      return { outcome: "timeout", legalMembershipId };
     }
 
     if (resolution !== "approved") {
