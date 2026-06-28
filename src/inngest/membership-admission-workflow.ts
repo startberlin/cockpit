@@ -84,7 +84,8 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
     const VOTE_TOTAL_DAYS = 90;
     const VOTE_INTERVAL_DAYS = 7;
 
-    const sendVoteNotifications = async (isReminder: boolean) => {
+    // Load the still-pending recipients: board participants who haven't voted.
+    const loadPendingRecipients = async () => {
       const lm = await db.query.legalMembership.findFirst({
         where: (l, { eq: eqFn }) => eqFn(l.id, legalMembershipId),
         columns: { boardParticipants: true, boardVotes: true },
@@ -93,31 +94,45 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       const pendingIds = (lm?.boardParticipants ?? [])
         .map((p) => p.userId)
         .filter((id) => !voted.has(id));
-      if (pendingIds.length === 0) return;
+      if (pendingIds.length === 0) return [];
 
       const pendingUsers = await db.query.user.findMany({
         where: (u, { inArray }) => inArray(u.id, pendingIds),
         columns: { id: true, email: true, firstName: true },
       });
-      await Promise.all(
-        pendingUsers
-          .filter((u) => u.email)
-          .map((u) =>
-            sendEmail({
-              from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: u.email!,
-              subject: isReminder
-                ? `Reminder: vote on ${subjectName}'s membership`
-                : `Action required: vote on ${subjectName}'s membership`,
-              react: BoardResolutionTaskAssignedEmail({
-                firstName: u.firstName ?? "",
-                subjectName,
-                resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
-                isReminder,
-              }),
-            }),
-          ),
+      return pendingUsers.filter((u) => u.email);
+    };
+
+    // Email each still-pending participant in its own step, so a failure partway
+    // through a batch retries only the failed recipient instead of re-sending to
+    // everyone who already received the notice. `phase` ("initial" or
+    // "reminder-<n>") keys the step IDs so they stay unique and replay-stable.
+    const sendVoteNotifications = async (
+      phase: string,
+      isReminder: boolean,
+    ) => {
+      const recipients = await step.run(
+        `load-vote-recipients-${phase}`,
+        loadPendingRecipients,
       );
+      for (const u of recipients) {
+        await step.run(`send-vote-${phase}-${u.id}`, async () => {
+          if (!u.email) return;
+          await sendEmail({
+            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
+            to: u.email,
+            subject: isReminder
+              ? `Reminder: vote on ${subjectName}'s membership`
+              : `Action required: vote on ${subjectName}'s membership`,
+            react: BoardResolutionTaskAssignedEmail({
+              firstName: u.firstName ?? "",
+              subjectName,
+              resolutionUrl: `${env.NEXT_PUBLIC_COCKPIT_URL}/admin/tasks/vote-admission/${legalMembershipId}`,
+              isReminder,
+            }),
+          });
+        });
+      }
     };
 
     const evaluateVotes = async (): Promise<VoteOutcome> => {
@@ -129,19 +144,22 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       return computeVoteOutcome(votes.map((v) => v.value));
     };
 
-    // Initial "Action required" notice — sent exactly once for the whole tenure.
-    await step.run("send-board-vote-initial", () =>
-      sendVoteNotifications(false),
-    );
-
+    // Evaluate first, then send the initial "Action required" notice only while
+    // the vote is still open — so we never email participants about a resolution
+    // that is already decided. Sent exactly once for the whole tenure.
     let resolution: VoteOutcome = await step.run(
       "evaluate-votes-initial",
       evaluateVotes,
     );
 
+    if (resolution === "pending") {
+      await sendVoteNotifications("initial", false);
+    }
+
     // `elapsed` only advances on a reminder-interval timeout, not when a vote
     // wakes the wait early — so the deadline is effectively "90 days without a
-    // vote". Votes are finite (one per participant), so the loop stays bounded.
+    // vote". Votes are finite (one per participant), so the loop stays bounded;
+    // this is already stricter than the previous per-round 90-day budget.
     let elapsed = 0;
     let iteration = 0;
 
@@ -164,9 +182,7 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       if (voteEvent === null) {
         elapsed += wait;
         if (resolution === "pending" && elapsed < VOTE_TOTAL_DAYS) {
-          await step.run(`send-board-vote-reminder-${iteration}`, () =>
-            sendVoteNotifications(true),
-          );
+          await sendVoteNotifications(`reminder-${iteration}`, true);
         }
       }
 
@@ -183,6 +199,11 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       return { outcome: "timeout", legalMembershipId };
     }
 
+    // Defensive fallback: today `computeVoteOutcome` only returns "approved" or
+    // "pending" (and "pending" is handled above), so this is currently
+    // unreachable. It is kept so that if the rules ever gain a rejection outcome,
+    // an unexpected resolution routes to human review instead of being treated
+    // as an approval.
     if (resolution !== "approved") {
       await step.run("unresolved-to-manual-followup", async () => {
         await db
