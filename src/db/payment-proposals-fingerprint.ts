@@ -20,8 +20,11 @@ export function paymentProposalsFingerprint(
     "userName" | "activationDate" | "amount"
   >[],
 ): string {
+  // JSON-encode each row rather than joining with a bare delimiter: a "|" in a
+  // member name must not shift field boundaries and let two different sets hash
+  // alike (or vice versa), since the whole point here is byte-exact equality.
   const canonical = proposals
-    .map((p) => `${p.userName}|${p.activationDate}|${p.amount}`)
+    .map((p) => JSON.stringify([p.userName, p.activationDate, p.amount]))
     .sort()
     .join("\n");
   return createHash("sha256").update(canonical).digest("hex");

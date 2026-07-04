@@ -42,6 +42,12 @@ export const financePaymentProposalsDigest = inngest.createFunction(
     // proposal set matches the last sent digest is skipped until a week has
     // passed (see RESEND_UNCHANGED_AFTER_MS). This keeps the reminder to "at
     // least once per week" without emailing finance the same list day after day.
+    //
+    // The dedup gate reads the last send, then sends, then records — a
+    // read-then-write window. limit: 1 serializes runs so a slow run, manual
+    // re-trigger, or replay can't overlap and double-send: the second run waits,
+    // then sees the first run's recorded send and skips.
+    concurrency: { limit: 1 },
     triggers: [{ cron: "TZ=Europe/Berlin 15 9 * * *" }],
   },
   async ({ step }) => {
