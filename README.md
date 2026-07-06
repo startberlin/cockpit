@@ -45,6 +45,19 @@ Opens at [http://localhost:3000](http://localhost:3000). This runs both Next.js 
 
 After running migrations on a fresh database, the following records must exist before anyone can log in. Use `npm run db:studio` or run the SQL directly against your database.
 
+### Quick path: bootstrap script
+
+`npm run admin:bootstrap` automates steps 2 and 3 below — it upserts a user with `status = member` and grants them `super_admin`:
+
+```bash
+npm run admin:bootstrap -- <email> <firstName> <lastName>
+# e.g. npm run admin:bootstrap -- you@start-berlin.com Jane Doe
+```
+
+The `<email>` **must match the Google account you sign in with** at `/auth` — that email is the only link between the login and the user record. The script makes no Google API calls, so it works with `DISABLE_GOOGLE_WORKSPACE=true`.
+
+It does **not** create a batch (step 1, only needed if you'll create other users) or set the profile/payment fields for a fully clean dashboard (the `legal_membership_state`, address, and `gocardless_mandate_id` polish in steps 2 and 4). For a login with full admin access it's enough; for a prompt-free member dashboard, follow the manual steps below.
+
 ### 1. Create a batch
 
 Every user requires a batch. Create at least one before creating any users.
