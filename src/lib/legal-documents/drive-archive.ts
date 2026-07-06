@@ -12,13 +12,20 @@ async function getOrCreateUserFolder(
   lastName: string,
   legalMembershipId: string,
 ): Promise<string> {
+  const rootFolderId = env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID;
+  if (!rootFolderId) {
+    throw new Error(
+      "GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID is required to archive legal documents. It is optional only when DISABLE_GOOGLE_WORKSPACE is set.",
+    );
+  }
+
   const folderName = `${firstName} ${lastName} (${legalMembershipId})`.trim();
   const escapedName = folderName.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
   const existing = await drive.files.list({
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
-    q: `name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and '${env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID}' in parents and trashed = false`,
+    q: `name = '${escapedName}' and mimeType = 'application/vnd.google-apps.folder' and '${rootFolderId}' in parents and trashed = false`,
     fields: "files(id)",
     pageSize: 1,
   });
@@ -32,7 +39,7 @@ async function getOrCreateUserFolder(
     requestBody: {
       name: folderName,
       mimeType: "application/vnd.google-apps.folder",
-      parents: [env.GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID],
+      parents: [rootFolderId],
     },
     fields: "id",
   });

@@ -5,6 +5,13 @@ import db from "@/db";
 import { schema } from "@/db/schema";
 import { betterAuthUserAdditionalFields } from "@/db/schema/auth-fields";
 import { env } from "@/env";
+import { devLogin } from "@/lib/auth-dev-login";
+
+const googleClientId = env.GOOGLE_CLIENT_ID;
+const googleClientSecret = env.GOOGLE_CLIENT_SECRET;
+
+/** Whether Google OAuth login is configured (both credentials present). */
+export const isGoogleConfigured = Boolean(googleClientId && googleClientSecret);
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -38,15 +45,20 @@ export const auth = betterAuth({
       requireLocalEmailVerified: false,
     },
   },
-  socialProviders: {
-    google: {
-      enabled: true,
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      disableImplicitSignUp: true,
-      prompt: "select_account",
-      overrideUserInfoOnSignIn: true,
-    },
-  },
-  plugins: [nextCookies()],
+  socialProviders:
+    googleClientId && googleClientSecret
+      ? {
+          google: {
+            enabled: true,
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+            disableImplicitSignUp: true,
+            prompt: "select_account",
+            overrideUserInfoOnSignIn: true,
+          },
+        }
+      : {},
+  // nextCookies() must stay last. Dev login is a passwordless bypass — only
+  // registered when explicitly enabled and always hard-blocked in production.
+  plugins: [...(env.ENABLE_DEV_LOGIN ? [devLogin()] : []), nextCookies()],
 });

@@ -7,7 +7,12 @@ const nanoid = customAlphabet(
   16,
 );
 
-const [email, firstName, lastName] = process.argv.slice(2);
+const [rawEmail, firstName, lastName] = process.argv.slice(2);
+
+// Auth lookups (better-auth findUserByEmail, Google account linking) always
+// query by the lowercased email, so store it lowercased or the account becomes
+// unreachable at login.
+const email = rawEmail?.toLowerCase();
 
 if (!email || !firstName || !lastName) {
   console.error(

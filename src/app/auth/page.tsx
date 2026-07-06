@@ -10,7 +10,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/db/user";
+import { env } from "@/env";
+import { isGoogleConfigured } from "@/lib/auth";
 import { createMetadata } from "@/lib/metadata";
+import DevLogin from "./dev-login";
 import Google from "./google";
 
 export const metadata = createMetadata({
@@ -69,6 +72,8 @@ export default async function SignIn({ searchParams }: PageProps) {
     return redirect("/");
   }
 
+  const devLoginEnabled = env.ENABLE_DEV_LOGIN;
+
   return (
     <div className="flex min-h-screen flex-1 flex-col md:justify-center px-6 md:px-4 py-6 md:py-10 lg:px-6">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -80,7 +85,8 @@ export default async function SignIn({ searchParams }: PageProps) {
         </h3>
         <span className="flex flex-col mt-6 gap-3">
           {error && <ErrorCard error={error} />}
-          <Google />
+          {isGoogleConfigured && <Google />}
+          {devLoginEnabled && <DevLogin />}
         </span>
       </div>
     </div>
