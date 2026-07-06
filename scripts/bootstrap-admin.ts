@@ -37,13 +37,12 @@ async function main() {
       `INSERT INTO "user" (
         id, name, email, email_verified,
         first_name, last_name, personal_email,
-        status, role, created_at, updated_at
-      ) VALUES ($1, $2, $3, true, $4, $5, $3, 'member', 'admin', NOW(), NOW())
+        status, created_at, updated_at
+      ) VALUES ($1, $2, $3, true, $4, $5, $3, 'member', NOW(), NOW())
       ON CONFLICT (email) DO UPDATE
         SET first_name = EXCLUDED.first_name,
             last_name = EXCLUDED.last_name,
             status = 'member',
-            role = 'admin',
             updated_at = NOW()
       RETURNING id`,
       [userId, `${firstName} ${lastName}`, email, firstName, lastName],
@@ -53,9 +52,9 @@ async function main() {
 
     await client.query(
       `INSERT INTO user_access_grant (
-        user_id, "grant", scope, department, created_at, updated_at
-      ) VALUES ($1, 'admin', 'global', 'none', NOW(), NOW())
-      ON CONFLICT (user_id, "grant", scope, department) DO NOTHING`,
+        user_id, "grant", created_at, updated_at
+      ) VALUES ($1, 'super_admin', NOW(), NOW())
+      ON CONFLICT (user_id, "grant") DO NOTHING`,
       [id],
     );
 
