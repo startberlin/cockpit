@@ -4,9 +4,22 @@ import {
   type PositionHolder,
 } from "@/db/authority";
 import { getProposedPayments } from "@/db/membership-payments";
+import {
+  getLastPaymentDigestSend,
+  recordPaymentDigestSend,
+} from "@/db/payment-proposal-digest";
+import { paymentProposalsFingerprint } from "@/db/payment-proposals-fingerprint";
 import PaymentProposalsDigestEmail from "@/emails/membership/payment/payment-proposals-digest";
 import { sendEmail } from "@/lib/email";
 import { inngest } from "@/lib/inngest";
+
+// Re-send an unchanged digest at most this often. Below the threshold, a digest
+// covering the exact same proposals as the previous send is skipped so finance
+// doesn't get the identical email day after day; once a week has passed the same
+// proposals are surfaced again as a reminder ("at least once per week"). A small
+// margin below 7 days absorbs cron/timestamp jitter so the weekly re-send fires
+// on the 7th daily run rather than slipping to the 8th.
+const RESEND_UNCHANGED_AFTER_MS = 7 * 24 * 60 * 60 * 1000 - 6 * 60 * 60 * 1000;
 
 export const financePaymentProposalsDigest = inngest.createFunction(
   {
@@ -23,6 +36,18 @@ export const financePaymentProposalsDigest = inngest.createFunction(
     // ones finance can actually charge. No-mandate proposals stay on the page
     // (with a "No mandate" badge) but are kept out of the email so an unfinished
     // mandate setup doesn't trigger a daily reminder forever.
+    //
+    // The cron fires every day, but a digest is only actually sent when its
+    // content is new: each send is fingerprinted and logged, and a run whose
+    // proposal set matches the last sent digest is skipped until a week has
+    // passed (see RESEND_UNCHANGED_AFTER_MS). This keeps the reminder to "at
+    // least once per week" without emailing finance the same list day after day.
+    //
+    // The dedup gate reads the last send, then sends, then records — a
+    // read-then-write window. limit: 1 serializes runs so a slow run, manual
+    // re-trigger, or replay can't overlap and double-send: the second run waits,
+    // then sees the first run's recorded send and skips.
+    concurrency: { limit: 1 },
     triggers: [{ cron: "TZ=Europe/Berlin 15 9 * * *" }],
   },
   async ({ step }) => {
@@ -32,6 +57,31 @@ export const financePaymentProposalsDigest = inngest.createFunction(
 
     if (proposals.length === 0) {
       return { outcome: "no_proposals" };
+    }
+
+    // Skip if this exact proposal set was already emailed recently. We compare
+    // against the last recorded send: send when there's no prior digest, when
+    // the content changed, or when a week has elapsed since an identical one.
+    const fingerprint = paymentProposalsFingerprint(proposals);
+    const decision = await step.run("evaluate-dedup", async () => {
+      const lastSend = await getLastPaymentDigestSend();
+      if (!lastSend) return { send: true, reason: "no_prior_send" as const };
+      if (lastSend.fingerprint !== fingerprint) {
+        return { send: true, reason: "content_changed" as const };
+      }
+      const elapsedMs = Date.now() - lastSend.sentAt.getTime();
+      if (elapsedMs >= RESEND_UNCHANGED_AFTER_MS) {
+        return { send: true, reason: "weekly_refresh" as const };
+      }
+      return { send: false, reason: "duplicate_within_window" as const };
+    });
+
+    if (!decision.send) {
+      return {
+        outcome: "skipped_duplicate",
+        reason: decision.reason,
+        proposalCount: proposals.length,
+      };
     }
 
     const recipients = await step.run("fetch-recipients", async () => {
@@ -83,8 +133,16 @@ export const financePaymentProposalsDigest = inngest.createFunction(
       });
     }
 
+    // Record the send only after the emails went out, so a failure before this
+    // point doesn't suppress a retry, and so the weekly-refresh / duplicate
+    // window is anchored to a digest that actually reached finance.
+    await step.run("record-digest-send", () =>
+      recordPaymentDigestSend(fingerprint, proposals.length),
+    );
+
     return {
       outcome: "sent",
+      reason: decision.reason,
       recipientCount: recipients.length,
       proposalCount: proposals.length,
     };

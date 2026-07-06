@@ -10,6 +10,7 @@ export const prefixes = {
   membershipApplication: "ma",
   membershipPaymentCycle: "mc",
   membershipTransitionRequest: "mtr",
+  paymentProposalDigest: "ppd",
   auditLog: "aud",
 } as const;
 
