@@ -3,6 +3,7 @@ import { newId } from "@/lib/id";
 import { unaccentSearch } from "@/lib/search";
 import db from ".";
 import { user } from "./schema/auth";
+import { batch } from "./schema/batch";
 import type {
   MembershipPaymentCycle,
   MembershipPaymentCycleStatus,
@@ -307,6 +308,7 @@ export async function getMembersNeedingProposal(): Promise<
     id: string;
     gocardlessMandateId: string;
     lastActivationDate: string | null;
+    batchStartDate: string | null;
   }>
 > {
   const today = new Date().toISOString().slice(0, 10);
@@ -322,8 +324,10 @@ export async function getMembersNeedingProposal(): Promise<
         ORDER BY mp.activation_date DESC
         LIMIT 1
       )`,
+      batchStartDate: batch.startDate,
     })
     .from(user)
+    .leftJoin(batch, eq(batch.number, user.batchNumber))
     .where(
       and(
         inArray(user.status, ["member", "supporting_alumni"]),
@@ -348,6 +352,7 @@ export async function getMembersNeedingProposal(): Promise<
       id: string;
       gocardlessMandateId: string;
       lastActivationDate: string | null;
+      batchStartDate: string | null;
     }>
   >;
 }
@@ -405,7 +410,11 @@ export async function getActivePaymentTerm(userId: string): Promise<{
 }
 
 export async function batchCreateProposedPayments(
-  members: Array<{ id: string; lastActivationDate: string | null }>,
+  members: Array<{
+    id: string;
+    lastActivationDate: string | null;
+    batchStartDate?: string | null;
+  }>,
 ): Promise<number> {
   if (members.length === 0) return 0;
 
@@ -414,6 +423,15 @@ export async function batchCreateProposedPayments(
     let activationDate: string;
     if (m.lastActivationDate) {
       const d = new Date(m.lastActivationDate);
+      d.setFullYear(d.getFullYear() + 1);
+      activationDate = d.toISOString().slice(0, 10);
+    } else if (m.batchStartDate) {
+      // First proposal for a member finishing onboarding. Anchor their payment
+      // cycle to the date they joined START Berlin (their batch start date) so
+      // everyone in the same batch shares one payment cycle. The first year is
+      // covered by joining, so the first fee is due one year after that date —
+      // not on the (arbitrary) day they legally became a member.
+      const d = new Date(m.batchStartDate);
       d.setFullYear(d.getFullYear() + 1);
       activationDate = d.toISOString().slice(0, 10);
     } else {

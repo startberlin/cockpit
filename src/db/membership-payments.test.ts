@@ -88,3 +88,58 @@ describe("getLastActivationDate next-cycle computation", () => {
     assert.equal(nextDate, "2025-03-01");
   });
 });
+
+describe("batchCreateProposedPayments first-proposal date selection", () => {
+  // Mirrors the branch logic in batchCreateProposedPayments: pick the
+  // activation date for a member's next proposed payment.
+  function pickActivationDate(m: {
+    lastActivationDate: string | null;
+    batchStartDate?: string | null;
+    today: string;
+  }): string {
+    if (m.lastActivationDate) {
+      const d = new Date(m.lastActivationDate);
+      d.setFullYear(d.getFullYear() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+    if (m.batchStartDate) {
+      const d = new Date(m.batchStartDate);
+      d.setFullYear(d.getFullYear() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+    return m.today;
+  }
+
+  it("anchors a new member's first proposal to batch start date + 1 year", () => {
+    assert.equal(
+      pickActivationDate({
+        lastActivationDate: null,
+        batchStartDate: "2025-09-01",
+        today: "2026-01-15",
+      }),
+      "2026-09-01",
+    );
+  });
+
+  it("prefers the renewal cycle over batch start once a member has history", () => {
+    assert.equal(
+      pickActivationDate({
+        lastActivationDate: "2025-03-01",
+        batchStartDate: "2024-09-01",
+        today: "2026-01-15",
+      }),
+      "2026-03-01",
+    );
+  });
+
+  it("falls back to today when a first-time member has no batch", () => {
+    assert.equal(
+      pickActivationDate({
+        lastActivationDate: null,
+        batchStartDate: null,
+        today: "2026-01-15",
+      }),
+      "2026-01-15",
+    );
+  });
+});
