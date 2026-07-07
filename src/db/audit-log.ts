@@ -25,6 +25,10 @@ export async function getAuditLogPage(
       auditLog.actorName,
       auditLog.subjectName,
       auditLog.eventType,
+      // Include the human-readable subtitle so events are findable by what the
+      // UI actually shows — e.g. an email's subject line, which is stored here
+      // (email.sent entries keep the subject in `description`, not eventType).
+      auditLog.description,
     );
     if (searchClause) conditions.push(searchClause);
   }
