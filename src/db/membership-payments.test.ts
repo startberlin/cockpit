@@ -103,21 +103,22 @@ describe("batchCreateProposedPayments first-proposal date selection", () => {
       return d.toISOString().slice(0, 10);
     }
     if (m.batchStartDate) {
-      const d = new Date(m.batchStartDate);
-      d.setFullYear(d.getFullYear() + 1);
-      return d.toISOString().slice(0, 10);
+      return m.batchStartDate;
     }
     return m.today;
   }
 
-  it("anchors a new member's first proposal to batch start date + 1 year", () => {
+  it("anchors a new member's first proposal to the batch start date", () => {
+    // Covers the member's first year (batch start → +1 year). Onboarding
+    // finishes after the batch starts, so this is typically in the past and the
+    // proposal is immediately due.
     assert.equal(
       pickActivationDate({
         lastActivationDate: null,
         batchStartDate: "2025-09-01",
         today: "2026-01-15",
       }),
-      "2026-09-01",
+      "2025-09-01",
     );
   });
 
