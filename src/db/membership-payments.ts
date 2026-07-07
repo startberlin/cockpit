@@ -428,12 +428,14 @@ export async function batchCreateProposedPayments(
     } else if (m.batchStartDate) {
       // First proposal for a member finishing onboarding. Anchor their payment
       // cycle to the date they joined START Berlin (their batch start date) so
-      // everyone in the same batch shares one payment cycle. The first year is
-      // covered by joining, so the first fee is due one year after that date —
-      // not on the (arbitrary) day they legally became a member.
-      const d = new Date(m.batchStartDate);
-      d.setFullYear(d.getFullYear() + 1);
-      activationDate = d.toISOString().slice(0, 10);
+      // everyone in the same batch shares one payment cycle. The first fee
+      // covers their first year (batch start → +1 year). Onboarding completes
+      // after the batch has already started, so this date is normally in the
+      // past — which is intended: the proposal is immediately due and collected
+      // once the member's mandate is set up, rather than being anchored to the
+      // arbitrary day they legally became a member. Renewals then fall on the
+      // batch anniversary (lastActivationDate + 1 year).
+      activationDate = m.batchStartDate;
     } else {
       activationDate = today;
     }
