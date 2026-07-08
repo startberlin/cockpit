@@ -1,5 +1,5 @@
 {
-  "id": "20ba12ff-fa54-482e-9813-a4cd6f0e8aeb",
+  "id": "e646ddf2-9dd8-4ddd-9ad5-f86cf5b6c9b4",
   "prevId": "dcf898a4-c0e7-4c70-bf4f-718b9adb7271",
   "version": "7",
   "dialect": "postgresql",
@@ -819,22 +819,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "one_department_co_head_per_department_unique": {
-          "name": "one_department_co_head_per_department_unique",
-          "columns": [
-            {
-              "expression": "department",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"user_organization_position\".\"position\" = 'department_co_head' AND \"user_organization_position\".\"scope\" = 'department'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -859,7 +843,7 @@
       "checkConstraints": {
         "user_organization_position_valid_scope_check": {
           "name": "user_organization_position_valid_scope_check",
-          "value": "(\n        (\"user_organization_position\".\"position\" IN ('president', 'vice_president', 'head_of_finance') AND \"user_organization_position\".\"scope\" = 'global' AND \"user_organization_position\".\"department\" IS NULL)\n        OR (\"user_organization_position\".\"position\" IN ('department_head', 'department_co_head') AND \"user_organization_position\".\"scope\" = 'department' AND \"user_organization_position\".\"department\" IS NOT NULL)\n      )"
+          "value": "(\n        (\"user_organization_position\".\"position\" IN ('president', 'vice_president', 'head_of_finance') AND \"user_organization_position\".\"scope\" = 'global' AND \"user_organization_position\".\"department\" IS NULL)\n        OR (\"user_organization_position\".\"position\" IN ('department_head', 'department_co_lead') AND \"user_organization_position\".\"scope\" = 'department' AND \"user_organization_position\".\"department\" IS NOT NULL)\n      )"
         }
       },
       "isRLSEnabled": false
@@ -1735,7 +1719,7 @@
         "vice_president",
         "head_of_finance",
         "department_head",
-        "department_co_head"
+        "department_co_lead"
       ]
     },
     "public.email_suppression_reason": {

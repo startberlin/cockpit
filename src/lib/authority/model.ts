@@ -11,13 +11,14 @@ export type GlobalOrganizationPosition =
 
 export const departmentHeadPosition = "department_head";
 
-export const departmentCoHeadPosition = "department_co_head";
+export const departmentCoLeadPosition = "department_co_lead";
 
-// Positions that grant department-lead authority. A co-head receives the same
-// permissions and is included in the same workflows as the head.
+// Positions that grant department-lead authority. A co-lead receives the same
+// permissions and is included in the same workflows as the head. A department
+// has at most one head but any number of co-leads.
 export const departmentLeadPositions = [
   departmentHeadPosition,
-  departmentCoHeadPosition,
+  departmentCoLeadPosition,
 ] as const;
 
 export type DepartmentLeadPosition = (typeof departmentLeadPositions)[number];

@@ -23,7 +23,7 @@ const schema = z.object({
   vice_president: z.string().nullable(),
   head_of_finance: z.string().nullable(),
   departmentHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
-  departmentCoHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
+  departmentCoLeads: z.record(z.enum(DEPARTMENT_IDS), z.array(z.string())),
 });
 
 export const updatePositionsAction = actionClient
@@ -55,21 +55,28 @@ export const updatePositionsAction = actionClient
           holderFromId(userId),
         ]),
       ) as Partial<Record<Department, PositionHolder | null>>,
-      departmentCoHeads: Object.fromEntries(
-        Object.entries(parsedInput.departmentCoHeads).map(([dept, userId]) => [
+      departmentCoLeads: Object.fromEntries(
+        Object.entries(parsedInput.departmentCoLeads).map(([dept, userIds]) => [
           dept,
-          holderFromId(userId),
+          // De-duplicate co-leads while resolving each to an eligible holder.
+          [...new Set(userIds)].map((id) => {
+            const holder = holderFromId(id);
+            if (!holder) {
+              throw new Error(`User ${id} is not eligible for position`);
+            }
+            return holder;
+          }),
         ]),
-      ) as Partial<Record<Department, PositionHolder | null>>,
+      ) as Partial<Record<Department, PositionHolder[]>>,
     };
 
-    // A member cannot be both head and co-head of the same department.
+    // A member cannot be both head and co-lead of the same department.
     for (const dept of DEPARTMENT_IDS) {
       const head = next.departmentHeads[dept] ?? null;
-      const coHead = next.departmentCoHeads[dept] ?? null;
-      if (head && coHead && head.userId === coHead.userId) {
+      const coLeads = next.departmentCoLeads[dept] ?? [];
+      if (head && coLeads.some((c) => c.userId === head.userId)) {
         throw new Error(
-          `The head and co-head of ${DEPARTMENT_NAMES[dept]} must be different members.`,
+          `A member cannot be both head and co-lead of ${DEPARTMENT_NAMES[dept]}.`,
         );
       }
     }
@@ -198,47 +205,48 @@ export const updatePositionsAction = actionClient
         }
 
         for (const dept of DEPARTMENT_IDS) {
-          const oldHolder = previous.departmentCoHeads[dept] ?? null;
-          const newHolder = next.departmentCoHeads[dept] ?? null;
+          const label = `Co-Lead of ${DEPARTMENT_NAMES[dept]}`;
+          const oldCoLeads = previous.departmentCoLeads[dept] ?? [];
+          const newCoLeads = next.departmentCoLeads[dept] ?? [];
+          const oldById = new Map(oldCoLeads.map((c) => [c.userId, c]));
+          const newById = new Map(newCoLeads.map((c) => [c.userId, c]));
 
-          if (oldHolder?.userId === newHolder?.userId) continue;
-
-          const label = `Co-Head of ${DEPARTMENT_NAMES[dept]}`;
-
-          if (oldHolder) {
+          for (const [userId, holder] of oldById) {
+            if (newById.has(userId)) continue;
             pendingEvents.push({
-              id: `pos-removed-v1-${oldHolder.userId}-department_co_head-${dept}`,
+              id: `pos-removed-v1-${holder.userId}-department_co_lead-${dept}`,
               name: events.positionAssignmentDeleted.name,
               data: {
-                email: oldHolder.email,
-                firstName: oldHolder.firstName,
+                email: holder.email,
+                firstName: holder.firstName,
                 positionLabel: label,
               },
             });
             positionChanges.push({
               eventType: "authority.position_removed",
-              subjectId: oldHolder.userId,
+              subjectId: holder.userId,
               subjectName:
-                `${oldHolder.firstName} ${oldHolder.lastName ?? ""}`.trim(),
+                `${holder.firstName} ${holder.lastName ?? ""}`.trim(),
               position: label,
             });
           }
 
-          if (newHolder) {
+          for (const [userId, holder] of newById) {
+            if (oldById.has(userId)) continue;
             pendingEvents.push({
-              id: `pos-assigned-v1-${newHolder.userId}-department_co_head-${dept}`,
+              id: `pos-assigned-v1-${holder.userId}-department_co_lead-${dept}`,
               name: events.positionAssignmentCreated.name,
               data: {
-                email: newHolder.email,
-                firstName: newHolder.firstName,
+                email: holder.email,
+                firstName: holder.firstName,
                 positionLabel: label,
               },
             });
             positionChanges.push({
               eventType: "authority.position_assigned",
-              subjectId: newHolder.userId,
+              subjectId: holder.userId,
               subjectName:
-                `${newHolder.firstName} ${newHolder.lastName ?? ""}`.trim(),
+                `${holder.firstName} ${holder.lastName ?? ""}`.trim(),
               position: label,
             });
           }

@@ -5,21 +5,20 @@ import { PlaceholderCard } from "./placeholder-card";
 // Rendered in grid row 1 so CSS grid normalises all head cells to the same
 // height. The fixed 14px stub below extends the connector line to row 2.
 export function DeptHeadCell({ dept }: { dept: OrgChartDept }) {
-  const { head, coHead, departmentName, members } = dept;
-  const hasMembers = members.length > 0;
+  const { head, coLeads, departmentName, members } = dept;
+  // Co-leads render as member-style cards below the head, so they also anchor
+  // the connector stub when there is no head and no ordinary members.
+  const hasChildren = members.length > 0 || coLeads.length > 0;
 
   return (
     <div style={{ display: "grid", gridTemplateRows: "1fr 14px" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {head ? (
-          <PersonCard person={head} subtitle={head.roleLabel} />
-        ) : (
-          <PlaceholderCard text={`No Head of ${departmentName} assigned`} />
-        )}
-        {coHead && <PersonCard person={coHead} subtitle={coHead.roleLabel} />}
-      </div>
+      {head ? (
+        <PersonCard person={head} subtitle={head.roleLabel} />
+      ) : (
+        <PlaceholderCard text={`No Head of ${departmentName} assigned`} />
+      )}
       <div style={{ position: "relative" }}>
-        {hasMembers && (
+        {hasChildren && (
           <div
             style={{
               position: "absolute",

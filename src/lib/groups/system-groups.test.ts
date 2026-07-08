@@ -90,13 +90,13 @@ describe("getSystemGroupsForUser", () => {
     );
   });
 
-  it("department_co_head for events gets the same groups as the head", () => {
+  it("department_co_lead for events gets the same groups as the head", () => {
     const u = user({
       status: "member",
       department: "events",
       batchNumber: null,
     });
-    const positions = [position("department_co_head", "events")];
+    const positions = [position("department_co_lead", "events")];
     const result = slugs(getSystemGroupsForUser(u, positions, BATCHES));
     assert.deepEqual(
       result,

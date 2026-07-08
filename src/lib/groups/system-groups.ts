@@ -137,7 +137,7 @@ const DEPT_SYSTEM_GROUP_DEFS: SystemGroupDef[] = DEPARTMENT_IDS.flatMap(
         positions.some(
           (p) =>
             (p.position === "department_head" ||
-              p.position === "department_co_head") &&
+              p.position === "department_co_lead") &&
             p.department === dept,
         ),
     },

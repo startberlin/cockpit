@@ -77,11 +77,11 @@ describe("permissions", () => {
     );
   });
 
-  it("grants department co-heads the same authority as the head", () => {
-    const coHead = authority({
+  it("grants department co-leads the same authority as the head", () => {
+    const coLead = authority({
       positions: [
         {
-          position: "department_co_head",
+          position: "department_co_lead",
           scope: "department",
           department: "events",
         },
@@ -90,24 +90,24 @@ describe("permissions", () => {
 
     // Same permissions as a head within their department...
     assert.equal(
-      evaluateAuth(coHead, "user.view_details", { targetDepartment: "events" }),
+      evaluateAuth(coLead, "user.view_details", { targetDepartment: "events" }),
       true,
     );
     assert.equal(
-      evaluateAuth(coHead, "user.membership.propose", {
+      evaluateAuth(coLead, "user.membership.propose", {
         targetDepartment: "events",
       }),
       true,
     );
     assert.equal(
-      evaluateAuth(coHead, "membership.transition.decide", {
+      evaluateAuth(coLead, "membership.transition.decide", {
         targetDepartment: "events",
       }),
       true,
     );
     // ...and correctly scoped to their department only.
     assert.equal(
-      evaluateAuth(coHead, "user.view_details", { targetDepartment: "growth" }),
+      evaluateAuth(coLead, "user.view_details", { targetDepartment: "growth" }),
       false,
     );
   });
