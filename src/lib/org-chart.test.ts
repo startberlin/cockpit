@@ -55,6 +55,34 @@ const eventsHead = makeUser({
   ],
 });
 
+const eventsCoLead1 = makeUser({
+  id: "usr_events_colead1",
+  firstName: "Iris",
+  batchNumber: 3,
+  department: "events",
+  positions: [
+    {
+      position: "department_co_lead",
+      scope: "department",
+      department: "events",
+    },
+  ],
+});
+
+const eventsCoLead2 = makeUser({
+  id: "usr_events_colead2",
+  firstName: "Jun",
+  batchNumber: 4,
+  department: "events",
+  positions: [
+    {
+      position: "department_co_lead",
+      scope: "department",
+      department: "events",
+    },
+  ],
+});
+
 const eventsMember1 = makeUser({
   id: "usr_events_m1",
   firstName: "Evan",
@@ -143,6 +171,47 @@ describe("buildOrgChart", () => {
     const { departments } = buildOrgChart([eventsHead, eventsMember1]);
     const events = departments.find((d) => d.departmentId === "events");
     assert.ok(!events?.members.find((m) => m.userId === "usr_events_head"));
+  });
+
+  it("dept co-leads appear in coLeads with the correct roleLabel", () => {
+    const { departments } = buildOrgChart([
+      eventsHead,
+      eventsCoLead1,
+      eventsCoLead2,
+    ]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.ok(events);
+    assert.equal(events.head?.userId, "usr_events_head");
+    assert.deepEqual(
+      events.coLeads.map((c) => c.userId),
+      ["usr_events_colead1", "usr_events_colead2"],
+    );
+    assert.equal(events.coLeads[0].roleLabel, "Co-Lead of Events");
+    assert.equal(events.coLeads[1].roleLabel, "Co-Lead of Events");
+  });
+
+  it("supports co-leads with no head assigned", () => {
+    const { departments } = buildOrgChart([eventsCoLead1, eventsCoLead2]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.equal(events?.head, null);
+    assert.equal(events?.coLeads.length, 2);
+  });
+
+  it("dept co-leads are not duplicated as dept members", () => {
+    const { departments } = buildOrgChart([
+      eventsHead,
+      eventsCoLead1,
+      eventsMember1,
+    ]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.ok(!events?.members.find((m) => m.userId === "usr_events_colead1"));
+    assert.ok(events?.members.find((m) => m.userId === "usr_events_m1"));
+  });
+
+  it("coLeads is empty when no co-lead is assigned", () => {
+    const { departments } = buildOrgChart([eventsHead]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.deepEqual(events?.coLeads, []);
   });
 
   it("global officer with a department is not added to dept members", () => {

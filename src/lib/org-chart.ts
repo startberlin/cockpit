@@ -20,6 +20,11 @@ export interface OrgChartDeptHead extends OrgChartPerson {
   roleLabel: string;
 }
 
+// A co-lead is rendered like a regular department member but keeps a role label.
+export interface OrgChartDeptCoLead extends OrgChartPerson {
+  roleLabel: string;
+}
+
 export interface OrgChartMember extends OrgChartPerson {
   status: string;
 }
@@ -28,6 +33,7 @@ export interface OrgChartDept {
   departmentId: Department;
   departmentName: string;
   head: OrgChartDeptHead | null;
+  coLeads: OrgChartDeptCoLead[];
   members: OrgChartMember[];
 }
 
@@ -56,6 +62,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
   const officerByPosition = new Map<string, OrgChartUser>();
   const officerIds = new Set<string>();
   const deptHeadByDept = new Map<Department, OrgChartUser>();
+  const deptCoLeadsByDept = new Map<Department, OrgChartUser[]>();
 
   for (const user of users) {
     for (const pos of user.positions) {
@@ -75,12 +82,25 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
         if (!deptHeadByDept.has(pos.department as Department)) {
           deptHeadByDept.set(pos.department as Department, user);
         }
+      } else if (
+        pos.scope === "department" &&
+        pos.position === "department_co_lead" &&
+        pos.department
+      ) {
+        const list = deptCoLeadsByDept.get(pos.department as Department) ?? [];
+        if (!list.some((u) => u.id === user.id)) {
+          list.push(user);
+        }
+        deptCoLeadsByDept.set(pos.department as Department, list);
       }
     }
   }
 
-  const deptHeadIds = new Set(
-    Array.from(deptHeadByDept.values()).map((u) => u.id),
+  const deptLeadIds = new Set(
+    [
+      ...Array.from(deptHeadByDept.values()),
+      ...Array.from(deptCoLeadsByDept.values()).flat(),
+    ].map((u) => u.id),
   );
 
   const officers: OrgChartOfficer[] = GLOBAL_POSITION_ORDER.filter((p) =>
@@ -104,7 +124,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
 
   for (const user of users) {
     if (officerIds.has(user.id)) continue;
-    if (deptHeadIds.has(user.id)) continue;
+    if (deptLeadIds.has(user.id)) continue;
     if (!user.department) continue;
     membersByDept.get(user.department as Department)?.push(user);
   }
@@ -123,6 +143,17 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
         }
       : null;
 
+    const coLeads: OrgChartDeptCoLead[] = (
+      deptCoLeadsByDept.get(deptId) ?? []
+    ).map((u) => ({
+      userId: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      image: u.image,
+      batchNumber: u.batchNumber,
+      roleLabel: `Co-Lead of ${deptName}`,
+    }));
+
     const members: OrgChartMember[] = (membersByDept.get(deptId) ?? []).map(
       (u) => ({
         userId: u.id,
@@ -138,7 +169,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       departmentId: deptId,
       departmentName: deptName,
       head,
-
+      coLeads,
       members,
     };
   });

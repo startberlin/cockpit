@@ -77,6 +77,41 @@ describe("permissions", () => {
     );
   });
 
+  it("grants department co-leads the same authority as the head", () => {
+    const coLead = authority({
+      positions: [
+        {
+          position: "department_co_lead",
+          scope: "department",
+          department: "events",
+        },
+      ],
+    });
+
+    // Same permissions as a head within their department...
+    assert.equal(
+      evaluateAuth(coLead, "user.view_details", { targetDepartment: "events" }),
+      true,
+    );
+    assert.equal(
+      evaluateAuth(coLead, "user.membership.propose", {
+        targetDepartment: "events",
+      }),
+      true,
+    );
+    assert.equal(
+      evaluateAuth(coLead, "membership.transition.decide", {
+        targetDepartment: "events",
+      }),
+      true,
+    );
+    // ...and correctly scoped to their department only.
+    assert.equal(
+      evaluateAuth(coLead, "user.view_details", { targetDepartment: "growth" }),
+      false,
+    );
+  });
+
   it("allows legal officers to view member details in any department", () => {
     assert.equal(
       evaluateAuth(
