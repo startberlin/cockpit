@@ -11,9 +11,27 @@ export type GlobalOrganizationPosition =
 
 export const departmentHeadPosition = "department_head";
 
+export const departmentCoLeadPosition = "department_co_lead";
+
+// Positions that grant department-lead authority. A co-lead receives the same
+// permissions and is included in the same workflows as the head. A department
+// has at most one head but any number of co-leads.
+export const departmentLeadPositions = [
+  departmentHeadPosition,
+  departmentCoLeadPosition,
+] as const;
+
+export type DepartmentLeadPosition = (typeof departmentLeadPositions)[number];
+
+export function isDepartmentLeadPosition(
+  position: string,
+): position is DepartmentLeadPosition {
+  return (departmentLeadPositions as readonly string[]).includes(position);
+}
+
 export const organizationPositions = [
   ...globalOrganizationPositions,
-  departmentHeadPosition,
+  ...departmentLeadPositions,
 ] as const;
 
 export type OrganizationPosition = (typeof organizationPositions)[number];
@@ -49,7 +67,7 @@ export type PositionAssignment =
       scope: "global";
     }
   | {
-      position: typeof departmentHeadPosition;
+      position: DepartmentLeadPosition;
       scope: "department";
       department: Department;
     };

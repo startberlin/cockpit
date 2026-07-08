@@ -17,6 +17,7 @@ const POSITION_LABELS: Record<OrganizationPosition, string> = {
   vice_president: "Vice President",
   head_of_finance: "Head of Finance",
   department_head: "Head of Department",
+  department_co_lead: "Co-Lead of Department",
 };
 
 const GRANT_LABELS: Record<AccessGrant, string> = {
@@ -65,7 +66,9 @@ export async function PermissionsSection({ userId }: PermissionsSectionProps) {
                 const label =
                   p.position === "department_head" && p.department
                     ? `Head of ${DEPARTMENT_NAMES[p.department]}`
-                    : POSITION_LABELS[p.position];
+                    : p.position === "department_co_lead" && p.department
+                      ? `Co-Lead of ${DEPARTMENT_NAMES[p.department]}`
+                      : POSITION_LABELS[p.position];
                 return (
                   <div key={i} className="flex items-center justify-between">
                     <span className="text-sm font-medium">{label}</span>

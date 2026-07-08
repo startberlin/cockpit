@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import db from "@/db";
-import { getPositionAssignments } from "@/db/authority";
+import { getDepartmentLeads, getPositionAssignments } from "@/db/authority";
 import { user as userTable } from "@/db/schema";
 import { DepartmentChangedDeptHeadEmail } from "@/emails/admin/department-changed-dept-head";
 import { DepartmentChangedMemberEmail } from "@/emails/admin/department-changed-member";
@@ -124,24 +124,18 @@ export const changeDepartmentAction = actionClient
     }
 
     const positions = await getPositionAssignments();
-    const oldHead = existingUser.department
-      ? (positions.departmentHeads[existingUser.department] ?? null)
-      : null;
-    const newHead =
-      positions.departmentHeads[
-        parsedInput.department as keyof typeof positions.departmentHeads
-      ] ?? null;
-
-    if (oldHead !== null && oldHead.email === null) {
-      console.warn(
-        `[change-department] Old department head has no email (userId=${oldHead.userId}, department=${existingUser.department}) — skipping notification`,
-      );
-    }
-    if (newHead !== null && newHead.email === null) {
-      console.warn(
-        `[change-department] New department head has no email (userId=${newHead.userId}, department=${parsedInput.department}) — skipping notification`,
-      );
-    }
+    // Both the head and co-head of a department are notified. The subject is
+    // excluded in case they lead the department they're moving between.
+    const oldLeads = getDepartmentLeads(
+      positions,
+      existingUser.department,
+      existingUser.id,
+    );
+    const newLeads = getDepartmentLeads(
+      positions,
+      parsedInput.department,
+      existingUser.id,
+    );
 
     const memberName = subjectName;
     const memberEmail = existingUser.email ?? "";
@@ -171,73 +165,71 @@ export const changeDepartmentAction = actionClient
       );
     }
 
-    const sameHead =
-      oldHead !== null && newHead !== null && oldHead.userId === newHead.userId;
+    // Determine, per lead, whether the member joined or left their department.
+    // A lead of the new department always sees a "joined" (this also covers a
+    // person who leads both the old and new department). A lead of only the old
+    // department sees a "left".
+    const newLeadIds = new Set(newLeads.map((l) => l.userId));
 
-    if (sameHead && oldHead !== null && oldHead.email !== null) {
-      // Old and new head are the same person — send one "joined" email for the new department
+    type LeadNotification = {
+      holder: (typeof newLeads)[number];
+      direction: "joined" | "left";
+      department: typeof parsedInput.department;
+    };
+
+    const leadNotifications = new Map<string, LeadNotification>();
+
+    for (const lead of newLeads) {
+      leadNotifications.set(lead.userId, {
+        holder: lead,
+        direction: "joined",
+        department: parsedInput.department,
+      });
+    }
+
+    for (const lead of oldLeads) {
+      if (newLeadIds.has(lead.userId)) continue;
+      leadNotifications.set(lead.userId, {
+        holder: lead,
+        direction: "left",
+        department: (existingUser.department ??
+          parsedInput.department) as typeof parsedInput.department,
+      });
+    }
+
+    for (const {
+      holder,
+      direction,
+      department,
+    } of leadNotifications.values()) {
+      if (holder.email === null) {
+        console.warn(
+          `[change-department] Department lead has no email (userId=${holder.userId}) — skipping notification`,
+        );
+        continue;
+      }
+
       try {
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-          to: oldHead.email,
-          subject: `${memberName} has joined your department`,
+          to: holder.email,
+          subject:
+            direction === "joined"
+              ? `${memberName} has joined your department`
+              : `${memberName} has left your department`,
           react: DepartmentChangedDeptHeadEmail({
-            firstName: oldHead.firstName,
+            firstName: holder.firstName,
             memberName,
             memberEmail,
-            department: parsedInput.department,
-            direction: "joined",
+            department,
+            direction,
           }),
         });
       } catch (err) {
         console.error(
-          `[change-department] Failed to send dept head (same head) notification (userId=${oldHead.userId}):`,
+          `[change-department] Failed to send dept lead notification (userId=${holder.userId}):`,
           err,
         );
-      }
-    } else {
-      if (oldHead !== null && oldHead.email !== null) {
-        try {
-          await sendEmail({
-            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-            to: oldHead.email,
-            subject: `${memberName} has left your department`,
-            react: DepartmentChangedDeptHeadEmail({
-              firstName: oldHead.firstName,
-              memberName,
-              memberEmail,
-              department: existingUser.department ?? parsedInput.department,
-              direction: "left",
-            }),
-          });
-        } catch (err) {
-          console.error(
-            `[change-department] Failed to send old dept head notification (userId=${oldHead.userId}):`,
-            err,
-          );
-        }
-      }
-
-      if (newHead !== null && newHead.email !== null) {
-        try {
-          await sendEmail({
-            from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-            to: newHead.email,
-            subject: `${memberName} has joined your department`,
-            react: DepartmentChangedDeptHeadEmail({
-              firstName: newHead.firstName,
-              memberName,
-              memberEmail,
-              department: parsedInput.department,
-              direction: "joined",
-            }),
-          });
-        } catch (err) {
-          console.error(
-            `[change-department] Failed to send new dept head notification (userId=${newHead.userId}):`,
-            err,
-          );
-        }
       }
     }
 
