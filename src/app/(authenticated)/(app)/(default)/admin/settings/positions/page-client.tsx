@@ -58,9 +58,57 @@ export default function AdminSettingsPageClient({
     ) as Record<Department, PositionHolder | null>,
   );
 
+  const [deptCoLeadSelections, setDeptCoLeadSelections] = useState<
+    Record<Department, PositionHolder[]>
+  >(
+    Object.fromEntries(
+      DEPARTMENT_IDS.map((dept) => [
+        dept,
+        positions.departmentCoLeads[dept] ?? [],
+      ]),
+    ) as Record<Department, PositionHolder[]>,
+  );
+
   const [isSaving, setIsSaving] = useState(false);
 
+  const setCoLeadAt = (
+    dept: Department,
+    index: number,
+    holder: PositionHolder | null,
+  ) => {
+    setDeptCoLeadSelections((prev) => {
+      const next = [...(prev[dept] ?? [])];
+      if (holder === null) {
+        next.splice(index, 1);
+      } else {
+        next[index] = holder;
+      }
+      return { ...prev, [dept]: next };
+    });
+  };
+
+  const addCoLead = (dept: Department, holder: PositionHolder) => {
+    setDeptCoLeadSelections((prev) => {
+      const current = prev[dept] ?? [];
+      if (current.some((c) => c.userId === holder.userId)) return prev;
+      return { ...prev, [dept]: [...current, holder] };
+    });
+  };
+
   const handleSave = async () => {
+    const duplicateDept = DEPARTMENT_IDS.find((dept) => {
+      const headId = deptSelections[dept]?.userId;
+      return (
+        headId && deptCoLeadSelections[dept]?.some((c) => c.userId === headId)
+      );
+    });
+    if (duplicateDept) {
+      toast.error(
+        `A member cannot be both head and co-lead of ${DEPARTMENT_NAMES[duplicateDept]}.`,
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       const result = await updatePositionsAction({
@@ -73,6 +121,12 @@ export default function AdminSettingsPageClient({
             deptSelections[dept]?.userId ?? null,
           ]),
         ) as Record<Department, string | null>,
+        departmentCoLeads: Object.fromEntries(
+          DEPARTMENT_IDS.map((dept) => [
+            dept,
+            (deptCoLeadSelections[dept] ?? []).map((c) => c.userId),
+          ]),
+        ) as Record<Department, string[]>,
       });
 
       if (result?.serverError || result?.validationErrors) {
@@ -119,21 +173,73 @@ export default function AdminSettingsPageClient({
           ))}
 
           <div className="border-t pt-4 mt-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-              Department heads
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+              Department leads
             </p>
-            <div className="space-y-4">
-              {DEPARTMENT_IDS.map((dept) => (
-                <PositionRow
-                  key={dept}
-                  label={`Head of ${DEPARTMENT_NAMES[dept]}`}
-                  value={deptSelections[dept]}
-                  eligibleUsers={eligibleUsers}
-                  onChange={(holder) =>
-                    setDeptSelections((prev) => ({ ...prev, [dept]: holder }))
-                  }
-                />
-              ))}
+            <p className="text-xs text-muted-foreground mb-3">
+              Each department has at most one head and any number of co-leads.
+              Co-leads have the same permissions as the head.
+            </p>
+            <div className="space-y-6">
+              {DEPARTMENT_IDS.map((dept) => {
+                const head = deptSelections[dept];
+                const coLeads = deptCoLeadSelections[dept] ?? [];
+                const chosenIds = new Set(
+                  [head, ...coLeads]
+                    .filter((h): h is PositionHolder => h !== null)
+                    .map((h) => h.userId),
+                );
+
+                return (
+                  <div key={dept} className="space-y-3">
+                    <PositionRow
+                      label={`Head of ${DEPARTMENT_NAMES[dept]}`}
+                      value={head}
+                      eligibleUsers={eligibleUsers.filter(
+                        (u) =>
+                          !chosenIds.has(u.userId) || u.userId === head?.userId,
+                      )}
+                      onChange={(holder) =>
+                        setDeptSelections((prev) => ({
+                          ...prev,
+                          [dept]: holder,
+                        }))
+                      }
+                    />
+                    {coLeads.map((coLead, idx) => (
+                      <PositionRow
+                        key={coLead.userId}
+                        label={
+                          idx === 0
+                            ? `Co-Leads of ${DEPARTMENT_NAMES[dept]}`
+                            : ""
+                        }
+                        value={coLead}
+                        eligibleUsers={eligibleUsers.filter(
+                          (u) =>
+                            !chosenIds.has(u.userId) ||
+                            u.userId === coLead.userId,
+                        )}
+                        onChange={(holder) => setCoLeadAt(dept, idx, holder)}
+                      />
+                    ))}
+                    <PositionRow
+                      key={`add-${coLeads.length}`}
+                      label={
+                        coLeads.length === 0
+                          ? `Co-Leads of ${DEPARTMENT_NAMES[dept]}`
+                          : ""
+                      }
+                      placeholder="Add a co-lead"
+                      value={null}
+                      eligibleUsers={eligibleUsers.filter(
+                        (u) => !chosenIds.has(u.userId),
+                      )}
+                      onChange={(holder) => holder && addCoLead(dept, holder)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -153,11 +259,13 @@ function PositionRow({
   value,
   eligibleUsers,
   onChange,
+  placeholder = "Unassigned",
 }: {
   label: string;
   value: PositionHolder | null;
   eligibleUsers: PositionHolder[];
   onChange: (holder: PositionHolder | null) => void;
+  placeholder?: string;
 }) {
   return (
     <div className="flex items-center gap-4">
@@ -170,7 +278,7 @@ function PositionRow({
         itemToStringValue={(u) => `${u.firstName} ${u.lastName}`}
         isItemEqualToValue={(a, b) => a.userId === b.userId}
       >
-        <ComboboxInput placeholder="Unassigned" showClear className="w-64" />
+        <ComboboxInput placeholder={placeholder} showClear className="w-64" />
         <ComboboxContent>
           <ComboboxEmpty>No members found.</ComboboxEmpty>
           <ComboboxList>

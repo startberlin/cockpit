@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { department } from "@/db/schema/auth";
 import {
-  departmentHeadPosition,
+  departmentLeadPositions,
   globalAccessGrants,
   globalOrganizationPositions,
 } from "./model";
@@ -14,7 +14,7 @@ export const positionAssignmentSchema = z.union([
     scope: z.literal("global"),
   }),
   z.object({
-    position: z.literal(departmentHeadPosition),
+    position: z.enum(departmentLeadPositions),
     scope: z.literal("department"),
     department: departmentValue,
   }),

@@ -65,6 +65,7 @@ export const userOrganizationPosition = pgTable(
       .where(
         sql`${table.position} = 'head_of_finance' AND ${table.scope} = 'global'`,
       ),
+    // A department has at most one head (unique), but any number of co-leads.
     uniqueIndex("one_department_head_per_department_unique")
       .on(table.department)
       .where(
@@ -74,7 +75,7 @@ export const userOrganizationPosition = pgTable(
       "user_organization_position_valid_scope_check",
       sql`(
         (${table.position} IN ('president', 'vice_president', 'head_of_finance') AND ${table.scope} = 'global' AND ${table.department} IS NULL)
-        OR (${table.position} = 'department_head' AND ${table.scope} = 'department' AND ${table.department} IS NOT NULL)
+        OR (${table.position} IN ('department_head', 'department_co_lead') AND ${table.scope} = 'department' AND ${table.department} IS NOT NULL)
       )`,
     ),
   ],

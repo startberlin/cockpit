@@ -1,6 +1,7 @@
 import type { Department } from "@/db/schema/auth";
 import {
   isActiveAuthorityStatus,
+  isDepartmentLeadPosition,
   type UserAuthority,
 } from "@/lib/authority/model";
 
@@ -143,6 +144,8 @@ function isHeadOfFinance(authority: UserAuthority) {
   );
 }
 
+// True for both the department head and the department co-head — they hold the
+// same authority.
 function isDepartmentHead(
   authority: UserAuthority,
   targetDepartment?: Department | null,
@@ -150,7 +153,7 @@ function isDepartmentHead(
   return authority.positions.some((assignment) => {
     if (
       assignment.scope !== "department" ||
-      assignment.position !== "department_head"
+      !isDepartmentLeadPosition(assignment.position)
     ) {
       return false;
     }

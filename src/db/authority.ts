@@ -6,11 +6,12 @@ import {
 } from "@/lib/authority/assignments";
 import {
   type AuthorityScope,
-  departmentHeadPosition,
+  type DepartmentLeadPosition,
   type GlobalOrganizationPosition,
   type GrantAssignment,
   globalAccessGrants,
   globalOrganizationPositions,
+  isDepartmentLeadPosition,
   type OrganizationPosition,
   type PositionAssignment,
   type UserAuthority,
@@ -50,10 +51,10 @@ function isGlobalOrganizationPosition(
   ).includes(position);
 }
 
-function isDepartmentHeadPosition(
+function isDepartmentLeadOrgPosition(
   position: OrganizationPosition,
-): position is typeof departmentHeadPosition {
-  return position === departmentHeadPosition;
+): position is DepartmentLeadPosition {
+  return isDepartmentLeadPosition(position);
 }
 
 async function findAuthorityUserById(userId: string) {
@@ -87,7 +88,7 @@ function mapPositionAssignment(
 
   if (
     assignment.scope === "department" &&
-    isDepartmentHeadPosition(assignment.position) &&
+    isDepartmentLeadOrgPosition(assignment.position) &&
     assignment.department !== null
   ) {
     return {
@@ -160,7 +161,10 @@ export interface PositionAssignments {
   president: PositionHolder | null;
   vice_president: PositionHolder | null;
   head_of_finance: PositionHolder | null;
+  // At most one head per department...
   departmentHeads: Partial<Record<Department, PositionHolder | null>>;
+  // ...but any number of co-leads.
+  departmentCoLeads: Partial<Record<Department, PositionHolder[]>>;
 }
 
 export async function getPositionAssignments(
@@ -180,6 +184,7 @@ export async function getPositionAssignments(
     vice_president: null,
     head_of_finance: null,
     departmentHeads: {},
+    departmentCoLeads: {},
   };
 
   for (const row of rows) {
@@ -197,16 +202,46 @@ export async function getPositionAssignments(
       ) {
         result[row.position] = holder;
       }
-    } else if (
-      row.scope === "department" &&
-      row.position === "department_head" &&
-      row.department
-    ) {
-      result.departmentHeads[row.department as Department] = holder;
+    } else if (row.scope === "department" && row.department) {
+      const dept = row.department as Department;
+      if (row.position === "department_head") {
+        result.departmentHeads[dept] = holder;
+      } else if (row.position === "department_co_lead") {
+        const coLeads = result.departmentCoLeads[dept] ?? [];
+        coLeads.push(holder);
+        result.departmentCoLeads[dept] = coLeads;
+      }
     }
   }
 
   return result;
+}
+
+/**
+ * The department leads (the optional head plus any co-leads) for a department,
+ * excluding the subject themselves and de-duplicated by userId. Head and
+ * co-leads hold the same authority and are included in the same workflows.
+ */
+export function getDepartmentLeads(
+  positions: PositionAssignments,
+  department: Department | null | undefined,
+  excludeUserId?: string,
+): PositionHolder[] {
+  if (!department) return [];
+
+  const leads = [
+    positions.departmentHeads[department] ?? null,
+    ...(positions.departmentCoLeads[department] ?? []),
+  ];
+
+  const byUserId = new Map<string, PositionHolder>();
+  for (const lead of leads) {
+    if (lead && lead.userId !== excludeUserId && !byUserId.has(lead.userId)) {
+      byUserId.set(lead.userId, lead);
+    }
+  }
+
+  return [...byUserId.values()];
 }
 
 export function getApprovalRecipients(
@@ -214,12 +249,10 @@ export function getApprovalRecipients(
   userId: string,
   department: Department | null | undefined,
 ): PositionHolder[] {
-  const deptHead = department
-    ? (positions.departmentHeads[department] ?? null)
-    : null;
+  const deptLeads = getDepartmentLeads(positions, department, userId);
 
-  if (deptHead && deptHead.userId !== userId) {
-    return [deptHead];
+  if (deptLeads.length > 0) {
+    return deptLeads;
   }
 
   return [
@@ -246,18 +279,15 @@ export function getFyiRecipients(
   }
   const boardMembers = [...boardByUserId.values()];
 
-  const deptHead = department
-    ? (positions.departmentHeads[department] ?? null)
-    : null;
+  const deptLeadsToInclude = getDepartmentLeads(
+    positions,
+    department,
+    userId,
+  ).filter((lead) => !boardByUserId.has(lead.userId));
 
-  const deptHeadToInclude =
-    deptHead && deptHead.userId !== userId ? deptHead : null;
+  if (deptLeadsToInclude.length === 0) return boardMembers;
 
-  if (!deptHeadToInclude) return boardMembers;
-
-  const alreadyInBoard = boardByUserId.has(deptHeadToInclude.userId);
-
-  return alreadyInBoard ? boardMembers : [...boardMembers, deptHeadToInclude];
+  return [...boardMembers, ...deptLeadsToInclude];
 }
 
 export async function getFinanceAdminUsers(): Promise<PositionHolder[]> {
@@ -342,16 +372,38 @@ export async function replacePositionAssignments(
       }
     }
 
+    for (const [dept, holders] of Object.entries(
+      assignments.departmentCoLeads,
+    )) {
+      for (const holder of holders ?? []) {
+        rows.push({
+          userId: holder.userId,
+          position: "department_co_lead",
+          scope: "department",
+          department: dept as Department,
+        });
+      }
+    }
+
     if (rows.length > 0) {
       await tx.insert(userOrganizationPosition).values(rows);
     }
 
-    // Sync each position holder's department field. Dept heads are processed
-    // first so that a board assignment on the same user overrides to null.
+    // Sync each position holder's department field. Dept heads/co-leads are
+    // processed first so that a board assignment on the same user overrides to
+    // null.
     const departmentUpdates = new Map<string, Department | null>();
 
     for (const [dept, holder] of Object.entries(assignments.departmentHeads)) {
       if (holder) {
+        departmentUpdates.set(holder.userId, dept as Department);
+      }
+    }
+
+    for (const [dept, holders] of Object.entries(
+      assignments.departmentCoLeads,
+    )) {
+      for (const holder of holders ?? []) {
         departmentUpdates.set(holder.userId, dept as Department);
       }
     }

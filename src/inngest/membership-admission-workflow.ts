@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import db from "@/db";
-import { getFyiRecipients, getPositionAssignments } from "@/db/authority";
+import { getPositionAssignments } from "@/db/authority";
 import { user } from "@/db/schema/auth";
 import { legalMembership } from "@/db/schema/legal-membership";
 import BoardResolutionTaskAssignedEmail from "@/emails/board-resolution/board-resolution-task-assigned";
@@ -685,7 +685,9 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
       });
     });
 
-    // Step 11b: Load board completion notification data.
+    // Step 11b: Load admission completion notification data. This notice goes
+    // only to the department head of the subject's department — not the wider
+    // board — so the full legal board isn't emailed on every admission.
     const boardCompletionData = await step.run(
       "load-board-completion-data",
       async () => {
@@ -697,24 +699,18 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
           }),
         ]);
 
-        const recipients = getFyiRecipients(
-          positions,
-          subjectUserId,
-          subjectUser?.department,
-        );
+        const department = subjectUser?.department ?? null;
+        const deptHead = department
+          ? (positions.departmentHeads[department] ?? null)
+          : null;
 
-        const boardMemberIds = new Set(
-          [
-            positions.president,
-            positions.vice_president,
-            positions.head_of_finance,
-          ].flatMap((p) => (p ? [p.userId] : [])),
-        );
+        // Only the department head is notified, and never when they are the
+        // subject of their own admission.
+        const recipients =
+          deptHead && deptHead.userId !== subjectUserId ? [deptHead] : [];
 
-        // Non-board recipients can only be the dept head of the subject's
-        // department (per getFyiRecipients), so department is non-null here.
-        const subjectDepartmentLabel = subjectUser?.department
-          ? DEPARTMENT_NAMES[subjectUser.department]
+        const subjectDepartmentLabel = department
+          ? DEPARTMENT_NAMES[department]
           : null;
 
         return {
@@ -723,16 +719,14 @@ export const membershipAdmissionWorkflow = inngest.createFunction(
             userId: r.userId,
             email: r.email,
             firstName: r.firstName,
-            receivingReason: boardMemberIds.has(r.userId)
-              ? "You're receiving this because you're a board member of START Berlin."
-              : `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
+            receivingReason: `You're receiving this because you're the department head of ${subjectDepartmentLabel}.`,
           })),
           boardResolutionDriveFileId: boardResolutionFileDriveId,
         };
       },
     );
 
-    // Step 11c: Send one completion email per board participant.
+    // Step 11c: Send the completion email to the department head.
     for (const participant of boardCompletionData.participants) {
       await step.run(
         `send-board-completion-email-${participant.userId}`,

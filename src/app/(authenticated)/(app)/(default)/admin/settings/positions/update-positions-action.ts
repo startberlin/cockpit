@@ -23,6 +23,7 @@ const schema = z.object({
   vice_president: z.string().nullable(),
   head_of_finance: z.string().nullable(),
   departmentHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
+  departmentCoLeads: z.record(z.enum(DEPARTMENT_IDS), z.array(z.string())),
 });
 
 export const updatePositionsAction = actionClient
@@ -54,7 +55,31 @@ export const updatePositionsAction = actionClient
           holderFromId(userId),
         ]),
       ) as Partial<Record<Department, PositionHolder | null>>,
+      departmentCoLeads: Object.fromEntries(
+        Object.entries(parsedInput.departmentCoLeads).map(([dept, userIds]) => [
+          dept,
+          // De-duplicate co-leads while resolving each to an eligible holder.
+          [...new Set(userIds)].map((id) => {
+            const holder = holderFromId(id);
+            if (!holder) {
+              throw new Error(`User ${id} is not eligible for position`);
+            }
+            return holder;
+          }),
+        ]),
+      ) as Partial<Record<Department, PositionHolder[]>>,
     };
+
+    // A member cannot be both head and co-lead of the same department.
+    for (const dept of DEPARTMENT_IDS) {
+      const head = next.departmentHeads[dept] ?? null;
+      const coLeads = next.departmentCoLeads[dept] ?? [];
+      if (head && coLeads.some((c) => c.userId === head.userId)) {
+        throw new Error(
+          `A member cannot be both head and co-lead of ${DEPARTMENT_NAMES[dept]}.`,
+        );
+      }
+    }
 
     // Lock first so previous is read under the same lock that guards the write.
     // inngest.send is called after commit so the transaction holds no HTTP latency.
@@ -175,6 +200,54 @@ export const updatePositionsAction = actionClient
               subjectName:
                 `${newHolder.firstName} ${newHolder.lastName ?? ""}`.trim(),
               position: `Head of ${DEPARTMENT_NAMES[dept]}`,
+            });
+          }
+        }
+
+        for (const dept of DEPARTMENT_IDS) {
+          const label = `Co-Lead of ${DEPARTMENT_NAMES[dept]}`;
+          const oldCoLeads = previous.departmentCoLeads[dept] ?? [];
+          const newCoLeads = next.departmentCoLeads[dept] ?? [];
+          const oldById = new Map(oldCoLeads.map((c) => [c.userId, c]));
+          const newById = new Map(newCoLeads.map((c) => [c.userId, c]));
+
+          for (const [userId, holder] of oldById) {
+            if (newById.has(userId)) continue;
+            pendingEvents.push({
+              id: `pos-removed-v1-${holder.userId}-department_co_lead-${dept}`,
+              name: events.positionAssignmentDeleted.name,
+              data: {
+                email: holder.email,
+                firstName: holder.firstName,
+                positionLabel: label,
+              },
+            });
+            positionChanges.push({
+              eventType: "authority.position_removed",
+              subjectId: holder.userId,
+              subjectName:
+                `${holder.firstName} ${holder.lastName ?? ""}`.trim(),
+              position: label,
+            });
+          }
+
+          for (const [userId, holder] of newById) {
+            if (oldById.has(userId)) continue;
+            pendingEvents.push({
+              id: `pos-assigned-v1-${holder.userId}-department_co_lead-${dept}`,
+              name: events.positionAssignmentCreated.name,
+              data: {
+                email: holder.email,
+                firstName: holder.firstName,
+                positionLabel: label,
+              },
+            });
+            positionChanges.push({
+              eventType: "authority.position_assigned",
+              subjectId: holder.userId,
+              subjectName:
+                `${holder.firstName} ${holder.lastName ?? ""}`.trim(),
+              position: label,
             });
           }
         }
