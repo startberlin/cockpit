@@ -55,6 +55,20 @@ const eventsHead = makeUser({
   ],
 });
 
+const eventsCoHead = makeUser({
+  id: "usr_events_cohead",
+  firstName: "Iris",
+  batchNumber: 3,
+  department: "events",
+  positions: [
+    {
+      position: "department_co_head",
+      scope: "department",
+      department: "events",
+    },
+  ],
+});
+
 const eventsMember1 = makeUser({
   id: "usr_events_m1",
   firstName: "Evan",
@@ -143,6 +157,32 @@ describe("buildOrgChart", () => {
     const { departments } = buildOrgChart([eventsHead, eventsMember1]);
     const events = departments.find((d) => d.departmentId === "events");
     assert.ok(!events?.members.find((m) => m.userId === "usr_events_head"));
+  });
+
+  it("dept co-head appears in coHead field with correct roleLabel", () => {
+    const { departments } = buildOrgChart([eventsHead, eventsCoHead]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.ok(events);
+    assert.equal(events.head?.userId, "usr_events_head");
+    assert.equal(events.coHead?.userId, "usr_events_cohead");
+    assert.equal(events.coHead?.roleLabel, "Co-Head of Events");
+  });
+
+  it("dept co-head is not duplicated as a dept member", () => {
+    const { departments } = buildOrgChart([
+      eventsHead,
+      eventsCoHead,
+      eventsMember1,
+    ]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.ok(!events?.members.find((m) => m.userId === "usr_events_cohead"));
+    assert.ok(events?.members.find((m) => m.userId === "usr_events_m1"));
+  });
+
+  it("coHead is null when no co-head is assigned", () => {
+    const { departments } = buildOrgChart([eventsHead]);
+    const events = departments.find((d) => d.departmentId === "events");
+    assert.equal(events?.coHead, null);
   });
 
   it("global officer with a department is not added to dept members", () => {

@@ -58,9 +58,32 @@ export default function AdminSettingsPageClient({
     ) as Record<Department, PositionHolder | null>,
   );
 
+  const [deptCoSelections, setDeptCoSelections] = useState<
+    Record<Department, PositionHolder | null>
+  >(
+    Object.fromEntries(
+      DEPARTMENT_IDS.map((dept) => [
+        dept,
+        positions.departmentCoHeads[dept] ?? null,
+      ]),
+    ) as Record<Department, PositionHolder | null>,
+  );
+
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    const duplicateDept = DEPARTMENT_IDS.find(
+      (dept) =>
+        deptSelections[dept]?.userId &&
+        deptSelections[dept]?.userId === deptCoSelections[dept]?.userId,
+    );
+    if (duplicateDept) {
+      toast.error(
+        `The head and co-head of ${DEPARTMENT_NAMES[duplicateDept]} must be different members.`,
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       const result = await updatePositionsAction({
@@ -71,6 +94,12 @@ export default function AdminSettingsPageClient({
           DEPARTMENT_IDS.map((dept) => [
             dept,
             deptSelections[dept]?.userId ?? null,
+          ]),
+        ) as Record<Department, string | null>,
+        departmentCoHeads: Object.fromEntries(
+          DEPARTMENT_IDS.map((dept) => [
+            dept,
+            deptCoSelections[dept]?.userId ?? null,
           ]),
         ) as Record<Department, string | null>,
       });
@@ -119,20 +148,36 @@ export default function AdminSettingsPageClient({
           ))}
 
           <div className="border-t pt-4 mt-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
               Department heads
             </p>
-            <div className="space-y-4">
+            <p className="text-xs text-muted-foreground mb-3">
+              Each department has one head and can optionally have one co-head.
+              The co-head has the same permissions as the head.
+            </p>
+            <div className="space-y-5">
               {DEPARTMENT_IDS.map((dept) => (
-                <PositionRow
-                  key={dept}
-                  label={`Head of ${DEPARTMENT_NAMES[dept]}`}
-                  value={deptSelections[dept]}
-                  eligibleUsers={eligibleUsers}
-                  onChange={(holder) =>
-                    setDeptSelections((prev) => ({ ...prev, [dept]: holder }))
-                  }
-                />
+                <div key={dept} className="space-y-3">
+                  <PositionRow
+                    label={`Head of ${DEPARTMENT_NAMES[dept]}`}
+                    value={deptSelections[dept]}
+                    eligibleUsers={eligibleUsers}
+                    onChange={(holder) =>
+                      setDeptSelections((prev) => ({ ...prev, [dept]: holder }))
+                    }
+                  />
+                  <PositionRow
+                    label={`Co-Head of ${DEPARTMENT_NAMES[dept]}`}
+                    value={deptCoSelections[dept]}
+                    eligibleUsers={eligibleUsers}
+                    onChange={(holder) =>
+                      setDeptCoSelections((prev) => ({
+                        ...prev,
+                        [dept]: holder,
+                      }))
+                    }
+                  />
+                </div>
               ))}
             </div>
           </div>

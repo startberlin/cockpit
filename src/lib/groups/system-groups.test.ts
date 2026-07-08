@@ -90,6 +90,20 @@ describe("getSystemGroupsForUser", () => {
     );
   });
 
+  it("department_co_head for events gets the same groups as the head", () => {
+    const u = user({
+      status: "member",
+      department: "events",
+      batchNumber: null,
+    });
+    const positions = [position("department_co_head", "events")];
+    const result = slugs(getSystemGroupsForUser(u, positions, BATCHES));
+    assert.deepEqual(
+      result,
+      ["board", "events", "events-members", "members"].sort(),
+    );
+  });
+
   it("vice_president gets board, legal-board, members", () => {
     const u = user({ status: "member", department: null, batchNumber: null });
     const positions = [position("vice_president")];

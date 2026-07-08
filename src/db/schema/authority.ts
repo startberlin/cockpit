@@ -70,11 +70,16 @@ export const userOrganizationPosition = pgTable(
       .where(
         sql`${table.position} = 'department_head' AND ${table.scope} = 'department'`,
       ),
+    uniqueIndex("one_department_co_head_per_department_unique")
+      .on(table.department)
+      .where(
+        sql`${table.position} = 'department_co_head' AND ${table.scope} = 'department'`,
+      ),
     check(
       "user_organization_position_valid_scope_check",
       sql`(
         (${table.position} IN ('president', 'vice_president', 'head_of_finance') AND ${table.scope} = 'global' AND ${table.department} IS NULL)
-        OR (${table.position} = 'department_head' AND ${table.scope} = 'department' AND ${table.department} IS NOT NULL)
+        OR (${table.position} IN ('department_head', 'department_co_head') AND ${table.scope} = 'department' AND ${table.department} IS NOT NULL)
       )`,
     ),
   ],

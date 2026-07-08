@@ -191,6 +191,7 @@ export async function getAllUserPublicData({
     vice_president: 1,
     head_of_finance: 2,
     department_head: 3,
+    department_co_head: 4,
   };
 
   const GLOBAL_POSITION_LABELS: Partial<Record<OrganizationPosition, string>> =
@@ -208,7 +209,11 @@ export async function getAllUserPublicData({
         ? p.department
           ? `Head of ${DEPARTMENT_NAMES[p.department]}`
           : "Department Head"
-        : (GLOBAL_POSITION_LABELS[p.position] ?? p.position);
+        : p.position === "department_co_head"
+          ? p.department
+            ? `Co-Head of ${DEPARTMENT_NAMES[p.department]}`
+            : "Department Co-Head"
+          : (GLOBAL_POSITION_LABELS[p.position] ?? p.position);
 
     const existing = posLabelMap.get(p.userId);
     if (!existing || priority < existing.priority) {

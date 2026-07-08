@@ -386,6 +386,13 @@
       "when": 1783170399707,
       "tag": "0054_faulty_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1783526806417,
+      "tag": "0055_ambitious_captain_cross",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ export interface OrgChartDept {
   departmentId: Department;
   departmentName: string;
   head: OrgChartDeptHead | null;
+  coHead: OrgChartDeptHead | null;
   members: OrgChartMember[];
 }
 
@@ -56,6 +57,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
   const officerByPosition = new Map<string, OrgChartUser>();
   const officerIds = new Set<string>();
   const deptHeadByDept = new Map<Department, OrgChartUser>();
+  const deptCoHeadByDept = new Map<Department, OrgChartUser>();
 
   for (const user of users) {
     for (const pos of user.positions) {
@@ -75,12 +77,23 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
         if (!deptHeadByDept.has(pos.department as Department)) {
           deptHeadByDept.set(pos.department as Department, user);
         }
+      } else if (
+        pos.scope === "department" &&
+        pos.position === "department_co_head" &&
+        pos.department
+      ) {
+        if (!deptCoHeadByDept.has(pos.department as Department)) {
+          deptCoHeadByDept.set(pos.department as Department, user);
+        }
       }
     }
   }
 
   const deptHeadIds = new Set(
-    Array.from(deptHeadByDept.values()).map((u) => u.id),
+    [
+      ...Array.from(deptHeadByDept.values()),
+      ...Array.from(deptCoHeadByDept.values()),
+    ].map((u) => u.id),
   );
 
   const officers: OrgChartOfficer[] = GLOBAL_POSITION_ORDER.filter((p) =>
@@ -123,6 +136,18 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
         }
       : null;
 
+    const coHeadUser = deptCoHeadByDept.get(deptId);
+    const coHead: OrgChartDeptHead | null = coHeadUser
+      ? {
+          userId: coHeadUser.id,
+          firstName: coHeadUser.firstName,
+          lastName: coHeadUser.lastName,
+          image: coHeadUser.image,
+          batchNumber: coHeadUser.batchNumber,
+          roleLabel: `Co-Head of ${deptName}`,
+        }
+      : null;
+
     const members: OrgChartMember[] = (membersByDept.get(deptId) ?? []).map(
       (u) => ({
         userId: u.id,
@@ -138,7 +163,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       departmentId: deptId,
       departmentName: deptName,
       head,
-
+      coHead,
       members,
     };
   });

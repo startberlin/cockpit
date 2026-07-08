@@ -23,6 +23,7 @@ const schema = z.object({
   vice_president: z.string().nullable(),
   head_of_finance: z.string().nullable(),
   departmentHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
+  departmentCoHeads: z.record(z.enum(DEPARTMENT_IDS), z.string().nullable()),
 });
 
 export const updatePositionsAction = actionClient
@@ -54,7 +55,24 @@ export const updatePositionsAction = actionClient
           holderFromId(userId),
         ]),
       ) as Partial<Record<Department, PositionHolder | null>>,
+      departmentCoHeads: Object.fromEntries(
+        Object.entries(parsedInput.departmentCoHeads).map(([dept, userId]) => [
+          dept,
+          holderFromId(userId),
+        ]),
+      ) as Partial<Record<Department, PositionHolder | null>>,
     };
+
+    // A member cannot be both head and co-head of the same department.
+    for (const dept of DEPARTMENT_IDS) {
+      const head = next.departmentHeads[dept] ?? null;
+      const coHead = next.departmentCoHeads[dept] ?? null;
+      if (head && coHead && head.userId === coHead.userId) {
+        throw new Error(
+          `The head and co-head of ${DEPARTMENT_NAMES[dept]} must be different members.`,
+        );
+      }
+    }
 
     // Lock first so previous is read under the same lock that guards the write.
     // inngest.send is called after commit so the transaction holds no HTTP latency.
@@ -175,6 +193,53 @@ export const updatePositionsAction = actionClient
               subjectName:
                 `${newHolder.firstName} ${newHolder.lastName ?? ""}`.trim(),
               position: `Head of ${DEPARTMENT_NAMES[dept]}`,
+            });
+          }
+        }
+
+        for (const dept of DEPARTMENT_IDS) {
+          const oldHolder = previous.departmentCoHeads[dept] ?? null;
+          const newHolder = next.departmentCoHeads[dept] ?? null;
+
+          if (oldHolder?.userId === newHolder?.userId) continue;
+
+          const label = `Co-Head of ${DEPARTMENT_NAMES[dept]}`;
+
+          if (oldHolder) {
+            pendingEvents.push({
+              id: `pos-removed-v1-${oldHolder.userId}-department_co_head-${dept}`,
+              name: events.positionAssignmentDeleted.name,
+              data: {
+                email: oldHolder.email,
+                firstName: oldHolder.firstName,
+                positionLabel: label,
+              },
+            });
+            positionChanges.push({
+              eventType: "authority.position_removed",
+              subjectId: oldHolder.userId,
+              subjectName:
+                `${oldHolder.firstName} ${oldHolder.lastName ?? ""}`.trim(),
+              position: label,
+            });
+          }
+
+          if (newHolder) {
+            pendingEvents.push({
+              id: `pos-assigned-v1-${newHolder.userId}-department_co_head-${dept}`,
+              name: events.positionAssignmentCreated.name,
+              data: {
+                email: newHolder.email,
+                firstName: newHolder.firstName,
+                positionLabel: label,
+              },
+            });
+            positionChanges.push({
+              eventType: "authority.position_assigned",
+              subjectId: newHolder.userId,
+              subjectName:
+                `${newHolder.firstName} ${newHolder.lastName ?? ""}`.trim(),
+              position: label,
             });
           }
         }
