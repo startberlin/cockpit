@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 type MetadataGenerator = Omit<Metadata, "description" | "title"> & {
   title: string;
   description: string;
-  image?: string;
 };
 
 const applicationName = "START Berlin Cockpit";
@@ -19,25 +18,19 @@ const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
 export const createMetadata = ({
   title,
   description,
-  image,
   ...properties
 }: MetadataGenerator): Metadata => {
   const parsedTitle = `${title} | ${applicationName}`;
-
-  const ogImageUrl = productionUrl
-    ? new URL(`${protocol}://${productionUrl}/api/og`)
-    : new URL(`${protocol}://localhost:3000/api/og`);
-
-  ogImageUrl.searchParams.set("title", title);
-  ogImageUrl.searchParams.set("subtitle", description);
+  const baseUrl = productionUrl
+    ? new URL(`${protocol}://${productionUrl}`)
+    : new URL(`${protocol}://localhost:3000`);
+  const ogImageUrl = new URL("/og-image.png", baseUrl);
 
   const defaultMetadata: Metadata = {
     title: parsedTitle,
     description,
     applicationName,
-    metadataBase: productionUrl
-      ? new URL(`${protocol}://${productionUrl}`)
-      : undefined,
+    metadataBase: baseUrl,
     authors: [author],
     creator: author.name,
     formatDetection: {
