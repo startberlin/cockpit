@@ -53,7 +53,8 @@ export function isUserScopedAction(action: Action): action is UserScopedAction {
 export type GroupScopedAction =
   | "group.members.manage"
   | "group.managers.manage"
-  | "group.export";
+  | "group.export"
+  | "group.export_phone";
 
 export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
 
@@ -75,6 +76,7 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.admission.vote",
   "membership.cancel_member",
+  "groups.view_all",
   "groups.create",
   "batches.manage",
   "payments.manage",
@@ -95,6 +97,7 @@ const groupScopedActions = [
   "group.members.manage",
   "group.managers.manage",
   "group.export",
+  "group.export_phone",
 ] as const;
 
 export function isGroupScopedAction(
@@ -207,6 +210,13 @@ function evaluateGroupScopedAction(
         scope.isGroupManager ||
         (hasMembersGroupExporterGrant(authority) && scope.groupId === "members")
       );
+    case "group.export_phone":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        scope.isGroupManager
+      );
   }
 }
 
@@ -233,6 +243,12 @@ function evaluateGlobalAction(
       return isLegalOfficer(authority);
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
+    case "groups.view_all":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority)
+      );
     case "users.view_inactive":
       return (
         hasAdminGrant(authority) ||
