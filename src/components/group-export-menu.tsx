@@ -46,6 +46,21 @@ export function GroupExportMenu({
     }
   };
 
+  if (!canExportPhone) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          handleExport(exportGroupCsvAction, "group-members-luma.csv")
+        }
+      >
+        <Download className="h-4 w-4 mr-1" />
+        Export
+      </Button>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -63,15 +78,13 @@ export function GroupExportMenu({
         >
           CSV for Luma
         </DropdownMenuItem>
-        {canExportPhone ? (
-          <DropdownMenuItem
-            onClick={() =>
-              handleExport(exportGroupPhoneCsvAction, "group-members-phone.csv")
-            }
-          >
-            Phone list CSV
-          </DropdownMenuItem>
-        ) : null}
+        <DropdownMenuItem
+          onClick={() =>
+            handleExport(exportGroupPhoneCsvAction, "group-members-phone.csv")
+          }
+        >
+          Phone list CSV
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
