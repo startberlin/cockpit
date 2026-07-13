@@ -15,6 +15,10 @@ evaluateAuth(authority, "group.export", {
   isGroupMember: false,
   isGroupManager: false,
 });
+evaluateAuth(authority, "group.export_phone", {
+  isGroupMember: false,
+  isGroupManager: false,
+});
 
 // UnscopedViewActions — valid both with and without dept scope.
 evaluateAuth(authority, "user.view_details"); // gate check
@@ -41,6 +45,7 @@ can("user.view_details"); // unscoped — valid for listing route gate
 can("user.view_details", { department: "events" });
 can("user.payment.view", { department: "events" });
 can("group.members.manage", { id: "gr_123" });
+can("group.export_phone", { id: "gr_123" });
 can("membership.transition.view"); // gate check — valid without dept
 can("membership.transition.view", { department: "events" }); // scoped — valid
 can("membership.cancellation.view", { department: null }); // user has no dept
@@ -55,6 +60,7 @@ check("group.members.manage"); // gate check — valid without group context
 check("user.view_details"); // unscoped — valid for listing route gate
 check("user.view_details", { department: "events" });
 check("group.members.manage", { isMember: true });
+check("group.export_phone", { id: "gr_123", isMember: true });
 check("membership.transition.view"); // gate check — valid without dept
 check("membership.transition.view", { department: "events" }); // scoped — valid
 check("membership.cancellation.view", { department: null }); // user has no dept

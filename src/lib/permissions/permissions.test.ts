@@ -212,6 +212,29 @@ describe("permissions", () => {
     );
   });
 
+  it("allows admins with organization-wide group access to view all groups", () => {
+    for (const privilegedAuthority of [
+      authority({ grants: [{ grant: "admin" }] }),
+      authority({ grants: [{ grant: "people_admin" }] }),
+      authority({
+        positions: [{ position: "president", scope: "global" }],
+      }),
+    ]) {
+      assert.equal(evaluateAuth(privilegedAuthority, "groups.view_all"), true);
+    }
+  });
+
+  it("denies per-group managers and members exporters from viewing all groups", () => {
+    assert.equal(evaluateAuth(authority(), "groups.view_all"), false);
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "members_group_exporter" }] }),
+        "groups.view_all",
+      ),
+      false,
+    );
+  });
+
   it("denies people admins from managing authority", () => {
     assert.equal(
       evaluateAuth(
@@ -375,6 +398,36 @@ describe("permissions", () => {
         { isGroupMember: false, isGroupManager: false },
       ),
       false,
+    );
+  });
+
+  it("denies members_group_exporter from exporting phone numbers", () => {
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "members_group_exporter" }] }),
+        "group.export_phone",
+        { isGroupMember: false, isGroupManager: false, groupId: "members" },
+      ),
+      false,
+    );
+  });
+
+  it("allows organization-wide exporters and group managers to export phone numbers", () => {
+    const scope = { isGroupMember: false, isGroupManager: false };
+    assert.equal(
+      evaluateAuth(
+        authority({ grants: [{ grant: "people_admin" }] }),
+        "group.export_phone",
+        scope,
+      ),
+      true,
+    );
+    assert.equal(
+      evaluateAuth(authority(), "group.export_phone", {
+        isGroupMember: true,
+        isGroupManager: true,
+      }),
+      true,
     );
   });
 

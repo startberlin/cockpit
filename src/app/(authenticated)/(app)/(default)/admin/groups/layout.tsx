@@ -8,11 +8,7 @@ interface AdminGroupsLayoutProps {
 export default async function AdminGroupsLayout({
   children,
 }: AdminGroupsLayoutProps) {
-  if (
-    !(await can("group.members.manage")) &&
-    !(await can("group.managers.manage")) &&
-    !(await can("group.export"))
-  ) {
+  if (!(await can("groups.view_all"))) {
     redirect("/membership");
   }
 
