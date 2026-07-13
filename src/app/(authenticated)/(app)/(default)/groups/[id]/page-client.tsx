@@ -7,6 +7,7 @@ import { parseAsInteger, useQueryState } from "nuqs";
 import { use, useState } from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { useCan } from "@/components/can";
+import { GroupExportMenu } from "@/components/group-export-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ type SystemGroupMember = {
 type GroupDetailClientProps =
   | {
       kind: "system";
+      slug: string;
       name: string;
       googleGroupEmail: string;
       members: SystemGroupMember[];
@@ -53,16 +55,27 @@ export function GroupDetailBreadcrumb({
 }
 
 function SystemGroupView({
+  slug,
   name,
   googleGroupEmail,
   members,
 }: {
+  slug: string;
   name: string;
   googleGroupEmail: string;
   members: SystemGroupMember[];
 }) {
   const router = useRouter();
+  const can = useCan();
   const [emailCopied, setEmailCopied] = useState(false);
+  const canExport = can("group.export", {
+    id: slug,
+    isMember: false,
+  });
+  const canExportPhone = can("group.export_phone", {
+    id: slug,
+    isMember: false,
+  });
 
   return (
     <div className="w-full space-y-6">
@@ -104,11 +117,16 @@ function SystemGroupView({
       </div>
 
       <div>
-        <div className="flex items-center justify-between pb-3">
+        <div className="flex items-center justify-between gap-3 pb-3">
           <h2 className="text-sm font-semibold">Members</h2>
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {members.length} member{members.length === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {members.length} member{members.length === 1 ? "" : "s"}
+            </span>
+            {members.length > 0 && canExport ? (
+              <GroupExportMenu groupId={slug} canExportPhone={canExportPhone} />
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-md border">
@@ -175,6 +193,16 @@ function ManualGroupView({
 
   const canViewMemberProfile = (member: GroupMember) =>
     can("user.view_details", member);
+  const canExport = can("group.export", {
+    id: group.id,
+    isMember: group.isMember,
+    isManager: group.isGroupManager,
+  });
+  const canExportPhone = can("group.export_phone", {
+    id: group.id,
+    isMember: group.isMember,
+    isManager: group.isGroupManager,
+  });
 
   return (
     <div className="w-full space-y-6">
@@ -215,11 +243,20 @@ function ManualGroupView({
       </div>
 
       <div>
-        <div className="flex items-center justify-between pb-3">
+        <div className="flex items-center justify-between gap-3 pb-3">
           <h2 className="text-sm font-semibold">Members</h2>
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {group.totalMembers} member{group.totalMembers === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {group.totalMembers} member
+              {group.totalMembers === 1 ? "" : "s"}
+            </span>
+            {group.totalMembers > 0 && canExport ? (
+              <GroupExportMenu
+                groupId={group.id}
+                canExportPhone={canExportPhone}
+              />
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-md border">
@@ -317,6 +354,7 @@ export default function GroupDetailClient(props: GroupDetailClientProps) {
   if (props.kind === "system") {
     return (
       <SystemGroupView
+        slug={props.slug}
         name={props.name}
         googleGroupEmail={props.googleGroupEmail}
         members={props.members}

@@ -19,6 +19,12 @@ import {
 } from "@/lib/permissions";
 import { useAuthority } from "@/lib/permissions/authority-context";
 
+type GroupCheckResource = {
+  id?: string;
+  isMember: boolean;
+  isManager?: boolean;
+};
+
 export type CanCheck = {
   (permission: GlobalAction): boolean;
   (
@@ -30,10 +36,7 @@ export type CanCheck = {
     user: { department: Department | null },
   ): boolean;
   (permission: GroupScopedAction): boolean;
-  (
-    permission: GroupScopedAction,
-    group: { isMember: boolean; isManager?: boolean },
-  ): boolean;
+  (permission: GroupScopedAction, group: GroupCheckResource): boolean;
 };
 
 interface CanComponentProps {
@@ -56,7 +59,7 @@ type CanProps =
     })
   | (CanComponentProps & {
       permission: GroupScopedAction;
-      context?: { isMember: boolean; isManager?: boolean };
+      context?: GroupCheckResource;
     });
 
 export function useCan(): CanCheck;
@@ -72,12 +75,13 @@ export function useCan(
 export function useCan(permission: GroupScopedAction): boolean;
 export function useCan(
   permission: GroupScopedAction,
-  group: { isMember: boolean; isManager?: boolean },
+  group: GroupCheckResource,
 ): boolean;
 export function useCan(
   permission?: Action,
   resource?: {
     department?: Department | null;
+    id?: string;
     isMember?: boolean;
     isManager?: boolean;
   },
@@ -88,6 +92,7 @@ export function useCan(
       action: Action,
       checkResource?: {
         department?: Department | null;
+        id?: string;
         isMember?: boolean;
         isManager?: boolean;
       },
@@ -116,6 +121,7 @@ export function useCan(
         const scope: GroupScope = {
           isGroupMember: checkResource?.isMember ?? false,
           isGroupManager: checkResource?.isManager ?? false,
+          groupId: checkResource?.id,
         };
         return evaluateAuth(authority, action, scope);
       }
@@ -146,7 +152,7 @@ export function useCan(
 
   if (isGroupScopedAction(permission)) {
     if (resource) {
-      return check(permission, resource as { isMember: boolean });
+      return check(permission, resource as GroupCheckResource);
     }
     return check(permission);
   }
@@ -174,10 +180,7 @@ export function Can(props: CanProps) {
     );
   } else if (isGroupScopedAction(props.permission)) {
     granted = props.context
-      ? check(
-          props.permission,
-          props.context as { isMember: boolean; isManager?: boolean },
-        )
+      ? check(props.permission, props.context as GroupCheckResource)
       : check(props.permission);
   } else {
     granted = false;

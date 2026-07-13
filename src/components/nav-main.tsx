@@ -189,7 +189,7 @@ export function NavMain() {
           </HidableNavCollapsibleItem>
 
           {/* Admin > Groups */}
-          <CanAdminGroups>
+          <Can permission="groups.view_all">
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
@@ -205,7 +205,7 @@ export function NavMain() {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </CanAdminGroups>
+          </Can>
 
           {/* Admin > Payments */}
           <Can permission="payments.manage">
@@ -266,24 +266,6 @@ export function NavMain() {
       </HidableSidebarGroup>
     </>
   );
-}
-
-function CanAdminGroups({ children }: { children: React.ReactNode }) {
-  const hidable = useContext(HidableGroupContext);
-  const id = useId();
-  const check = useCan();
-  const granted =
-    check("group.members.manage") ||
-    check("group.managers.manage") ||
-    check("group.export");
-
-  useLayoutEffect(() => {
-    if (!hidable) return;
-    hidable.report(id, granted);
-    return () => hidable.report(id, false);
-  }, [hidable, id, granted]);
-
-  return granted ? children : null;
 }
 
 function CanViewAnyTask({ children }: { children: React.ReactNode }) {

@@ -105,6 +105,7 @@ export default async function GroupPage({
         <React.Suspense fallback={<GroupDetailSkeleton />}>
           <GroupDetailClient
             kind="system"
+            slug={id}
             name={systemGroup.name}
             googleGroupEmail={systemGroup.googleGroupEmail}
             members={members}
