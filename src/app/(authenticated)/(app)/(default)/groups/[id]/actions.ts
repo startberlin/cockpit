@@ -143,7 +143,7 @@ export async function exportGroupPhoneCsvAction(
   groupId: string,
 ): Promise<string> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || !(await can("group.export", { id: groupId }))) {
+  if (!currentUser || !(await can("group.export_phone", { id: groupId }))) {
     throw new Error("You are not authorized to export this group.");
   }
 
@@ -216,8 +216,10 @@ export async function exportMultipleGroupsPhoneCsvAction(
   );
 
   const permissionChecks = [
-    ...(systemIds.length > 0 ? [can("group.export", { isMember: false })] : []),
-    ...manualIds.map((id) => can("group.export", { id })),
+    ...(systemIds.length > 0
+      ? [can("group.export_phone", { isMember: false })]
+      : []),
+    ...manualIds.map((id) => can("group.export_phone", { id })),
   ];
   const results = await Promise.all(permissionChecks);
   if (results.some((ok) => !ok)) {

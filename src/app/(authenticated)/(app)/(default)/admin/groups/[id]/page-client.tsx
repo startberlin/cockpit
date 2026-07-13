@@ -3,10 +3,8 @@
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
   Copy,
   Crown,
-  Download,
   MoreHorizontal,
   Plus,
   Search,
@@ -18,6 +16,7 @@ import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { use, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
+import { GroupExportMenu } from "@/components/group-export-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -59,8 +58,6 @@ import { USER_STATUS_INFO } from "@/lib/user-status";
 import {
   addUsersToGroupAction,
   demoteFromManagerAction,
-  exportGroupCsvAction,
-  exportGroupPhoneCsvAction,
   promoteToManagerAction,
   removeUserFromGroupAction,
 } from "../../../groups/[id]/actions";
@@ -101,45 +98,11 @@ function SystemGroupView({
   const can = useCan();
   const [emailCopied, setEmailCopied] = useState(false);
 
-  const handleExport = async () => {
-    try {
-      const csv = await exportGroupCsvAction(slug);
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "group-members-luma.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch (_error) {
-      toast.error(
-        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    }
-  };
-
-  const handlePhoneExport = async () => {
-    try {
-      const csv = await exportGroupPhoneCsvAction(slug);
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "group-members-phone.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch (_error) {
-      toast.error(
-        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    }
-  };
-
-  const canExport = can("group.export", { isMember: true });
+  const canExport = can("group.export", { id: slug, isMember: true });
+  const canExportPhone = can("group.export_phone", {
+    id: slug,
+    isMember: true,
+  });
 
   return (
     <div className="w-full space-y-6">
@@ -187,25 +150,9 @@ function SystemGroupView({
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {members.length} member{members.length === 1 ? "" : "s"}
             </span>
-            {members.length > 0 && canExport && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1" />
-                    Export
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExport}>
-                    CSV for Luma
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handlePhoneExport}>
-                    Phone list CSV
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {members.length > 0 && canExport ? (
+              <GroupExportMenu groupId={slug} canExportPhone={canExportPhone} />
+            ) : null}
           </div>
         </div>
 
@@ -434,51 +381,15 @@ function ManualGroupView({
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const csv = await exportGroupCsvAction(group.id);
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "group-members-luma.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch (_error) {
-      toast.error(
-        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    }
-  };
-
-  const handlePhoneExport = async () => {
-    try {
-      const csv = await exportGroupPhoneCsvAction(group.id);
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "group-members-phone.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch (_error) {
-      toast.error(
-        "Could not export group. Please try again. If this keeps happening, email operations@start-berlin.com.",
-      );
-    }
-  };
-
   const groupScope = {
+    id: group.id,
     isMember: group.isMember,
     isManager: group.isGroupManager,
   };
   const canManageMembers = can("group.members.manage", groupScope);
   const canManageManagers = can("group.managers.manage", groupScope);
   const canExport = can("group.export", groupScope);
+  const canExportPhone = can("group.export_phone", groupScope);
   const canViewMemberProfile = (member: GroupMember) =>
     can("user.view_details", member);
 
@@ -533,25 +444,12 @@ function ManualGroupView({
               {group.totalMembers} member
               {group.totalMembers === 1 ? "" : "s"}
             </span>
-            {group.totalMembers > 0 && canExport && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1" />
-                    Export
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExport}>
-                    CSV for Luma
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handlePhoneExport}>
-                    Phone list CSV
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {group.totalMembers > 0 && canExport ? (
+              <GroupExportMenu
+                groupId={group.id}
+                canExportPhone={canExportPhone}
+              />
+            ) : null}
             {canManageMembers && (
               <Dialog
                 open={isAddMemberDialogOpen}
