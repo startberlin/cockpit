@@ -65,9 +65,7 @@ export async function archiveLegalDocument({
   lastName: string;
 }): Promise<{ driveFileId: string | null }> {
   if (env.DISABLE_GOOGLE_WORKSPACE) {
-    console.warn(
-      `[google-workspace disabled] archiveLegalDocument(${legalMembershipId}, ${fileName}) → null`,
-    );
+    console.warn("[google-workspace disabled] archiveLegalDocument skipped");
     return { driveFileId: null };
   }
 
