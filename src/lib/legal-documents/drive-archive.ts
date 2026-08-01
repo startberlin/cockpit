@@ -63,7 +63,14 @@ export async function archiveLegalDocument({
   fileName: string;
   firstName: string;
   lastName: string;
-}): Promise<{ driveFileId: string }> {
+}): Promise<{ driveFileId: string | null }> {
+  if (env.DISABLE_GOOGLE_WORKSPACE) {
+    console.warn(
+      `[google-workspace disabled] archiveLegalDocument(${legalMembershipId}, ${fileName}) → null`,
+    );
+    return { driveFileId: null };
+  }
+
   const auth = createServiceAccountAuth(DRIVE_SCOPE);
   const drive = google.drive({ version: "v3", auth, timeout: 30_000 });
 
