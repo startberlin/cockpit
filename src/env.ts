@@ -1,6 +1,21 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import z from "zod";
 
+// Resolve the Workspace flag up front so the Google service-account vars can be
+// made optional when the integration is turned off (e.g. local development).
+// Login vars (GOOGLE_CLIENT_ID/SECRET) are intentionally excluded — OAuth login
+// is independent of Workspace and always required.
+const googleWorkspaceDisabled = z
+  .stringbool()
+  .optional()
+  .default(false)
+  .catch(false)
+  .parse(process.env.DISABLE_GOOGLE_WORKSPACE);
+
+const workspaceString = googleWorkspaceDisabled
+  ? z.string().optional()
+  : z.string().min(1);
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
@@ -12,7 +27,7 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: z.string().min(1),
     AWS_SECRET_ACCESS_KEY: z.string().min(1),
     AWS_SES_SNS_TOPIC_ARN: z.string().min(1),
-    GOOGLE_APPLICATION_CREDENTIALS_BASE64: z.string().min(1),
+    GOOGLE_APPLICATION_CREDENTIALS_BASE64: workspaceString,
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     GOCARDLESS_API_KEY: z.string().min(1).optional(),
     GOCARDLESS_ENVIRONMENT: z
@@ -20,7 +35,7 @@ export const env = createEnv({
       .optional()
       .default("live"),
     GOCARDLESS_WEBHOOK_SECRET: z.string().min(1).optional(),
-    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: z.string().min(1),
+    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: workspaceString,
     BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS: z.url().optional(),
     BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION: z.url().optional(),
     DISABLE_EMAIL: z.stringbool().optional().default(false),
