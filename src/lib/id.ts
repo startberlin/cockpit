@@ -12,6 +12,10 @@ export const prefixes = {
   membershipTransitionRequest: "mtr",
   paymentProposalDigest: "ppd",
   auditLog: "aud",
+  // Internal app modules register their prefixes here too. Not optional:
+  // nav-breadcrumb's looksLikeId() uses isPrefixedId() to decide whether a path
+  // segment is an id, so an unregistered prefix renders raw ids in breadcrumbs.
+  exampleNote: "exn",
 } as const;
 
 export function isPrefixedId(value: string): boolean {

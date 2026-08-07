@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useContext, useId, useLayoutEffect } from "react";
+import { NavApps } from "@/components/apps/nav-apps";
 import { Can, useCan } from "@/components/can";
 import {
   HidableGroupContext,
@@ -84,6 +85,9 @@ export function NavMain() {
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
+
+      {/* Apps — internal apps from the registry; renders nothing when none are visible */}
+      <NavApps />
 
       {/* Community */}
       <SidebarGroup>

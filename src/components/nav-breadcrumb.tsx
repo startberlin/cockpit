@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useBreadcrumbOverride } from "@/components/breadcrumb-bridge";
 import { BreadcrumbView, type Crumb } from "@/components/breadcrumb-view";
+import { getAppByBasePath } from "@/lib/apps/registry";
 import { isPrefixedId } from "@/lib/id";
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -114,7 +115,9 @@ function buildDefaultCrumbs(pathname: string): Crumb[] {
   return segments.map((seg, i) => {
     const isLast = i === segments.length - 1;
     const href = `/${segments.slice(0, i + 1).join("/")}`;
-    const staticLabel = SEGMENT_LABELS[seg];
+    // Internal apps supply their own label, otherwise every app root would fall
+    // through to the skeleton branch below and shimmer forever.
+    const staticLabel = SEGMENT_LABELS[seg] ?? getAppByBasePath(href)?.name;
     if (!isLast) {
       if (staticLabel !== undefined) return { label: staticLabel, href };
       if (looksLikeId(seg)) return { label: "", skeleton: true, href };

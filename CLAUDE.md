@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Setup
 npm install
-cp .env.example .env  # Add Slack, Google, Resend credentials
+cp .env.example .env  # Add Slack, Google, AWS SES credentials
 npm run db:up         # Start PostgreSQL container
 npm run db:migrate    # Run database migrations
 
@@ -35,7 +35,7 @@ npm run email:dev     # Preview React Email templates
 - **Authentication**: Better Auth with Google OAuth (no email/password)
 - **Database**: PostgreSQL with Drizzle ORM
 - **Background Jobs**: Inngest for async workflows
-- **Email**: React Email + Resend
+- **Email**: React Email + AWS SES v2
 - **Styling**: Tailwind CSS 4
 - **Code Quality**: Biome (linter + formatter)
 
@@ -45,12 +45,30 @@ npm run email:dev     # Preview React Email templates
 
 Routes use Next.js 15+ App Router with route groups:
 
-- `(authenticated)/(app)/*` - Main app routes (groups, people, membership)
+- `(authenticated)/(app)/(default)/*` - Main app routes (groups, people, membership), `max-w-4xl` column
+- `(authenticated)/(app)/(apps)/*` - Internal apps (see Internal Apps below)
 - `(authenticated)/(onboarding)/*` - Onboarding flow for new users
 - `auth/*` - Public auth pages
 - `api/auth/[...all]` - Better Auth handler
 - `api/inngest` - Inngest event webhook
-- `api/slack/events` - Slack event webhook
+
+### Internal Apps
+
+Cockpit hosts multiple applications. External SaaS (Slack, Notion, ...) and internal apps built here are both entries in one registry, surfaced by the launcher at `/tools` and the sidebar.
+
+- Registry and access model: `src/lib/apps/*`
+- Launcher/sidebar components: `src/components/apps/*`
+- Per-app code: `src/modules/<slug>/*` (own `app.ts`, tables, actions, components)
+- Per-app routes: `src/app/(authenticated)/(app)/(apps)/<slug>/*`
+
+Four rules that are easy to get wrong:
+
+1. The registry holds **data only** — no icons, no components, no JSX. SVG and `lucide-react` imports break `node --test`. Icons live in `app-icons.tsx`, dialogs in `launchers.tsx`, keyed by app id.
+2. **Never pass an `AppDefinition` to a client component** — it contains functions. Pass `app.id`.
+3. App visibility is **not** a plain permission: `evaluateAuth` denies everything to `onboarding` users, who must still see the external tools. Use `AppVisibility` (`src/lib/apps/visibility.ts`).
+4. `requireAppAccess()` in the app's `layout.tsx` guards **page renders only**. Every server action must call `can()` itself.
+
+`src/modules/example` is a working reference with a deletion checklist. Full convention: `docs/solutions/conventions/internal-app-module-convention-2026-08-03.md`.
 
 ### Authentication Flow
 
@@ -68,13 +86,13 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 - Schema defined in `src/db/schema/*` (auth, groups, users, etc.)
 - Migrations generated via `npm run db:generate`
 - Applied via `npm run db:migrate`
-- Custom ID prefixes using `newId()` from `src/lib/id.ts` (e.g., `usr_`, `grp_`)
+- Custom ID prefixes using `newId()` from `src/lib/id.ts` (e.g., `usr_`, `gr_`)
 - Relations defined in schema for type-safe queries
 
 **CRITICAL: Migration rules — never violate these:**
 
-1. **Never manually edit migration files** in `src/db/migrations/`. They are auto-generated and must not be touched by hand.
-2. **Always modify schema files** in `src/db/schema/*` to make database changes.
+1. **Never manually edit migration files** in `drizzle/`. They are auto-generated and must not be touched by hand.
+2. **Always modify schema files** in `src/db/schema/*` (core) or `src/modules/<slug>/db/schema*` (app-owned) to make database changes.
 3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
 4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
 5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
@@ -93,10 +111,13 @@ Server-side mutations use `next-safe-action`:
 Inngest workflows in `src/inngest/`:
 
 - `new-user-workflow.ts` - Creates Google Workspace account, database user, sends welcome email
-- `create-group.ts` - Creates Google Group via Admin SDK
-- `slack-user-joined.ts` - Handles Slack workspace join events
+- Membership lifecycle workflows (admission, cancellation, transition, reconfirmation, anniversary)
+- Payment/mandate reminders and system-group sync, plus several crons
+- All functions are registered in `src/inngest/index.ts` and served at `api/inngest`
 - Idempotency keys prevent duplicate processing
 - Multi-step workflows with automatic retries
+
+App modules may add their own functions under `src/modules/<slug>/inngest/` and spread them into `src/inngest/index.ts`; events go in the typed registry in `src/lib/inngest.ts`, namespaced `<slug>/thing.happened`.
 
 Each workflow uses `step.run()` for automatic retries and observability.
 
@@ -105,14 +126,14 @@ Each workflow uses `step.run()` for automatic retries and observability.
 React Email components in `src/emails/`:
 
 - Preview templates via `npm run email:dev`
-- Sent via Resend API (`src/lib/resend.ts`)
+- Sent via AWS SES v2 (`src/lib/email.ts`)
 - Typically triggered from Inngest workflows
 
 ### External Integrations
 
 - **Google Workspace**: Admin SDK for user/group management (requires service account with domain-wide delegation)
 - **Slack**: Web API for channel/user operations, webhook for events
-- **Resend**: Transactional email delivery
+- **AWS SES v2**: Transactional email delivery (`src/lib/email.ts`)
 
 Service credentials configured in `.env` file.
 
@@ -156,7 +177,8 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes: `usr_`, `gr_`, `aup_`, `aug_`, `aud_`, `lm_`, `brs_`, `ap_`, `bv_`, `ma_`, `ld_`, `tsk_`
+Prefixes are declared in `src/lib/id.ts` — currently `usr_`, `gr_`, `lm_`, `ma_`, `mc_`, `mtr_`, `ppd_`, `aud_`, `exn_`.
+App modules register their own prefixes in the same map (required: `nav-breadcrumb` uses `isPrefixedId()` to decide whether a path segment is an id).
 
 ### Query State / URL Params
 
