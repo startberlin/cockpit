@@ -1,16 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import db from "@/db";
 import { actionClient } from "@/lib/action-client";
 import { newId } from "@/lib/id";
 import { can } from "@/lib/permissions/server";
 import { exampleNote } from "../db/schema";
-
-export const createNoteSchema = z.object({
-  body: z.string().min(1, "Write something first.").max(500),
-});
+import { createNoteSchema } from "./create-note-schema";
 
 export const createNoteAction = actionClient
   .inputSchema(createNoteSchema)

@@ -45,7 +45,8 @@ src/lib/apps/
 src/components/apps/
   app-icons.tsx   app id -> icon (SVG / lucide)
   launchers.tsx   app id -> dialog component, for external dialog tools
-  app-card.tsx, app-launcher.tsx, apps-grid.tsx, app-icon.tsx, nav-apps.tsx
+  app-card.tsx, app-launcher.tsx, apps-grid.tsx, app-icon.tsx
+  app-shell.tsx, app-shell-sidebar.tsx   the chrome an internal app renders in
 
 src/modules/<slug>/
   app.ts                 the AppDefinition
@@ -55,8 +56,9 @@ src/modules/<slug>/
   components/*.tsx
   inngest/*.ts           optional
 
-src/app/(authenticated)/(app)/(apps)/<slug>/
-  layout.tsx             calls requireAppAccess("<slug>")
+src/app/(authenticated)/(apps)/            guards only (auth, onboarding, authority)
+src/app/(authenticated)/(apps)/<slug>/
+  layout.tsx             requireAppAccess("<slug>") + <AppShell appId="<slug>">
   page.tsx, loading.tsx
 ```
 
@@ -68,6 +70,10 @@ src/app/(authenticated)/(app)/(apps)/<slug>/
 
 **`app.ts` must stay client-safe.** The sidebar is a client component and imports the registry directly. A module's `app.ts` may import only types, `lucide-react`, and plain constants — never `@/db`, `server-only`, or an action file.
 
+**An internal app is a separate product, not a Cockpit section.** Apps live in `(authenticated)/(apps)/`, a *sibling* of `(app)` — not nested inside it — so they do not inherit Cockpit's sidebar, header, or breadcrumbs. They open in a new tab from the launcher and render their own sidebar (`AppShell`), built from the same shared primitives, with the app's own nav items and a "Back to Cockpit" link. `/tools` is the only entry point; the Cockpit sidebar deliberately has no Apps group.
+
+Because apps sit outside `(app)`, the `(apps)/layout.tsx` group layout repeats the auth, onboarding, and `AuthorityProvider` guards. Those guards are about being a signed-in onboarded member, not about Cockpit.
+
 **Never pass an `AppDefinition` across the RSC boundary.** It contains a function (`description`) and may contain component references. React throws "Functions cannot be passed directly to Client Components". Cards, grid, and launcher are server components; client components receive `app.id`.
 
 **Visibility is not an `Action`.** `evaluateAuth` denies every action to users whose status is not an active authority status — which includes `onboarding`. Onboarding members must still see the external tools, so `AppVisibility` is a composite over status *and* permissions, with `{ kind: "permission" }` as one leaf. Use `{ kind: "status" }` for anything onboarding members need.
@@ -76,7 +82,7 @@ src/app/(authenticated)/(app)/(apps)/<slug>/
 
 1. `(apps)/<slug>/layout.tsx` calls `requireAppAccess()` — gates page renders for the whole subtree.
 2. Every server action calls `can()` itself. Server actions are independently addressable POST endpoints; a layout guard does **not** protect them.
-3. `useCan()` and `visibleInternalApps()` control affordances only.
+3. `useCan()` and the launcher listing control affordances only.
 
 Each internal app that needs gating adds one `GlobalAction` named `apps.<slug>.access` to `globalActions` plus a `case` in `evaluateGlobalAction` and tests, per the permission policy convention. External tools add no actions.
 
@@ -95,7 +101,7 @@ schema: [
 - **Prefix every table `<slug>_`.** This is the only thing preventing collisions between apps in the shared namespace, and it makes deleting an app a one-grep job.
 - **Import core tables from their defining file** (`@/db/schema/auth`), never from `@/db/schema` — the same sibling-import rule the core schema follows to avoid cycles.
 - **Do not add module tables to the `schema` object in `src/db/schema/index.ts`.** That object is shared with the Better Auth Drizzle adapter. The cost is that `db.query.*` (the relational API) is unavailable for module tables; use the core builder with explicit joins. This is a deliberate trade-off, not an oversight.
-- **Register the module's id prefixes in `src/lib/id.ts`.** Not optional: `nav-breadcrumb`'s `looksLikeId()` uses `isPrefixedId()`, so an unregistered prefix renders raw ids in breadcrumbs.
+- **Register the module's id prefixes in `src/lib/id.ts`.** `isPrefixedId()` is the shared test for "is this path segment an id"; keep the map complete.
 - Workflow is unchanged and non-negotiable: edit schema → `npm run db:generate` → `npm run db:migrate`. Never hand-edit a migration, never apply schema changes with `psql`.
 
 ## Adding an app
@@ -104,7 +110,7 @@ schema: [
 2. Add `"apps.<slug>.access"` to `globalActions` + a `switch` case + tests.
 3. Register the app in `src/lib/apps/registry.ts` and add its icon to `app-icons.tsx`.
 4. Tables in `db/schema.ts` (or `db/schema/`), prefix `<slug>_`, id prefixes into `src/lib/id.ts`, then `db:generate` + `db:migrate`.
-5. Routes under `(apps)/<slug>/` with a `layout.tsx` that calls `requireAppAccess`, plus a `loading.tsx` matching the page layout.
+5. Routes under `(authenticated)/(apps)/<slug>/` with a `layout.tsx` that calls `requireAppAccess` and renders `<AppShell appId="<slug>">`, plus a `loading.tsx` matching the page layout. Declare `nav.items` in the definition to populate the app's own sidebar.
 6. Inngest functions (if any) spread into `src/inngest/index.ts`; events into the typed registry in `src/lib/inngest.ts`, namespaced `<slug>/thing.happened`. Emails stay in `src/emails/` with a `<slug>-` filename prefix — `npm run email:dev` only reads `src/emails`.
 
 `registry.test.ts` enforces unique ids, unique analytics ids, unique base paths, and no collision with reserved routes.
@@ -112,6 +118,7 @@ schema: [
 ## Gotchas
 
 - A schema glob that misses files looks exactly like "no schema change" — `db:generate` simply emits nothing. All three globs were verified against both module layouts; if you change them, verify with a scratch table rather than assuming.
-- Route groups do not affect URLs. An app in `(apps)/example/` is served at `/example`.
+- Route groups do not affect URLs. An app in `(authenticated)/(apps)/example/` is served at `/example`.
+- Nesting an app under `(app)` instead would silently give it Cockpit's sidebar and breadcrumbs back.
 - `loading.tsx` renders before any await and cannot know the user's authority. The launcher skeleton uses registry totals as an upper bound.
 - The launcher's `analyticsId` values are the historic `data-ph-capture-attribute-service` slugs. Renaming one silently breaks existing PostHog insights.

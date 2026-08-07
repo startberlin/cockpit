@@ -82,12 +82,6 @@ export function visibleApps(authority: UserAuthority | null): AppDefinition[] {
   return apps.filter((app) => evaluateAppVisibility(authority, app.visibility));
 }
 
-export function visibleInternalApps(
-  authority: UserAuthority | null,
-): InternalAppDefinition[] {
-  return visibleApps(authority).filter(isInternalApp);
-}
-
 export interface AppSection {
   category: AppCategory;
   label: string;
@@ -122,27 +116,4 @@ export function appSectionCounts(): { category: AppCategory; count: number }[] {
       count: apps.filter((app) => app.category === category).length,
     }))
     .filter((section) => section.count > 0);
-}
-
-/**
- * The internal app rooted exactly at this path. Use for breadcrumb labels —
- * `findAppByPath` prefix-matches, which would label nested segments with the
- * app's name too.
- */
-export function getAppByBasePath(
-  pathname: string,
-): InternalAppDefinition | undefined {
-  return apps.filter(isInternalApp).find((app) => app.basePath === pathname);
-}
-
-/** The internal app owning a pathname, for active nav state. Prefix-matches. */
-export function findAppByPath(
-  pathname: string,
-): InternalAppDefinition | undefined {
-  return apps
-    .filter(isInternalApp)
-    .find(
-      (app) =>
-        pathname === app.basePath || pathname.startsWith(`${app.basePath}/`),
-    );
 }

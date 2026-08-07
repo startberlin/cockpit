@@ -16,13 +16,18 @@ export function AppLauncher({
   actionLabel: string;
 }) {
   if (app.kind === "internal") {
+    // Internal apps open in their own tab, like the external ones: they are
+    // separate products with their own navigation, not Cockpit sections.
     return (
       <Button variant="outline" size="sm" asChild>
         <Link
           href={app.basePath}
+          target="_blank"
+          rel="noopener noreferrer"
           data-ph-capture-attribute-service={app.analyticsId}
         >
-          Open {app.name}
+          <ExternalLink />
+          {actionLabel} {app.name}
         </Link>
       </Button>
     );

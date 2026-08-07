@@ -24,7 +24,7 @@ import { evaluateAppVisibility } from "./visibility";
  *   1. `(apps)/<slug>/layout.tsx` calls `requireAppAccess()` — gates page renders.
  *   2. Every server action in the module calls `can()` itself — layouts do NOT
  *      protect server actions, which are independently addressable POST endpoints.
- *   3. Client `useCan()` / `visibleInternalApps()` — affordances only.
+ *   3. Client `useCan()` and the launcher listing — affordances only.
  */
 
 /**

@@ -10,7 +10,7 @@ import type { InternalAppDefinition } from "@/lib/apps/types";
  *
  * ## Deleting it
  *
- * 1. `rm -rf src/modules/example src/app/(authenticated)/(app)/(apps)/example`
+ * 1. `rm -rf src/modules/example src/app/(authenticated)/(apps)/example`
  * 2. Drop `exampleApp` from `src/lib/apps/registry.ts`
  * 3. Drop the `example` entry from `src/components/apps/app-icons.tsx`
  * 4. Drop `"apps.example.access"` from `globalActions` and its `switch` case in
@@ -36,5 +36,12 @@ export const exampleApp: InternalAppDefinition = {
   visibility: { kind: "permission", action: "apps.example.access" },
   description:
     "A scaffold app proving the internal-app seams. Safe to delete once a real app exists.",
-  nav: {},
+  // Rendered as the app's own sidebar by AppShellSidebar. Two entries so the
+  // scaffold actually demonstrates in-app navigation.
+  nav: {
+    items: [
+      { label: "Notes", href: "/example" },
+      { label: "About", href: "/example/about" },
+    ],
+  },
 };

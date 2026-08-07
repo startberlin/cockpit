@@ -46,7 +46,7 @@ npm run email:dev     # Preview React Email templates
 Routes use Next.js 15+ App Router with route groups:
 
 - `(authenticated)/(app)/(default)/*` - Main app routes (groups, people, membership), `max-w-4xl` column
-- `(authenticated)/(app)/(apps)/*` - Internal apps (see Internal Apps below)
+- `(authenticated)/(apps)/*` - Internal apps, own shell (see Internal Apps below)
 - `(authenticated)/(onboarding)/*` - Onboarding flow for new users
 - `auth/*` - Public auth pages
 - `api/auth/[...all]` - Better Auth handler
@@ -54,19 +54,22 @@ Routes use Next.js 15+ App Router with route groups:
 
 ### Internal Apps
 
-Cockpit hosts multiple applications. External SaaS (Slack, Notion, ...) and internal apps built here are both entries in one registry, surfaced by the launcher at `/tools` and the sidebar.
+Cockpit hosts multiple applications. External SaaS (Slack, Notion, ...) and internal apps built here are both entries in one registry, surfaced by the launcher at `/tools`.
+
+An internal app is a **separate product**: it opens in a new tab and renders its own sidebar (its name, its nav items, a "Back to Cockpit" link), not Cockpit's. That is why apps live in `(authenticated)/(apps)/` — a sibling of `(app)`, not nested inside it. `/tools` is the only entry point; the Cockpit sidebar has no Apps group.
 
 - Registry and access model: `src/lib/apps/*`
 - Launcher/sidebar components: `src/components/apps/*`
 - Per-app code: `src/modules/<slug>/*` (own `app.ts`, tables, actions, components)
-- Per-app routes: `src/app/(authenticated)/(app)/(apps)/<slug>/*`
+- Per-app routes: `src/app/(authenticated)/(apps)/<slug>/*`
 
-Four rules that are easy to get wrong:
+Five rules that are easy to get wrong:
 
 1. The registry holds **data only** — no icons, no components, no JSX. SVG and `lucide-react` imports break `node --test`. Icons live in `app-icons.tsx`, dialogs in `launchers.tsx`, keyed by app id.
 2. **Never pass an `AppDefinition` to a client component** — it contains functions. Pass `app.id`.
 3. App visibility is **not** a plain permission: `evaluateAuth` denies everything to `onboarding` users, who must still see the external tools. Use `AppVisibility` (`src/lib/apps/visibility.ts`).
 4. `requireAppAccess()` in the app's `layout.tsx` guards **page renders only**. Every server action must call `can()` itself.
+5. Nesting an app under `(app)` would silently hand it Cockpit's sidebar and breadcrumbs back.
 
 `src/modules/example` is a working reference with a deletion checklist. Full convention: `docs/solutions/conventions/internal-app-module-convention-2026-08-03.md`.
 

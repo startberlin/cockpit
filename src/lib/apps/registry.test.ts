@@ -4,12 +4,9 @@ import type { UserAuthority } from "@/lib/permissions";
 import {
   appSectionCounts,
   apps,
-  findAppByPath,
-  getAppByBasePath,
   isInternalApp,
   RESERVED_APP_PATHS,
   visibleAppSections,
-  visibleInternalApps,
 } from "./registry";
 import { appCategories } from "./types";
 
@@ -119,33 +116,5 @@ describe("app registry", () => {
         `skeleton for ${section.category} is smaller than what renders`,
       );
     }
-  });
-
-  // Breadcrumbs label one segment at a time, so a prefix match would name every
-  // nested segment after the app ("Example app / Example app").
-  it("getAppByBasePath matches only the exact base path", () => {
-    const internal = visibleInternalApps(
-      authority({ grants: [{ grant: "super_admin" }] }),
-    );
-    assert.ok(internal.length > 0, "expected at least one internal app");
-
-    for (const app of internal) {
-      assert.equal(getAppByBasePath(app.basePath)?.id, app.id);
-      assert.equal(getAppByBasePath(`${app.basePath}/nested`), undefined);
-    }
-  });
-
-  it("findAppByPath matches an internal app's base path and its children", () => {
-    const internal = visibleInternalApps(
-      authority({ grants: [{ grant: "super_admin" }] }),
-    );
-
-    for (const app of internal) {
-      assert.equal(findAppByPath(app.basePath)?.id, app.id);
-      assert.equal(findAppByPath(`${app.basePath}/nested/x`)?.id, app.id);
-    }
-
-    assert.equal(findAppByPath("/membership"), undefined);
-    assert.equal(findAppByPath("/tools"), undefined);
   });
 });
