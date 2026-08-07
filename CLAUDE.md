@@ -60,7 +60,7 @@ An internal app is a **separate product**: it opens in a new tab and renders its
 
 - Registry and access model: `src/lib/apps/*`
 - Launcher/sidebar components: `src/components/apps/*`
-- Per-app code: `src/modules/<slug>/*` (own `app.ts`, tables, actions, components)
+- Per-app code: `src/internal-apps/<slug>/*` (own `app.ts`, tables, actions, components)
 - Per-app routes: `src/app/(authenticated)/(apps)/<slug>/*`
 
 Five rules that are easy to get wrong:
@@ -71,7 +71,7 @@ Five rules that are easy to get wrong:
 4. `requireAppAccess()` in the app's `layout.tsx` guards **page renders only**. Every server action must call `can()` itself.
 5. Nesting an app under `(app)` would silently hand it Cockpit's sidebar and breadcrumbs back.
 
-`src/modules/example` is a working reference with a deletion checklist. Full convention: `docs/solutions/conventions/internal-app-module-convention-2026-08-03.md`.
+`src/internal-apps/example` is a working reference with a deletion checklist. Full convention: `docs/solutions/conventions/internal-app-convention-2026-08-03.md`.
 
 ### Authentication Flow
 
@@ -95,7 +95,7 @@ Drizzle ORM (`src/db/`) with schema-first approach:
 **CRITICAL: Migration rules — never violate these:**
 
 1. **Never manually edit migration files** in `drizzle/`. They are auto-generated and must not be touched by hand.
-2. **Always modify schema files** in `src/db/schema/*` (core) or `src/modules/<slug>/db/schema*` (app-owned) to make database changes.
+2. **Always modify schema files** in `src/db/schema/*` (core) or `src/internal-apps/<slug>/db/schema*` (app-owned) to make database changes.
 3. **Always run `npm run db:generate`** after schema changes to generate the migration file.
 4. **Always run `npm run db:migrate`** after generating to apply migrations to the database.
 5. The correct workflow is always: edit schema → `npm run db:generate` → `npm run db:migrate`.
@@ -120,7 +120,7 @@ Inngest workflows in `src/inngest/`:
 - Idempotency keys prevent duplicate processing
 - Multi-step workflows with automatic retries
 
-App modules may add their own functions under `src/modules/<slug>/inngest/` and spread them into `src/inngest/index.ts`; events go in the typed registry in `src/lib/inngest.ts`, namespaced `<slug>/thing.happened`.
+Apps may add their own functions under `src/internal-apps/<slug>/inngest/` and spread them into `src/inngest/index.ts`; events go in the typed registry in `src/lib/inngest.ts`, namespaced `<slug>/thing.happened`.
 
 Each workflow uses `step.run()` for automatic retries and observability.
 
@@ -181,7 +181,7 @@ const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
 Prefixes are declared in `src/lib/id.ts` — currently `usr_`, `gr_`, `lm_`, `ma_`, `mc_`, `mtr_`, `ppd_`, `aud_`, `exn_`.
-App modules register their own prefixes in the same map (required: `nav-breadcrumb` uses `isPrefixedId()` to decide whether a path segment is an id).
+Apps register their own prefixes in the same map (required: `nav-breadcrumb` uses `isPrefixedId()` to decide whether a path segment is an id).
 
 ### Query State / URL Params
 

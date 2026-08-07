@@ -4,7 +4,7 @@ import { user } from "@/db/schema/auth";
 /**
  * Tables owned by the example app.
  *
- * Conventions for module schemas:
+ * Conventions for app schemas:
  *  - Table names are prefixed `<slug>_` — everything shares one Postgres schema,
  *    so the prefix is what prevents collisions between apps.
  *  - Import core tables (`user`, ...) from their defining file, never from

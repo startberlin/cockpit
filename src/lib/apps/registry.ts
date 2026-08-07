@@ -1,5 +1,5 @@
+import { exampleApp } from "@/internal-apps/example/app";
 import type { UserAuthority } from "@/lib/permissions";
-import { exampleApp } from "@/modules/example/app";
 import { externalApps } from "./external";
 import {
   APP_CATEGORY_LABELS,
@@ -13,11 +13,11 @@ import { evaluateAppVisibility } from "./visibility";
 /**
  * Every app the launcher knows about.
  *
- * Internal apps are declared in `src/modules/<slug>/app.ts` and registered here.
+ * Internal apps are declared in `src/internal-apps/<slug>/app.ts` and registered here.
  * Registration is an explicit array rather than a side-effecting `register()`
  * call so the list is deterministic and tree-shakeable.
  *
- * This module is imported by both server components and the client sidebar. Keep
+ * This file is imported by both server components and the client sidebar. Keep
  * it free of `server-only`, `@/db`, and JSX.
  */
 const appDefinitions = [

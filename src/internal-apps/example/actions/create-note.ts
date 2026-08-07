@@ -12,7 +12,7 @@ export const createNoteAction = actionClient
   .inputSchema(createNoteSchema)
   .action(async ({ parsedInput, ctx: { user } }) => {
     // The route layout's requireAppAccess() does NOT protect this: server
-    // actions are independently addressable endpoints. Every module action
+    // actions are independently addressable endpoints. Every app action
     // re-checks for itself.
     if (!(await can("apps.example.access"))) {
       throw new Error("You are not authorized to use the example app.");

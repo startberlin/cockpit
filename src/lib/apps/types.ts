@@ -7,7 +7,7 @@ import type { AppVisibility } from "./visibility";
  * An "app" is anything a member can open from the launcher: an external SaaS
  * workspace (Slack, Notion, ...) or an internal app built inside this codebase.
  *
- * Definitions live in `external.ts` (SaaS) or in `src/modules/<slug>/app.ts`
+ * Definitions live in `external.ts` (SaaS) or in `src/internal-apps/<slug>/app.ts`
  * (internal), and are collected in `registry.ts`.
  *
  * Two rules keep this layer usable:

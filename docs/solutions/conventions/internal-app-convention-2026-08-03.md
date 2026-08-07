@@ -1,5 +1,5 @@
 ---
-title: "Internal app module convention"
+title: "Internal app convention"
 date: "2026-08-03"
 category: conventions
 module: "apps"
@@ -22,7 +22,7 @@ applies_when:
   - Adding tables owned by an app rather than by the core schema
 ---
 
-# Internal app module convention
+# Internal app convention
 
 ## Context
 
@@ -48,7 +48,7 @@ src/components/apps/
   app-card.tsx, app-launcher.tsx, apps-grid.tsx, app-icon.tsx
   app-shell.tsx, app-shell-sidebar.tsx   the chrome an internal app renders in
 
-src/modules/<slug>/
+src/internal-apps/<slug>/
   app.ts                 the AppDefinition
   db/schema.ts           tables — or a db/schema/ directory for larger apps
   db/queries.ts          "server-only"
@@ -62,13 +62,13 @@ src/app/(authenticated)/(apps)/<slug>/
   page.tsx, loading.tsx
 ```
 
-`src/modules/example` is a working reference implementation. It carries a deletion checklist in its `app.ts`.
+`src/internal-apps/example` is a working reference implementation. It carries a deletion checklist in its `app.ts`.
 
 ## Core rules
 
-**The registry holds data, never renderable assets.** No icons, no components, no JSX in `src/lib/apps/` or in a module's `app.ts`. SVG static imports and `lucide-react` both fail to resolve under `node --test`, so putting them in the registry makes it untestable. Icons go in `app-icons.tsx`, dialogs in `launchers.tsx`, both keyed by app id and both typed against `AppId` so a missing entry is a compile error.
+**The registry holds data, never renderable assets.** No icons, no components, no JSX in `src/lib/apps/` or in an app's `app.ts`. SVG static imports and `lucide-react` both fail to resolve under `node --test`, so putting them in the registry makes it untestable. Icons go in `app-icons.tsx`, dialogs in `launchers.tsx`, both keyed by app id and both typed against `AppId` so a missing entry is a compile error.
 
-**`app.ts` must stay client-safe.** The sidebar is a client component and imports the registry directly. A module's `app.ts` may import only types, `lucide-react`, and plain constants — never `@/db`, `server-only`, or an action file.
+**`app.ts` must stay client-safe.** The sidebar is a client component and imports the registry directly. An app's `app.ts` may import only types, `lucide-react`, and plain constants — never `@/db`, `server-only`, or an action file.
 
 **An internal app is a separate product, not a Cockpit section.** Apps live in `(authenticated)/(apps)/`, a *sibling* of `(app)` — not nested inside it — so they do not inherit Cockpit's sidebar, header, or breadcrumbs. They open in a new tab from the launcher and render their own sidebar (`AppShell`), built from the same shared primitives, with the app's own nav items and a "Back to Cockpit" link. `/tools` is the only entry point; the Cockpit sidebar deliberately has no Apps group.
 
@@ -88,25 +88,25 @@ Each internal app that needs gating adds one `GlobalAction` named `apps.<slug>.a
 
 ## Database
 
-One Postgres database, one `public` schema, one `/drizzle` migration sequence. Apps own their table definitions inside their module folder; `drizzle.config.ts` picks them up:
+One Postgres database, one `public` schema, one `/drizzle` migration sequence. Apps own their table definitions inside their own folder; `drizzle.config.ts` picks them up:
 
 ```ts
 schema: [
   "./src/db/schema",
-  "./src/modules/*/db/schema.ts",
-  "./src/modules/*/db/schema/**/*.ts",
+  "./src/internal-apps/*/db/schema.ts",
+  "./src/internal-apps/*/db/schema/**/*.ts",
 ],
 ```
 
 - **Prefix every table `<slug>_`.** This is the only thing preventing collisions between apps in the shared namespace, and it makes deleting an app a one-grep job.
 - **Import core tables from their defining file** (`@/db/schema/auth`), never from `@/db/schema` — the same sibling-import rule the core schema follows to avoid cycles.
-- **Do not add module tables to the `schema` object in `src/db/schema/index.ts`.** That object is shared with the Better Auth Drizzle adapter. The cost is that `db.query.*` (the relational API) is unavailable for module tables; use the core builder with explicit joins. This is a deliberate trade-off, not an oversight.
-- **Register the module's id prefixes in `src/lib/id.ts`.** `isPrefixedId()` is the shared test for "is this path segment an id"; keep the map complete.
+- **Do not add an app's tables to the `schema` object in `src/db/schema/index.ts`.** That object is shared with the Better Auth Drizzle adapter. The cost is that `db.query.*` (the relational API) is unavailable for app tables; use the core builder with explicit joins. This is a deliberate trade-off, not an oversight.
+- **Register the app's id prefixes in `src/lib/id.ts`.** `isPrefixedId()` is the shared test for "is this path segment an id"; keep the map complete.
 - Workflow is unchanged and non-negotiable: edit schema → `npm run db:generate` → `npm run db:migrate`. Never hand-edit a migration, never apply schema changes with `psql`.
 
 ## Adding an app
 
-1. `src/modules/<slug>/app.ts` — the `InternalAppDefinition` (`category: "internal"`, a `basePath` that does not collide with a reserved route, and a `visibility`).
+1. `src/internal-apps/<slug>/app.ts` — the `InternalAppDefinition` (`category: "internal"`, a `basePath` that does not collide with a reserved route, and a `visibility`).
 2. Add `"apps.<slug>.access"` to `globalActions` + a `switch` case + tests.
 3. Register the app in `src/lib/apps/registry.ts` and add its icon to `app-icons.tsx`.
 4. Tables in `db/schema.ts` (or `db/schema/`), prefix `<slug>_`, id prefixes into `src/lib/id.ts`, then `db:generate` + `db:migrate`.
@@ -117,7 +117,7 @@ schema: [
 
 ## Gotchas
 
-- A schema glob that misses files looks exactly like "no schema change" — `db:generate` simply emits nothing. All three globs were verified against both module layouts; if you change them, verify with a scratch table rather than assuming.
+- A schema glob that misses files looks exactly like "no schema change" — `db:generate` simply emits nothing. All three globs were verified against both schema layouts; if you change them, verify with a scratch table rather than assuming.
 - Route groups do not affect URLs. An app in `(authenticated)/(apps)/example/` is served at `/example`.
 - Nesting an app under `(app)` instead would silently give it Cockpit's sidebar and breadcrumbs back.
 - `loading.tsx` renders before any await and cannot know the user's authority. The launcher skeleton uses registry totals as an upper bound.

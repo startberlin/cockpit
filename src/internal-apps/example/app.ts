@@ -10,7 +10,7 @@ import type { InternalAppDefinition } from "@/lib/apps/types";
  *
  * ## Deleting it
  *
- * 1. `rm -rf src/modules/example src/app/(authenticated)/(apps)/example`
+ * 1. `rm -rf src/internal-apps/example src/app/(authenticated)/(apps)/example`
  * 2. Drop `exampleApp` from `src/lib/apps/registry.ts`
  * 3. Drop the `example` entry from `src/components/apps/app-icons.tsx`
  * 4. Drop `"apps.example.access"` from `globalActions` and its `switch` case in
@@ -19,8 +19,8 @@ import type { InternalAppDefinition } from "@/lib/apps/types";
  * 5. Drop `exampleNote` from `prefixes` in `src/lib/id.ts`
  * 6. `npm run db:generate` (emits the DROP TABLE) then `npm run db:migrate`
  *
- * Nothing else moves. Everything the registry, route group, sidebar, and
- * breadcrumbs need stays in place for the next app.
+ * Nothing else moves. Everything the registry, route group, and app shell need
+ * stays in place for the next app.
  *
  * NOTE: this file is pulled into the sidebar's client bundle, so it may import
  * only types, `lucide-react`, and plain constants — never `@/db`, `server-only`,
