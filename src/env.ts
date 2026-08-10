@@ -16,6 +16,11 @@ const workspaceString = googleWorkspaceDisabled
   ? z.string().optional()
   : z.string().min(1);
 
+// Dev login is a passwordless bypass. `src/lib/auth-dev-login.ts` hard-blocks
+// the endpoint in production; forcing the flag off here keeps the plugin
+// unregistered and the auth page from offering it, even if the var is set.
+const devLoginBlocked = process.env.NODE_ENV === "production";
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
@@ -41,7 +46,11 @@ export const env = createEnv({
     DISABLE_EMAIL: z.stringbool().optional().default(false),
     DISABLE_GOOGLE_WORKSPACE: z.stringbool().optional().default(false),
     DISABLE_SLACK: z.stringbool().optional().default(false),
-    ENABLE_DEV_LOGIN: z.stringbool().optional().default(false),
+    ENABLE_DEV_LOGIN: z
+      .stringbool()
+      .optional()
+      .default(false)
+      .transform((enabled) => enabled && !devLoginBlocked),
     TALLY_API_KEY: z.string().min(1).optional(),
     TALLY_ORGANIZATION_ID: z.string().min(1).optional(),
   },

@@ -4,6 +4,10 @@ import { desc, eq } from "drizzle-orm";
 import db from "@/db";
 import { exampleNote } from "./schema";
 
+/** The page renders every row it gets, so the query is bounded rather than
+ * growing with the user's note count. */
+const MAX_NOTES = 100;
+
 export interface ExampleNote {
   id: string;
   body: string;
@@ -19,5 +23,6 @@ export async function listExampleNotes(userId: string): Promise<ExampleNote[]> {
     })
     .from(exampleNote)
     .where(eq(exampleNote.userId, userId))
-    .orderBy(desc(exampleNote.createdAt));
+    .orderBy(desc(exampleNote.createdAt))
+    .limit(MAX_NOTES);
 }

@@ -1,3 +1,4 @@
+import { desc } from "drizzle-orm";
 import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "@/db/schema/auth";
 
@@ -25,5 +26,8 @@ export const exampleNote = pgTable(
     body: text("body").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("example_note_user_id_idx").on(table.userId)],
+  // Composite, in the shape `listExampleNotes` reads: filter by user, newest first.
+  (table) => [
+    index("example_note_user_id_idx").on(table.userId, desc(table.createdAt)),
+  ],
 );

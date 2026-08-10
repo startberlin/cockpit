@@ -38,7 +38,11 @@ export default async function ExamplePage() {
             <li key={note.id} className="rounded-md border p-3 text-sm">
               <p>{note.body}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {note.createdAt.toLocaleString("en-GB")}
+                {/* Rendered on the server, so the timezone must be explicit —
+                    otherwise the host's timezone leaks into the output. */}
+                {note.createdAt.toLocaleString("en-GB", {
+                  timeZone: "Europe/Berlin",
+                })}
               </p>
             </li>
           ))}
