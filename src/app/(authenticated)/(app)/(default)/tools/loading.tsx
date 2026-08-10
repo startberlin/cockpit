@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { appSectionCounts } from "@/lib/apps/registry";
 
 function SectionSkeleton({ count }: { count: number }) {
   return (
@@ -14,6 +15,11 @@ function SectionSkeleton({ count }: { count: number }) {
 }
 
 export default function ToolsLoading() {
+  // Counts come from the registry, so the skeleton follows the launcher
+  // automatically. loading.tsx renders before any await and cannot know the
+  // user's authority, so registry totals are the correct upper bound.
+  const sections = appSectionCounts();
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -21,9 +27,9 @@ export default function ToolsLoading() {
         <Skeleton className="h-4 w-80" />
       </div>
       <div className="flex flex-col gap-10">
-        <SectionSkeleton count={3} />
-        <SectionSkeleton count={4} />
-        <SectionSkeleton count={1} />
+        {sections.map((section) => (
+          <SectionSkeleton key={section.category} count={section.count} />
+        ))}
       </div>
     </div>
   );

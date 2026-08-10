@@ -89,7 +89,7 @@ function TallyDialogContent({
                   variant="outline"
                   size="sm"
                   onClick={onRequestInvite}
-                  disabled={isRequestingInvite}
+                  disabled={isRequestingInvite || step1Done}
                 >
                   <Mail />
                   {isRequestingInvite ? "Sending invite…" : "Request invite"}

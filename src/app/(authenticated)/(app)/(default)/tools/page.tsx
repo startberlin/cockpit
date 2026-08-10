@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
+import { AppsGrid } from "@/components/apps/apps-grid";
 import { getCurrentUser } from "@/db/user";
+import { getVisibleAppSections } from "@/lib/apps/server";
 import { createMetadata } from "@/lib/metadata";
-import { ToolsSection } from "../membership/tools-section";
 
 export const metadata = createMetadata({
   title: "Tools",
@@ -19,17 +20,22 @@ export default async function ToolsPage() {
     redirect("/membership");
   }
 
+  const isOnboarding = user.status === "onboarding";
+  const sections = await getVisibleAppSections();
+
   return (
-    <ToolsSection
-      title={
-        user.status === "onboarding" ? "Get connected" : "My START Berlin tools"
-      }
+    <AppsGrid
+      title={isOnboarding ? "Get connected" : "My START Berlin tools"}
       description={
-        user.status === "onboarding"
+        isOnboarding
           ? "Join the START Berlin workspaces where members coordinate, share resources, and work on projects."
           : "Open the workspaces you use for communication, projects, and resources."
       }
-      actionLabel={user.status === "onboarding" ? "Join" : "Open"}
+      sections={sections}
+      copyContext={{
+        actionLabel: isOnboarding ? "Join" : "Open",
+        status: user.status,
+      }}
     />
   );
 }
