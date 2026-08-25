@@ -1,4 +1,4 @@
-# Start Berlin Cockpit
+# START Berlin Cockpit
 
 Internal membership management platform.
 
