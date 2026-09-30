@@ -7,11 +7,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getMemberSinceDate } from "@/db/membership";
+import { getActiveLegalMembership, getMemberSinceDate } from "@/db/membership";
 import { getDepartmentHeadForDepartment, getUserDetails } from "@/db/people";
 import type { Department, LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
 import { USER_STATUS_INFO } from "@/lib/user-status";
+import { AdminMembershipNoticeBlock } from "./admin-membership-notice-block";
 import { MembershipCardMenu } from "./membership-card-menu";
 
 const LEGAL_MEMBERSHIP_STATE_INFO: Record<
@@ -108,11 +109,12 @@ export async function MembershipCard({
 
   if (!user) return null;
 
-  const [memberSince, rawDepartmentHead] = await Promise.all([
+  const [memberSince, rawDepartmentHead, membership] = await Promise.all([
     getMemberSinceDate(userId),
     user.department
       ? getDepartmentHeadForDepartment(user.department)
       : Promise.resolve(null),
+    getActiveLegalMembership(userId),
   ]);
 
   const departmentHead =
@@ -121,6 +123,10 @@ export async function MembershipCard({
   const statusInfo = USER_STATUS_INFO[user.status];
   const legalStateInfo = LEGAL_MEMBERSHIP_STATE_INFO[user.legalMembershipState];
   const duration = memberSince ? formatDuration(memberSince, new Date()) : null;
+  const noticeType =
+    membership?.status === "active" || membership?.status === "cancelled"
+      ? null
+      : (membership?.status ?? null);
 
   return (
     <Card>
@@ -138,6 +144,10 @@ export async function MembershipCard({
         />
       </CardHeader>
       <CardContent className="space-y-4">
+        <AdminMembershipNoticeBlock
+          noticeType={noticeType}
+          canViewPayment={false}
+        />
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <FieldLabel>Status</FieldLabel>

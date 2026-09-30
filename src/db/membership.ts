@@ -4,6 +4,7 @@ import type { UserStatus } from "@/db/schema/auth";
 import {
   ACTIVE_TENURE_STATUSES,
   type LegalMembershipStatus,
+  LIVE_TENURE_STATUSES,
   legalMembership,
 } from "@/db/schema/legal-membership";
 import { nanoid } from "@/lib/id";
@@ -27,6 +28,20 @@ export const getActiveLegalMembership = cache(
     return row ?? null;
   },
 );
+
+// Only live tenures block a new proposal. Manual follow-up records remain
+// visible through getActiveLegalMembership but must not mask a live tenure.
+export const getLiveLegalMembership = cache(async (userId: string) => {
+  const row = await db.query.legalMembership.findFirst({
+    where: and(
+      eq(legalMembership.userId, userId),
+      inArray(legalMembership.status, [...LIVE_TENURE_STATUSES]),
+    ),
+    columns: { id: true, status: true, inngestRunId: true },
+  });
+
+  return row ?? null;
+});
 
 export function newMembershipSessionId() {
   return `mps_${nanoid(16)}`;
