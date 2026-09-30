@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, UserPlus } from "lucide-react";
+import { ExternalLink, RotateCw, TriangleAlert, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -31,12 +31,15 @@ interface SlackDialogContentProps {
   exists: boolean;
   isLoading: boolean;
   isError: boolean;
+  onRetry: () => void;
   actionLabel: string;
 }
 
 function SlackDialogContent({
   exists,
   isLoading,
+  isError,
+  onRetry,
   actionLabel,
 }: SlackDialogContentProps) {
   if (isLoading) {
@@ -56,6 +59,46 @@ function SlackDialogContent({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // A failed lookup means we do not know whether the account exists, so showing
+  // the "create an account" step would be misleading for existing members.
+  if (isError) {
+    return (
+      <Empty className="my-4 h-full bg-gray-50 ring-1 ring-inset ring-gray-200">
+        <EmptyHeader>
+          <EmptyMedia variant="default">
+            <TriangleAlert />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm">
+            Could not check your Slack account
+          </EmptyTitle>
+          <EmptyDescription>
+            We could not reach Slack just now. Try again, or open Slack
+            directly.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              <RotateCw />
+              Try again
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href="https://start-berlin-e-v.slack.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-ph-capture-attribute-service="slack"
+              >
+                <ExternalLink />
+                Open Slack
+              </Link>
+            </Button>
+          </div>
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -188,6 +231,7 @@ export function SlackDialog({
           exists={exists}
           isLoading={isLoading}
           isError={isError}
+          onRetry={() => execute()}
           actionLabel={actionLabel}
         />
       </DialogContent>

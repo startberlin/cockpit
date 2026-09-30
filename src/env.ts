@@ -1,18 +1,54 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import z from "zod";
 
+// Resolve the Workspace flag up front so the Google service-account vars can be
+// made optional when the integration is turned off (e.g. local development).
+// Login vars (GOOGLE_CLIENT_ID/SECRET) are intentionally excluded — OAuth login
+// is independent of Workspace and always required.
+const googleWorkspaceDisabled = z
+  .stringbool()
+  .optional()
+  .default(false)
+  .catch(false)
+  .parse(process.env.DISABLE_GOOGLE_WORKSPACE);
+
+const workspaceString = googleWorkspaceDisabled
+  ? z.string().optional()
+  : z.string().min(1);
+
+// Dev login is a passwordless bypass. `src/lib/auth-dev-login.ts` hard-blocks
+// the endpoint in production; forcing the flag off here keeps the plugin
+// unregistered and the auth page from offering it, even if the var is set.
+const devLoginBlocked = process.env.NODE_ENV === "production";
+
+// Same trick as the Workspace flag: with the passwordless local login enabled,
+// the app can run without a Google OAuth client, so the login vars become
+// optional. In production the flag is blocked, so they stay required.
+const devLoginEnabled =
+  !devLoginBlocked &&
+  z
+    .stringbool()
+    .optional()
+    .default(false)
+    .catch(false)
+    .parse(process.env.ENABLE_DEV_LOGIN);
+
+const googleLoginString = devLoginEnabled
+  ? z.string().min(1).optional()
+  : z.string().min(1);
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(1),
     BETTER_AUTH_URL: z.url().optional().default("http://localhost:3000"),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
+    GOOGLE_CLIENT_ID: googleLoginString,
+    GOOGLE_CLIENT_SECRET: googleLoginString,
     AWS_REGION: z.string().min(1),
     AWS_ACCESS_KEY_ID: z.string().min(1),
     AWS_SECRET_ACCESS_KEY: z.string().min(1),
     AWS_SES_SNS_TOPIC_ARN: z.string().min(1),
-    GOOGLE_APPLICATION_CREDENTIALS_BASE64: z.string().min(1),
+    GOOGLE_APPLICATION_CREDENTIALS_BASE64: workspaceString,
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     GOCARDLESS_API_KEY: z.string().min(1).optional(),
     GOCARDLESS_ENVIRONMENT: z
@@ -20,12 +56,19 @@ export const env = createEnv({
       .optional()
       .default("live"),
     GOCARDLESS_WEBHOOK_SECRET: z.string().min(1).optional(),
-    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: z.string().min(1),
+    GOOGLE_DRIVE_LEGAL_DOCUMENTS_FOLDER_ID: workspaceString,
     BETTERSTACK_HEARTBEAT_URL_PAYMENT_PROPOSALS: z.url().optional(),
     BETTERSTACK_HEARTBEAT_URL_GROUP_RECONCILIATION: z.url().optional(),
     DISABLE_EMAIL: z.stringbool().optional().default(false),
     DISABLE_GOOGLE_WORKSPACE: z.stringbool().optional().default(false),
     DISABLE_SLACK: z.stringbool().optional().default(false),
+    // Local-only passwordless login. The endpoint itself is hard-blocked when
+    // NODE_ENV=production (see src/lib/auth-dev-login.ts).
+    ENABLE_DEV_LOGIN: z
+      .stringbool()
+      .optional()
+      .default(false)
+      .transform((enabled) => enabled && !devLoginBlocked),
     TALLY_API_KEY: z.string().min(1).optional(),
     TALLY_ORGANIZATION_ID: z.string().min(1).optional(),
   },
@@ -63,6 +106,7 @@ export const env = createEnv({
     DISABLE_EMAIL: process.env.DISABLE_EMAIL,
     DISABLE_GOOGLE_WORKSPACE: process.env.DISABLE_GOOGLE_WORKSPACE,
     DISABLE_SLACK: process.env.DISABLE_SLACK,
+    ENABLE_DEV_LOGIN: process.env.ENABLE_DEV_LOGIN,
     TALLY_API_KEY: process.env.TALLY_API_KEY,
     TALLY_ORGANIZATION_ID: process.env.TALLY_ORGANIZATION_ID,
   },

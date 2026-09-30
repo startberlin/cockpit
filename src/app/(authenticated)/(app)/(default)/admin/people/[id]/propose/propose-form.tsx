@@ -28,7 +28,9 @@ export function ProposeMembershipForm({
     },
     onError: ({ error }) => {
       toast.error(
-        error.serverError ?? "Could not propose membership. Please try again.",
+        error.serverError ??
+          error.validationErrors?.userId?._errors?.[0] ??
+          "Could not propose membership. Please try again.",
       );
     },
   });

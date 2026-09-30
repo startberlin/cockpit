@@ -6,7 +6,16 @@ if (!url) throw new Error("DATABASE_URL must be set");
 
 export default defineConfig({
   out: "./drizzle",
-  schema: "./src/db/schema",
+  // Core schema plus each internal app's own tables. Apps own their table
+  // definitions inside their app folder and may use either a single
+  // db/schema.ts or a db/schema/ directory — both are picked up here.
+  // Everything still lands in one Postgres schema and one migration sequence;
+  // per-app table names are prefixed `<slug>_` to avoid collisions.
+  schema: [
+    "./src/db/schema",
+    "./src/internal-apps/*/db/schema.ts",
+    "./src/internal-apps/*/db/schema/**/*.ts",
+  ],
   dialect: "postgresql",
   dbCredentials: { url },
 });

@@ -3,8 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { Button } from "@/components/ui/button";
+import { getLiveLegalMembership } from "@/db/membership";
 import { getUserDetails } from "@/db/people";
-import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
+import { getMembershipProposalBlockReason } from "@/lib/membership-proposal";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import { ProposeMembershipForm } from "./propose-form";
@@ -30,13 +31,17 @@ export default async function ProposeMembershipPage({ params }: PageProps) {
     department: user.department,
   });
 
+  if (!canPropose) {
+    redirect(`/admin/people/${id}`);
+  }
+
+  const membership = await getLiveLegalMembership(id);
+
   const isEligible =
     user.profileOnboardingComplete &&
-    !(LIVE_TENURE_STATUSES as readonly string[]).includes(
-      user.legalMembershipState,
-    );
+    getMembershipProposalBlockReason(membership) === null;
 
-  if (!canPropose || !isEligible) {
+  if (!isEligible) {
     redirect(`/admin/people/${id}`);
   }
 
