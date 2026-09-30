@@ -10,8 +10,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getLiveLegalMembership } from "@/db/membership";
 import { getUserDetails } from "@/db/people";
-import { LIVE_TENURE_STATUSES } from "@/db/schema/legal-membership";
+import { getMembershipProposalBlockReason } from "@/lib/membership-proposal";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
 import { BackButton } from "./back-button";
@@ -90,12 +91,12 @@ export default async function UserDetailPage({ params }: PageProps) {
     );
   }
 
+  const membership = await getLiveLegalMembership(id);
+
   const isEligibleForMembershipProposal =
     user.status === "onboarding" &&
     user.profileOnboardingComplete &&
-    !(LIVE_TENURE_STATUSES as readonly string[]).includes(
-      user.legalMembershipState,
-    );
+    getMembershipProposalBlockReason(membership) === null;
 
   const canProposeMembership =
     isEligibleForMembershipProposal &&

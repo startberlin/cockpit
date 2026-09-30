@@ -11,7 +11,7 @@ import type { MembershipNoticeType } from "@/app/(authenticated)/(app)/(default)
 import { cn } from "@/lib/utils";
 
 interface AdminMembershipNoticeBlockProps {
-  noticeType: MembershipNoticeType;
+  noticeType: MembershipNoticeType | "admission_pending" | "processing";
   canViewPayment: boolean;
 }
 
@@ -52,6 +52,16 @@ export function AdminMembershipNoticeBlock({
 }: AdminMembershipNoticeBlockProps) {
   if (!noticeType) return null;
 
+  if (noticeType === "admission_pending") {
+    return (
+      <NoticePanel
+        icon={<ClockIcon className="size-4" />}
+        title="Board admission vote pending"
+        body="This member has already been proposed for membership. The board admission vote is still pending."
+      />
+    );
+  }
+
   if (noticeType === "alumni") {
     return (
       <NoticePanel
@@ -69,7 +79,7 @@ export function AdminMembershipNoticeBlock({
       <NoticePanel
         icon={<FileTextIcon className="size-4" />}
         title="Membership application pending"
-        body="This member has not yet completed their legal membership application. They need to fill in a few personal details."
+        body="The board has approved this member. They need to submit their membership application in My membership before their legal membership can be activated."
       />
     );
   }
@@ -80,6 +90,16 @@ export function AdminMembershipNoticeBlock({
         icon={<UserCheckIcon className="size-4" />}
         title="Membership reconfirmation pending"
         body="This member needs to reconfirm their membership details before their membership can continue."
+      />
+    );
+  }
+
+  if (noticeType === "processing") {
+    return (
+      <NoticePanel
+        icon={<ClockIcon className="size-4" />}
+        title="Membership application processing"
+        body="This member has submitted their membership application. Their legal documents are being prepared before membership activation."
       />
     );
   }

@@ -74,6 +74,13 @@ export const user = pgTable("user", {
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
   department: department("department"),
+
+  // --- Owned by the membership domain -------------------------------------
+  // These columns live on `user` for historical reasons, not because they are
+  // core identity. Only the membership flows (legal membership, GoCardless
+  // billing, event invitations) may read or write them; other apps must treat
+  // them as private. If a second app ever needs to touch this data, move these
+  // into a membership-owned 1:1 table rather than widening access.
   legalMembershipState: legalMembershipState("legal_membership_state")
     .notNull()
     .default("not_member"),
@@ -84,6 +91,7 @@ export const user = pgTable("user", {
   eventEmailPreference: eventEmailPreference("event_email_preference"),
   eventInviteEmail: text("event_invite_email"),
   dataLastConfirmedAt: timestamp("data_last_confirmed_at"),
+  // ------------------------------------------------------------------------
 });
 
 export const usersRelations = relations(user, ({ one, many }) => ({

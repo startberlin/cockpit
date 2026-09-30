@@ -8,6 +8,11 @@ const SUBJECT = "digital-connection-management@start-berlin.com";
  */
 function getCredentials() {
   const base64 = env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
+  if (!base64) {
+    throw new Error(
+      "GOOGLE_APPLICATION_CREDENTIALS_BASE64 is required to use Google APIs. It is optional only when DISABLE_GOOGLE_WORKSPACE is set.",
+    );
+  }
   const json = Buffer.from(base64, "base64").toString("utf-8");
   return JSON.parse(json);
 }
