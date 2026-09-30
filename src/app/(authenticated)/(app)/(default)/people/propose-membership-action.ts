@@ -1,26 +1,27 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { eq } from "drizzle-orm";
 import { after } from "next/server";
+import { returnValidationErrors } from "next-safe-action";
 import { z } from "zod";
 import db from "@/db";
 import { getAllUserAuthorities } from "@/db/authority";
-import {
-  LIVE_TENURE_STATUSES,
-  legalMembership,
-} from "@/db/schema/legal-membership";
+import { getLiveLegalMembership } from "@/db/membership";
+import { legalMembership } from "@/db/schema/legal-membership";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { getBoardRosterSetup } from "@/lib/authority/board-roster";
 import { newId } from "@/lib/id";
 import { events, inngest } from "@/lib/inngest";
+import { getMembershipProposalBlockReason } from "@/lib/membership-proposal";
 import { can } from "@/lib/permissions/server";
 import { buildSubjectMetadata, track } from "@/lib/posthog-server";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
+const proposeMembershipSchema = z.object({ userId: z.string().min(1) });
+
 export const proposeMembershipAction = actionClient
-  .inputSchema(z.object({ userId: z.string().min(1) }))
+  .inputSchema(proposeMembershipSchema)
   .action(async ({ parsedInput, ctx }) => {
     const targetUser = await db.query.user.findFirst({
       where: (users, { eq }) => eq(users.id, parsedInput.userId),
@@ -40,55 +41,47 @@ export const proposeMembershipAction = actionClient
       throw new Error("The user has not completed their profile onboarding.");
     }
 
-    const existingTenure = await db.query.legalMembership.findFirst({
-      where: (lm, { and, inArray }) =>
-        and(
-          eq(lm.userId, targetUser.id),
-          inArray(lm.status, [...LIVE_TENURE_STATUSES]),
-        ),
-      columns: { id: true, status: true, inngestRunId: true },
-    });
+    const existingTenure = await getLiveLegalMembership(targetUser.id);
+    const blockReason = getMembershipProposalBlockReason(existingTenure);
+
+    if (blockReason) {
+      returnValidationErrors(proposeMembershipSchema, {
+        userId: { _errors: [blockReason] },
+      });
+    }
 
     if (existingTenure) {
-      if (
-        existingTenure.status === "admission_pending" &&
-        !existingTenure.inngestRunId
-      ) {
-        await inngest.send({
-          name: events.admissionWorkflowStarted.name,
-          data: {
-            legalMembershipId: existingTenure.id,
-            subjectUserId: targetUser.id,
+      await inngest.send({
+        name: events.admissionWorkflowStarted.name,
+        data: {
+          legalMembershipId: existingTenure.id,
+          subjectUserId: targetUser.id,
+        },
+      });
+
+      await writeAuditLog({
+        category: "membership",
+        eventType: "membership.proposed",
+        actor: { id: ctx.user.id, name: ctx.user.name },
+        subject: {
+          id: targetUser.id,
+          name: `${targetUser.firstName ?? ""} ${targetUser.lastName ?? ""}`.trim(),
+        },
+        metadata: { legalMembershipId: existingTenure.id },
+      });
+
+      after(() =>
+        track({
+          distinctId: targetUser.id,
+          event: "admin_membership_proposed",
+          properties: {
+            actor_id: ctx.user.id,
+            ...buildSubjectMetadata(targetUser),
           },
-        });
-
-        await writeAuditLog({
-          category: "membership",
-          eventType: "membership.proposed",
-          actor: { id: ctx.user.id, name: ctx.user.name },
-          subject: {
-            id: targetUser.id,
-            name: `${targetUser.firstName ?? ""} ${targetUser.lastName ?? ""}`.trim(),
-          },
-          metadata: { legalMembershipId: existingTenure.id },
-        });
-
-        after(() =>
-          track({
-            distinctId: targetUser.id,
-            event: "admin_membership_proposed",
-            properties: {
-              actor_id: ctx.user.id,
-              ...buildSubjectMetadata(targetUser),
-            },
-          }),
-        );
-
-        return { legalMembershipId: existingTenure.id };
-      }
-      throw new Error(
-        "This user already has an active or pending membership tenure.",
+        }),
       );
+
+      return { legalMembershipId: existingTenure.id };
     }
 
     const allAuthorities = await getAllUserAuthorities();

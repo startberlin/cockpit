@@ -32,7 +32,10 @@ function user(overrides: Partial<User> = {}): User {
     gocardlessMandateId: null,
     gocardlessCustomerId: null,
     gocardlessSetupSessionId: null,
+    gocardlessBillingRequestId: null,
     eventEmailPreference: "personal_email",
+    eventInviteEmail: null,
+    dataLastConfirmedAt: null,
     ...overrides,
   };
 }
