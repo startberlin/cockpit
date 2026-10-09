@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { schema } from "@/db/schema";
 import { user } from "@/db/schema/auth";
 import { nanoid, newId } from "@/lib/id";
+import { setupReferralCampaign } from "../lib/setup";
 import type { CompletedSubmission } from "../lib/tally";
 import { createTallyReader } from "../lib/tally-api";
 import { configureReferralCampaign } from "./configure-campaign";
@@ -226,6 +227,176 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
         status: "cancelled",
       });
       await assert.rejects(store.ensureLink(cancelledId));
+    }));
+
+  it("reuses the validated setup for retries without duplicate links or webhooks", async () =>
+    withFixture(async ({ tx, campaignId, formId, memberId }) => {
+      const config = {
+        id: campaignId,
+        name: "QA Campaign",
+        batchNumber: null,
+        formId,
+        applicationUrl: "https://apply.start-berlin.com/",
+        refFieldKey: "question_hidden_ref",
+        campaignFieldKey: "question_hidden_campaign",
+        opensAt: "2026-10-05T00:00:00+02:00",
+        closesAt: "2026-10-27T00:00:00+01:00",
+      };
+      const endpoint = "https://cockpit.start-berlin.com/api/tally/referrals";
+      let connected = false;
+      const methods: string[] = [];
+      const fetcher: typeof fetch = async (input, init) => {
+        if (String(input).endsWith("/questions"))
+          return Response.json({
+            questions: [
+              {
+                id: "hidden",
+                type: "HIDDEN_FIELDS",
+                fields: [
+                  { uuid: "ref", type: "HIDDEN_FIELD", title: "ref" },
+                  {
+                    uuid: "campaign",
+                    type: "HIDDEN_FIELD",
+                    title: "campaign",
+                  },
+                ],
+              },
+            ],
+          });
+        if (!init?.method)
+          return Response.json({
+            page: 1,
+            hasMore: false,
+            webhooks: connected ? [{ id: "owned", formId, url: endpoint }] : [],
+          });
+        methods.push(init.method);
+        const body = JSON.parse(String(init.body));
+        assert.equal(body.url, endpoint);
+        assert.equal(body.formId, formId);
+        assert.notEqual(body.signingSecret, "test-key");
+        connected = true;
+        return Response.json({ id: "owned" });
+      };
+      const options = {
+        apiKey: "test-key",
+        cockpitUrl: "https://cockpit.start-berlin.com",
+        connectWebhook: true,
+        fetcher,
+      };
+      const first = await setupReferralCampaign(tx, config, options);
+      assert.deepEqual(first, {
+        created: false,
+        provisioned: 2,
+        webhookConnected: true,
+      });
+      const [link] = await tx
+        .select()
+        .from(referralsLink)
+        .where(eq(referralsLink.userId, memberId));
+      const repeated = await setupReferralCampaign(tx, config, options);
+      assert.deepEqual(repeated, {
+        created: false,
+        provisioned: 0,
+        webhookConnected: true,
+      });
+      const [preserved] = await tx
+        .select()
+        .from(referralsLink)
+        .where(eq(referralsLink.userId, memberId));
+      assert.equal(preserved.code, link.code);
+      assert.deepEqual(methods, ["POST", "PATCH"]);
+      assert.equal("signingSecret" in first, false);
+      assert.equal("apiKey" in first, false);
+    }));
+
+  it("validates setup dry runs without provisioning links or connecting a webhook", async () =>
+    withFixture(async ({ tx, campaignId }) => {
+      const config = {
+        id: `${campaignId}-dry-run`,
+        name: "QA Next Campaign",
+        batchNumber: null,
+        formId: nanoid(12),
+        applicationUrl: "https://apply.start-berlin.com/",
+        refFieldKey: "question_hidden_ref",
+        campaignFieldKey: "question_hidden_campaign",
+        opensAt: "2026-10-27T00:00:00+01:00",
+        closesAt: "2026-11-01T00:00:00+01:00",
+      };
+      const result = await setupReferralCampaign(tx, config, {
+        apiKey: "test-key",
+        cockpitUrl: "https://cockpit.start-berlin.com",
+        dryRun: true,
+        connectWebhook: true,
+        fetcher: async (input) => {
+          assert.equal(String(input).endsWith("/questions"), true);
+          return Response.json([
+            {
+              id: "hidden",
+              type: "HIDDEN_FIELDS",
+              fields: [
+                { uuid: "ref", type: "HIDDEN_FIELD", title: "ref" },
+                {
+                  uuid: "campaign",
+                  type: "HIDDEN_FIELD",
+                  title: "campaign",
+                },
+              ],
+            },
+          ]);
+        },
+      });
+      assert.deepEqual(result, {
+        created: false,
+        provisioned: 0,
+        webhookConnected: false,
+      });
+      assert.equal((await tx.select().from(referralsLink)).length, 0);
+      assert.equal(
+        (
+          await tx
+            .select()
+            .from(referralsCampaign)
+            .where(eq(referralsCampaign.id, config.id))
+        ).length,
+        0,
+      );
+    }));
+
+  it("refuses unmatched Tally field metadata before setup can write data", async () =>
+    withFixture(async ({ tx, campaignId, formId }) => {
+      await assert.rejects(
+        setupReferralCampaign(
+          tx,
+          {
+            id: `${campaignId}-next`,
+            name: "QA Next Campaign",
+            batchNumber: null,
+            formId,
+            applicationUrl: "https://apply.start-berlin.com/",
+            refFieldKey: "question_hidden_ref",
+            campaignFieldKey: "question_hidden_campaign",
+            opensAt: "2026-10-27T00:00:00+01:00",
+            closesAt: "2026-11-01T00:00:00+01:00",
+          },
+          {
+            apiKey: "test-key",
+            cockpitUrl: "https://cockpit.start-berlin.com",
+            connectWebhook: true,
+            fetcher: async () => Response.json({ questions: [] }),
+          },
+        ),
+        /published Tally hidden fields/,
+      );
+      assert.equal((await tx.select().from(referralsLink)).length, 0);
+      assert.equal(
+        (
+          await tx
+            .select()
+            .from(referralsCampaign)
+            .where(eq(referralsCampaign.id, `${campaignId}-next`))
+        ).length,
+        0,
+      );
     }));
 
   it("credits a signed-source submission once and isolates the two members' counts", async () =>

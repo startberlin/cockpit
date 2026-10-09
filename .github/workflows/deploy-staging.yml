@@ -12,9 +12,10 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment: preview
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -28,37 +29,39 @@ jobs:
 
       - run: npm test
 
-      - name: Pull Vercel preview configuration
+      # The reserved branch prevents main builds from assigning this domain early.
+      - name: Verify reserved staging domain association
         run: |
-          npx vercel@54.0.0 pull \
-            --environment=preview \
-            --git-branch="$GITHUB_REF_NAME" \
-            --yes \
-            --scope=start-berlin
+          node --input-type=module <<'JS'
+          const { VERCEL_PROJECT_ID, VERCEL_ORG_ID, VERCEL_TOKEN } = process.env;
+          if (!VERCEL_PROJECT_ID || !VERCEL_ORG_ID || !VERCEL_TOKEN) {
+            throw new Error('Missing Vercel CI configuration');
+          }
+          const hostname = 'staging.cockpit.start-berlin.com';
+          const url = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}/domains/${hostname}`);
+          url.searchParams.set('teamId', VERCEL_ORG_ID);
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!response.ok) {
+            throw new Error(`Staging domain check failed (${response.status})`);
+          }
+          const domain = await response.json();
+          if (domain.name !== hostname || domain.projectId !== VERCEL_PROJECT_ID || domain.gitBranch !== 'staging') {
+            throw new Error('Staging domain must use the reserved staging branch');
+          }
+          console.log('Reserved staging domain association verified.');
+          JS
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Build Vercel preview
-        run: npx vercel@54.0.0 build --target=preview --yes --scope=start-berlin
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          # Prebuilt builds do not receive Vercel's Git system variables.
-          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
-
-      - name: Apply staging database migrations
-        run: npm run db:migrate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
-
-      - name: Deploy prebuilt Vercel preview
+      - name: Create Vercel preview deployment
         id: deploy
         run: |
           deployment_url=$(npx vercel@54.0.0 deploy \
-            --prebuilt \
             --target=preview \
             --yes \
             --scope=start-berlin)
@@ -75,10 +78,30 @@ jobs:
             "${{ steps.deploy.outputs.url }}/api/health" | \
             jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
+  migrate:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply staging database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+
       - name: Assign staging domain
         run: |
           npx vercel@54.0.0 alias set \
-            "${{ steps.deploy.outputs.url }}" \
+            "${{ needs.build.outputs.url }}" \
             staging.cockpit.start-berlin.com \
             --scope start-berlin
         env:
@@ -92,6 +115,12 @@ jobs:
             "https://staging.cockpit.start-berlin.com/api/health" | \
             jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
+  sync-inngest:
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
       - name: Sync Inngest staging
         run: |
           curl --fail -X POST "https://api.inngest.com/v2/apps/$INNGEST_APP_ID/syncs" \
