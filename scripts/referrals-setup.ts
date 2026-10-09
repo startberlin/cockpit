@@ -2,14 +2,7 @@ import "./referrals-env";
 import { readFile } from "node:fs/promises";
 import db from "@/db";
 import { env } from "@/env";
-import { configureReferralCampaign } from "@/internal-apps/referrals/db/configure-campaign";
-import { createReferralStore } from "@/internal-apps/referrals/db/store";
-import { campaignConfigSchema } from "@/internal-apps/referrals/lib/campaign-config";
-import { tallyWebhookSecret } from "@/internal-apps/referrals/lib/tally";
-import {
-  createTallyReader,
-  hiddenFieldKeys,
-} from "@/internal-apps/referrals/lib/tally-api";
+import { setupReferralCampaign } from "@/internal-apps/referrals/lib/setup";
 
 async function main() {
   const path = process.argv[2];
@@ -17,38 +10,20 @@ async function main() {
     throw new Error(
       "Usage: npm run referrals:setup -- <campaign.json> [--dry-run] [--connect-webhook]",
     );
-  const secret = tallyWebhookSecret(
-    env.TALLY_API_KEY,
-    env.TALLY_REFERRALS_WEBHOOK_SECRET,
-  );
-  if (!secret)
-    throw new Error("Configure TALLY_API_KEY before enabling referrals");
-  const config = campaignConfigSchema.parse(
-    JSON.parse(await readFile(path, "utf8")),
-  );
-  const reader = createTallyReader(env.TALLY_API_KEY ?? "");
-  const keys = hiddenFieldKeys(await reader.questions(config.formId));
-  if (
-    keys.get(config.refFieldKey) !== "ref" ||
-    keys.get(config.campaignFieldKey) !== "campaign"
-  ) {
-    throw new Error(
-      "Configured keys must match the published Tally hidden fields ref and campaign",
-    );
-  }
+  const config = JSON.parse(await readFile(path, "utf8"));
   const dryRun = process.argv.includes("--dry-run");
-  await configureReferralCampaign(db, config, { dryRun });
+  const result = await setupReferralCampaign(db, config, {
+    apiKey: env.TALLY_API_KEY,
+    cockpitUrl: env.NEXT_PUBLIC_COCKPIT_URL,
+    signingSecret: env.TALLY_REFERRALS_WEBHOOK_SECRET,
+    dryRun,
+    connectWebhook: process.argv.includes("--connect-webhook"),
+  });
   if (dryRun) {
     console.log(`Validated campaign ${config.id}. No data changed.`);
     return;
   }
-  const result = await createReferralStore(db).provisionMembers();
-  if (process.argv.includes("--connect-webhook")) {
-    await reader.connectWebhook(
-      config.formId,
-      env.NEXT_PUBLIC_COCKPIT_URL,
-      secret,
-    );
+  if (result.webhookConnected) {
     console.log(
       "Connected the signed referral webhook. Signing secret was not printed.",
     );
