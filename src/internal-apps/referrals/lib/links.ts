@@ -1,8 +1,10 @@
 export const referralCodePattern = /^[1-9A-HJ-NP-Za-km-z]{16}$/;
 
-export function referralUrl(baseUrl: string, code: string): string {
+export function referralUrl(code: string): string {
   if (!referralCodePattern.test(code)) throw new Error("Invalid referral code");
-  return new URL(`/r/${code}`, baseUrl).toString();
+  const url = new URL("https://apply.start-berlin.com/");
+  url.searchParams.set("ref", code);
+  return url.toString();
 }
 
 export function applicationUrl(
