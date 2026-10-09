@@ -18,11 +18,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getApp, isInternalApp } from "@/lib/apps/registry";
+import type { InternalAppNavItem } from "@/lib/apps/types";
 import { AppIconGlyph } from "./app-icon";
 
 interface AppShellSidebarProps {
   /** App id, not the definition — definitions hold functions and cannot cross the RSC boundary. */
   appId: string;
+  navItems?: readonly InternalAppNavItem[];
   user: {
     name: string;
     email: string | null;
@@ -37,7 +39,11 @@ interface AppShellSidebarProps {
  * an app is its own product, so it shows its own name and its own nav items,
  * not Cockpit's Personal/Community/Admin groups.
  */
-export function AppShellSidebar({ appId, user }: AppShellSidebarProps) {
+export function AppShellSidebar({
+  appId,
+  navItems,
+  user,
+}: AppShellSidebarProps) {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
 
@@ -48,7 +54,7 @@ export function AppShellSidebar({ appId, user }: AppShellSidebarProps) {
     if (isMobile) setOpenMobile(false);
   };
 
-  const items = app.nav?.items ?? [];
+  const items = navItems ?? app.nav?.items ?? [];
 
   return (
     <Sidebar variant="inset" collapsible="icon">

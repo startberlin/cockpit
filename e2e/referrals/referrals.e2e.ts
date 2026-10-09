@@ -167,6 +167,22 @@ test("launcher, own count and immutable link work on mobile and desktop", async 
     page.getByRole("main").getByText("7", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Overview" })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Overview" }),
+  ).toHaveCount(0);
+  if (testInfo.project.use.isMobile)
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  await expect(
+    sidebar.getByRole("link", { name: "My referrals", exact: true }),
+  ).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveCount(0);
+  if (testInfo.project.use.isMobile) {
+    await sidebar
+      .getByRole("link", { name: "My referrals", exact: true })
+      .click();
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
+  }
   await expect(page.locator("input")).toHaveCount(0);
   await page.goto(`/referrals?userId=${members.other.id}`);
   await expect(
@@ -294,13 +310,26 @@ test("anonymous, cancelled and ordinary members cannot open the overview", async
   await expect(page).toHaveURL(/\/tools$/);
 });
 
-test("heads can inspect the responsive overview without an admin grant", async ({
+test("heads navigate to the overview in the sidebar without an admin grant", async ({
   page,
 }, testInfo) => {
   await login(page, members.head.email);
   await page.goto("/referrals");
-  await page.getByRole("link", { name: "Overview" }).click();
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Overview" }),
+  ).toHaveCount(0);
+  if (testInfo.project.use.isMobile)
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  const overviewLink = sidebar.getByRole("link", {
+    name: "Overview",
+    exact: true,
+  });
+  await expect(overviewLink).toBeVisible();
+  await overviewLink.click();
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  if (testInfo.project.use.isMobile)
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
   await expect(
     page.getByRole("cell", { name: "QA Member", exact: true }),
   ).toBeVisible();
@@ -323,6 +352,17 @@ test("heads can inspect the responsive overview without an admin grant", async (
     fullPage: true,
     style: "nextjs-portal { display: none; }",
   });
+  if (testInfo.project.use.isMobile)
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect(overviewLink).toHaveAttribute("data-active", "true");
+  await sidebar
+    .getByRole("link", { name: "My referrals", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "My referrals" }),
+  ).toBeVisible();
+  if (testInfo.project.use.isMobile)
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
 });
 
 test("public link carries trusted parameters; signed concurrent deliveries count once", async ({

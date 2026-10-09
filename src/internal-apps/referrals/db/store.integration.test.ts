@@ -361,49 +361,98 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
       assert.equal(preserved.userId, null);
     }));
 
-  it("deduplicates the same submission across webhook and paginated API backfill", async () =>
-    withFixture(async ({ store, memberId, campaignId, formId, submission }) => {
-      const link = await store.ensureLink(memberId);
-      await store.ingest(submission("shared", link.code));
-      const reader = createTallyReader("test-key", async () =>
-        Response.json({
-          page: 1,
-          hasMore: false,
-          questions: [
-            {
-              id: "hidden",
-              type: "HIDDEN_FIELDS",
-              fields: [
-                { uuid: "ref", type: "HIDDEN_FIELDS", title: "ref" },
-                { uuid: "campaign", type: "HIDDEN_FIELDS", title: "campaign" },
-              ],
-            },
-          ],
-          submissions: [
-            {
-              id: "shared",
-              formId,
-              isCompleted: true,
-              submittedAt: submittedAt.toISOString(),
-              responses: [
+  it("attributes and deduplicates API and webhook submissions in either delivery order", async () => {
+    for (const apiFirst of [true, false])
+      await withFixture(
+        async ({
+          store,
+          tx,
+          memberId,
+          otherId,
+          campaignId,
+          formId,
+          submission,
+        }) => {
+          const questionId = "y0Xr16";
+          const refUuid = "c709d80c-88d2-4975-95dc-f0099435ed01";
+          const campaignUuid = "a6f886ea-97a1-4aaa-bb5b-50472a8c985f";
+          const refFieldKey = `question_${questionId}_${refUuid}`;
+          const campaignFieldKey = `question_${questionId}_${campaignUuid}`;
+          await tx
+            .update(referralsCampaign)
+            .set({ refFieldKey, campaignFieldKey })
+            .where(eq(referralsCampaign.id, campaignId));
+          const link = await store.ensureLink(memberId);
+          const webhook = {
+            ...submission("shared", link.code),
+            fields: [
+              { key: refFieldKey, type: "HIDDEN_FIELDS", value: link.code },
+              {
+                key: campaignFieldKey,
+                type: "HIDDEN_FIELDS",
+                value: campaignId,
+              },
+            ],
+          };
+          if (!apiFirst) await store.ingest(webhook);
+          const reader = createTallyReader("test-key", async () =>
+            Response.json({
+              page: 1,
+              hasMore: false,
+              questions: [
                 {
-                  questionId: "hidden",
-                  answer: { ref: link.code, campaign: campaignId },
+                  id: questionId,
+                  type: "HIDDEN_FIELDS",
+                  fields: [
+                    { uuid: refUuid, type: "HIDDEN_FIELD", title: "ref" },
+                    {
+                      uuid: campaignUuid,
+                      type: "HIDDEN_FIELD",
+                      title: "campaign",
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-        }),
+              submissions: [
+                {
+                  id: "shared",
+                  formId,
+                  isCompleted: true,
+                  submittedAt: submittedAt.toISOString(),
+                  responses: [
+                    {
+                      questionId,
+                      answer: {
+                        [refUuid]: link.code,
+                        [campaignUuid]: campaignId,
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+          const result = await reader.reconcile(formId, store.ingest);
+          assert.equal(result.inserted, apiFirst ? 1 : 0);
+          assert.equal(result.duplicates, apiFirst ? 0 : 1);
+          assert.equal((await store.ingest(webhook)).inserted, false);
+          const [saved] = await tx
+            .select()
+            .from(referralsSubmission)
+            .where(eq(referralsSubmission.campaignId, campaignId));
+          assert.equal(saved.status, "matched");
+          assert.equal(saved.linkId, link.id);
+          assert.equal(
+            (await store.myDashboard(memberId, submittedAt)).currentCount,
+            1,
+          );
+          assert.equal(
+            (await store.myDashboard(otherId, submittedAt)).currentCount,
+            0,
+          );
+        },
       );
-      assert.equal(
-        (await reader.reconcile(formId, store.ingest)).duplicates,
-        1,
-      );
-      assert.equal(
-        (await store.myDashboard(memberId, submittedAt)).currentCount,
-        1,
-      );
-    }));
+  });
 
   it("does not persist unrelated forms and provides aggregate diagnostics", async () =>
     withFixture(async ({ store, memberId, submission }) => {

@@ -40,7 +40,7 @@ export function hiddenFieldKeys(
   for (const question of questions) {
     if (question.isDeleted) continue;
     for (const field of question.fields) {
-      if (field.type === "HIDDEN_FIELDS")
+      if (field.type === "HIDDEN_FIELD")
         keys.set(`question_${question.id}_${field.uuid}`, field.title ?? null);
     }
   }
@@ -54,7 +54,7 @@ function apiFields(
   const fields: TallyField[] = [];
   for (const question of questions) {
     const hiddenFields = question.fields.filter(
-      (field) => field.type === "HIDDEN_FIELDS",
+      (field) => field.type === "HIDDEN_FIELD",
     );
     if (hiddenFields.length === 0) continue;
     const responses = submission.responses.filter(

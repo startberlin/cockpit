@@ -1,19 +1,30 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { CompletedSubmission } from "./tally";
+import {
+  type CompletedSubmission,
+  completedWebhookSubmission,
+  tallyEventSchema,
+} from "./tally";
 import {
   createTallyReader,
   hiddenFieldKeys,
   TALLY_API_VERSION,
 } from "./tally-api";
 
+const questionId = "y0Xr16";
+const refFieldId = "c709d80c-88d2-4975-95dc-f0099435ed01";
+const campaignFieldId = "a6f886ea-97a1-4aaa-bb5b-50472a8c985f";
+const refKey = `question_${questionId}_${refFieldId}`;
+const campaignKey = `question_${questionId}_${campaignFieldId}`;
+// Normalized metadata from the published form. API fields use the singular type;
+// question and webhook types use HIDDEN_FIELDS.
 const questions = [
   {
-    id: "hidden",
+    id: questionId,
     type: "HIDDEN_FIELDS",
     fields: [
-      { uuid: "ref-uuid", type: "HIDDEN_FIELDS", title: "ref" },
-      { uuid: "campaign-uuid", type: "HIDDEN_FIELDS", title: "campaign" },
+      { uuid: refFieldId, type: "HIDDEN_FIELD", title: "ref" },
+      { uuid: campaignFieldId, type: "HIDDEN_FIELD", title: "campaign" },
     ],
   },
 ];
@@ -24,10 +35,10 @@ const completed = {
   submittedAt: "2026-10-09T12:00:00Z",
   responses: [
     {
-      questionId: "hidden",
+      questionId,
       answer: {
-        "ref-uuid": "AbCdEfGhJkMnPqRs",
-        "campaign-uuid": "batch11-fall2026",
+        [refFieldId]: "AbCdEfGhJkMnPqRs",
+        [campaignFieldId]: "batch11-fall2026",
       },
     },
   ],
@@ -142,9 +153,12 @@ describe("Tally completed-submission reconciliation", () => {
     );
   });
   it("resolves actual hidden UUID keys without using question order", () => {
-    assert.equal(
-      hiddenFieldKeys(questions).get("question_hidden_ref-uuid"),
-      "ref",
+    assert.deepEqual(
+      hiddenFieldKeys(questions),
+      new Map([
+        [refKey, "ref"],
+        [campaignKey, "campaign"],
+      ]),
     );
   });
   it("requests every page with completed filtering and a pinned API version", async () => {
@@ -183,12 +197,12 @@ describe("Tally completed-submission reconciliation", () => {
     });
     assert.deepEqual(seen[0].fields, [
       {
-        key: "question_hidden_ref-uuid",
+        key: refKey,
         type: "HIDDEN_FIELDS",
         value: "AbCdEfGhJkMnPqRs",
       },
       {
-        key: "question_hidden_campaign-uuid",
+        key: campaignKey,
         type: "HIDDEN_FIELDS",
         value: "batch11-fall2026",
       },
@@ -214,13 +228,22 @@ describe("Tally completed-submission reconciliation", () => {
     const reader = createTallyReader("test-key", async (input) =>
       Response.json(
         String(input).endsWith("/questions")
-          ? questions
+          ? {
+              hasResponses: true,
+              questions: questions.map((question) => ({
+                ...question,
+                fields: question.fields.map((field) => ({
+                  ...field,
+                  questionType: "HIDDEN_FIELDS",
+                })),
+              })),
+            }
           : page(1, false, [
               {
                 ...completed,
                 responses: [
                   {
-                    questionId: "hidden",
+                    questionId,
                     answer: JSON.stringify(completed.responses[0].answer),
                   },
                 ],
@@ -230,7 +253,47 @@ describe("Tally completed-submission reconciliation", () => {
     );
     assert.deepEqual(await reader.questions("Me9Xlp"), questions);
     await reader.reconcile("Me9Xlp", async (submission) => {
-      assert.equal(submission.fields[0].value, "AbCdEfGhJkMnPqRs");
+      assert.deepEqual(submission.fields, [
+        { key: refKey, type: "HIDDEN_FIELDS", value: "AbCdEfGhJkMnPqRs" },
+        {
+          key: campaignKey,
+          type: "HIDDEN_FIELDS",
+          value: "batch11-fall2026",
+        },
+      ]);
+      return { inserted: true };
+    });
+  });
+  it("normalizes both API hidden fields to the same fields as a completed webhook", async () => {
+    const webhook = completedWebhookSubmission(
+      tallyEventSchema.parse({
+        eventId: "event-1",
+        eventType: "FORM_RESPONSE",
+        data: {
+          formId: completed.formId,
+          submissionId: completed.id,
+          createdAt: completed.submittedAt,
+          fields: [
+            {
+              key: refKey,
+              type: "HIDDEN_FIELDS",
+              value: completed.responses[0].answer[refFieldId],
+            },
+            {
+              key: campaignKey,
+              type: "HIDDEN_FIELDS",
+              value: completed.responses[0].answer[campaignFieldId],
+            },
+          ],
+        },
+      }),
+    );
+    assert.ok(webhook);
+    const reader = createTallyReader("test-key", async () =>
+      Response.json(page(1, false)),
+    );
+    await reader.reconcile("Me9Xlp", async (submission) => {
+      assert.deepEqual(submission, webhook);
       return { inserted: true };
     });
   });

@@ -414,13 +414,6 @@
       "when": 1791542570718,
       "tag": "0058_outstanding_venom",
       "breakpoints": true
-    },
-    {
-      "idx": 59,
-      "version": "7",
-      "when": 1791549385539,
-      "tag": "0059_fuzzy_vance_astro",
-      "breakpoints": true
     }
   ]
 }

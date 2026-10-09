@@ -1,3 +1,4 @@
+import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";
 import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
 import { authCleanupCron } from "./auth-cleanup";
 import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
@@ -54,5 +55,3 @@ export const inngestFunctions = [
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,
 ];
-
-import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";
