@@ -27,6 +27,7 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  provisionReferralLinks,
   applicationResumeReminderWorkflow,
   dataConfirmationReminderCron,
   membershipAnniversaryCron,
@@ -53,3 +54,5 @@ export const inngestFunctions = [
   syncPositionSystemGroupsWorkflow,
   syncUserSystemGroupsWorkflow,
 ];
+
+import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";

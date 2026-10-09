@@ -1566,45 +1566,4 @@ describe("permissions", () => {
       );
     });
   });
-
-  describe("apps.example.access", () => {
-    it("allows super admins", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ grants: [{ grant: "super_admin" }] }),
-          "apps.example.access",
-        ),
-        true,
-      );
-    });
-
-    it("denies plain admins", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({ grants: [{ grant: "admin" }] }),
-          "apps.example.access",
-        ),
-        false,
-      );
-    });
-
-    it("denies members with no grants", () => {
-      assert.equal(evaluateAuth(authority(), "apps.example.access"), false);
-    });
-
-    // Onboarding users have no authority at all, which is exactly why app
-    // visibility is modelled separately — see src/lib/apps/visibility.ts.
-    it("denies onboarding users even with the super admin grant", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            status: "onboarding",
-            grants: [{ grant: "super_admin" }],
-          }),
-          "apps.example.access",
-        ),
-        false,
-      );
-    });
-  });
 });

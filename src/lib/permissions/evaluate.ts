@@ -88,7 +88,8 @@ const globalActions = [
   // Internal app access. One action per app, named `apps.<slug>.access`, so the
   // same check gates the launcher card, the sidebar entry, the app's route
   // layout, and its server actions. See src/lib/apps/visibility.ts.
-  "apps.example.access",
+  "apps.referrals.access",
+  "apps.referrals.overview",
 ] as const;
 
 export type GlobalAction = (typeof globalActions)[number];
@@ -264,8 +265,14 @@ function evaluateGlobalAction(
     case "user.personal_email.change":
     case "user.password.reset":
       return hasAdminGrant(authority);
-    case "apps.example.access":
-      return hasSuperAdminGrant(authority);
+    case "apps.referrals.overview":
+      return (
+        hasSuperAdminGrant(authority) ||
+        isDepartmentHead(authority) ||
+        isHeadOfFinance(authority)
+      );
+    case "apps.referrals.access":
+      return true;
   }
 }
 
