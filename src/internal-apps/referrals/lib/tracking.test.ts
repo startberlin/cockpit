@@ -69,10 +69,14 @@ describe("referral tracking boundaries", () => {
     );
     assert.equal(stored, true);
   });
-  it("creates a permanent code-only URL and replaces supplied attribution parameters", () => {
+  it("creates a permanent apply URL and keeps legacy redirect attribution server-controlled", () => {
     assert.equal(
-      referralUrl("https://cockpit.start-berlin.com", code),
-      `https://cockpit.start-berlin.com/r/${code}`,
+      referralUrl(code),
+      `https://apply.start-berlin.com/?ref=${code}`,
+    );
+    assert.deepEqual(
+      [...new URL(referralUrl(code)).searchParams.keys()],
+      ["ref"],
     );
     const url = new URL(
       applicationUrl(
@@ -84,7 +88,7 @@ describe("referral tracking boundaries", () => {
     assert.equal(url.searchParams.get("ref"), code);
     assert.equal(url.searchParams.get("campaign"), "batch11-fall2026");
     assert.equal(url.searchParams.get("source"), "keep");
-    assert.throws(() => referralUrl("https://cockpit.test", "../admin"));
+    assert.throws(() => referralUrl("../admin"));
   });
   it("accepts Tally's documented HMAC and rejects tampered, missing or malformed signatures", () => {
     assert.equal(verifyTallySignature(event, signature(event), secret), true);

@@ -115,8 +115,11 @@ export function createReferralStore(database: ReferralDatabase) {
     )
       status = "outside_window";
     else if (!code) status = "missing_code";
-    else if (campaignValue !== campaign.id) status = "wrong_campaign";
+    // The signed form ID identifies the campaign. Permanent links only need ref.
+    else if (campaignValue && campaignValue !== campaign.id)
+      status = "wrong_campaign";
     else {
+      // Keep issued-code attribution after departure, including delayed delivery.
       const [link] = await database
         .select({ id: referralsLink.id })
         .from(referralsLink)
@@ -201,6 +204,7 @@ export function createReferralStore(database: ReferralDatabase) {
       database
         .select({
           name: user.name,
+          code: referralsLink.code,
           applications: count(referralsSubmission.id),
         })
         .from(referralsLink)
@@ -214,7 +218,7 @@ export function createReferralStore(database: ReferralDatabase) {
           ),
         )
         .where(inArray(user.status, activeAuthorityStatuses))
-        .groupBy(user.id, user.name)
+        .groupBy(user.id, user.name, referralsLink.code)
         .orderBy(desc(count(referralsSubmission.id)), user.name),
       database
         .select({ status: referralsSubmission.status, count: count() })

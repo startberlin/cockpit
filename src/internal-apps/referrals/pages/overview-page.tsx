@@ -1,6 +1,3 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -11,7 +8,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createMetadata } from "@/lib/metadata";
+import { CopyReferralLink } from "../components/copy-referral-link";
 import { getReferralsOverview } from "../db/queries";
+import { referralUrl } from "../lib/links";
 
 export const metadata = createMetadata({
   title: "Referral overview",
@@ -34,11 +33,6 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <Button asChild variant="ghost" className="-ml-3 min-h-11">
-        <Link href="/referrals">
-          <ArrowLeft aria-hidden="true" /> My referrals
-        </Link>
-      </Button>
       <div>
         <h1 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">
           Overview
@@ -84,16 +78,25 @@ export default async function OverviewPage() {
                   <TableRow>
                     <TableHead>Member</TableHead>
                     <TableHead className="text-right">Applications</TableHead>
+                    <TableHead className="w-12">
+                      <span className="sr-only">Referral link</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {members.map((member, index) => (
-                    <TableRow key={`${member.name}-${index}`}>
+                  {members.map((member) => (
+                    <TableRow key={member.code}>
                       <TableCell className="whitespace-normal break-words py-3">
                         {member.name}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {member.applications}
+                      </TableCell>
+                      <TableCell className="p-0">
+                        <CopyReferralLink
+                          url={referralUrl(member.code)}
+                          name={member.name}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -105,6 +108,7 @@ export default async function OverviewPage() {
                       <TableCell className="text-right tabular-nums">
                         {formerCount}
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   ) : null}
                 </TableBody>
