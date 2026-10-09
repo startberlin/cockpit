@@ -71,6 +71,8 @@ export const env = createEnv({
       .transform((enabled) => enabled && !devLoginBlocked),
     TALLY_API_KEY: z.string().min(1).optional(),
     TALLY_ORGANIZATION_ID: z.string().min(1).optional(),
+    // Optional. Referrals otherwise derive their signing secret from TALLY_API_KEY.
+    TALLY_REFERRALS_WEBHOOK_SECRET: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -109,5 +111,6 @@ export const env = createEnv({
     ENABLE_DEV_LOGIN: process.env.ENABLE_DEV_LOGIN,
     TALLY_API_KEY: process.env.TALLY_API_KEY,
     TALLY_ORGANIZATION_ID: process.env.TALLY_ORGANIZATION_ID,
+    TALLY_REFERRALS_WEBHOOK_SECRET: process.env.TALLY_REFERRALS_WEBHOOK_SECRET,
   },
 });

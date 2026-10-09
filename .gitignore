@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.generated/referrals/
 
 # next.js
 /.next/
@@ -33,8 +34,6 @@ yarn-error.log*
 start-berlin-*.json
 
 # env files (can opt-in for committing if needed)
-.env
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -61,3 +60,11 @@ docs/plans/*remediation*
 .claude/settings.local.json
 .codex/config.toml
 .env*.local
+
+.projects/cache
+.projects/vault
+.projects/state.test.json
+.projects/state.local.test.json
+.env
+.env.*
+!.env.example

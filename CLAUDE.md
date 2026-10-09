@@ -71,7 +71,7 @@ Five rules that are easy to get wrong:
 4. `requireAppAccess()` in the app's `layout.tsx` guards **page renders only**. Every server action must call `can()` itself.
 5. Nesting an app under `(app)` would silently hand it Cockpit's sidebar and breadcrumbs back.
 
-`src/internal-apps/example` is a working reference with a deletion checklist. Full convention: `docs/solutions/conventions/internal-app-convention-2026-08-03.md`.
+`src/internal-apps/referrals` is a working reference with member-scoped statistics, permission-guarded pages and app-owned tables. Full convention: `docs/solutions/conventions/internal-app-convention-2026-08-03.md`.
 
 ### Authentication Flow
 
@@ -180,7 +180,7 @@ import { newId } from "@/lib/id";
 const id = newId("user"); // generates "usr_xxxxxxxxxxxxx"
 ```
 
-Prefixes are declared in `src/lib/id.ts` — currently `usr_`, `gr_`, `lm_`, `ma_`, `mc_`, `mtr_`, `ppd_`, `aud_`, `exn_`.
+Prefixes are declared in `src/lib/id.ts`: currently `usr_`, `gr_`, `lm_`, `ma_`, `mc_`, `mtr_`, `ppd_`, `aud_`, `rfl_`, `rfs_`.
 Apps register their own prefixes in the same map (required: `nav-breadcrumb` uses `isPrefixedId()` to decide whether a path segment is an id).
 
 ### Query State / URL Params
