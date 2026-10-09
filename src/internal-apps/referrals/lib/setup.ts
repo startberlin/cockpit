@@ -23,7 +23,11 @@ export function shouldInitializeReferralCampaign({
   environment: string | undefined;
   cockpitUrl: string;
 }): boolean {
-  if (eventName !== "inngest/scheduled.timer" || environment !== "production")
+  if (
+    (eventName !== "inngest/scheduled.timer" &&
+      eventName !== "inngest/function.invoked") ||
+    environment !== "production"
+  )
     return false;
   try {
     const url = new URL(cockpitUrl);
