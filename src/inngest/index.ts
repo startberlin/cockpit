@@ -1,3 +1,4 @@
+import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";
 import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
 import { authCleanupCron } from "./auth-cleanup";
 import { bootstrapBatchSystemGroupWorkflow } from "./bootstrap-batch-system-group";
@@ -27,6 +28,7 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  provisionReferralLinks,
   applicationResumeReminderWorkflow,
   dataConfirmationReminderCron,
   membershipAnniversaryCron,

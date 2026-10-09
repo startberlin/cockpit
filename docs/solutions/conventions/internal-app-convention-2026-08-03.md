@@ -62,7 +62,7 @@ src/app/(authenticated)/(apps)/<slug>/
   page.tsx, loading.tsx
 ```
 
-`src/internal-apps/example` is a working reference implementation. It carries a deletion checklist in its `app.ts`.
+`src/internal-apps/referrals` is a working reference implementation with member-scoped statistics, permission-guarded pages and app-owned tables. Its public redirect and signature-checked webhook live outside the authenticated route group.
 
 ## Core rules
 
@@ -118,7 +118,7 @@ schema: [
 ## Gotchas
 
 - A schema glob that misses files looks exactly like "no schema change" — `db:generate` simply emits nothing. All three globs were verified against both schema layouts; if you change them, verify with a scratch table rather than assuming.
-- Route groups do not affect URLs. An app in `(authenticated)/(apps)/example/` is served at `/example`.
+- Route groups do not affect URLs. An app in `(authenticated)/(apps)/referrals/` is served at `/referrals`.
 - Nesting an app under `(app)` instead would silently give it Cockpit's sidebar and breadcrumbs back.
 - `loading.tsx` renders before any await and cannot know the user's authority. The launcher skeleton uses registry totals as an upper bound.
 - The launcher's `analyticsId` values are the historic `data-ph-capture-attribute-service` slugs. Renaming one silently breaks existing PostHog insights.

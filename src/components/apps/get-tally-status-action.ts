@@ -25,6 +25,7 @@ export const getTallyStatusAction = actionClient.action(async ({ ctx }) => {
         signal: controller.signal,
         headers: {
           Authorization: `Bearer ${env.TALLY_API_KEY}`,
+          "tally-version": "2025-02-01",
         },
       },
     );

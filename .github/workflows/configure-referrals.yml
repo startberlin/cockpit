@@ -1,0 +1,64 @@
+name: Configure referrals
+
+on:
+  workflow_dispatch:
+    inputs:
+      campaign:
+        description: Recruiting campaign
+        type: choice
+        required: true
+        default: batch11-fall2026
+        options:
+          - batch11-fall2026
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    if: github.ref == 'refs/heads/production' && inputs.campaign == 'batch11-fall2026'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify production domain commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "https://cockpit.start-berlin.com/api/health" | \
+            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
+
+      - name: Pull Vercel production configuration
+        run: npx vercel@54.0.0 pull --environment=production --yes --scope=start-berlin
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Validate referral campaign
+        run: |
+          ./node_modules/.bin/dotenv --no-expand -e .vercel/.env.production.local -- \
+            npm run referrals:setup -- config/referrals/batch11-fall2026.json --dry-run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+          NEXT_PUBLIC_COCKPIT_URL: https://cockpit.start-berlin.com
+
+      - name: Activate referral campaign and signed webhook
+        run: |
+          ./node_modules/.bin/dotenv --no-expand -e .vercel/.env.production.local -- \
+            npm run referrals:setup -- config/referrals/batch11-fall2026.json --connect-webhook
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+          NEXT_PUBLIC_COCKPIT_URL: https://cockpit.start-berlin.com

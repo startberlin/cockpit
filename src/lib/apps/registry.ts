@@ -1,4 +1,4 @@
-import { exampleApp } from "@/internal-apps/example/app";
+import { referralsApp } from "@/internal-apps/referrals/app";
 import type { UserAuthority } from "@/lib/permissions";
 import { externalApps } from "./external";
 import {
@@ -21,7 +21,7 @@ import { evaluateAppVisibility } from "./visibility";
  * it free of `server-only`, `@/db`, and JSX.
  */
 const appDefinitions = [
-  exampleApp,
+  referralsApp,
   ...externalApps,
 ] as const satisfies readonly AppDefinition[];
 
@@ -65,6 +65,7 @@ export const RESERVED_APP_PATHS = [
   "/org-chart",
   "/payments",
   "/people",
+  "/r",
   "/tools",
 ] as const;
 

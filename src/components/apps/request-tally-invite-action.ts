@@ -34,6 +34,7 @@ export const requestTallyInviteAction = actionClient.action(async ({ ctx }) => {
         signal: controller.signal,
         headers: {
           Authorization: `Bearer ${env.TALLY_API_KEY}`,
+          "tally-version": "2025-02-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
