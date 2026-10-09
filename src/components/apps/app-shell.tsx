@@ -5,10 +5,13 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { getApp } from "@/lib/apps/registry";
+import type { InternalAppNavItem } from "@/lib/apps/types";
 import { AppShellSidebar } from "./app-shell-sidebar";
 
 interface AppShellProps {
   appId: string;
+  /** Server-filtered navigation. Defaults to the app registry. */
+  navItems?: readonly InternalAppNavItem[];
   user: {
     name: string;
     email: string | null;
@@ -27,12 +30,12 @@ interface AppShellProps {
  * Built from the same shared sidebar primitives Cockpit uses — that reuse is the
  * point of the shared layer.
  */
-export function AppShell({ appId, user, children }: AppShellProps) {
+export function AppShell({ appId, navItems, user, children }: AppShellProps) {
   const app = getApp(appId);
 
   return (
     <SidebarProvider>
-      <AppShellSidebar appId={appId} user={user} />
+      <AppShellSidebar appId={appId} navItems={navItems} user={user} />
       <SidebarInset className="overflow-x-hidden">
         <ImpersonationBanner />
         <header className="flex h-14 min-h-14 shrink-0 items-center gap-2 border-b px-4">

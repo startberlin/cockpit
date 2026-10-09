@@ -16,7 +16,11 @@ const allowedOrigins = [
 ];
 
 export async function proxy(request: NextRequest) {
-  if (publicRoutes.includes(request.nextUrl.pathname)) {
+  // Shared recruiting links must resolve for applicants without a Cockpit session.
+  if (
+    publicRoutes.includes(request.nextUrl.pathname) ||
+    request.nextUrl.pathname.startsWith("/r/")
+  ) {
     return NextResponse.next();
   }
 

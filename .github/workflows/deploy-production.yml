@@ -32,22 +32,23 @@ jobs:
       - name: Create Vercel production deployment (skip-domain)
         id: deploy
         run: |
-          output=$(npx vercel@54.0.0 deploy \
+          deployment_url=$(npx vercel@54.0.0 deploy \
             --prod \
             --skip-domain \
             --yes \
-            --scope=start-berlin 2>&1); vercel_exit=$?
-          echo "$output"
-          [ $vercel_exit -ne 0 ] && exit $vercel_exit
-          deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
+            --scope=start-berlin)
+          [[ "$deployment_url" =~ ^https://[a-zA-Z0-9-]+\.vercel\.app$ ]]
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test staged deployment
-        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+      - name: Verify production deployment commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "${{ steps.deploy.outputs.url }}/api/health" | \
+            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
   release:
     needs: build
@@ -81,8 +82,11 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test production domain
-        run: curl --fail "https://cockpit.start-berlin.com/api/health"
+      - name: Verify production domain commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "https://cockpit.start-berlin.com/api/health" | \
+            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
       - name: Sync Inngest production
         run: |

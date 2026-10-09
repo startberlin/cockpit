@@ -1,4 +1,4 @@
-import { FlaskConical } from "lucide-react";
+import { UsersRound } from "lucide-react";
 import BubblesIcon from "@/assets/bubbles-icon.svg";
 import CanvaIcon from "@/assets/canva-icon.svg";
 import GmailIcon from "@/assets/gmail-icon.svg";
@@ -19,7 +19,7 @@ import type { AppIcon } from "@/lib/apps/types";
  * compile error rather than a hole in the UI.
  */
 export const APP_ICONS: Record<AppId, AppIcon> = {
-  example: { kind: "lucide", icon: FlaskConical },
+  referrals: { kind: "lucide", icon: UsersRound },
   slack: { kind: "image", src: SlackIcon },
   gmail: { kind: "image", src: GmailIcon },
   "google-meet": { kind: "image", src: GoogleMeetIcon },

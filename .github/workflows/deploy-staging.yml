@@ -29,24 +29,54 @@ jobs:
 
       - run: npm test
 
+      # The reserved branch prevents main builds from assigning this domain early.
+      - name: Verify reserved staging domain association
+        run: |
+          node --input-type=module <<'JS'
+          const { VERCEL_PROJECT_ID, VERCEL_ORG_ID, VERCEL_TOKEN } = process.env;
+          if (!VERCEL_PROJECT_ID || !VERCEL_ORG_ID || !VERCEL_TOKEN) {
+            throw new Error('Missing Vercel CI configuration');
+          }
+          const hostname = 'staging.cockpit.start-berlin.com';
+          const url = new URL(`https://api.vercel.com/v9/projects/${encodeURIComponent(VERCEL_PROJECT_ID)}/domains/${hostname}`);
+          url.searchParams.set('teamId', VERCEL_ORG_ID);
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!response.ok) {
+            throw new Error(`Staging domain check failed (${response.status})`);
+          }
+          const domain = await response.json();
+          if (domain.name !== hostname || domain.projectId !== VERCEL_PROJECT_ID || domain.gitBranch !== 'staging') {
+            throw new Error('Staging domain must use the reserved staging branch');
+          }
+          console.log('Reserved staging domain association verified.');
+          JS
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
       - name: Create Vercel preview deployment
         id: deploy
         run: |
-          output=$(npx vercel@54.0.0 deploy \
+          deployment_url=$(npx vercel@54.0.0 deploy \
             --target=preview \
             --yes \
-            --scope=start-berlin 2>&1); vercel_exit=$?
-          echo "$output"
-          [ $vercel_exit -ne 0 ] && exit $vercel_exit
-          deployment_url=$(echo "$output" | grep -oE 'https://[a-zA-Z0-9-]+\.vercel\.app' | tail -1)
+            --scope=start-berlin)
+          [[ "$deployment_url" =~ ^https://[a-zA-Z0-9-]+\.vercel\.app$ ]]
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Smoke test preview deployment
-        run: curl --fail "${{ steps.deploy.outputs.url }}/api/health"
+      - name: Verify preview deployment commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "${{ steps.deploy.outputs.url }}/api/health" | \
+            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
   migrate:
     needs: build
@@ -67,6 +97,23 @@ jobs:
         run: npm run db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
+
+      - name: Assign staging domain
+        run: |
+          npx vercel@54.0.0 alias set \
+            "${{ needs.build.outputs.url }}" \
+            staging.cockpit.start-berlin.com \
+            --scope start-berlin
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Verify staging domain commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "https://staging.cockpit.start-berlin.com/api/health" | \
+            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
 
   sync-inngest:
     needs: migrate
