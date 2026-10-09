@@ -16,7 +16,6 @@ export default function OverviewLoading() {
       role="status"
       aria-label="Loading referral overview"
     >
-      <Skeleton className="h-11 w-32" />
       <div>
         <Skeleton className="h-8 w-40" />
         <Skeleton className="mt-2 h-5 w-48" />
@@ -42,6 +41,9 @@ export default function OverviewLoading() {
                 <TableHead>
                   <Skeleton className="ml-auto h-4 w-24" />
                 </TableHead>
+                <TableHead className="w-12">
+                  <span className="sr-only">Referral link</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -52,6 +54,9 @@ export default function OverviewLoading() {
                   </TableCell>
                   <TableCell>
                     <Skeleton className="ml-auto h-5 w-8" />
+                  </TableCell>
+                  <TableCell className="p-0">
+                    <Skeleton className="size-11" />
                   </TableCell>
                 </TableRow>
               ))}

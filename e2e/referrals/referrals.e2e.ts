@@ -50,6 +50,7 @@ const members = {
   },
 };
 let code = "";
+let otherCode = "";
 
 async function login(page: Page, email = members.member.email) {
   const response = await page.request.post("/api/auth/sign-in/dev", {
@@ -90,6 +91,7 @@ test.beforeAll(async () => {
   });
   await store.provisionMembers();
   code = (await store.ensureLink(members.member.id)).code;
+  otherCode = (await store.ensureLink(members.other.id)).code;
   const formerCode = (await store.ensureLink(members.former.id)).code;
   for (let index = 0; index < 3; index++)
     await store.ingest({
@@ -191,7 +193,9 @@ test("launcher, own count and immutable link work on mobile and desktop", async 
   await expect(
     page
       .getByRole("main")
-      .getByText(`http://localhost:3107/r/${code}`, { exact: true }),
+      .getByText(`https://apply.start-berlin.com/?ref=${code}`, {
+        exact: true,
+      }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -240,7 +244,7 @@ test("copy, share fallback and keyboard interaction preserve the stored link", a
   ).toBeVisible();
   expect(
     await page.evaluate(() => (window as unknown as { copied: string }).copied),
-  ).toBe(`http://localhost:3107/r/${code}`);
+  ).toBe(`https://apply.start-berlin.com/?ref=${code}`);
   await page.getByRole("button", { name: "Share", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Link copied");
 });
@@ -272,7 +276,7 @@ test("native share succeeds, cancellation is quiet and clipboard failure has a f
     await page.evaluate(
       () => (window as unknown as { shared: { url: string } }).shared.url,
     ),
-  ).toBe(`http://localhost:3107/r/${code}`);
+  ).toBe(`https://apply.start-berlin.com/?ref=${code}`);
   await page.getByRole("button", { name: "Copy link", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Copy the link above.");
   await page.evaluate(() =>
@@ -313,6 +317,16 @@ test("anonymous, cancelled and ordinary members cannot open the overview", async
 test("heads navigate to the overview in the sidebar without an admin grant", async ({
   page,
 }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          (window as unknown as { copied: string }).copied = value;
+        },
+      },
+    });
+  });
   await login(page, members.head.email);
   await page.goto("/referrals");
   await expect(
@@ -331,6 +345,12 @@ test("heads navigate to the overview in the sidebar without an admin grant", asy
   if (testInfo.project.use.isMobile)
     await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
   await expect(
+    page.getByRole("main").getByRole("link", {
+      name: "My referrals",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
     page.getByRole("cell", { name: "QA Member", exact: true }),
   ).toBeVisible();
   await expect(
@@ -342,6 +362,24 @@ test("heads navigate to the overview in the sidebar without an admin grant", asy
   await expect(
     page.getByRole("cell", { name: "QA Former", exact: true }),
   ).toHaveCount(0);
+  const otherRow = page.getByRole("row").filter({
+    has: page.getByRole("cell", { name: "QA Other Member", exact: true }),
+  });
+  const copyOther = otherRow.getByRole("button", {
+    name: "Copy referral link for QA Other Member",
+    exact: true,
+  });
+  await expect(copyOther).toHaveAttribute(
+    "title",
+    `https://apply.start-berlin.com/?ref=${otherCode}`,
+  );
+  await copyOther.focus();
+  await page.keyboard.press("Enter");
+  expect(
+    await page.evaluate(() => (window as unknown as { copied: string }).copied),
+  ).toBe(`https://apply.start-berlin.com/?ref=${otherCode}`);
+  await expect(otherRow.getByRole("status")).toHaveText("Link copied");
+  expect((await copyOther.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -352,6 +390,22 @@ test("heads navigate to the overview in the sidebar without an admin grant", asy
     fullPage: true,
     style: "nextjs-portal { display: none; }",
   });
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("Clipboard denied");
+        },
+      },
+    }),
+  );
+  await copyOther.click();
+  await expect(
+    page
+      .locator("[data-sonner-toast]")
+      .getByText("Copying failed. Try again.", { exact: true }),
+  ).toBeVisible();
   if (testInfo.project.use.isMobile)
     await page.getByRole("button", { name: "Toggle Sidebar" }).click();
   await expect(overviewLink).toHaveAttribute("data-active", "true");
@@ -485,7 +539,9 @@ test("closed and unconfigured campaigns keep the personal link and stop redirect
   await expect(
     page
       .getByRole("main")
-      .getByText(`http://localhost:3107/r/${code}`, { exact: true }),
+      .getByText(`https://apply.start-berlin.com/?ref=${code}`, {
+        exact: true,
+      }),
   ).toBeVisible();
   await page.screenshot({
     path: `.generated/referrals/visuals/${testInfo.project.name}-closed.png`,
