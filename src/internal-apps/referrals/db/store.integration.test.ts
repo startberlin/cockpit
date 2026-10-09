@@ -594,8 +594,8 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
                     {
                       questionId,
                       answer: {
-                        [refUuid]: link.code,
-                        [campaignUuid]: campaignId,
+                        ref: link.code,
+                        campaign: campaignId,
                       },
                     },
                   ],

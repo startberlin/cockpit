@@ -37,8 +37,8 @@ const completed = {
     {
       questionId,
       answer: {
-        [refFieldId]: "AbCdEfGhJkMnPqRs",
-        [campaignFieldId]: "batch11-fall2026",
+        ref: "AbCdEfGhJkMnPqRs",
+        campaign: "batch11-fall2026",
       },
     },
   ],
@@ -277,12 +277,12 @@ describe("Tally completed-submission reconciliation", () => {
             {
               key: refKey,
               type: "HIDDEN_FIELDS",
-              value: completed.responses[0].answer[refFieldId],
+              value: completed.responses[0].answer.ref,
             },
             {
               key: campaignKey,
               type: "HIDDEN_FIELDS",
-              value: completed.responses[0].answer[campaignFieldId],
+              value: completed.responses[0].answer.campaign,
             },
           ],
         },
@@ -296,6 +296,70 @@ describe("Tally completed-submission reconciliation", () => {
       assert.deepEqual(submission, webhook);
       return { inserted: true };
     });
+  });
+  it("maps the captured provider answer titles to their distinct webhook UUID keys", async () => {
+    const reader = createTallyReader("test-key", async () =>
+      Response.json({
+        page: 1,
+        hasMore: false,
+        questions: [
+          {
+            id: "OjQxoY",
+            type: "HIDDEN_FIELDS",
+            isDeleted: false,
+            fields: [
+              {
+                uuid: "79dc3d53-bd44-47f7-bc9f-f87de5ad7199",
+                type: "HIDDEN_FIELD",
+                questionType: "HIDDEN_FIELDS",
+                title: "ref",
+              },
+              {
+                uuid: "04bd369d-2fa9-4290-a530-25794fd8cc18",
+                type: "HIDDEN_FIELD",
+                questionType: "HIDDEN_FIELDS",
+                title: "campaign",
+              },
+            ],
+          },
+        ],
+        submissions: [
+          {
+            id: "rDR5YLo",
+            formId: "kdD9ve",
+            isCompleted: true,
+            submittedAt: "2026-10-09T16:19:11.000Z",
+            responses: [
+              {
+                questionId: "OjQxoY",
+                answer: {
+                  ref: "vULwxD9WzYksus7p",
+                  campaign: "qa-referrals-20261009",
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    let ingested = 0;
+    await reader.reconcile("kdD9ve", async (submission) => {
+      ingested++;
+      assert.deepEqual(submission.fields, [
+        {
+          key: "question_OjQxoY_79dc3d53-bd44-47f7-bc9f-f87de5ad7199",
+          type: "HIDDEN_FIELDS",
+          value: "vULwxD9WzYksus7p",
+        },
+        {
+          key: "question_OjQxoY_04bd369d-2fa9-4290-a530-25794fd8cc18",
+          type: "HIDDEN_FIELDS",
+          value: "qa-referrals-20261009",
+        },
+      ]);
+      return { inserted: true };
+    });
+    assert.equal(ingested, 1);
   });
   it("fails clearly on authorization, invalid data or broken pagination", async () => {
     assert.throws(() => createTallyReader(""));

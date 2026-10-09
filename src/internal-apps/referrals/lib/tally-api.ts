@@ -62,7 +62,8 @@ function apiFields(
     );
     if (responses.length !== 1) continue;
     let answer = responses[0].answer;
-    // Tally returns structured answers as objects or JSON-encoded strings.
+    // API hidden answers use field titles; webhook keys use the field UUIDs.
+    // Tally returns the answer object directly or as a JSON-encoded string.
     if (typeof answer === "string" && answer.startsWith("{")) {
       try {
         answer = JSON.parse(answer);
@@ -72,11 +73,12 @@ function apiFields(
     }
     for (const field of hiddenFields) {
       const value =
-        answer && typeof answer === "object" && !Array.isArray(answer)
-          ? ((answer as Record<string, unknown>)[field.uuid] ?? null)
-          : hiddenFields.length === 1
-            ? answer
-            : undefined;
+        field.title &&
+        answer &&
+        typeof answer === "object" &&
+        !Array.isArray(answer)
+          ? ((answer as Record<string, unknown>)[field.title] ?? null)
+          : undefined;
       fields.push({
         key: `question_${question.id}_${field.uuid}`,
         type: "HIDDEN_FIELDS",
