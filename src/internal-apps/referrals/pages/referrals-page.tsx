@@ -1,4 +1,3 @@
-import { env } from "@/env";
 import { createMetadata } from "@/lib/metadata";
 import { ReferralDashboard } from "../components/referral-dashboard";
 import { RefreshStats } from "../components/refresh-stats";
@@ -21,7 +20,7 @@ export default async function ReferralsPage() {
         <RefreshStats />
       </div>
       <ReferralDashboard
-        url={referralUrl(env.NEXT_PUBLIC_COCKPIT_URL, data.code)}
+        url={referralUrl(data.code)}
         campaign={data.campaign}
         currentCount={data.currentCount}
         totalCount={data.totalCount}

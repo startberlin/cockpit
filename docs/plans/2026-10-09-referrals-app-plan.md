@@ -10,9 +10,9 @@ The connected Tally form Me9Xlp was inspected without changes. Applications open
 
 ## Decisions
 
-- One random, opaque code per member, stored once. `/r/<code>` is a public redirect, so the shared URL survives campaign changes. Members cannot select, regenerate or edit codes. Deleted owners become null; their codes remain reserved.
+- One random, opaque code per member, stored once. The shared URL is `https://apply.start-berlin.com/?ref=<code>` and survives campaign changes. Existing Cockpit `/r/<code>` redirects remain compatible. Members cannot select, regenerate or edit codes. Deleted owners become null; their codes remain reserved.
 - Access follows Cockpit's active authority statuses: member and supporting_alumni. Own data is bound to the authenticated session. The aggregate overview is available to super_admin, department heads, department co-leads and head_of_finance, as requested.
-- The current campaign is selected server-side. The redirect ignores caller-supplied referral/campaign parameters and forwards the stored code and configured campaign to the existing application address.
+- The signed Tally form ID selects the campaign server-side. The apply redirect preserves the permanent referral parameter. Legacy Cockpit redirects ignore caller-supplied parameters and add the stored code and configured campaign.
 - A signed FORM_RESPONSE stores one record per `(form_id, submission_id)`. The submission timestamp controls the application window, including delayed delivery. Partial responses and unsupported events do not count. Separate completed submissions count separately, including repeat applicants.
 - Exact configured hidden-field keys control attribution. Missing codes, unknown codes, campaign mismatches and submissions outside the window remain diagnostic records with no personal credit. The applicant's self-reported referrer does not override the code. Applicant names, email addresses and answers are not stored by this app.
 - Webhook and API reconciliation use the same ingestion function. Duplicates never mutate the original attribution. Database failure returns an error so Tally can retry. No independently incremented counter.

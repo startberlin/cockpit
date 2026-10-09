@@ -461,6 +461,37 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
       );
     }));
 
+  it("attributes direct apply submissions by form when campaign is missing or empty", async () =>
+    withFixture(async ({ store, memberId, otherId, submission }) => {
+      const link = await store.ensureLink(memberId);
+      const absent = submission("without-campaign", link.code);
+      absent.fields = [absent.fields[0]];
+      const empty = submission("empty-campaign", link.code);
+      empty.fields[1].value = "";
+      const nullValue = submission("null-campaign", link.code);
+      nullValue.fields[1].value = null;
+      for (const value of [absent, empty, nullValue])
+        assert.equal((await store.ingest(value)).status, "matched");
+
+      const malformed = submission("malformed-campaign", link.code);
+      malformed.fields[1].value = 123;
+      assert.equal((await store.ingest(malformed)).status, "invalid_fields");
+      const ambiguous = submission("ambiguous-campaign", link.code);
+      ambiguous.fields.push(ambiguous.fields[1]);
+      assert.equal((await store.ingest(ambiguous)).status, "invalid_fields");
+      const wrong = submission("foreign-campaign", link.code);
+      wrong.fields[1].value = "another-campaign";
+      assert.equal((await store.ingest(wrong)).status, "wrong_campaign");
+      assert.equal(
+        (await store.myDashboard(memberId, submittedAt)).currentCount,
+        3,
+      );
+      assert.equal(
+        (await store.myDashboard(otherId, submittedAt)).currentCount,
+        0,
+      );
+    }));
+
   it("uses submission time for delayed delivery and treats the closing instant as exclusive", async () =>
     withFixture(async ({ store, memberId, submission }) => {
       const link = await store.ensureLink(memberId);
@@ -532,8 +563,47 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
       assert.equal(preserved.userId, null);
     }));
 
+  it("preserves timely attribution after the link owner becomes inactive or is deleted", async () =>
+    withFixture(async ({ store, tx, memberId, campaignId, submission }) => {
+      const link = await store.ensureLink(memberId);
+      await tx
+        .update(user)
+        .set({ status: "cancelled" })
+        .where(eq(user.id, memberId));
+      const delayed = submission("delayed-after-cancellation", link.code);
+      delayed.fields = [delayed.fields[0]];
+      assert.equal((await store.ingest(delayed)).status, "matched");
+      await tx.delete(user).where(eq(user.id, memberId));
+      const afterDeletion = submission("delayed-after-deletion", link.code);
+      afterDeletion.fields = [afterDeletion.fields[0]];
+      assert.equal((await store.ingest(afterDeletion)).status, "matched");
+      const rows = await tx
+        .select()
+        .from(referralsSubmission)
+        .where(eq(referralsSubmission.campaignId, campaignId));
+      assert.equal(rows.length, 2);
+      assert.equal(
+        rows.every((row) => row.linkId === link.id),
+        true,
+      );
+      const overview = await store.overview();
+      assert.equal(
+        overview.members.some((member) => member.code === link.code),
+        false,
+      );
+      assert.equal(
+        overview.statuses.find((row) => row.status === "matched")?.count,
+        2,
+      );
+    }));
+
   it("attributes and deduplicates API and webhook submissions in either delivery order", async () => {
-    for (const apiFirst of [true, false])
+    for (const [apiFirst, includeCampaign] of [
+      [true, true],
+      [true, false],
+      [false, true],
+      [false, false],
+    ])
       await withFixture(
         async ({
           store,
@@ -558,11 +628,15 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
             ...submission("shared", link.code),
             fields: [
               { key: refFieldKey, type: "HIDDEN_FIELDS", value: link.code },
-              {
-                key: campaignFieldKey,
-                type: "HIDDEN_FIELDS",
-                value: campaignId,
-              },
+              ...(includeCampaign
+                ? [
+                    {
+                      key: campaignFieldKey,
+                      type: "HIDDEN_FIELDS",
+                      value: campaignId,
+                    },
+                  ]
+                : []),
             ],
           };
           if (!apiFirst) await store.ingest(webhook);
@@ -595,7 +669,7 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
                       questionId,
                       answer: {
                         ref: link.code,
-                        campaign: campaignId,
+                        ...(includeCampaign ? { campaign: campaignId } : {}),
                       },
                     },
                   ],
@@ -643,6 +717,10 @@ describe("referral PostgreSQL integration", { skip: !connectionString }, () => {
       assert.equal(
         overview.members.find((row) => row.name === "QA Member")?.applications,
         1,
+      );
+      assert.equal(
+        overview.members.find((row) => row.name === "QA Member")?.code,
+        link.code,
       );
       assert.equal(
         overview.statuses.find((row) => row.status === "missing_code")?.count,
