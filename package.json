@@ -64,7 +64,6 @@
     "@tiptap/starter-kit": "3.30.5",
     "@tiptap/suggestion": "3.30.5",
     "@vercel/blob": "2.8.0",
-    "@vercel/og": "^0.11.1",
     "@vercel/speed-insights": "^1.0.4",
     "@xyflow/react": "^12.10.2",
     "bcryptjs": "^3.0.3",
@@ -92,7 +91,7 @@
     "lodash.merge": "^4.6.2",
     "lucide-react": "^1.14.0",
     "motion": "^12.38.0",
-    "next": "16.2.6",
+    "next": "16.3.8",
     "next-safe-action": "^8.5.2",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.7",
@@ -107,7 +106,7 @@
     "react": "19.2.6",
     "react-day-picker": "^10.0.0",
     "react-dom": "19.2.6",
-    "react-email": "^6.1.4",
+    "react-email": "6.9.2",
     "react-hook-form": "^7.75.0",
     "react-resizable-panels": "^4.11.0",
     "react-zoom-pan-pinch": "^4.0.3",
@@ -126,7 +125,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
     "@playwright/test": "^1.64.0",
-    "@react-email/ui": "6.1.4",
+    "@react-email/ui": "6.9.2",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/lodash-es": "^4.17.12",
     "@types/lodash.merge": "^4.6.9",
@@ -152,6 +151,7 @@
     "*.{ts,tsx,js,jsx,json,css}": "biome check --write --no-errors-on-unmatched"
   },
   "overrides": {
+    "next": "$next",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "tar": "7.5.11",
