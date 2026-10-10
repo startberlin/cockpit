@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { DEPARTMENT_IDS } from "@/lib/departments";
 import { evaluateAuth, getBoardRosterSetup, type UserAuthority } from "./index";
 
 function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
@@ -1617,23 +1618,58 @@ describe("permissions", () => {
       );
     });
 
-    it("denies the head of a different department", () => {
-      assert.equal(
-        evaluateAuth(
-          authority({
-            department: null,
-            positions: [
-              {
-                position: "department_head",
-                scope: "department",
-                department: "events",
-              },
-            ],
-          }),
-          "apps.newsletter.access",
-        ),
-        false,
-      );
+    it("allows heads and co-leads from every department", () => {
+      for (const department of DEPARTMENT_IDS) {
+        for (const position of [
+          "department_head",
+          "department_co_lead",
+        ] as const) {
+          assert.equal(
+            evaluateAuth(
+              authority({
+                department: null,
+                positions: [{ position, scope: "department", department }],
+              }),
+              "apps.newsletter.access",
+            ),
+            true,
+            `${department}: ${position}`,
+          );
+        }
+      }
+    });
+
+    it("allows every Legal Board position without an admin grant", () => {
+      for (const position of [
+        "president",
+        "vice_president",
+        "head_of_finance",
+      ] as const) {
+        assert.equal(
+          evaluateAuth(
+            authority({ positions: [{ position, scope: "global" }] }),
+            "apps.newsletter.access",
+          ),
+          true,
+          position,
+        );
+      }
+    });
+
+    it("denies inactive users even with leadership positions", () => {
+      for (const status of ["onboarding", "alumni", "cancelled"] as const) {
+        assert.equal(
+          evaluateAuth(
+            authority({
+              status,
+              positions: [{ position: "president", scope: "global" }],
+            }),
+            "apps.newsletter.access",
+          ),
+          false,
+          status,
+        );
+      }
     });
 
     // Sending to several hundred people is not something an account that has

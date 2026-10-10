@@ -3,6 +3,11 @@
 The editorial newsletter CMS for the Growth department. Write in one continuous
 document, preview the email alongside it, and prepare it for delivery in Cockpit.
 
+Active Growth members can use the app. All department heads and co-leads also
+have access, as do the Legal Board positions (president, vice president and
+head of finance) and Cockpit admins. The same permission guards the launcher,
+pages and server actions. Inactive accounts remain excluded.
+
 Follows `docs/solutions/conventions/internal-app-convention-2026-08-03.md`.
 
 ## How it fits together

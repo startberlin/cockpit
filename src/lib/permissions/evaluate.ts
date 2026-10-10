@@ -267,13 +267,13 @@ function evaluateGlobalAction(
     case "user.password.reset":
       return hasAdminGrant(authority);
     case "apps.newsletter.access":
-      // Growth owns the newsletter. Department leads and every Growth member
-      // can run it; admins keep access so the app stays operable while Growth
-      // is between leads. `evaluateAuth` has already rejected non-active
-      // statuses, so onboarding members and alumni never reach this line.
+      // Growth owns the newsletter. All department leads and the Legal Board
+      // retain access without needing an admin grant. `evaluateAuth` rejects
+      // inactive users before this permission is evaluated.
       return (
         hasAdminGrant(authority) ||
-        isDepartmentHead(authority, "growth") ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority) ||
         authority.department === "growth"
       );
     case "apps.referrals.overview":
