@@ -68,3 +68,5 @@ docs/plans/*remediation*
 .env
 .env.*
 !.env.example
+.uploads/
+.generated/newsletter-review-references/

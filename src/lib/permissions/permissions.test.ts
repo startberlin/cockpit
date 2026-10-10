@@ -1566,4 +1566,100 @@ describe("permissions", () => {
       );
     });
   });
+
+  describe("apps.newsletter.access", () => {
+    it("allows anyone in the Growth department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "growth" }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("allows the Growth department head", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            department: null,
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "growth",
+              },
+            ],
+          }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("allows admins, so the app stays operable between Growth leads", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "events", grants: [{ grant: "admin" }] }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("denies a member of another department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "events" }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+
+    it("denies the head of a different department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            department: null,
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+
+    // Sending to several hundred people is not something an account that has
+    // not finished onboarding should be able to do, whatever else it holds.
+    it("denies onboarding users even in Growth with the super admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            status: "onboarding",
+            department: "growth",
+            grants: [{ grant: "super_admin" }],
+          }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+
+    it("denies alumni who were previously in Growth", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ status: "alumni", department: "growth" }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+  });
 });

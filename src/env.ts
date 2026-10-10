@@ -37,6 +37,12 @@ const googleLoginString = devLoginEnabled
   ? z.string().min(1).optional()
   : z.string().min(1);
 
+// Optional credentials are routinely left blank in a local `.env` rather than
+// deleted (e.g. `OPENAI_API_KEY=`). An empty string is still a string, so a
+// plain `.min(1).optional()` would reject it and take the whole app down over a
+// feature that is meant to be switched off. Treat "blank" as "unset".
+const optionalSecret = z.string().min(1).optional().catch(undefined);
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
@@ -73,6 +79,23 @@ export const env = createEnv({
     TALLY_ORGANIZATION_ID: z.string().min(1).optional(),
     // Optional. Referrals otherwise derive their signing secret from TALLY_API_KEY.
     TALLY_REFERRALS_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+    // --- Newsletter app -----------------------------------------------------
+    // All optional so the rest of Cockpit boots without newsletter credentials.
+    // `NEWSLETTER_SEND_MODE` defaults to "sandbox": every Resend send is
+    // intercepted and logged instead of dispatched. Switching to "live" is a
+    // deliberate act, never a default.
+    NEWSLETTER_SEND_MODE: z
+      .enum(["sandbox", "live"])
+      .optional()
+      .default("sandbox"),
+    NEWSLETTER_STORAGE: z.enum(["local", "blob"]).optional().default("local"),
+    RESEND_API_KEY: optionalSecret,
+    RESEND_NEWSLETTER_SEGMENT_ID: optionalSecret,
+    RESEND_NEWSLETTER_TOPIC_ID: optionalSecret,
+    BLOB_READ_WRITE_TOKEN: optionalSecret,
+    OPENAI_API_KEY: optionalSecret,
+    OPENAI_MODEL: z.string().min(1).optional().default("gpt-5.6-luna"),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -112,5 +135,13 @@ export const env = createEnv({
     TALLY_API_KEY: process.env.TALLY_API_KEY,
     TALLY_ORGANIZATION_ID: process.env.TALLY_ORGANIZATION_ID,
     TALLY_REFERRALS_WEBHOOK_SECRET: process.env.TALLY_REFERRALS_WEBHOOK_SECRET,
+    NEWSLETTER_SEND_MODE: process.env.NEWSLETTER_SEND_MODE,
+    NEWSLETTER_STORAGE: process.env.NEWSLETTER_STORAGE,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_NEWSLETTER_SEGMENT_ID: process.env.RESEND_NEWSLETTER_SEGMENT_ID,
+    RESEND_NEWSLETTER_TOPIC_ID: process.env.RESEND_NEWSLETTER_TOPIC_ID,
+    BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_MODEL: process.env.OPENAI_MODEL,
   },
 });
