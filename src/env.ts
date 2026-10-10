@@ -38,7 +38,7 @@ const googleLoginString = devLoginEnabled
   : z.string().min(1);
 
 // Optional credentials are routinely left blank in a local `.env` rather than
-// deleted (e.g. `OPENAI_API_KEY=`). An empty string is still a string, so a
+// deleted (e.g. `RESEND_API_KEY=`). An empty string is still a string, so a
 // plain `.min(1).optional()` would reject it and take the whole app down over a
 // feature that is meant to be switched off. Treat "blank" as "unset".
 const optionalSecret = z.string().min(1).optional().catch(undefined);
@@ -94,8 +94,6 @@ export const env = createEnv({
     RESEND_NEWSLETTER_SEGMENT_ID: optionalSecret,
     RESEND_NEWSLETTER_TOPIC_ID: optionalSecret,
     BLOB_READ_WRITE_TOKEN: optionalSecret,
-    OPENAI_API_KEY: optionalSecret,
-    OPENAI_MODEL: z.string().min(1).optional().default("gpt-5.6-luna"),
   },
   client: {
     NEXT_PUBLIC_COCKPIT_URL: z.url(),
@@ -141,7 +139,5 @@ export const env = createEnv({
     RESEND_NEWSLETTER_SEGMENT_ID: process.env.RESEND_NEWSLETTER_SEGMENT_ID,
     RESEND_NEWSLETTER_TOPIC_ID: process.env.RESEND_NEWSLETTER_TOPIC_ID,
     BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-    OPENAI_MODEL: process.env.OPENAI_MODEL,
   },
 });

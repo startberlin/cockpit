@@ -4,7 +4,6 @@ import { env } from "@/env";
 import { createMetadata } from "@/lib/metadata";
 import { IssueComposer } from "../components/issue-composer";
 import { getIssue } from "../db/queries";
-import { isAiConfigured } from "../lib/ai";
 import { DEFAULT_NEWSLETTER_FROM } from "../lib/config";
 import { renderIssue } from "../lib/render";
 import {
@@ -74,7 +73,6 @@ export default async function IssueEditorPage({
       key={issue.id}
       issue={issue}
       editable={issue.status === "draft"}
-      aiEnabled={isAiConfigured()}
       mode={sendMode()}
       defaultTestRecipient={user.email ?? ""}
       initialPreviewHtml={html}

@@ -37,9 +37,6 @@ export const metadata = createMetadata({
 export default async function SettingsPage() {
   const mode = sendMode();
   const configured = isResendConfigured();
-  const storageDriver = env.NEWSLETTER_STORAGE;
-  const storageConfigured =
-    storageDriver !== "blob" || !!env.BLOB_READ_WRITE_TOKEN;
 
   let domains: Awaited<ReturnType<typeof getDomainTracking>> = [];
   let segments: { id: string; name: string }[] = [];
@@ -167,50 +164,6 @@ export default async function SettingsPage() {
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Images</CardTitle>
-            <CardDescription>Where uploads are stored.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <Row label="Driver">
-              <Badge variant="outline">{storageDriver}</Badge>
-            </Row>
-            {!storageConfigured ? (
-              <p role="alert" className="text-destructive">
-                Image uploads are unavailable. Vercel Blob storage is selected,
-                but BLOB_READ_WRITE_TOKEN is missing.
-              </p>
-            ) : null}
-            <p className="text-muted-foreground">
-              {storageDriver === "local"
-                ? "Files are written to .uploads/ and served from this app. Fine locally; production should use Vercel Blob."
-                : "Uploads go to Vercel Blob and are served from its CDN."}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Writing help</CardTitle>
-            <CardDescription>Optional OpenAI assistance.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <Row label="Status">
-              <Flag
-                on={!!env.OPENAI_API_KEY}
-                onLabel="enabled"
-                offLabel="disabled"
-              />
-            </Row>
-            <Row label="Model">{env.OPENAI_MODEL}</Row>
-            <p className="text-muted-foreground">
-              Only the text of the issue being edited is sent. Member and
-              applicant data is never included.
-            </p>
           </CardContent>
         </Card>
       </div>
