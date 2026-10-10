@@ -159,14 +159,7 @@ export function PreviewPane({
         <div className="shrink-0 border-b bg-background px-3 py-2">
           <EmailSizeWarning htmlBytes={htmlBytes} isRendering={isRendering} />
         </div>
-      ) : (
-        <div className="flex h-11 shrink-0 items-center justify-center gap-2 border-b px-3 text-[10px] text-muted-foreground">
-          <span className="size-1 rounded-full bg-primary" />
-          {isRendering
-            ? "Updating your email"
-            : "How your newsletter reaches the inbox"}
-        </div>
-      )}
+      ) : null}
       <div
         ref={viewportRef}
         className="relative min-h-0 flex-1 overflow-hidden p-4"
