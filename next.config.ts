@@ -42,6 +42,20 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      {
+        source: "/newsletter/:path*",
+        // The editor accepts remote image URLs and pasted images. Keep this
+        // resource policy scoped to the newsletter; scripts stay unchanged.
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: csp.replace(
+              /img-src [^;]+/,
+              "img-src 'self' data: blob: https: http:",
+            ),
+          },
+        ],
+      },
     ];
   },
   async redirects() {

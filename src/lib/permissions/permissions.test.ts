@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { DEPARTMENT_IDS } from "@/lib/departments";
 import { evaluateAuth, getBoardRosterSetup, type UserAuthority } from "./index";
 
 function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
@@ -1561,6 +1562,137 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ status: "alumni", grants: [{ grant: "admin" }] }),
           "user.password.reset",
+        ),
+        false,
+      );
+    });
+  });
+
+  describe("apps.newsletter.access", () => {
+    it("allows anyone in the Growth department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "growth" }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("allows the Growth department head", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            department: null,
+            positions: [
+              {
+                position: "department_head",
+                scope: "department",
+                department: "growth",
+              },
+            ],
+          }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("allows admins, so the app stays operable between Growth leads", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "events", grants: [{ grant: "admin" }] }),
+          "apps.newsletter.access",
+        ),
+        true,
+      );
+    });
+
+    it("denies a member of another department", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ department: "events" }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+
+    it("allows heads and co-leads from every department", () => {
+      for (const department of DEPARTMENT_IDS) {
+        for (const position of [
+          "department_head",
+          "department_co_lead",
+        ] as const) {
+          assert.equal(
+            evaluateAuth(
+              authority({
+                department: null,
+                positions: [{ position, scope: "department", department }],
+              }),
+              "apps.newsletter.access",
+            ),
+            true,
+            `${department}: ${position}`,
+          );
+        }
+      }
+    });
+
+    it("allows every Legal Board position without an admin grant", () => {
+      for (const position of [
+        "president",
+        "vice_president",
+        "head_of_finance",
+      ] as const) {
+        assert.equal(
+          evaluateAuth(
+            authority({ positions: [{ position, scope: "global" }] }),
+            "apps.newsletter.access",
+          ),
+          true,
+          position,
+        );
+      }
+    });
+
+    it("denies inactive users even with leadership positions", () => {
+      for (const status of ["onboarding", "alumni", "cancelled"] as const) {
+        assert.equal(
+          evaluateAuth(
+            authority({
+              status,
+              positions: [{ position: "president", scope: "global" }],
+            }),
+            "apps.newsletter.access",
+          ),
+          false,
+          status,
+        );
+      }
+    });
+
+    // Sending to several hundred people is not something an account that has
+    // not finished onboarding should be able to do, whatever else it holds.
+    it("denies onboarding users even in Growth with the super admin grant", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({
+            status: "onboarding",
+            department: "growth",
+            grants: [{ grant: "super_admin" }],
+          }),
+          "apps.newsletter.access",
+        ),
+        false,
+      );
+    });
+
+    it("denies alumni who were previously in Growth", () => {
+      assert.equal(
+        evaluateAuth(
+          authority({ status: "alumni", department: "growth" }),
+          "apps.newsletter.access",
         ),
         false,
       );

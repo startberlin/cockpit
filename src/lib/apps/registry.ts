@@ -1,3 +1,4 @@
+import { newsletterApp } from "@/internal-apps/newsletter/app";
 import { referralsApp } from "@/internal-apps/referrals/app";
 import type { UserAuthority } from "@/lib/permissions";
 import { externalApps } from "./external";
@@ -21,6 +22,7 @@ import { evaluateAppVisibility } from "./visibility";
  * it free of `server-only`, `@/db`, and JSX.
  */
 const appDefinitions = [
+  newsletterApp,
   referralsApp,
   ...externalApps,
 ] as const satisfies readonly AppDefinition[];

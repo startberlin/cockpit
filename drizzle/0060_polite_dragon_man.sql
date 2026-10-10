@@ -1,0 +1,1 @@
+ALTER TABLE "newsletter_issue" ADD COLUMN "dispatch_started_at" timestamp with time zone;
