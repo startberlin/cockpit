@@ -33,7 +33,7 @@ Historische Notion-Notizen und frühere Arbeitsberichte liegen lokal unter `.gen
 | Planung und Abbruch | Ein echter Auftrag wurde für einen späteren Zeitpunkt geplant und anschließend abgebrochen. Resend bestätigt einen ungesendeten Entwurf ohne Planzeit. |
 | Tatsächlicher Broadcast | Resend meldet "sent", eine Zustellung und keinen Bounce. Der lokale Status wechselt nach Aktualisierung ebenfalls zu "sent". |
 
-Alle schreibenden Datenbanktests liefen auf `start_newsletter_release_20261010`. Die ursprüngliche lokale Datenbank wurde nicht geändert. Das Resend-Testsegment enthält genau die vom Benutzer freigegebene private Testadresse. Es wurden keine bestehenden Verteiler befüllt und keine Mitgliedergruppen live importiert. Die realen Nachrichten gingen ausschließlich an die Testadresse. Abmeldung wurde bis zur funktionierenden Einstellungsseite geprüft; ein globaler Opt-out wurde nicht ausgelöst. Optionales OpenAI-Schreiben und Outlook-Darstellung wurden nicht live getestet.
+Alle schreibenden Datenbanktests liefen auf `start_newsletter_release_20261010`. Die ursprüngliche lokale Datenbank wurde nicht geändert. Das Resend-Testsegment enthält genau die vom Benutzer freigegebene private Testadresse. Es wurden keine bestehenden Verteiler befüllt und keine Mitgliedergruppen live importiert. Die realen Nachrichten gingen ausschließlich an die Testadresse. Abmeldung wurde bis zur funktionierenden Einstellungsseite geprüft; ein globaler Opt-out wurde nicht ausgelöst. Outlook-Darstellung wurde nicht live getestet.
 
 Im Vercel-Projekt `start-berlin/cockpit` wurden über den Browser diese Newsletter-Variablen für Production und Preview eingerichtet. Andere Vercel-Projekte wurden nicht geändert.
 

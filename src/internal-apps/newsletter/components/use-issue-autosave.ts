@@ -95,8 +95,8 @@ export function useIssueAutosave(
         toast.error("Wait for the image uploads to finish.");
         return false;
       }
-      // Validate even an unchanged local draft before sending or requesting AI
-      // suggestions, so another editor's version cannot be used unexpectedly.
+      // Validate even an unchanged local draft before sending, so another
+      // editor's version cannot be used unexpectedly.
       if (!(await persist(latest.current, true))) return false;
       if (!uploads.current && JSON.stringify(latest.current) === saved.current)
         return true;

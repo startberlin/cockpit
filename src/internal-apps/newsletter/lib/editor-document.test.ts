@@ -225,7 +225,7 @@ describe("continuous newsletter document", () => {
     );
   });
 
-  it("expands all template text for AI export, including links and quotes", () => {
+  it("expands all template text for export, including links and quotes", () => {
     const doc = {
       type: "doc" as const,
       content: sampleBlocks("https://example.com").flatMap(expandBlock),
@@ -243,7 +243,7 @@ describe("continuous newsletter document", () => {
     assert.ok(!JSON.stringify(doc).includes('"type":"newsletterBlock"'));
   });
 
-  it("recognises AI Markdown without treating ordinary URLs as commands", () => {
+  it("recognises Markdown without treating ordinary URLs as commands", () => {
     assert.equal(looksLikeMarkdown("## Gründer\n\n**Hallo** Berlin"), true);
     assert.equal(looksLikeMarkdown("One line\n- A list item"), true);
     assert.equal(

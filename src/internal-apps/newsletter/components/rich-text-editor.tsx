@@ -67,8 +67,8 @@ export function RichTextEditor({
     },
   });
 
-  // Keep the editor in sync when the document is replaced from outside (an AI
-  // suggestion being applied, or a block being duplicated). Guarded on equality
+  // Keep the editor in sync when a block is duplicated or replaced externally.
+  // Guard on equality
   // so normal typing does not reset the cursor on every keystroke.
   useEffect(() => {
     if (!editor) return;

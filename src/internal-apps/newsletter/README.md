@@ -31,7 +31,6 @@ lib/image-upload-policy.ts  shared upload types, size limit and dimensions
 lib/resend.ts          Resend client: throttling, retries and the sandbox guard
 lib/analytics.ts       per-broadcast metrics
 lib/storage.ts         image uploads (local disk or Vercel Blob)
-lib/ai.ts              optional writing help (OpenAI Responses API)
 lib/cockpit-import.ts  turns a Cockpit system group into Resend contacts
 ```
 
@@ -50,10 +49,10 @@ Newsletter body identifies the writing area and its formatting toolbar. The
 toolbar stays with the body when scrolling; it does not format the inbox fields.
 
 Paste formatted content directly into the body or choose plain-text pasting in
-the footer. Markdown copied from an AI assistant is recognised when the clipboard
-contains plain Markdown. There is no separate text-import dialog. The copy menu
+the footer. Markdown is recognised when the clipboard contains plain Markdown.
+There is no separate text-import dialog. The copy menu
 exports HTML with supported formatting, or Markdown with templates converted to
-ordinary text. It also offers a Markdown download and does not call an AI API.
+ordinary text. It also offers a Markdown download.
 
 Images work through file selection, clipboard pasting, drag and drop, or an
 HTTP(S) URL. Image settings include alt text, caption and a click target. New

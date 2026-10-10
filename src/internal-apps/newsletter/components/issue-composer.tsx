@@ -31,10 +31,6 @@ import { IssueActions, type SendingOption } from "./issue-actions";
 import { IssuePresenceNotice } from "./issue-presence-notice";
 import { IssueStatusBadge } from "./issue-status-badge";
 import { PreviewPane } from "./preview-pane";
-import {
-  SuggestPreviewTextButton,
-  SuggestSubjectButton,
-} from "./suggest-button";
 import { type SaveState, useIssueAutosave } from "./use-issue-autosave";
 import { useIssuePresence } from "./use-issue-presence";
 
@@ -66,7 +62,6 @@ const SAVE_LABELS: Record<SaveState, string> = {
 export function IssueComposer({
   issue,
   editable,
-  aiEnabled,
   mode,
   defaultTestRecipient,
   initialPreviewHtml,
@@ -78,7 +73,6 @@ export function IssueComposer({
 }: {
   issue: IssueDetail;
   editable: boolean;
-  aiEnabled: boolean;
   mode: "sandbox" | "live";
   defaultTestRecipient: string;
   /**
@@ -256,16 +250,7 @@ export function IssueComposer({
               >
                 Subject line
               </Label>
-              <div className="flex items-center gap-1">
-                <CharCount value={subject} limit={60} />
-                {aiEnabled && editable ? (
-                  <SuggestSubjectButton
-                    issueId={issue.id}
-                    onPick={setSubject}
-                    beforeSuggest={saveBeforeAction}
-                  />
-                ) : null}
-              </div>
+              <CharCount value={subject} limit={60} />
             </div>
             <Input
               id="issue-subject"
@@ -288,17 +273,7 @@ export function IssueComposer({
                   (optional)
                 </span>
               </Label>
-              <div className="flex items-center gap-1">
-                <CharCount value={previewText} limit={90} />
-                {aiEnabled && editable ? (
-                  <SuggestPreviewTextButton
-                    issueId={issue.id}
-                    subject={subject}
-                    onPick={setPreviewText}
-                    beforeSuggest={saveBeforeAction}
-                  />
-                ) : null}
-              </div>
+              <CharCount value={previewText} limit={90} />
             </div>
             <Input
               id="issue-preview"

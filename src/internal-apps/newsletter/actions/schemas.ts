@@ -115,11 +115,6 @@ export const assignSegmentSchema = z.object({
   segmentId: z.string().min(1, "Pick a segment."),
 });
 
-export const suggestPreviewTextSchema = z.object({
-  id: z.string().min(1),
-  subject: z.string().max(200),
-});
-
 export const importGroupSchema = z.object({
   groupSlug: z.string().min(1, "Pick a group."),
 });

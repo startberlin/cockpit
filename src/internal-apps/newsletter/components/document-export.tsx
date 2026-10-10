@@ -57,7 +57,7 @@ export function DocumentExport({ editor }: { editor: Editor }) {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={() => void copy("markdown")}>
           <FileText />
-          Copy Markdown for AI
+          Copy Markdown
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void copy("html")}>
           <Code2 />
