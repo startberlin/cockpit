@@ -88,6 +88,7 @@ const globalActions = [
   // Internal app access. One action per app, named `apps.<slug>.access`, so the
   // same check gates the launcher card, the sidebar entry, the app's route
   // layout, and its server actions. See src/lib/apps/visibility.ts.
+  "apps.newsletter.access",
   "apps.referrals.access",
   "apps.referrals.overview",
 ] as const;
@@ -265,6 +266,16 @@ function evaluateGlobalAction(
     case "user.personal_email.change":
     case "user.password.reset":
       return hasAdminGrant(authority);
+    case "apps.newsletter.access":
+      // Growth owns the newsletter. All department leads and the Legal Board
+      // retain access without needing an admin grant. `evaluateAuth` rejects
+      // inactive users before this permission is evaluated.
+      return (
+        hasAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        isDepartmentHead(authority) ||
+        authority.department === "growth"
+      );
     case "apps.referrals.overview":
       return (
         hasSuperAdminGrant(authority) ||

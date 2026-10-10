@@ -414,6 +414,20 @@
       "when": 1791542570718,
       "tag": "0058_outstanding_venom",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791629038775,
+      "tag": "0059_little_namora",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1791629735308,
+      "tag": "0060_polite_dragon_man",
+      "breakpoints": true
     }
   ]
 }
