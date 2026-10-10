@@ -18,7 +18,7 @@ import { COCKPIT_URL } from "@/emails/components/cockpit-url";
 import { brand, CONTAINER_WIDTH, FONT_STACK, GUTTER } from "./newsletter-theme";
 
 /**
- * Resend interpolates these at send time, per recipient. They must survive
+ * Resend interpolates this at send time, per recipient. It must survive
  * rendering verbatim — React escapes `<`, `>` and `&`, but not braces, so a
  * literal in JSX text or in an `href` comes out intact. There is a render test
  * asserting exactly that, because a silently escaped unsubscribe link would be
@@ -28,7 +28,6 @@ import { brand, CONTAINER_WIDTH, FONT_STACK, GUTTER } from "./newsletter-theme";
  * interpolate, so `substituteMergeTags` swaps in sample values there.
  */
 export const UNSUBSCRIBE_URL_TAG = "{{{RESEND_UNSUBSCRIBE_URL}}}";
-export const FIRST_NAME_TAG = "{{{contact.first_name|there}}}";
 
 interface NewsletterShellProps {
   title: string;

@@ -2,6 +2,40 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { it } from "node:test";
 
+it("resolves first-name tags with and without a fallback in test emails", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "--input-type=module",
+      "-e",
+      `
+      import assert from "node:assert/strict";
+      import { createRequire } from "node:module";
+      const require = createRequire(import.meta.url);
+      const Module = require("node:module");
+      const originalLoad = Module._load;
+      Module._load = function (request, parent, ...rest) {
+        if (request === "server-only") return {};
+        return originalLoad.call(this, request, parent, ...rest);
+      };
+      const { substituteMergeTags } = require("./src/internal-apps/newsletter/lib/render.ts");
+      const input = "Hallo {{{contact.first_name}}}, {{{contact.first_name|there}}}, {{{contact.first_name|friend}}}. {{{RESEND_UNSUBSCRIBE_URL}}} {{{contact.last_name}}}";
+      assert.equal(
+        substituteMergeTags(input, { firstName: "$& Jörg", unsubscribeUrl: "https://example.com/newsletter" }),
+        "Hallo $& Jörg, $& Jörg, $& Jörg. https://example.com/newsletter {{{contact.last_name}}}",
+      );
+    `,
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, NEXT_PUBLIC_COCKPIT_URL: "http://localhost:3000" },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
 it("measures the exact rendered UTF-8 HTML, including Unicode and the 100,000-byte boundary", () => {
   const result = spawnSync(
     process.execPath,
