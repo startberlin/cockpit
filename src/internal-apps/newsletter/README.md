@@ -112,8 +112,9 @@ Worth knowing before changing anything here:
 - **The rate limit is 10 requests per second, account-wide.** `lib/resend.ts`
   throttles to 8 and retries on 429; do not bypass it.
 - **Merge tags only work in broadcasts.** The `/emails` endpoint used for test
-  sends does not interpolate `{{{contact.first_name}}}`, so `substituteMergeTags`
-  swaps in sample values there.
+  sends does not interpolate `{{{contact.first_name}}}` or the fallback form
+  `{{{contact.first_name|there}}}`, so `substituteMergeTags` swaps in sample
+  first names for both forms. Other contact fields are left unchanged.
 
 ## Local setup
 

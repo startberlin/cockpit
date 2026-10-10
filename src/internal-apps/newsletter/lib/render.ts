@@ -2,10 +2,7 @@ import "server-only";
 
 import { render, toPlainText } from "react-email";
 import { NewsletterIssueEmail } from "@/emails/newsletter/newsletter-issue";
-import {
-  FIRST_NAME_TAG,
-  UNSUBSCRIBE_URL_TAG,
-} from "@/emails/newsletter/newsletter-shell";
+import { UNSUBSCRIBE_URL_TAG } from "@/emails/newsletter/newsletter-shell";
 import type { Block } from "./blocks";
 
 export interface RenderIssueInput {
@@ -61,8 +58,7 @@ export function substituteMergeTags(
   return html
     .split(UNSUBSCRIBE_URL_TAG)
     .join(unsubscribeUrl)
-    .split(FIRST_NAME_TAG)
-    .join(firstName);
+    .replace(/\{\{\{contact\.first_name(?:\|[^{}]*)?\}\}\}/g, () => firstName);
 }
 
 /**
