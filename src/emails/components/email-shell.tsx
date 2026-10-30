@@ -15,6 +15,7 @@ import {
   Text,
 } from "react-email";
 import { COCKPIT_URL } from "@/emails/components/cockpit-url";
+import { EmailSocialLinks } from "@/emails/components/email-social-links";
 import { withUtm } from "@/emails/components/utm";
 
 interface EmailShellProps {
@@ -108,32 +109,42 @@ export function EmailShell({
             <Row>
               <Column
                 style={{
-                  padding: "24px 40px",
-                  borderTop: "1px solid #E7E5E4",
+                  backgroundColor: "#0A0F2C",
+                  padding: "28px 40px",
                 }}
               >
-                <Text className="mt-0 mb-[12px] text-[12px] text-[#78716C] leading-[20px]">
-                  {resolvedReason}
-                </Text>
-                <Text className="mt-0 mb-0 text-[11px] text-[#78716C] leading-[18px]">
-                  START Berlin e.V. · Luisenstraße 53 · c/o HU-Gründerhaus ·
-                  10117 Berlin
-                  <br />
-                  Vereinsregister VR 32262 B · Amtsgericht Charlottenburg,
-                  Berlin
-                </Text>
-                <Text className="mt-[8px] mb-0 text-[11px] text-[#78716C] leading-[18px]">
-                  <Link
-                    href={withUtm(COCKPIT_URL, {
-                      campaign,
-                      content: "footer",
-                      isReminder,
-                    })}
-                    className="text-[#1C1917] underline"
+                <EmailSocialLinks />
+                <Row>
+                  <Column
+                    style={{
+                      paddingTop: "20px",
+                      borderTop: "1px solid #343A56",
+                    }}
                   >
-                    Open START Cockpit
-                  </Link>
-                </Text>
+                    <Text className="mt-0 mb-[12px] text-[12px] text-[#C5C8D6] leading-[20px]">
+                      {resolvedReason}
+                    </Text>
+                    <Text className="mt-0 mb-0 text-[11px] text-[#C5C8D6] leading-[18px]">
+                      START Berlin e.V. · Luisenstraße 53 · c/o HU-Gründerhaus ·
+                      10117 Berlin
+                      <br />
+                      Vereinsregister VR 32262 B · Amtsgericht Charlottenburg,
+                      Berlin
+                    </Text>
+                    <Text className="mt-[8px] mb-0 text-[11px] text-[#C5C8D6] leading-[18px]">
+                      <Link
+                        href={withUtm(COCKPIT_URL, {
+                          campaign,
+                          content: "footer",
+                          isReminder,
+                        })}
+                        className="text-white underline"
+                      >
+                        Open START Cockpit
+                      </Link>
+                    </Text>
+                  </Column>
+                </Row>
               </Column>
             </Row>
           </Container>
