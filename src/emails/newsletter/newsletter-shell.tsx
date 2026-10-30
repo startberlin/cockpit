@@ -15,6 +15,7 @@ import {
   Text,
 } from "react-email";
 import { COCKPIT_URL } from "@/emails/components/cockpit-url";
+import { EmailSocialLinks } from "@/emails/components/email-social-links";
 import { brand, CONTAINER_WIDTH, FONT_STACK, GUTTER } from "./newsletter-theme";
 
 /**
@@ -135,46 +136,55 @@ export function NewsletterShell({
             <Row>
               <Column
                 style={{
-                  padding: `24px ${GUTTER}px 28px`,
-                  backgroundColor: brand.surfaceAlt,
-                  borderTop: `1px solid ${brand.rule}`,
+                  padding: `28px ${GUTTER}px`,
+                  backgroundColor: brand.navy,
                 }}
               >
-                <Text
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: "12px",
-                    lineHeight: "20px",
-                    color: brand.muted,
-                  }}
-                >
-                  You are receiving this because you subscribed to the START
-                  Berlin newsletter.{" "}
-                  <Link
-                    href={UNSUBSCRIBE_URL_TAG}
+                <EmailSocialLinks />
+                <Row>
+                  <Column
                     style={{
-                      color: brand.navySoft,
-                      textDecoration: "underline",
+                      paddingTop: "20px",
+                      borderTop: "1px solid #343A56",
                     }}
                   >
-                    Manage your preferences or unsubscribe
-                  </Link>
-                  .
-                </Text>
-                <Text
-                  style={{
-                    margin: 0,
-                    fontSize: "11px",
-                    lineHeight: "18px",
-                    color: brand.faint,
-                  }}
-                >
-                  START Berlin e.V. · Luisenstraße 53 · c/o HU-Gründerhaus ·
-                  10117 Berlin
-                  <br />
-                  Vereinsregister VR 32262 B · Amtsgericht Charlottenburg,
-                  Berlin
-                </Text>
+                    <Text
+                      style={{
+                        margin: "0 0 12px",
+                        fontSize: "12px",
+                        lineHeight: "20px",
+                        color: "#C5C8D6",
+                      }}
+                    >
+                      You are receiving this because you subscribed to the START
+                      Berlin newsletter.{" "}
+                      <Link
+                        href={UNSUBSCRIBE_URL_TAG}
+                        style={{
+                          color: brand.white,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Manage your preferences or unsubscribe
+                      </Link>
+                      .
+                    </Text>
+                    <Text
+                      style={{
+                        margin: 0,
+                        fontSize: "11px",
+                        lineHeight: "18px",
+                        color: "#C5C8D6",
+                      }}
+                    >
+                      START Berlin e.V. · Luisenstraße 53 · c/o HU-Gründerhaus ·
+                      10117 Berlin
+                      <br />
+                      Vereinsregister VR 32262 B · Amtsgericht Charlottenburg,
+                      Berlin
+                    </Text>
+                  </Column>
+                </Row>
               </Column>
             </Row>
           </Container>
