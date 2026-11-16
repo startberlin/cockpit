@@ -21,13 +21,29 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Berlin",
 });
 
+type AudienceTopic = { id: string; name: string };
+
+function formatTopicSubscriptions(row: ContactRow, topics: AudienceTopic[]) {
+  if (row.unsubscribed) return "-";
+  if (topics.some(({ id }) => !row.topics?.[id])) return "Not synced";
+
+  return (
+    topics
+      .filter(({ id }) => row.topics?.[id] === "opt_in")
+      .map(({ name }) => name)
+      .join(", ") || "None"
+  );
+}
+
 export function ContactsTable({
   rows,
+  topics,
   total,
   pageCount,
   currentPage,
 }: {
   rows: ContactRow[];
+  topics: AudienceTopic[];
   total: number;
   pageCount: number;
   currentPage: number;
@@ -68,7 +84,10 @@ export function ContactsTable({
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Global status</TableHead>
+              {topics.length > 0 ? (
+                <TableHead>Subscribed topics</TableHead>
+              ) : null}
               <TableHead>Added</TableHead>
             </TableRow>
           </TableHeader>
@@ -88,6 +107,11 @@ export function ContactsTable({
                       <Badge variant="secondary">Subscribed</Badge>
                     )}
                   </TableCell>
+                  {topics.length > 0 ? (
+                    <TableCell className="whitespace-normal text-muted-foreground">
+                      {formatTopicSubscriptions(row, topics)}
+                    </TableCell>
+                  ) : null}
                   <TableCell className="text-muted-foreground">
                     {row.resendCreatedAt
                       ? dateFormat.format(row.resendCreatedAt)
@@ -97,10 +121,13 @@ export function ContactsTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell
+                  colSpan={topics.length > 0 ? 5 : 4}
+                  className="h-24 text-center"
+                >
                   {search
                     ? "No contact matches that search."
-                    : "No contacts mirrored yet. Sync from Resend to pull them in."}
+                    : 'No contacts yet. Use "Sync from Resend" to load them.'}
                 </TableCell>
               </TableRow>
             )}

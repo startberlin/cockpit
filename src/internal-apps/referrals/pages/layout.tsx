@@ -19,7 +19,11 @@ export default async function ReferralsLayout({
   if (!user) redirect("/auth");
   const navItems: InternalAppNavItem[] = [...referralsApp.nav.items];
   if (canViewOverview)
-    navItems.push({ label: "Overview", href: "/referrals/overview" });
+    navItems.push({
+      label: "Overview",
+      href: "/referrals/overview",
+      icon: "dashboard",
+    });
   return (
     <AppShell
       appId="referrals"

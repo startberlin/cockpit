@@ -196,13 +196,11 @@ export const newsletterContact = pgTable(
     lastName: text("last_name"),
     unsubscribed: boolean("unsubscribed").notNull().default(false),
     /** Topic subscription state as reported by Resend, keyed by topic id. */
-    topics: jsonb("topics"),
+    topics: jsonb("topics").$type<Record<string, "opt_in" | "opt_out">>(),
     /**
      * Segment ids this contact belongs to.
      *
-     * Mirrored so page renders do not paginate every remote segment. The
-     * explicit refresh reads /segments/:id/contacts and only replaces these
-     * memberships after every page has loaded successfully.
+     * Synced from Resend so page renders can count members locally.
      */
     segments: jsonb("segments").$type<string[]>(),
     properties: jsonb("properties"),

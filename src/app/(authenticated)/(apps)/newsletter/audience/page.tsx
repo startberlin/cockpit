@@ -3,3 +3,5 @@ export {
   default,
   metadata,
 } from "@/internal-apps/newsletter/pages/audience-page";
+
+export const maxDuration = 300;

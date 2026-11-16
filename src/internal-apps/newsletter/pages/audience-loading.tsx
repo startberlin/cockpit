@@ -5,12 +5,9 @@ export default function AudienceLoading() {
   return (
     <PageContainer>
       <div className="flex flex-wrap items-start justify-between gap-4 pb-6">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
+        <Skeleton className="h-6 w-32" />
         <div className="flex max-w-full flex-wrap gap-2">
-          {Array.from({ length: 4 }, (_, i) => (
+          {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} className="h-8 w-36" />
           ))}
         </div>

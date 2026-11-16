@@ -20,6 +20,7 @@ import {
 import { getApp, isInternalApp } from "@/lib/apps/registry";
 import type { InternalAppNavItem } from "@/lib/apps/types";
 import { AppIconGlyph } from "./app-icon";
+import { APP_NAV_ICONS } from "./app-icons";
 
 interface AppShellSidebarProps {
   /** App id, not the definition — definitions hold functions and cannot cross the RSC boundary. */
@@ -61,10 +62,21 @@ export function AppShellSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg">
-              <Link href={app.basePath} onClick={closeMobile}>
-                <AppIconGlyph appId={app.id} size={20} />
-                <span className="font-semibold">{app.name}</span>
+            <SidebarMenuButton
+              asChild
+              size="lg"
+              tooltip={app.name}
+              className="group-data-[collapsible=icon]:justify-center"
+            >
+              <Link
+                href={app.basePath}
+                onClick={closeMobile}
+                aria-label={app.name}
+              >
+                <AppIconGlyph appId={app.id} size={20} className="shrink-0" />
+                <span className="font-semibold group-data-[collapsible=icon]:hidden">
+                  {app.name}
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -76,19 +88,31 @@ export function AppShellSidebar({
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                {items.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href} onClick={closeMobile}>
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {items.map((item) => {
+                  const Icon = APP_NAV_ICONS[item.icon];
+                  const isCurrent = pathname === item.href;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isCurrent}
+                        tooltip={item.label}
+                      >
+                        <Link
+                          href={item.href}
+                          onClick={closeMobile}
+                          aria-label={item.label}
+                          aria-current={isCurrent ? "page" : undefined}
+                        >
+                          <Icon aria-hidden="true" />
+                          <span className="group-data-[collapsible=icon]:hidden">
+                            {item.label}
+                          </span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -101,9 +125,11 @@ export function AppShellSidebar({
             <SidebarMenuButton asChild tooltip="Back to Cockpit">
               {/* Plain <a>: the app was opened in its own tab, so this is a
                   deliberate hand-off back rather than in-app navigation. */}
-              <a href="/tools">
-                <ArrowLeft />
-                <span>Back to Cockpit</span>
+              <a href="/tools" aria-label="Back to Cockpit">
+                <ArrowLeft aria-hidden="true" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Back to Cockpit
+                </span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
