@@ -1,15 +1,11 @@
 "use client";
 
-import { RefreshCw, UserPlus, Users } from "lucide-react";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  assignSegmentAction,
-  refreshSegmentMembershipAction,
-  syncContactsAction,
-} from "../actions/audience";
+import { assignSegmentAction, syncContactsAction } from "../actions/audience";
 import { parseError } from "../lib/error";
 import { ImportDialog } from "./import-dialog";
 
@@ -27,16 +23,6 @@ export function AudienceActions({
   const sync = useAction(syncContactsAction, {
     onSuccess: ({ data }) => {
       toast.success(`Synced ${data?.synced ?? 0} contacts from Resend.`);
-      router.refresh();
-    },
-    onError: ({ error }) => toast.error(parseError(error)),
-  });
-
-  const refresh = useAction(refreshSegmentMembershipAction, {
-    onSuccess: ({ data }) => {
-      toast.success(
-        `Checked segment membership for ${data?.checked ?? 0} contacts.`,
-      );
       router.refresh();
     },
     onError: ({ error }) => toast.error(parseError(error)),
@@ -61,9 +47,7 @@ export function AudienceActions({
     },
     onError: ({ error }) => toast.error(parseError(error)),
   });
-  // These operations all replace the same audience mirror. Keep them serial
-  // so a slower sync cannot overwrite a newer segment membership result.
-  const busy = sync.isPending || refresh.isPending || assign.isPending;
+  const busy = sync.isPending || assign.isPending;
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -77,17 +61,6 @@ export function AudienceActions({
       >
         <RefreshCw className={sync.isPending ? "animate-spin" : undefined} />
         {sync.isPending ? "Syncing" : "Sync from Resend"}
-      </Button>
-
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={busy || contactCount === 0}
-        onClick={() => refresh.execute()}
-        title="Refresh which contacts belong to each segment."
-      >
-        <Users />
-        {refresh.isPending ? "Checking" : "Refresh segment membership"}
       </Button>
 
       {defaultSegmentId ? (

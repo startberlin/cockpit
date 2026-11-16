@@ -516,7 +516,59 @@ export async function listSegments() {
 
 export async function listTopics() {
   const data = await request("topics.list", () => resend().topics.list());
-  return data.data ?? [];
+  if (!Array.isArray(data.data)) {
+    throw new ResendRequestError("topics.list", "incomplete topic response");
+  }
+  return data.data;
+}
+
+export type TopicSubscription = "opt_in" | "opt_out";
+
+export async function listContactTopicSubscriptions(
+  contactId: string,
+): Promise<Record<string, TopicSubscription>> {
+  const topics: [string, TopicSubscription][] = [];
+  const seen = new Set<string>();
+  let after: string | undefined;
+
+  for (let page = 0; page < 60; page++) {
+    const data = await request("contacts.topics.list", () =>
+      resend().contacts.topics.list({ id: contactId, limit: 100, after }),
+    );
+    if (!Array.isArray(data.data) || typeof data.has_more !== "boolean") {
+      throw new ResendRequestError(
+        "contacts.topics.list",
+        "incomplete pagination response",
+      );
+    }
+    for (const { id, subscription } of data.data) {
+      if (
+        typeof id !== "string" ||
+        !id ||
+        seen.has(id) ||
+        (subscription !== "opt_in" && subscription !== "opt_out")
+      ) {
+        throw new ResendRequestError(
+          "contacts.topics.list",
+          "incomplete or duplicate topic response",
+        );
+      }
+      seen.add(id);
+      topics.push([id, subscription]);
+    }
+    if (!data.has_more) return Object.fromEntries(topics);
+    after = data.data.at(-1)?.id;
+    if (!after) {
+      throw new ResendRequestError(
+        "contacts.topics.list",
+        "missing pagination cursor",
+      );
+    }
+  }
+  throw new ResendRequestError(
+    "contacts.topics.list",
+    "topic list exceeds the page limit",
+  );
 }
 
 export async function listDomains() {

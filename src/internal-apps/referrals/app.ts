@@ -9,5 +9,5 @@ export const referralsApp = {
   basePath: "/referrals",
   visibility: { kind: "permission", action: "apps.referrals.access" },
   description: "Your application link and referrals.",
-  nav: { items: [{ label: "My referrals", href: "/referrals" }] },
+  nav: { items: [{ label: "My referrals", href: "/referrals", icon: "link" }] },
 } as const satisfies InternalAppDefinition;

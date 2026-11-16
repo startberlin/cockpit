@@ -101,14 +101,13 @@ export const scheduleIssueSchema = z.object({
 });
 
 /**
- * Preflight can be asked about a segment the issue has not been saved with yet,
- * so the dialog can show an accurate recipient count while someone is still
- * choosing.
+ * Preflight checks the segment and topic currently selected in the dialog.
  */
 export const preflightSchema = z.object({
   id: z.string().min(1),
   expectedUpdatedAt: z.iso.datetime({ offset: true }),
   segmentId: z.string().max(100).optional(),
+  topicId: z.string().max(100).optional(),
 });
 
 export const assignSegmentSchema = z.object({

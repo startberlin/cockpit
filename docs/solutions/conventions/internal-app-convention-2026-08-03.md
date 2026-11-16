@@ -74,6 +74,8 @@ src/app/(authenticated)/(apps)/<slug>/
 
 Because apps sit outside `(app)`, the `(apps)/layout.tsx` group layout repeats the auth, onboarding, and `AuthorityProvider` guards. Those guards are about being a signed-in onboarded member, not about Cockpit.
 
+**Every internal app must support an icon-only desktop sidebar.** Use `AppShell` and give each navigation item a distinct icon key from `APP_NAV_ICONS` in `app-icons.tsx`. This includes items added by permission checks in the layout. When collapsed, keep every destination available with an accessible name, a tooltip on hover or keyboard focus, and a visible current-page state. Keep text labels visible in the expanded sidebar and mobile drawer.
+
 **Never pass an `AppDefinition` across the RSC boundary.** It contains a function (`description`) and may contain component references. React throws "Functions cannot be passed directly to Client Components". Cards, grid, and launcher are server components; client components receive `app.id`.
 
 **Visibility is not an `Action`.** `evaluateAuth` denies every action to users whose status is not an active authority status — which includes `onboarding`. Onboarding members must still see the external tools, so `AppVisibility` is a composite over status *and* permissions, with `{ kind: "permission" }` as one leaf. Use `{ kind: "status" }` for anything onboarding members need.
