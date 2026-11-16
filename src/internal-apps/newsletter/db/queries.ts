@@ -121,6 +121,7 @@ export interface ContactRow {
   firstName: string | null;
   lastName: string | null;
   unsubscribed: boolean;
+  topics: (typeof newsletterContact.$inferSelect)["topics"];
   resendCreatedAt: Date | null;
 }
 
@@ -167,6 +168,7 @@ export async function listContacts({
       firstName: newsletterContact.firstName,
       lastName: newsletterContact.lastName,
       unsubscribed: newsletterContact.unsubscribed,
+      topics: newsletterContact.topics,
       resendCreatedAt: newsletterContact.resendCreatedAt,
     })
     .from(newsletterContact)
@@ -197,11 +199,7 @@ export async function getContactStats(): Promise<{
 }
 
 /**
- * How many mirrored contacts belong to each segment.
- *
- * Counted locally so page renders do not page through every remote segment.
- * The number is as fresh as the last "Refresh segment membership" run, which the
- * Audience page states explicitly rather than implying live data.
+ * How many contacts in each synced segment are globally subscribed.
  */
 export async function getSegmentMemberCounts(): Promise<Map<string, number>> {
   const rows = await db

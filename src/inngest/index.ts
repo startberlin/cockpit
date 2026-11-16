@@ -1,3 +1,4 @@
+import { syncNewsletterAudienceCron } from "@/internal-apps/newsletter/inngest/sync-audience";
 import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";
 import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
 import { authCleanupCron } from "./auth-cleanup";
@@ -28,6 +29,7 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  syncNewsletterAudienceCron,
   provisionReferralLinks,
   applicationResumeReminderWorkflow,
   dataConfirmationReminderCron,

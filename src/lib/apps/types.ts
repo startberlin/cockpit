@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { StaticImageData } from "next/image";
+import type { APP_NAV_ICONS } from "@/components/apps/app-icons";
 import type { UserStatus } from "@/db/schema/auth";
 import type { AppVisibility } from "./visibility";
 
@@ -83,6 +84,7 @@ export interface ExternalAppDefinition extends AppBase {
 export interface InternalAppNavItem {
   label: string;
   href: string;
+  icon: keyof typeof APP_NAV_ICONS;
 }
 
 export interface InternalAppDefinition extends AppBase {

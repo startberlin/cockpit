@@ -64,6 +64,22 @@ it("keeps sandbox writes local and reads complete segment pages", () => {
     globalThis.fetch = async () => Response.json({ data: [{ id: "duplicate", email: "one@example.com", unsubscribed: false }], has_more: true });
     await assert.rejects(api.listAllContacts(), /incomplete or duplicate contact/);
 
+    globalThis.fetch = async (url) => {
+      const u = new URL(String(url));
+      assert.equal(u.pathname, "/contacts/contact/topics");
+      const after = u.searchParams.get("after");
+      if (after) assert.equal(after, "newsletter");
+      return Response.json({ has_more: !after, data: [after
+        ? { id: "events", subscription: "opt_in" }
+        : { id: "newsletter", subscription: "opt_out" }] });
+    };
+    assert.deepEqual(await api.listContactTopicSubscriptions("contact"), {
+      newsletter: "opt_out",
+      events: "opt_in",
+    });
+    globalThis.fetch = async () => Response.json({ has_more: false, data: [{ id: "newsletter" }] });
+    await assert.rejects(api.listContactTopicSubscriptions("contact"), /incomplete or duplicate topic/);
+
   `,
     ],
     {

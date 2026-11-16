@@ -20,7 +20,9 @@ import {
   cancelBroadcast,
   createAndSendBroadcast,
   isResendConfigured,
-  listSegments,
+  listAllContacts,
+  listContactTopicSubscriptions,
+  listTopics,
   sendMode,
   sendTestEmail,
 } from "../lib/resend";
@@ -48,9 +50,7 @@ const REVISION_CONFLICT_MESSAGE =
  * Everything that must be true before an issue may leave the building.
  *
  * Resend accepts broadcasts to empty segments and delivers them to nobody.
- * Membership is read from the local mirror to keep checks fast and consistent
- * with the Audience page.
- * Refresh segment membership there when the remote audience has changed.
+ * Check fresh membership and global subscription status for live broadcasts.
  */
 export interface PreflightProblem {
   code: string;
@@ -60,11 +60,15 @@ export interface PreflightProblem {
 async function preflight(
   issue: typeof newsletterIssue.$inferSelect,
   html: string,
-  recipientCount?: number,
-): Promise<PreflightProblem[]> {
+  checkTopicRecipients = false,
+) {
   const problems: PreflightProblem[] = [];
+  const segmentId = issue.segmentId ?? env.RESEND_NEWSLETTER_SEGMENT_ID;
+  const topicId = issue.topicId ?? env.RESEND_NEWSLETTER_TOPIC_ID ?? null;
+  const configured = isResendConfigured();
+  const live = sendMode() === "live";
 
-  if (!isResendConfigured()) {
+  if (!configured) {
     problems.push({
       code: "no-api-key",
       message: "RESEND_API_KEY is not set.",
@@ -90,27 +94,75 @@ async function preflight(
     });
   }
 
-  const segmentId = issue.segmentId ?? env.RESEND_NEWSLETTER_SEGMENT_ID;
   if (!segmentId) {
     problems.push({
       code: "no-segment",
       message: "No segment is configured for this issue.",
     });
-  } else {
-    const recipients = recipientCount ?? (await countSegmentMembers(segmentId));
+  }
+
+  let recipients = 0;
+  if (!configured) return { problems, recipients, segmentId, topicId };
+
+  const [segment, topics] = await Promise.allSettled([
+    segmentId && live ? listAllContacts({ segmentId }) : null,
+    topicId ? listTopics() : null,
+  ]);
+  const subscribedContacts =
+    segment.status === "fulfilled"
+      ? (segment.value?.filter((contact) => !contact.unsubscribed) ?? [])
+      : [];
+
+  if (segment.status === "rejected") {
+    problems.push({
+      code: "segment-lookup-failed",
+      message: "Could not check the selected segment in Resend. Try again.",
+    });
+  } else if (segmentId) {
+    recipients = live
+      ? subscribedContacts.length
+      : await countSyncedSegmentMembers(segmentId);
     if (recipients === 0) {
       problems.push({
         code: "empty-segment",
-        message:
-          "That segment has no contacts. Sync from Resend, then use “Add contacts to segment” on the Audience page.",
+        message: "That segment has no subscribed contacts.",
       });
     }
   }
 
-  return problems;
+  if (topics.status === "rejected") {
+    problems.push({
+      code: "topic-lookup-failed",
+      message: "Could not check the selected topic in Resend. Try again.",
+    });
+  } else if (topicId && !topics.value?.some((topic) => topic.id === topicId)) {
+    problems.push({
+      code: "invalid-topic",
+      message: "That topic no longer exists in Resend. Choose another topic.",
+    });
+  }
+
+  if (checkTopicRecipients && live && topicId && problems.length === 0) {
+    try {
+      if (!(await hasTopicRecipient(subscribedContacts, topicId))) {
+        problems.push({
+          code: "empty-topic",
+          message:
+            "Nobody in that segment is subscribed to the selected topic.",
+        });
+      }
+    } catch {
+      problems.push({
+        code: "topic-recipients-lookup-failed",
+        message: "Could not verify topic subscriptions in Resend. Try again.",
+      });
+    }
+  }
+
+  return { problems, recipients, segmentId, topicId };
 }
 
-async function countSegmentMembers(segmentId: string): Promise<number> {
+async function countSyncedSegmentMembers(segmentId: string): Promise<number> {
   const [result] = await db
     .select({ total: count() })
     .from(newsletterContact)
@@ -121,6 +173,29 @@ async function countSegmentMembers(segmentId: string): Promise<number> {
       ),
     );
   return result.total;
+}
+
+/** A single eligible contact is enough to rule out an empty broadcast. */
+async function hasTopicRecipient(
+  contacts: { id: string }[],
+  topicId: string,
+): Promise<boolean> {
+  const batchSize = 8;
+  let hasUnknownPreference = false;
+  for (let start = 0; start < contacts.length; start += batchSize) {
+    const preferences = await Promise.all(
+      contacts.slice(start, start + batchSize).map(async (contact) => {
+        const topics = await listContactTopicSubscriptions(contact.id);
+        return topics[topicId];
+      }),
+    );
+    if (preferences.includes("opt_in")) return true;
+    if (preferences.some((preference) => preference !== "opt_out"))
+      hasUnknownPreference = true;
+  }
+  if (hasUnknownPreference)
+    throw new Error("Resend returned incomplete topic subscriptions.");
+  return false;
 }
 
 export const sendTestAction = actionClient
@@ -231,25 +306,26 @@ export const scheduleIssueAction = actionClient
 
     let html: string;
     let text: string;
+    let segmentId: string;
+    let topicId: string | null;
     try {
       ({ html, text } = await renderIssue({
         subject: issue.subject,
         previewText: issue.previewText,
         blocks: issue.blocks,
       }));
-      const problems = await preflight(issue, html);
-      if (problems.length) {
+      const audience = await preflight(issue, html, true);
+      if (!audience.segmentId || audience.problems.length) {
         await releaseClaim();
-        return { ok: false as const, problems };
+        return { ok: false as const, problems: audience.problems };
       }
+      segmentId = audience.segmentId;
+      topicId = audience.topicId;
     } catch (error) {
       await releaseClaim();
       throw error;
     }
 
-    const segmentId = (issue.segmentId ??
-      env.RESEND_NEWSLETTER_SEGMENT_ID) as string;
-    const topicId = issue.topicId ?? env.RESEND_NEWSLETTER_TOPIC_ID ?? null;
     const scheduledAt = parsedInput.scheduledAt?.trim()
       ? parsedInput.scheduledAt
       : null;
@@ -377,8 +453,8 @@ export const cancelIssueAction = actionClient
   });
 
 /**
- * Runs the same checks the send path runs, without sending, and reports who the
- * issue would reach.
+ * Checks the selected audience without sending. The live dispatch also
+ * verifies there is at least one eligible recipient for the chosen topic.
  *
  * Called when the schedule dialog opens so objections appear before someone
  * picks a time, rather than after they commit.
@@ -403,6 +479,9 @@ export const preflightAction = actionClient
     if (parsedInput.segmentId !== undefined) {
       issue.segmentId = parsedInput.segmentId || null;
     }
+    if (parsedInput.topicId !== undefined) {
+      issue.topicId = parsedInput.topicId || null;
+    }
 
     const { html } = await renderIssue({
       subject: issue.subject,
@@ -410,28 +489,5 @@ export const preflightAction = actionClient
       blocks: issue.blocks,
     });
 
-    const segmentId = issue.segmentId ?? env.RESEND_NEWSLETTER_SEGMENT_ID;
-    const recipients = segmentId ? await countSegmentMembers(segmentId) : 0;
-
-    let segmentName: string | null = null;
-    if (segmentId && isResendConfigured()) {
-      try {
-        const segments = (await listSegments()) as {
-          id: string;
-          name: string;
-        }[];
-        segmentName = segments.find((s) => s.id === segmentId)?.name ?? null;
-      } catch {
-        // A missing name is cosmetic; the counts and the checks still stand.
-      }
-    }
-
-    return {
-      problems: await preflight(issue, html, recipients),
-      recipients,
-      segmentName,
-      fromAddress: issue.fromAddress ?? DEFAULT_NEWSLETTER_FROM,
-      subject: issue.subject,
-      previewText: issue.previewText,
-    };
+    return preflight(issue, html);
   });

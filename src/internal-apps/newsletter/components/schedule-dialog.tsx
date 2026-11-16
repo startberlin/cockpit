@@ -116,6 +116,7 @@ export function ScheduleDialog({
   const [preflightAttempt, setPreflightAttempt] = useState(0);
   const [check, setCheck] = useState<{
     segmentId: string;
+    topicId: string;
     attempt: number;
     data?: PreflightData;
     error?: string;
@@ -185,9 +186,10 @@ export function ScheduleDialog({
   useEffect(() => {
     if (!open) return;
     let current = true;
+    const selection = { segmentId, topicId, attempt: preflightAttempt };
     setCheck(null);
     setProblems([]);
-    // Each segment choice owns its result. A slow response for an earlier
+    // Each audience selection owns its result. A slow response for an earlier
     // choice must never enable a send or replace the current recipient count.
     void (async () => {
       if (!(await callbacks.current.beforeAction())) {
@@ -199,38 +201,42 @@ export function ScheduleDialog({
       return preflightAction({
         id: issueId,
         segmentId,
+        topicId,
         expectedUpdatedAt: callbacks.current.getRevision(),
       });
     })()
       .then((result) => {
         if (!current) return;
-        if (result?.data)
-          setCheck({ segmentId, attempt: preflightAttempt, data: result.data });
+        if (result?.data) setCheck({ ...selection, data: result.data });
         else
           setCheck({
-            segmentId,
-            attempt: preflightAttempt,
+            ...selection,
             error: parseError(result),
           });
       })
       .catch((error) => {
         if (current)
           setCheck({
-            segmentId,
-            attempt: preflightAttempt,
+            ...selection,
             error: parseError(error),
           });
       });
     return () => {
       current = false;
     };
-  }, [open, issueId, segmentId, preflightAttempt]);
+  }, [open, issueId, segmentId, topicId, preflightAttempt]);
 
   const currentCheck =
-    check?.segmentId === segmentId && check.attempt === preflightAttempt
+    check?.segmentId === segmentId &&
+    check.topicId === topicId &&
+    check.attempt === preflightAttempt
       ? check
       : null;
   const info = currentCheck?.data;
+  const segmentName = segments.find(
+    (segment) => segment.id === info?.segmentId,
+  )?.name;
+  const defaultTopic = topics.find((topic) => topic.isDefault);
   const checkError = currentCheck?.error;
   const checking = !info && !checkError;
   const allProblems = Array.from(
@@ -355,14 +361,14 @@ export function ScheduleDialog({
                   <span className="font-medium tabular-nums">
                     {info?.recipients}
                   </span>{" "}
-                  contacts{info?.segmentName ? ` in ${info.segmentName}` : ""}.
+                  contacts{segmentName ? ` in ${segmentName}` : ""}.
                 </p>
               </>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Counts use the last audience sync. Topic preferences and delivery
-            suppressions can reduce the final recipient count.
+            {mode === "sandbox" ? "Counts use the last audience sync. " : ""}
+            Resend applies topic preferences and delivery suppressions.
           </p>
           <fieldset
             disabled={busy}
@@ -411,7 +417,9 @@ export function ScheduleDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_OVERRIDE}>
-                    Configured default
+                    {defaultTopic
+                      ? `Configured default (${defaultTopic.name})`
+                      : "Configured default"}
                   </SelectItem>
                   {topicId && !topics.some((topic) => topic.id === topicId) ? (
                     <SelectItem value={topicId}>
@@ -539,7 +547,7 @@ export function ScheduleDialog({
                   <AlertDialogTitle>
                     {mode === "sandbox"
                       ? "Send immediately (sandbox)"
-                      : `Send to ${info?.recipients ?? 0} contacts now?`}
+                      : `Send to up to ${info?.recipients ?? 0} contacts now?`}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     {mode === "sandbox"
