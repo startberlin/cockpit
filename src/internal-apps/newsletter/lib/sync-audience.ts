@@ -40,7 +40,6 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
-const AUDIENCE_SYNC_LOCK_KEY = 220_411;
 const lastSyncSelection = { lastSyncedAt: max(newsletterContact.syncedAt) };
 
 /** Pulls a complete Resend snapshot before replacing any local data. */
@@ -81,8 +80,10 @@ export async function syncAudience(): Promise<{ synced: number }> {
   }));
 
   await db.transaction(async (tx) => {
+    // Serialize all audience writers while checking and replacing the snapshot.
+    // Ordinary reads can continue while this lock is held.
     await tx.execute(
-      sql`select pg_advisory_xact_lock(${AUDIENCE_SYNC_LOCK_KEY})`,
+      sql`lock table ${newsletterContact} in share row exclusive mode`,
     );
     const [{ lastSyncedAt: currentSync }] = await tx
       .select(lastSyncSelection)
