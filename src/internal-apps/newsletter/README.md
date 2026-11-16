@@ -29,6 +29,7 @@ lib/presence-server.ts  expiring, database-backed editor presence
 lib/access.ts          shared permission check for every server action
 lib/image-upload-policy.ts  shared upload types, size limit and dimensions
 lib/resend.ts          Resend client: throttling, retries and the sandbox guard
+lib/sync-audience.ts   shared daily and manual audience sync
 lib/analytics.ts       per-broadcast metrics
 lib/storage.ts         image uploads (local disk or Vercel Blob)
 lib/cockpit-import.ts  turns a Cockpit system group into Resend contacts
@@ -170,8 +171,7 @@ share the composer's pending-upload guard.
 - No approval workflow. The lifecycle is `draft → scheduled → sent`.
 - No public archive or signup page. Unsubscribe and topic preferences are
   handled by Resend's own preference centre, which the footer links to.
-- No webhooks. Everything reads on demand, which is also why the whole app is
-  testable on localhost without a tunnel.
+- No webhooks. The app reads Resend on demand and syncs audience data daily.
 
 ## Verification and production preparation
 
@@ -186,7 +186,12 @@ released on the basis of elapsed time alone. Uncertain accepted sends continue
 through provider status reconciliation.
 
 The existing Cockpit pipeline already applies repository migrations before it
-assigns the staging domain or promotes the production deployment. The newsletter
-adds no Inngest function or automatic dispatch job. Keep preview dispatch in
+assigns the staging domain or promotes the production deployment. Inngest syncs
+contacts, global unsubscribe status, segment membership, and topic preferences
+from Resend daily at 05:00 Europe/Berlin when a Resend API key is configured.
+"Sync from Resend" runs the same sync on demand. A failed provider read keeps
+the previous snapshot. Before scheduling or sending a live broadcast, Cockpit
+checks the selected segment and topic against Resend for an eligible recipient.
+Resend handles dispatch and applies the current preferences. Keep preview dispatch in
 sandbox unless an isolated QA segment is selected for an authorised test. Verify
 newsletter pages after migrations as well as the existing generic health check.

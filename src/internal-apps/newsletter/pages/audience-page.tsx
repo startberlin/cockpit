@@ -59,10 +59,8 @@ export default async function AudiencePage({
     getSegmentMemberCounts(),
   ]);
 
-  // Segments and topics come straight from Resend: it stays the source of truth
-  // for consent, and a stale local copy of it would be worse than a slow page.
   let segments: { id: string; name: string }[] = [];
-  let topics: { id: string; name: string }[] = [];
+  let topics: Awaited<ReturnType<typeof listTopics>> = [];
   let segmentError: string | null = null;
   let topicError: string | null = null;
 
@@ -84,7 +82,6 @@ export default async function AudiencePage({
     <PageContainer>
       <PageHeader
         title="Audience"
-        description="Resend holds the contacts and their consent. This is a mirror of it."
         action={
           <AudienceActions
             defaultSegmentId={defaultSegmentId}
@@ -98,13 +95,10 @@ export default async function AudiencePage({
         <Alert className="mb-6">
           <AlertTriangle />
           <AlertTitle className="line-clamp-none">
-            The configured segment has no members
+            No subscribed contacts in the default segment
           </AlertTitle>
           <AlertDescription>
-            Contacts exist, but none of them belong to the segment a broadcast
-            would target, so Resend would accept the send and deliver it to
-            nobody. Run "Refresh segment membership" to confirm, then "Add
-            contacts to segment".
+            Run "Sync from Resend" to check for recent audience changes.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -120,7 +114,7 @@ export default async function AudiencePage({
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Unsubscribed</CardDescription>
+            <CardDescription>Globally unsubscribed</CardDescription>
             <CardTitle className="text-3xl font-bold tabular-nums">
               {stats.unsubscribed}
             </CardTitle>
@@ -200,7 +194,7 @@ export default async function AudiencePage({
           <CardHeader>
             <CardTitle>Topics</CardTitle>
             <CardDescription>
-              What contacts see in the preference centre when they unsubscribe.
+              Email preferences managed in Resend.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
@@ -212,8 +206,16 @@ export default async function AudiencePage({
               </p>
             ) : null}
             {topics.map((topic) => (
-              <div key={topic.id} className="text-sm">
-                {topic.name}
+              <div
+                key={topic.id}
+                className="flex justify-between gap-2 text-sm"
+              >
+                <span>{topic.name}</span>
+                <span className="text-muted-foreground">
+                  {topic.default_subscription === "opt_in"
+                    ? "Opt-in by default"
+                    : "Opt-out by default"}
+                </span>
               </div>
             ))}
           </CardContent>
@@ -222,6 +224,7 @@ export default async function AudiencePage({
 
       <ContactsTable
         rows={contacts.rows}
+        topics={topics.map(({ id, name }) => ({ id, name }))}
         total={contacts.total}
         pageCount={contacts.pageCount}
         currentPage={contacts.currentPage}

@@ -28,8 +28,15 @@ it("keeps accepted sends recoverable, rejects concurrent dispatch, and preserves
       let sendFails = true;
       let updates = 0;
       let dispatched = 0;
+      const contacts = [
+        { id: "opted-out-globally", unsubscribed: true },
+        { id: "subscriber", unsubscribed: false },
+      ];
+      let preference = "opt_out";
+      let broadcastTopic = null;
+      let segmentFails = false;
       const mockDb = {
-        select: () => ({ from: () => ({ where: async () => [{ total: 2 }] }) }),
+        select: () => ({ from: () => ({ where: () => ({ limit: async () => [structuredClone(state)] }) }) }),
         update: () => ({ set: (values) => ({ where: (condition) => {
           const query = dialect.sqlToQuery(condition);
           const apply = () => {
@@ -62,9 +69,20 @@ it("keeps accepted sends recoverable, rejects concurrent dispatch, and preserves
           if (request === "../lib/resend") return {
             isResendConfigured: () => true,
             sendMode: () => "live",
+            listAllContacts: async ({ segmentId }) => {
+              assert.equal(segmentId, "segment");
+              if (segmentFails) throw new Error("Resend unavailable");
+              return contacts;
+            },
+            listTopics: async () => [{ id: "updates" }],
+            listContactTopicSubscriptions: async (contactId) => {
+              assert.equal(contactId, "subscriber");
+              return { updates: preference };
+            },
             createAndSendBroadcast: async (input, persist) => {
               assert.equal(input.name, "October");
               assert.equal(input.text, "Body");
+              broadcastTopic = input.topicId;
               await persist({ broadcastId: "remote-broadcast", mode: "live" });
               dispatched++;
               if (cancelDuringSend) state.status = "canceled";
@@ -106,6 +124,40 @@ it("keeps accepted sends recoverable, rejects concurrent dispatch, and preserves
       await assert.rejects(api.scheduleIssueAction(input), (error) => error.validationErrors?._errors?.[0].includes("changed in another tab"));
       assert.equal(dispatched, sendsBeforeStaleRevision);
       assert.equal(state.status, "draft");
+
+      state = structuredClone(initial);
+      recordFails = false;
+      const scoped = { ...input, topicId: "updates" };
+      const preview = await api.preflightAction(scoped);
+      assert.equal(preview.recipients, 1);
+      assert.deepEqual(preview.problems, []);
+
+      const invalidTopic = await api.preflightAction({ ...scoped, topicId: "removed" });
+      assert.deepEqual(invalidTopic.problems.map(({ code }) => code), ["invalid-topic"]);
+
+      const sendsBeforeAudienceCheck = dispatched;
+      const optedOut = await api.scheduleIssueAction(scoped);
+      assert.deepEqual(optedOut.problems.map(({ code }) => code), ["empty-topic"]);
+      assert.equal(state.status, "draft");
+      assert.equal(dispatched, sendsBeforeAudienceCheck);
+
+      preference = undefined;
+      const missingPreference = await api.scheduleIssueAction(scoped);
+      assert.deepEqual(missingPreference.problems.map(({ code }) => code), ["topic-recipients-lookup-failed"]);
+      assert.equal(state.status, "draft");
+      assert.equal(dispatched, sendsBeforeAudienceCheck);
+
+      preference = "opt_in";
+      segmentFails = true;
+      const missingSegment = await api.scheduleIssueAction(scoped);
+      assert.deepEqual(missingSegment.problems.map(({ code }) => code), ["segment-lookup-failed"]);
+      assert.equal(state.status, "draft");
+      assert.equal(dispatched, sendsBeforeAudienceCheck);
+
+      segmentFails = false;
+      assert.equal((await api.scheduleIssueAction(scoped)).ok, true);
+      assert.equal(broadcastTopic, "updates");
+      assert.equal(dispatched, sendsBeforeAudienceCheck + 1);
 
       allowed = false;
       const updatesBeforeDenial = updates;

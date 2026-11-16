@@ -40,6 +40,7 @@ export function NavUser({ user }: NavUserProps) {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
+              aria-label={user.name}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-full">
@@ -49,7 +50,7 @@ export function NavUser({ user }: NavUserProps) {
                   {user.lastName[0]}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 min-w-0 overflow-hidden text-left text-sm leading-tight">
+              <div className="grid min-w-0 flex-1 overflow-hidden text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
                   {user.email}

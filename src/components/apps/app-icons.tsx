@@ -1,4 +1,12 @@
-import { Mail, UsersRound } from "lucide-react";
+import {
+  ChartNoAxesCombined,
+  LayoutDashboard,
+  Link2,
+  Mail,
+  Newspaper,
+  Settings,
+  UsersRound,
+} from "lucide-react";
 import BubblesIcon from "@/assets/bubbles-icon.svg";
 import CanvaIcon from "@/assets/canva-icon.svg";
 import GmailIcon from "@/assets/gmail-icon.svg";
@@ -29,6 +37,15 @@ export const APP_ICONS: Record<AppId, AppIcon> = {
   tally: { kind: "image", src: TallyIcon },
   canva: { kind: "image", src: CanvaIcon },
   bubbles: { kind: "image", src: BubblesIcon },
+};
+
+export const APP_NAV_ICONS = {
+  chart: ChartNoAxesCombined,
+  dashboard: LayoutDashboard,
+  link: Link2,
+  newspaper: Newspaper,
+  settings: Settings,
+  users: UsersRound,
 };
 
 export function getAppIcon(id: string): AppIcon | undefined {

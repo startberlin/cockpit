@@ -25,10 +25,10 @@ export const newsletterApp: InternalAppDefinition = {
     "Write, preview, schedule and measure the START Berlin newsletter.",
   nav: {
     items: [
-      { label: "Issues", href: "/newsletter" },
-      { label: "Audience", href: "/newsletter/audience" },
-      { label: "Analytics", href: "/newsletter/analytics" },
-      { label: "Settings", href: "/newsletter/settings" },
+      { label: "Issues", href: "/newsletter", icon: "newspaper" },
+      { label: "Audience", href: "/newsletter/audience", icon: "users" },
+      { label: "Analytics", href: "/newsletter/analytics", icon: "chart" },
+      { label: "Settings", href: "/newsletter/settings", icon: "settings" },
     ],
   },
 };

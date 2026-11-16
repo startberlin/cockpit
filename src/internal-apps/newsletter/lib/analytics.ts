@@ -20,23 +20,9 @@ export interface BroadcastReport extends RemoteBroadcast {
 
 export interface AnalyticsOverview {
   reports: BroadcastReport[];
-  totals: BroadcastTotals;
-  metricReportCount: number;
   tracking: Awaited<ReturnType<typeof getDomainTracking>>;
   error: string | null;
 }
-
-const SUM_METRICS = [
-  "sent",
-  "delivered",
-  "opened",
-  "unique_opened",
-  "clicked",
-  "unique_clicked",
-  "bounced",
-  "complained",
-  "unsubscribed",
-] as const;
 
 function isoDay(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -45,8 +31,6 @@ function isoDay(date: Date): string {
 export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
   const empty: AnalyticsOverview = {
     reports: [],
-    totals: {},
-    metricReportCount: 0,
     tracking: [],
     error: null,
   };
@@ -122,24 +106,7 @@ export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
     })
     .sort((a, b) => (b.sentAt ?? "").localeCompare(a.sentAt ?? ""));
 
-  const totals: BroadcastTotals = {};
-  for (const key of SUM_METRICS) {
-    const values = reports.flatMap((report) => {
-      const value = report.totals?.[key];
-      return value === undefined ? [] : [value];
-    });
-    if (values.length)
-      totals[key] = values.reduce((sum, value) => sum + value, 0);
-  }
-
-  return {
-    reports,
-    totals,
-    metricReportCount: reports.filter((report) => report.totals !== null)
-      .length,
-    tracking,
-    error,
-  };
+  return { reports, tracking, error };
 }
 
 /** Percentage of `part` in `whole`, or null when there is nothing to divide. */

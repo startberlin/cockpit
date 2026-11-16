@@ -3,3 +3,6 @@ export {
   default,
   metadata,
 } from "@/internal-apps/newsletter/pages/issue-editor-page";
+
+// The live send action may need to page through Resend topic subscriptions.
+export const maxDuration = 300;
