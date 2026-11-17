@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import db from "@/db";
 import { changeParticipationPause } from "@/db/participation";
 import { actionClient } from "@/lib/action-client";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -16,12 +17,17 @@ export const changeParticipationAction = actionClient
     }),
   )
   .action(async ({ parsedInput, ctx }) => {
-    if (!(await can("user.participation.manage"))) {
+    const member = await db.query.user.findFirst({
+      where: (user, { eq }) => eq(user.id, parsedInput.userId),
+      columns: { department: true },
+    });
+    if (!member || !(await can("user.participation.manage", member))) {
       throw new Error("You are not authorized to manage participation.");
     }
 
     const result = await changeParticipationPause({
       ...parsedInput,
+      expectedDepartment: member.department,
       actor: { id: ctx.user.id, name: ctx.user.name },
     });
 
