@@ -17,6 +17,7 @@ export type UserScopedAction =
   | "user.payment.view"
   | "user.membership.propose"
   | "user.department.change"
+  | "user.participation.manage"
   | "membership.transition.decide"
   | "membership.cancellation.acknowledge"
   | UnscopedViewAction;
@@ -26,6 +27,7 @@ const userScopedActions = [
   "user.payment.view",
   "user.membership.propose",
   "user.department.change",
+  "user.participation.manage",
   "membership.transition.decide",
   "membership.cancellation.acknowledge",
   "membership.transition.view",
@@ -76,7 +78,6 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.admission.vote",
   "membership.cancel_member",
-  "user.participation.manage",
   "groups.view_all",
   "groups.create",
   "batches.manage",
@@ -250,12 +251,6 @@ function evaluateGlobalAction(
       return isLegalOfficer(authority);
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
-    case "user.participation.manage":
-      return (
-        hasAdminGrant(authority) ||
-        hasPeopleAdminGrant(authority) ||
-        isLegalOfficer(authority)
-      );
     case "groups.view_all":
       return (
         hasAdminGrant(authority) ||
@@ -324,6 +319,18 @@ function evaluateUserScopedAction(
         isDepartmentHead(authority, scope.targetDepartment) ||
         isLegalOfficer(authority) ||
         hasPeopleAdminGrant(authority)
+      );
+    case "user.participation.manage":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority) ||
+        authority.positions.some(
+          (assignment) =>
+            assignment.scope === "department" &&
+            assignment.position === "department_head" &&
+            assignment.department === scope.targetDepartment,
+        )
       );
     case "membership.transition.decide":
     case "membership.cancellation.acknowledge":

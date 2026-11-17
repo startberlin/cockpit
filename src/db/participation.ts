@@ -7,6 +7,7 @@ import { getDepartmentLeads, getPositionAssignments } from "./authority";
 import { getActiveMembershipTransitionRequest } from "./membership-transitions";
 import { SYSTEM_USER_EMAIL, type UserDetails } from "./people";
 import { auditLog, user } from "./schema";
+import type { Department } from "./schema/auth";
 
 const pauseEvent = "user.participation_paused";
 const resumeEvent = "user.participation_resumed";
@@ -75,10 +76,12 @@ export type ParticipationControls = NonNullable<
 
 export async function changeParticipationPause({
   userId,
+  expectedDepartment,
   expectedPausedAt,
   actor,
 }: {
   userId: string;
+  expectedDepartment: Department | null;
   expectedPausedAt: string | null;
   actor: AuditActor;
 }) {
@@ -92,6 +95,9 @@ export async function changeParticipationPause({
         and(
           eq(user.id, userId),
           eq(user.status, "member"),
+          expectedDepartment === null
+            ? isNull(user.department)
+            : eq(user.department, expectedDepartment),
           or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
           expectedPausedAt === null
             ? isNull(user.participationPausedAt)

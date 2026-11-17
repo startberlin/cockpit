@@ -32,7 +32,7 @@ export default async function RemoveMemberPage({ params }: PageProps) {
 
   const [canRemove, canManageParticipation] = await Promise.all([
     can("membership.cancel_member"),
-    can("user.participation.manage"),
+    can("user.participation.manage", { department: user.department }),
   ]);
 
   if (!canRemove) {
