@@ -1,5 +1,4 @@
 import {
-  createLoader,
   parseAsArrayOf,
   parseAsInteger,
   parseAsString,
@@ -13,10 +12,10 @@ export const viewModeParser = parseAsStringEnum(["grid", "list"]).withDefault(
   "grid",
 );
 
-export const loadSearchParams = createLoader({
+export const peopleSearchParams = {
   page: parseAsInteger.withDefault(1),
   q: parseAsString.withDefault(""),
   department: parseAsArrayOf(departmentParser),
   batchNumber: parseAsArrayOf(parseAsInteger),
   status: parseAsArrayOf(peopleStatusParser),
-});
+};

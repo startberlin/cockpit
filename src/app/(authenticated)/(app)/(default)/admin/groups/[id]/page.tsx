@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { createSearchParamsCache } from "nuqs/server";
 import * as React from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
@@ -9,7 +10,7 @@ import {
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
-import { loadGroupPeopleParams } from "@/lib/people-search-params";
+import { groupPeopleParams } from "@/lib/people-search-params";
 import { can } from "@/lib/permissions/server";
 import { getPeopleStatus } from "@/lib/user-status";
 import AdminGroupDetailClient from "./page-client";
@@ -18,6 +19,8 @@ import AdminGroupDetailSkeleton from "./skeleton";
 function isSystemSlug(id: string) {
   return isSystemGroupSlug(id, []) || id.startsWith("batch-");
 }
+
+const groupPeopleSearchParams = createSearchParamsCache(groupPeopleParams);
 
 interface GroupPageProps {
   params: Promise<{ id: string }>;
@@ -55,7 +58,7 @@ export default async function AdminGroupPage({
 }: GroupPageProps) {
   const { id } = await params;
   const paramsForList = await searchParams;
-  const { page, status } = await loadGroupPeopleParams(paramsForList);
+  const { page, status } = groupPeopleSearchParams.parse(paramsForList);
   const { add } = paramsForList;
 
   if (isSystemSlug(id)) {

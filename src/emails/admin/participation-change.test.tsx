@@ -3,7 +3,6 @@ import { it } from "node:test";
 import { render } from "react-email";
 
 process.env.NEXT_PUBLIC_COCKPIT_URL ??= "https://cockpit.example.com";
-const { ParticipationChangeEmail } = await import("./participation-change");
 
 const props = {
   recipientName: "Alex",
@@ -12,6 +11,7 @@ const props = {
 };
 
 it("reminds a paused member that dues and email access continue", async () => {
+  const { ParticipationChangeEmail } = await import("./participation-change");
   const text = await render(<ParticipationChangeEmail {...props} paused />, {
     plainText: true,
   });
@@ -22,6 +22,7 @@ it("reminds a paused member that dues and email access continue", async () => {
 });
 
 it("sends department leads a separate participation update", async () => {
+  const { ParticipationChangeEmail } = await import("./participation-change");
   const text = await render(
     <ParticipationChangeEmail
       {...props}

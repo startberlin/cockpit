@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { parseAsArrayOf } from "nuqs/server";
+import { createSearchParamsCache, parseAsArrayOf } from "nuqs/server";
 import db from "@/db";
 import { getUserAuthority } from "@/db/authority";
 import { getAllUsersForAdmin } from "@/db/people";
@@ -30,7 +30,9 @@ export const metadata = createMetadata({
 });
 
 const activeStatuses = new Set<string>(DEFAULT_PEOPLE_STATUSES);
-const statusListParser = parseAsArrayOf(peopleStatusParser);
+const statusSearchParams = createSearchParamsCache({
+  status: parseAsArrayOf(peopleStatusParser),
+});
 
 interface PageProps {
   searchParams: Promise<{
@@ -74,19 +76,20 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
         )
         .map((p) => p.department);
 
+  const rawSearchParams = await searchParams;
   const {
     page: pageParam,
     q: search = "",
     department,
     batchNumber,
-    status,
     legalMembership: legalMembershipParam,
     actionItem: actionItemParam,
-  } = await searchParams;
+  } = rawSearchParams;
 
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const requestedStatuses = status ? statusListParser.parse(status) : null;
+  const { status: requestedStatuses } =
+    statusSearchParams.parse(rawSearchParams);
   const allowedStatuses = requestedStatuses?.filter(
     (value) => canViewInactive || activeStatuses.has(value),
   );

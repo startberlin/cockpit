@@ -1,6 +1,6 @@
 "use client";
 
-import { parseAsInteger, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import {
   Select,
   SelectContent,
@@ -8,16 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { peopleStatusParser } from "@/lib/people-search-params";
+import {
+  groupPeopleParams,
+  peopleStatusParser,
+} from "@/lib/people-search-params";
 import { getPeopleStatusInfo, PEOPLE_STATUSES } from "@/lib/user-status";
 
-const groupStatusParams = {
-  status: peopleStatusParser,
-  page: parseAsInteger.withDefault(1),
-};
-
 export function GroupMemberStatusFilter() {
-  const [{ status }, setFilters] = useQueryStates(groupStatusParams, {
+  const [{ status }, setFilters] = useQueryStates(groupPeopleParams, {
     shallow: false,
   });
   return (
@@ -27,7 +25,7 @@ export function GroupMemberStatusFilter() {
         setFilters({ status: peopleStatusParser.parse(value), page: null })
       }
     >
-      <SelectTrigger aria-label="Member status" size="sm">
+      <SelectTrigger aria-label="Member status" size="sm" className="min-w-28">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
