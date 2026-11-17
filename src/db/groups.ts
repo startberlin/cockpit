@@ -1,7 +1,9 @@
 import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { unaccentSearch } from "@/lib/search";
+import { getPeopleStatus, type PeopleStatus } from "@/lib/user-status";
 import db from ".";
 import { type PublicUser, SYSTEM_USER_EMAIL } from "./people";
+import { peopleStatusCondition } from "./people-status";
 import { user } from "./schema/auth";
 import { group, usersToGroups } from "./schema/group";
 import { getCurrentUser } from "./user";
@@ -36,6 +38,7 @@ export interface GroupDetail {
   googleSyncPending: boolean;
   members: GroupMember[];
   totalMembers: number;
+  hasMembers: boolean;
   memberPageCount: number;
   isMember: boolean;
   isGroupManager: boolean;
@@ -167,6 +170,7 @@ export async function checkGoogleEmailPrefixAvailability(
 export async function getGroupDetail(
   id: string,
   page = 1,
+  status?: PeopleStatus,
 ): Promise<GroupDetail | null> {
   const currentUser = await getCurrentUser();
 
@@ -186,6 +190,11 @@ export async function getGroupDetail(
   const isMember = viewerMembership.length > 0;
   const isGroupManager = viewerMembership[0]?.role === "manager";
   const offset = (page - 1) * MEMBERS_PAGE_SIZE;
+  const groupMembersWhere = and(
+    eq(usersToGroups.groupId, id),
+    or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
+  );
+  const statusFilter = status ? peopleStatusCondition([status]) : undefined;
 
   const membersBaseQuery = db
     .select({
@@ -198,53 +207,57 @@ export async function getGroupDetail(
       eventEmailPreference: user.eventEmailPreference,
       department: user.department,
       status: user.status,
+      participationPausedAt: user.participationPausedAt,
       batchNumber: sql<number | null>`${user.batchNumber}`,
       role: usersToGroups.role,
     })
     .from(usersToGroups)
     .innerJoin(user, eq(usersToGroups.userId, user.id))
-    .where(
-      and(
-        eq(usersToGroups.groupId, id),
-        or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
-      ),
-    )
+    .where(and(groupMembersWhere, statusFilter))
     .$dynamic();
 
-  const [groupData, members, [{ totalMembers }]] = await Promise.all([
-    db
-      .select({
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        googleGroupEmail: group.googleGroupEmail,
-        googleSyncPending: group.googleSyncPending,
-      })
-      .from(group)
-      .where(eq(group.id, id))
-      .limit(1),
-    membersBaseQuery
-      .orderBy(user.firstName, user.lastName)
-      .limit(MEMBERS_PAGE_SIZE)
-      .offset(offset),
-    db
-      .select({ totalMembers: count() })
-      .from(usersToGroups)
-      .innerJoin(user, eq(usersToGroups.userId, user.id))
-      .where(
-        and(
-          eq(usersToGroups.groupId, id),
-          or(isNull(user.email), ne(user.email, SYSTEM_USER_EMAIL)),
-        ),
-      ),
-  ]);
+  const [groupData, members, [{ totalMembers, groupSize }]] = await Promise.all(
+    [
+      db
+        .select({
+          id: group.id,
+          name: group.name,
+          slug: group.slug,
+          googleGroupEmail: group.googleGroupEmail,
+          googleSyncPending: group.googleSyncPending,
+        })
+        .from(group)
+        .where(eq(group.id, id))
+        .limit(1),
+      membersBaseQuery
+        .orderBy(user.firstName, user.lastName)
+        .limit(MEMBERS_PAGE_SIZE)
+        .offset(offset),
+      db
+        .select({
+          totalMembers: statusFilter
+            ? sql<number>`count(*) filter (where ${statusFilter})`.mapWith(
+                Number,
+              )
+            : count(),
+          groupSize: count(),
+        })
+        .from(usersToGroups)
+        .innerJoin(user, eq(usersToGroups.userId, user.id))
+        .where(groupMembersWhere),
+    ],
+  );
 
   if (!groupData.length) return null;
 
   return {
     ...groupData[0],
-    members,
+    members: members.map(({ participationPausedAt, ...member }) => ({
+      ...member,
+      peopleStatus: getPeopleStatus(member.status, participationPausedAt),
+    })),
     totalMembers,
+    hasMembers: groupSize > 0,
     memberPageCount: Math.ceil(totalMembers / MEMBERS_PAGE_SIZE),
     isMember,
     isGroupManager,
@@ -311,7 +324,7 @@ export async function listAllUsersNotInGroup(groupId: string) {
     ne(user.email, SYSTEM_USER_EMAIL),
   );
 
-  return db
+  const rows = await db
     .select({
       id: user.id,
       firstName: user.firstName,
@@ -320,6 +333,7 @@ export async function listAllUsersNotInGroup(groupId: string) {
       image: user.image,
       department: user.department,
       status: user.status,
+      participationPausedAt: user.participationPausedAt,
       batchNumber: sql<number | null>`${user.batchNumber}`,
       legalMembershipState: user.legalMembershipState,
     })
@@ -333,6 +347,10 @@ export async function listAllUsersNotInGroup(groupId: string) {
     )
     .where(and(sql`${usersToGroups.userId} IS NULL`, notSystemUser))
     .orderBy(user.firstName, user.lastName);
+  return rows.map(({ participationPausedAt, ...member }) => ({
+    ...member,
+    peopleStatus: getPeopleStatus(member.status, participationPausedAt),
+  }));
 }
 
 export async function searchUsersNotInGroup(groupId: string, query?: string) {
@@ -345,6 +363,7 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
       image: user.image,
       department: user.department,
       status: user.status,
+      participationPausedAt: user.participationPausedAt,
       batchNumber: sql<number | null>`${user.batchNumber}`,
     })
     .from(user)
@@ -381,7 +400,10 @@ export async function searchUsersNotInGroup(groupId: string, query?: string) {
     .orderBy(user.firstName, user.lastName)
     .limit(20);
 
-  return usersNotInGroup;
+  return usersNotInGroup.map(({ participationPausedAt, ...member }) => ({
+    ...member,
+    peopleStatus: getPeopleStatus(member.status, participationPausedAt),
+  }));
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -17,6 +17,8 @@ import { use, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCan } from "@/components/can";
 import { GroupExportMenu } from "@/components/group-export-menu";
+import { GroupMemberStatusFilter } from "@/components/group-member-status-filter";
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,9 +54,13 @@ import {
 } from "@/components/ui/table";
 import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
-import type { LegalMembershipState, UserStatus } from "@/db/schema/auth";
+import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import {
+  getPeopleStatusInfo,
+  PEOPLE_STATUSES,
+  type PeopleStatus,
+} from "@/lib/user-status";
 import {
   addUsersToGroupAction,
   demoteFromManagerAction,
@@ -67,6 +73,7 @@ type SystemGroupMember = {
   firstName: string | null;
   lastName: string | null;
   email: string | null;
+  peopleStatus: PeopleStatus;
 };
 
 type AdminGroupDetailClientProps =
@@ -76,6 +83,7 @@ type AdminGroupDetailClientProps =
       name: string;
       googleGroupEmail: string;
       members: SystemGroupMember[];
+      hasMembers: boolean;
     }
   | {
       kind: "manual";
@@ -87,11 +95,13 @@ function SystemGroupView({
   name,
   googleGroupEmail,
   members,
+  hasMembers,
   slug,
 }: {
   name: string;
   googleGroupEmail: string;
   members: SystemGroupMember[];
+  hasMembers: boolean;
   slug: string;
 }) {
   const router = useRouter();
@@ -146,11 +156,12 @@ function SystemGroupView({
       <div>
         <div className="flex items-center justify-between pb-3">
           <h2 className="text-sm font-semibold">Members</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <GroupMemberStatusFilter />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {members.length} member{members.length === 1 ? "" : "s"}
             </span>
-            {members.length > 0 && canExport ? (
+            {hasMembers && canExport ? (
               <GroupExportMenu groupId={slug} canExportPhone={canExportPhone} />
             ) : null}
           </div>
@@ -167,7 +178,7 @@ function SystemGroupView({
               {members.length === 0 ? (
                 <TableRow>
                   <TableCell className="py-10 text-center text-muted-foreground text-sm">
-                    No members match this group&apos;s criteria right now.
+                    No members match this filter.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -188,6 +199,12 @@ function SystemGroupView({
                           <div className="text-xs text-muted-foreground">
                             {member.email}
                           </div>
+                          {member.peopleStatus === "paused" && (
+                            <PeopleStatusBadge
+                              status="paused"
+                              className="mt-1"
+                            />
+                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -221,7 +238,7 @@ function ManualGroupView({
   const [emailCopied, setEmailCopied] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<PeopleStatus | "">("");
   const [legalFilter, setLegalFilter] = useState<LegalMembershipState | "">("");
   const [batchFilter, setBatchFilter] = useState<number | "">("");
   const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
@@ -268,7 +285,7 @@ function ManualGroupView({
           .includes(userSearch.toLowerCase()) ||
         u.email?.toLowerCase().includes(userSearch.toLowerCase());
       const deptMatch = !departmentFilter || u.department === departmentFilter;
-      const statusMatch = !statusFilter || u.status === statusFilter;
+      const statusMatch = !statusFilter || u.peopleStatus === statusFilter;
       const legalMatch = !legalFilter || u.legalMembershipState === legalFilter;
       const batchMatch = batchFilter === "" || u.batchNumber === batchFilter;
       return nameMatch && deptMatch && statusMatch && legalMatch && batchMatch;
@@ -439,12 +456,13 @@ function ManualGroupView({
       <div>
         <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h2 className="text-sm font-semibold">Members</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <GroupMemberStatusFilter />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {group.totalMembers} member
               {group.totalMembers === 1 ? "" : "s"}
             </span>
-            {group.totalMembers > 0 && canExport ? (
+            {group.hasMembers && canExport ? (
               <GroupExportMenu
                 groupId={group.id}
                 canExportPhone={canExportPhone}
@@ -510,7 +528,7 @@ function ManualGroupView({
                           value={statusFilter || "__all__"}
                           onValueChange={(v) =>
                             setStatusFilter(
-                              v === "__all__" ? "" : (v as UserStatus),
+                              v === "__all__" ? "" : (v as PeopleStatus),
                             )
                           }
                         >
@@ -521,11 +539,9 @@ function ManualGroupView({
                             <SelectItem value="__all__">
                               All statuses
                             </SelectItem>
-                            {(
-                              Object.keys(USER_STATUS_INFO) as UserStatus[]
-                            ).map((s) => (
+                            {PEOPLE_STATUSES.map((s) => (
                               <SelectItem key={s} value={s}>
-                                {USER_STATUS_INFO[s].label}
+                                {getPeopleStatusInfo(s).label}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -644,6 +660,12 @@ function ManualGroupView({
                                     <div className="text-xs text-muted-foreground">
                                       {u.email}
                                     </div>
+                                    {u.peopleStatus === "paused" && (
+                                      <PeopleStatusBadge
+                                        status="paused"
+                                        className="mt-1"
+                                      />
+                                    )}
                                   </div>
                                 </div>
                               </TableCell>
@@ -716,7 +738,9 @@ function ManualGroupView({
                     colSpan={canManageMembers || canManageManagers ? 2 : 1}
                     className="py-10 text-center text-muted-foreground text-sm"
                   >
-                    No members yet.
+                    {group.hasMembers
+                      ? "No members match this filter."
+                      : "No members yet."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -758,6 +782,12 @@ function ManualGroupView({
                             <div className="text-xs text-muted-foreground">
                               {member.email}
                             </div>
+                            {member.peopleStatus === "paused" && (
+                              <PeopleStatusBadge
+                                status="paused"
+                                className="mt-1"
+                              />
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -854,6 +884,7 @@ export default function AdminGroupDetailClient(
         name={props.name}
         googleGroupEmail={props.googleGroupEmail}
         members={props.members}
+        hasMembers={props.hasMembers}
       />
     );
   }

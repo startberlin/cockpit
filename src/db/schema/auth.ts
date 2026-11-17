@@ -73,6 +73,9 @@ export const user = pgTable("user", {
   }),
   phone: text("phone"),
   status: userStatus("status").notNull().default("onboarding"),
+  participationPausedAt: timestamp("participation_paused_at", {
+    withTimezone: true,
+  }),
   department: department("department"),
 
   // --- Owned by the membership domain -------------------------------------

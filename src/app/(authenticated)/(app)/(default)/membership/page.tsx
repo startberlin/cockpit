@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import db from "@/db";
 import { getActiveLegalMembership } from "@/db/membership";
 import { getActiveMembershipTransitionRequest } from "@/db/membership-transitions";
 import { getCurrentUser } from "@/db/user";
@@ -17,16 +18,24 @@ export default async function Home() {
     redirect("/auth");
   }
 
-  const [activeLegalMembership, pendingTransition] = await Promise.all([
-    getActiveLegalMembership(user.id),
-    getActiveMembershipTransitionRequest(user.id),
-  ]);
+  const [activeLegalMembership, pendingTransition, participation] =
+    await Promise.all([
+      getActiveLegalMembership(user.id),
+      getActiveMembershipTransitionRequest(user.id),
+      user.status === "member"
+        ? db.query.user.findFirst({
+            where: (u, { eq }) => eq(u.id, user.id),
+            columns: { participationPausedAt: true },
+          })
+        : null,
+    ]);
 
   return (
     <MembershipPageContent
       user={user}
       activeLegalMembership={activeLegalMembership}
       pendingTransition={pendingTransition}
+      participationPausedAt={participation?.participationPausedAt ?? null}
     />
   );
 }

@@ -10,6 +10,7 @@ export interface OrgChartPerson {
   lastName: string;
   image: string | null;
   batchNumber: number | null;
+  isPaused?: boolean;
 }
 
 export interface OrgChartOfficer extends OrgChartPerson {
@@ -58,7 +59,10 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ─── Build ────────────────────────────────────────────────────────────────────
 
-export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
+export function buildOrgChart(
+  users: OrgChartUser[],
+  includePaused = false,
+): OrgChartData {
   const officerByPosition = new Map<string, OrgChartUser>();
   const officerIds = new Set<string>();
   const deptHeadByDept = new Map<Department, OrgChartUser>();
@@ -113,6 +117,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       lastName: user.lastName,
       image: user.image,
       batchNumber: user.batchNumber,
+      isPaused: user.isPaused,
       roleLabel: ROLE_LABELS[p],
     };
   });
@@ -126,6 +131,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
     if (officerIds.has(user.id)) continue;
     if (deptLeadIds.has(user.id)) continue;
     if (!user.department) continue;
+    if (user.isPaused && !includePaused) continue;
     membersByDept.get(user.department as Department)?.push(user);
   }
 
@@ -139,6 +145,7 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
           lastName: headUser.lastName,
           image: headUser.image,
           batchNumber: headUser.batchNumber,
+          isPaused: headUser.isPaused,
           roleLabel: `Head of ${deptName}`,
         }
       : null;
@@ -151,19 +158,21 @@ export function buildOrgChart(users: OrgChartUser[]): OrgChartData {
       lastName: u.lastName,
       image: u.image,
       batchNumber: u.batchNumber,
+      isPaused: u.isPaused,
       roleLabel: `Co-Lead of ${deptName}`,
     }));
 
-    const members: OrgChartMember[] = (membersByDept.get(deptId) ?? []).map(
-      (u) => ({
+    const members: OrgChartMember[] = (membersByDept.get(deptId) ?? [])
+      .sort((a, b) => Number(Boolean(a.isPaused)) - Number(Boolean(b.isPaused)))
+      .map((u) => ({
         userId: u.id,
         firstName: u.firstName,
         lastName: u.lastName,
         image: u.image,
         batchNumber: u.batchNumber,
+        isPaused: u.isPaused,
         status: u.status,
-      }),
-    );
+      }));
 
     return {
       departmentId: deptId,

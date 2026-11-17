@@ -180,11 +180,13 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         // they should remain "not_member" rather than become "former_member".
         await tx
           .update(user)
-          .set(
-            userData.legalMembershipId
-              ? { legalMembershipState: "former_member", status: "cancelled" }
-              : { status: "cancelled" },
-          )
+          .set({
+            status: "cancelled",
+            participationPausedAt: null,
+            legalMembershipState: userData.legalMembershipId
+              ? "former_member"
+              : undefined,
+          })
           .where(eq(user.id, userId));
 
         await tx.delete(session).where(eq(session.userId, userId));

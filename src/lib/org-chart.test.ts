@@ -83,6 +83,34 @@ const eventsCoLead2 = makeUser({
   ],
 });
 
+it("keeps paused leaders visible and shows paused members on request", () => {
+  const pausedMember = makeUser({
+    id: "usr_paused",
+    department: "events",
+    isPaused: true,
+  });
+  const activeMember = makeUser({ id: "usr_active", department: "events" });
+  const users = [{ ...eventsHead, isPaused: true }, pausedMember, activeMember];
+
+  const standard = buildOrgChart(users).departments.find(
+    ({ departmentId }) => departmentId === "events",
+  );
+  assert.equal(standard?.head?.userId, eventsHead.id);
+  assert.equal(standard?.head?.isPaused, true);
+  assert.deepEqual(
+    standard?.members.map(({ userId }) => userId),
+    [activeMember.id],
+  );
+
+  const includingPaused = buildOrgChart(users, true).departments.find(
+    ({ departmentId }) => departmentId === "events",
+  );
+  assert.deepEqual(
+    includingPaused?.members.map(({ userId }) => userId),
+    [activeMember.id, pausedMember.id],
+  );
+});
+
 const eventsMember1 = makeUser({
   id: "usr_events_m1",
   firstName: "Evan",
