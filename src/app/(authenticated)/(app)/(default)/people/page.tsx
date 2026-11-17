@@ -1,10 +1,13 @@
+import { createSearchParamsCache } from "nuqs/server";
 import db from "@/db";
 import { getAllUserPublicData } from "@/db/people";
 import { batch } from "@/db/schema/batch";
 import { createMetadata } from "@/lib/metadata";
 
 import DirectoryPageClient from "./page-client";
-import { loadSearchParams } from "./search-params";
+import { peopleSearchParams } from "./search-params";
+
+const peopleSearchParamsCache = createSearchParamsCache(peopleSearchParams);
 
 export const metadata = createMetadata({
   title: "People",
@@ -30,7 +33,7 @@ export default async function DirectoryPage({
     department,
     batchNumber,
     status,
-  } = await loadSearchParams(searchParams);
+  } = await peopleSearchParamsCache.parse(searchParams);
 
   const usersPromise = getAllUserPublicData({
     page: Math.max(1, page),

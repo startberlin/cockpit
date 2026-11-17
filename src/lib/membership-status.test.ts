@@ -7,6 +7,7 @@ function user(overrides: Partial<User> = {}): User {
   const now = new Date("2026-04-26T00:00:00.000Z");
 
   return {
+    participationPausedAt: null,
     id: "usr_123",
     name: "Ada Lovelace",
     email: "ada@example.com",

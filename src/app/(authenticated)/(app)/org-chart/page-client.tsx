@@ -1,16 +1,25 @@
 "use client";
 
 import { Crosshair } from "lucide-react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 import * as React from "react";
 import {
   type ReactZoomPanPinchRef,
   TransformComponent,
   TransformWrapper,
 } from "react-zoom-pan-pinch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { OrgChartUser } from "@/db/people";
 import { buildOrgChart } from "@/lib/org-chart";
 import { DeptHeadCell } from "./dept-head-cell";
 import { DeptMembersCell } from "./dept-members-cell";
+import { PausedPeople } from "./paused-people";
 import { PersonCard } from "./person-card";
 
 const OFFICER_W = 240;
@@ -19,6 +28,11 @@ const COL_GAP = 16;
 const DEPT_COUNT = 5;
 const SIDE_PAD = 120; // padding inside canvas on each side — visible at pan extremes
 const TOP_PAD = 32;
+const participationViewParser = parseAsStringLiteral([
+  "current",
+  "with-paused",
+  "paused-only",
+]).withDefault("current");
 // Canvas is wider than most viewports so centering gives natural side breathing room.
 const CANVAS_W =
   DEPT_COUNT * DEPT_COL_W + (DEPT_COUNT - 1) * COL_GAP + SIDE_PAD * 2;
@@ -30,6 +44,10 @@ interface OrgChartPageClientProps {
 export default function OrgChartPageClient({ users }: OrgChartPageClientProps) {
   const transformRef = React.useRef<ReactZoomPanPinchRef>(null);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const [participationView, setParticipationView] = useQueryState(
+    "participation",
+    participationViewParser,
+  );
 
   // Mouse wheel → horizontal pan. Must be non-passive to allow preventDefault
   // (which stops the page from scrolling while hovering the canvas).
@@ -103,29 +121,53 @@ export default function OrgChartPageClient({ users }: OrgChartPageClientProps) {
     };
   }, []);
 
-  const { officers, departments } = React.useMemo(
-    () => buildOrgChart(users),
-    [users],
+  const chart = React.useMemo(
+    () => buildOrgChart(users, participationView !== "current"),
+    [users, participationView],
   );
+  const { officers, departments } = chart;
+  const pausedOnly = participationView === "paused-only";
 
   return (
     <div>
       {/* Controls bar — constrained to the same max-w-4xl as the title */}
-      <div className="mx-auto w-full max-w-4xl px-6 pb-4 flex justify-end">
-        <button
-          type="button"
-          aria-label="Center org chart"
-          title="Center org chart"
-          onClick={() => transformRef.current?.centerView(1, 300)}
-          className="h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs border-input text-muted-foreground hover:bg-accent hover:text-foreground"
+      <div className="mx-auto flex w-full max-w-4xl justify-end gap-2 px-6 pb-4">
+        <Select
+          value={participationView}
+          onValueChange={(value) =>
+            setParticipationView(participationViewParser.parse(value))
+          }
         >
-          <Crosshair size={14} />
-        </button>
+          <SelectTrigger aria-label="Org chart participation">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">Standard view</SelectItem>
+            <SelectItem value="with-paused">Include paused</SelectItem>
+            <SelectItem value="paused-only">Only paused</SelectItem>
+          </SelectContent>
+        </Select>
+        {!pausedOnly && (
+          <button
+            type="button"
+            aria-label="Center org chart"
+            title="Center org chart"
+            onClick={() => transformRef.current?.centerView(1, 300)}
+            className="h-9 px-2.5 inline-flex shrink-0 items-center gap-1.5 border rounded-md bg-background transition-colors text-xs border-input text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Crosshair size={14} />
+          </button>
+        )}
       </div>
 
+      {pausedOnly && <PausedPeople chart={chart} users={users} />}
       {/* Full-width panning area — no breakout math needed because this page
           has no max-w-4xl wrapper (it lives outside the (default) layout group). */}
-      <div ref={wrapperRef} style={{ width: "100%", overflowX: "hidden" }}>
+      <div
+        ref={wrapperRef}
+        hidden={pausedOnly}
+        style={{ width: "100%", overflowX: "hidden" }}
+      >
         {/* zoom off, pan only, free panning (no bounds enforced) */}
         <TransformWrapper
           ref={transformRef}

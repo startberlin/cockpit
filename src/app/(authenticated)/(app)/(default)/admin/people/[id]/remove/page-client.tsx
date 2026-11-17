@@ -10,6 +10,8 @@ import { boardKickAction } from "@/app/(authenticated)/(app)/(default)/admin/peo
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
+import type { ParticipationControls } from "@/db/participation";
+import { ParticipationDialog } from "../participation-dialog";
 
 interface RemovePageClientProps {
   userId: string;
@@ -17,6 +19,7 @@ interface RemovePageClientProps {
   lastName: string;
   userEmail: string;
   backHref: string;
+  participation: ParticipationControls | null;
 }
 
 export function RemovePageClient({
@@ -25,11 +28,13 @@ export function RemovePageClient({
   lastName,
   userEmail,
   backHref,
+  participation,
 }: RemovePageClientProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [confirmedAccess, setConfirmedAccess] = useState(false);
   const [confirmedAccounts, setConfirmedAccounts] = useState(false);
+  const [participationDialogOpen, setParticipationDialogOpen] = useState(false);
 
   const { execute, isPending } = useAction(boardKickAction, {
     onSuccess: () => {
@@ -48,6 +53,30 @@ export function RemovePageClient({
   if (step === 1) {
     return (
       <div className="space-y-6">
+        {participation && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">
+              {participation.pausedAt
+                ? "This member's participation is paused."
+                : "For a temporary break, pause their participation."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setParticipationDialogOpen(true)}
+            >
+              {participation.pausedAt
+                ? "Resume participation"
+                : "Pause participation"}
+            </Button>
+            <ParticipationDialog
+              member={participation}
+              open={participationDialogOpen}
+              onOpenChange={setParticipationDialogOpen}
+              onSaved={() => router.push(backHref)}
+            />
+          </div>
+        )}
         <div className="rounded-lg border border-destructive/25 bg-destructive/8 p-4 space-y-4">
           <p className="text-sm font-medium">What removing this member means</p>
           <ul className="space-y-2 text-sm text-muted-foreground">

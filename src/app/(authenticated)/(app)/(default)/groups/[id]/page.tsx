@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { createSearchParamsCache } from "nuqs/server";
 import * as React from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import db from "@/db";
@@ -9,6 +10,8 @@ import {
   isSystemGroupSlug,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
+import { groupPeopleParams } from "@/lib/people-search-params";
+import { getPeopleStatus } from "@/lib/user-status";
 import GroupDetailClient, { GroupDetailBreadcrumb } from "./page-client";
 import GroupDetailSkeleton from "./skeleton";
 
@@ -16,9 +19,11 @@ function isSystemSlug(id: string) {
   return isSystemGroupSlug(id, []) || id.startsWith("batch-");
 }
 
+const groupPeopleSearchParams = createSearchParamsCache(groupPeopleParams);
+
 interface GroupPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; status?: string }>;
 }
 
 export async function generateMetadata({ params }: GroupPageProps) {
@@ -51,8 +56,8 @@ export default async function GroupPage({
   searchParams,
 }: GroupPageProps) {
   const { id } = await params;
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const paramsForList = await searchParams;
+  const { page, status } = groupPeopleSearchParams.parse(paramsForList);
 
   if (isSystemSlug(id)) {
     const systemGroup = getSystemGroupBySlug(id);
@@ -63,6 +68,7 @@ export default async function GroupPage({
         columns: {
           id: true,
           status: true,
+          participationPausedAt: true,
           department: true,
           batchNumber: true,
           email: true,
@@ -84,6 +90,7 @@ export default async function GroupPage({
     const users = userRows.map((u) => ({
       id: u.id,
       status: u.status,
+      peopleStatus: getPeopleStatus(u.status, u.participationPausedAt),
       department: u.department,
       batchNumber: u.batchNumber,
       email: u.email,
@@ -108,14 +115,23 @@ export default async function GroupPage({
             slug={id}
             name={systemGroup.name}
             googleGroupEmail={systemGroup.googleGroupEmail}
-            members={members}
+            members={
+              status
+                ? members.filter((member) => member.peopleStatus === status)
+                : members
+            }
+            hasMembers={members.length > 0}
           />
         </React.Suspense>
       </>
     );
   }
 
-  const groupDetailPromise = getGroupDetail(id, page);
+  const groupDetailPromise = getGroupDetail(
+    id,
+    Math.max(1, page),
+    status ?? undefined,
+  );
 
   return (
     <>

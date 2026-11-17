@@ -19,6 +19,9 @@ export const events = {
   cockpitUserUpdated: eventType("cockpit/user.updated", {
     schema: staticSchema<{ id: string }>(),
   }),
+  participationChanged: eventType("cockpit/user.participation-changed", {
+    schema: staticSchema<{ auditId: string }>(),
+  }),
   admissionWorkflowStarted: eventType("membership/admission-workflow.started", {
     schema: staticSchema<{
       legalMembershipId: string;

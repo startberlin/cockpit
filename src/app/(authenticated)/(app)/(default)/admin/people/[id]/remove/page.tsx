@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { Button } from "@/components/ui/button";
+import { getParticipationControls } from "@/db/participation";
 import { getUserDetails } from "@/db/people";
 import { createMetadata } from "@/lib/metadata";
 import { can } from "@/lib/permissions/server";
@@ -29,7 +30,10 @@ export default async function RemoveMemberPage({ params }: PageProps) {
     redirect(`/admin/people/${id}`);
   }
 
-  const canRemove = await can("membership.cancel_member");
+  const [canRemove, canManageParticipation] = await Promise.all([
+    can("membership.cancel_member"),
+    can("user.participation.manage", { department: user.department }),
+  ]);
 
   if (!canRemove) {
     redirect(`/admin/people/${id}`);
@@ -71,6 +75,9 @@ export default async function RemoveMemberPage({ params }: PageProps) {
         lastName={user.lastName}
         userEmail={user.email ?? ""}
         backHref={`/admin/people/${id}`}
+        participation={
+          canManageParticipation ? await getParticipationControls(user) : null
+        }
       />
     </div>
   );

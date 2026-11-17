@@ -15,6 +15,95 @@ function authority(overrides: Partial<UserAuthority> = {}): UserAuthority {
 }
 
 describe("permissions", () => {
+  describe("user.participation.manage", () => {
+    const departmentHead = authority({
+      department: "operations",
+      positions: [
+        {
+          position: "department_head",
+          scope: "department",
+          department: "events",
+        },
+      ],
+    });
+
+    it("allows heads to manage participation in the department they lead", () => {
+      assert.equal(
+        evaluateAuth(departmentHead, "user.participation.manage", {
+          targetDepartment: "events",
+        }),
+        true,
+      );
+    });
+
+    it("denies heads access to other departments and unassigned members", () => {
+      for (const targetDepartment of [
+        "growth",
+        "operations",
+        null,
+        undefined,
+      ] as const) {
+        assert.equal(
+          evaluateAuth(departmentHead, "user.participation.manage", {
+            targetDepartment,
+          }),
+          false,
+        );
+      }
+      assert.equal(
+        evaluateAuth(departmentHead, "membership.cancel_member"),
+        false,
+      );
+    });
+
+    it("requires the department head position for department-scoped access", () => {
+      const coLead = authority({
+        positions: [
+          {
+            position: "department_co_lead",
+            scope: "department",
+            department: "events",
+          },
+        ],
+      });
+      assert.equal(
+        evaluateAuth(coLead, "user.participation.manage", {
+          targetDepartment: "events",
+        }),
+        false,
+      );
+    });
+
+    it("preserves cross-department access for admins, people admins and legal officers", () => {
+      const globalManagers = [
+        authority({ grants: [{ grant: "super_admin" }] }),
+        authority({ grants: [{ grant: "admin" }] }),
+        authority({ grants: [{ grant: "people_admin" }] }),
+        authority({ positions: [{ position: "president", scope: "global" }] }),
+        authority({
+          positions: [{ position: "vice_president", scope: "global" }],
+        }),
+        authority({
+          positions: [{ position: "head_of_finance", scope: "global" }],
+        }),
+      ];
+      for (const manager of globalManagers) {
+        assert.equal(
+          evaluateAuth(manager, "user.participation.manage", {
+            targetDepartment: "growth",
+          }),
+          true,
+        );
+        assert.equal(
+          evaluateAuth(manager, "user.participation.manage", {
+            targetDepartment: null,
+          }),
+          true,
+        );
+      }
+    });
+  });
+
   it("allows global admins to perform admin-listed actions", () => {
     assert.equal(
       evaluateAuth(authority({ grants: [{ grant: "admin" }] }), "users.create"),

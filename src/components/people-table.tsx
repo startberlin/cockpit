@@ -36,8 +36,12 @@ import type { PublicUser } from "@/db/people";
 import type { PendingBoardAction } from "@/db/people-actions";
 import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import {
+  formatParticipationDate,
+  getPeopleStatusInfo,
+} from "@/lib/user-status";
 import { useCan } from "./can";
+import { PeopleStatusBadge } from "./people-status-badge";
 import { Badge } from "./ui/badge";
 
 const LEGAL_MEMBERSHIP_STATE_INFO: Record<
@@ -160,17 +164,25 @@ export function PeopleTable({
         accessorKey: "status",
         header: "Status",
         cell: ({ row }) => {
-          const info = USER_STATUS_INFO[row.original.status];
+          const { peopleStatus, participationPausedAt } = row.original;
+          const info = getPeopleStatusInfo(peopleStatus);
 
           return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="capitalize">
-                  {info.label}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="top">{info.description}</TooltipContent>
-            </Tooltip>
+            <div className="space-y-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <PeopleStatusBadge status={peopleStatus} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">{info.description}</TooltipContent>
+              </Tooltip>
+              {peopleStatus === "paused" && participationPausedAt && (
+                <p className="whitespace-nowrap text-xs text-muted-foreground">
+                  Since {formatParticipationDate(participationPausedAt)}
+                </p>
+              )}
+            </div>
           );
         },
       },

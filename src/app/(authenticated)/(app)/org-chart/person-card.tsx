@@ -1,3 +1,4 @@
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { OrgChartPerson } from "@/lib/org-chart";
 
@@ -58,6 +59,9 @@ export function PersonCard({
           >
             {subtitle}
           </div>
+        )}
+        {person.isPaused && (
+          <PeopleStatusBadge status="paused" className="mt-1.5" />
         )}
       </div>
     </div>

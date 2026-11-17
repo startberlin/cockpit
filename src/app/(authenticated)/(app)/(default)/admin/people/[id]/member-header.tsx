@@ -1,9 +1,10 @@
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getUserDetails } from "@/db/people";
 import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import { getPeopleStatus } from "@/lib/user-status";
 import { MemberHeaderMenu } from "./member-header-menu";
 
 const ACTIVE_LEGAL_STATES: LegalMembershipState[] = ["active_member"];
@@ -25,7 +26,7 @@ export async function MemberHeader({
 
   const initials =
     `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
-  const statusInfo = USER_STATUS_INFO[user.status];
+  const peopleStatus = getPeopleStatus(user.status, user.participationPausedAt);
   const isLegalMember = ACTIVE_LEGAL_STATES.includes(user.legalMembershipState);
 
   return (
@@ -55,9 +56,7 @@ export async function MemberHeader({
               {DEPARTMENT_NAMES[user.department]}
             </Badge>
           )}
-          <Badge variant="outline" className="text-xs">
-            {statusInfo.label}
-          </Badge>
+          <PeopleStatusBadge status={peopleStatus} className="text-xs" />
           {isLegalMember && (
             <Badge variant="outline" className="text-xs">
               Legal member
