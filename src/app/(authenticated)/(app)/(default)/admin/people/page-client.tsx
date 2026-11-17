@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   DownloadIcon,
+  PauseIcon,
   PlusIcon,
   SearchIcon,
   XIcon,
@@ -24,18 +25,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { PaginatedUsers } from "@/db/people";
-import type {
-  Department,
-  LegalMembershipState,
-  UserStatus,
-} from "@/db/schema/auth";
+import type { AdminPaginatedUsers } from "@/db/people";
+import type { Department, LegalMembershipState } from "@/db/schema/auth";
 import {
   ACTION_ITEM_INFO,
   ACTION_ITEM_TYPES,
   type ActionItemType,
 } from "@/lib/action-items";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
+import { peopleStatusParser } from "@/lib/people-search-params";
+import {
+  DEFAULT_PEOPLE_STATUSES,
+  getPeopleStatusInfo,
+  type PeopleStatus,
+} from "@/lib/user-status";
 import { cn } from "@/lib/utils";
 import { CreateUserDialog } from "./create-user-dialog";
 import { ImportGoogleUserDialog } from "./import-google-user-dialog";
@@ -56,13 +59,12 @@ const LEGAL_MEMBERSHIP_OPTIONS: {
   { label: "Former member", value: "former_member" },
 ];
 
-const ALWAYS_VISIBLE_STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
-  { value: "onboarding", label: "Onboarding" },
-  { value: "member", label: "Member" },
-  { value: "supporting_alumni", label: "Supporting Alumni" },
-];
+const ALWAYS_VISIBLE_STATUS_OPTIONS = DEFAULT_PEOPLE_STATUSES.map((value) => ({
+  value,
+  label: getPeopleStatusInfo(value).label,
+}));
 
-const INACTIVE_STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
+const INACTIVE_STATUS_OPTIONS: { value: PeopleStatus; label: string }[] = [
   { value: "alumni", label: "Alumni" },
   { value: "cancelled", label: "Cancelled / Former" },
 ];
@@ -70,14 +72,6 @@ const INACTIVE_STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
 const departmentParser = parseAsStringLiteral(
   DEPARTMENT_IDS as unknown as string[],
 );
-
-const statusParser = parseAsStringLiteral([
-  "onboarding",
-  "member",
-  "supporting_alumni",
-  "alumni",
-  "cancelled",
-] as UserStatus[]);
 
 const legalMembershipParser = parseAsStringLiteral([
   "not_member",
@@ -216,7 +210,7 @@ function UsersTableSection({
   usersPromise,
   initialSearch,
 }: {
-  usersPromise: Promise<PaginatedUsers>;
+  usersPromise: Promise<AdminPaginatedUsers>;
   initialSearch: string;
 }) {
   const { users, total, pageCount } = React.use(usersPromise);
@@ -233,10 +227,34 @@ function UsersTableSection({
   );
 }
 
+function PausedQuickFilter({
+  usersPromise,
+  selected,
+  onClick,
+}: {
+  usersPromise: Promise<AdminPaginatedUsers>;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const { pausedCount } = React.use(usersPromise);
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      aria-pressed={selected}
+      className="shrink-0 aria-pressed:border-amber-400 aria-pressed:bg-amber-50 aria-pressed:text-amber-900 dark:aria-pressed:bg-amber-950 dark:aria-pressed:text-amber-200"
+      onClick={onClick}
+    >
+      <PauseIcon aria-hidden="true" />
+      Paused ({pausedCount})
+    </Button>
+  );
+}
+
 // ─── Main page client ─────────────────────────────────────────────────────────
 
 interface AdminDirectoryPageClientProps {
-  usersPromise: Promise<PaginatedUsers>;
+  usersPromise: Promise<AdminPaginatedUsers>;
   batches: { number: number }[];
   initialSearch: string;
   canViewInactive: boolean;
@@ -264,7 +282,7 @@ export default function AdminDirectoryPageClient({
   );
   const [status, setStatus] = useQueryState(
     "status",
-    parseAsArrayOf(statusParser).withOptions({ shallow: false }),
+    parseAsArrayOf(peopleStatusParser).withOptions({ shallow: false }),
   );
   const [legalMembership, setLegalMembership] = useQueryState(
     "legalMembership",
@@ -296,6 +314,7 @@ export default function AdminDirectoryPageClient({
   const activeDept = (department ?? []) as Department[];
   const activeBatch = batchNumber ?? [];
   const activeStatus = status ?? [];
+  const pausedOnly = activeStatus.length === 1 && activeStatus[0] === "paused";
   const activeLegalMembership = legalMembership ?? [];
   const activeActionItem = (actionItem ?? []) as ActionItemType[];
 
@@ -318,7 +337,7 @@ export default function AdminDirectoryPageClient({
     setPage(1);
   };
 
-  const handleStatusChange = (next: UserStatus[]) => {
+  const handleStatusChange = (next: PeopleStatus[]) => {
     setStatus(next.length ? next : null);
     setPage(1);
   };
@@ -401,6 +420,19 @@ export default function AdminDirectoryPageClient({
           selected={activeStatus}
           onChange={handleStatusChange}
         />
+        <React.Suspense
+          fallback={
+            <Button variant="outline" disabled>
+              Paused
+            </Button>
+          }
+        >
+          <PausedQuickFilter
+            usersPromise={usersPromise}
+            selected={pausedOnly}
+            onClick={() => handleStatusChange(pausedOnly ? [] : ["paused"])}
+          />
+        </React.Suspense>
         <FilterMenu
           label="Membership"
           options={LEGAL_MEMBERSHIP_OPTIONS}

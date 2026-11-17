@@ -16,6 +16,7 @@ import { membershipPaymentProposalsCron } from "./membership-payment-proposals";
 import { membershipReconfirmationWorkflow } from "./membership-reconfirmation-workflow";
 import { membershipTransitionWorkflow } from "./membership-transition-workflow";
 import { onboardNewUserWorkflow } from "./new-user-workflow";
+import { participationChangeNotifications } from "./participation-change-notifications";
 import {
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
@@ -49,6 +50,7 @@ export const inngestFunctions = [
   membershipReconfirmationWorkflow,
   membershipTransitionWorkflow,
   onboardNewUserWorkflow,
+  participationChangeNotifications,
   positionAssignmentCreatedNotification,
   positionAssignmentDeletedNotification,
   quickMandateSetupReminderWorkflow,

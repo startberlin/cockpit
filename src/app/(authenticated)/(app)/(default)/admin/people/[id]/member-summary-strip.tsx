@@ -3,7 +3,7 @@ import db from "@/db";
 import { getMemberSinceDate } from "@/db/membership";
 import { getUserDetails } from "@/db/people";
 import { session } from "@/db/schema/auth";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import { getPeopleStatus, getPeopleStatusInfo } from "@/lib/user-status";
 import { cn } from "@/lib/utils";
 
 function formatDate(date: Date): string {
@@ -46,7 +46,12 @@ export async function MemberSummaryStrip({ userId }: MemberSummaryStripProps) {
   ]);
 
   const items = [
-    { label: "Status", value: USER_STATUS_INFO[user.status].label },
+    {
+      label: "Status",
+      value: getPeopleStatusInfo(
+        getPeopleStatus(user.status, user.participationPausedAt),
+      ).label,
+    },
     {
       label: "Member since",
       value: memberSince ? formatDate(memberSince) : "—",

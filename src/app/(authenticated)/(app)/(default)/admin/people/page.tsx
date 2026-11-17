@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { createSearchParamsCache, parseAsArrayOf } from "nuqs/server";
 import db from "@/db";
 import { getUserAuthority } from "@/db/authority";
 import { getAllUsersForAdmin } from "@/db/people";
@@ -7,13 +8,12 @@ import {
   department as departmentEnum,
   type LegalMembershipState,
   legalMembershipState as legalMembershipStateEnum,
-  type UserStatus,
-  userStatus,
 } from "@/db/schema/auth";
 import { batch } from "@/db/schema/batch";
 import { getCurrentUser } from "@/db/user";
 import { parseActionItemTypes } from "@/lib/action-items";
 import { createMetadata } from "@/lib/metadata";
+import { peopleStatusParser } from "@/lib/people-search-params";
 import {
   evaluateAuth,
   hasAdminGrant,
@@ -21,6 +21,7 @@ import {
   isLegalOfficer,
 } from "@/lib/permissions";
 import { can } from "@/lib/permissions/server";
+import { DEFAULT_PEOPLE_STATUSES } from "@/lib/user-status";
 import AdminDirectoryPageClient from "./page-client";
 
 export const metadata = createMetadata({
@@ -28,12 +29,10 @@ export const metadata = createMetadata({
   description: "Manage START Berlin members.",
 });
 
-const ACTIVE_STATUSES: UserStatus[] = [
-  "onboarding",
-  "member",
-  "supporting_alumni",
-];
-const INACTIVE_STATUSES: UserStatus[] = ["alumni", "cancelled"];
+const activeStatuses = new Set<string>(DEFAULT_PEOPLE_STATUSES);
+const statusSearchParams = createSearchParamsCache({
+  status: parseAsArrayOf(peopleStatusParser),
+});
 
 interface PageProps {
   searchParams: Promise<{
@@ -77,33 +76,26 @@ export default async function AdminDirectoryPage({ searchParams }: PageProps) {
         )
         .map((p) => p.department);
 
+  const rawSearchParams = await searchParams;
   const {
     page: pageParam,
     q: search = "",
     department,
     batchNumber,
-    status,
     legalMembership: legalMembershipParam,
     actionItem: actionItemParam,
-  } = await searchParams;
+  } = rawSearchParams;
 
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const validStatuses = new Set<string>(userStatus.enumValues);
-  const requestedStatuses = status
-    ? status.split(",").filter((s): s is UserStatus => validStatuses.has(s))
-    : undefined;
-
-  const statusFilter = (() => {
-    if (!requestedStatuses) return ACTIVE_STATUSES;
-    if (!canViewInactive) {
-      const filtered = requestedStatuses.filter(
-        (s) => !INACTIVE_STATUSES.includes(s),
-      );
-      return filtered.length > 0 ? filtered : ACTIVE_STATUSES;
-    }
-    return requestedStatuses;
-  })();
+  const { status: requestedStatuses } =
+    statusSearchParams.parse(rawSearchParams);
+  const allowedStatuses = requestedStatuses?.filter(
+    (value) => canViewInactive || activeStatuses.has(value),
+  );
+  const statusFilter = allowedStatuses?.length
+    ? allowedStatuses
+    : DEFAULT_PEOPLE_STATUSES;
 
   const validDepartments = new Set<string>(departmentEnum.enumValues);
 

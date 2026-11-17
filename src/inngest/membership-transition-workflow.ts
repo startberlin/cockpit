@@ -311,7 +311,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
           await db.transaction(async (tx) => {
             await tx
               .update(user)
-              .set({ status: "supporting_alumni", department: null })
+              .set({
+                status: "supporting_alumni",
+                department: null,
+                participationPausedAt: null,
+              })
               .where(eq(user.id, userId));
 
             await tx
@@ -418,7 +422,11 @@ export const membershipTransitionWorkflow = inngest.createFunction(
 
         await tx
           .update(user)
-          .set({ legalMembershipState: "former_member", status: "alumni" })
+          .set({
+            legalMembershipState: "former_member",
+            status: "alumni",
+            participationPausedAt: null,
+          })
           .where(eq(user.id, userId));
 
         await tx.delete(session).where(eq(session.userId, userId));

@@ -16,8 +16,8 @@ import {
 } from "nuqs";
 import posthog from "posthog-js";
 import * as React from "react";
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,14 +34,16 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PaginatedUsers, PublicUser } from "@/db/people";
-import type { Department, UserStatus } from "@/db/schema";
+import type { Department } from "@/db/schema";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
-import { cn } from "@/lib/utils";
+import { peopleStatusParser } from "@/lib/people-search-params";
 import {
-  departmentParser,
-  statusParser,
-  viewModeParser,
-} from "./search-params";
+  DEFAULT_PEOPLE_STATUSES,
+  getPeopleStatusInfo,
+  type PeopleStatus,
+} from "@/lib/user-status";
+import { cn } from "@/lib/utils";
+import { departmentParser, viewModeParser } from "./search-params";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -50,14 +52,14 @@ const DEPARTMENT_OPTIONS = DEPARTMENT_IDS.map((id) => ({
   label: DEPARTMENT_NAMES[id],
 }));
 
-const STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
-  { value: "onboarding", label: "Onboarding" },
-  { value: "member", label: "Member" },
-  { value: "supporting_alumni", label: "Supporting Alumni" },
-];
+const STATUS_OPTIONS = DEFAULT_PEOPLE_STATUSES.map((value) => ({
+  value,
+  label: getPeopleStatusInfo(value).label,
+}));
 
-const SHOW_STATUS_BADGE = new Set<UserStatus>([
+const SHOW_STATUS_BADGE = new Set<PeopleStatus>([
   "onboarding",
+  "paused",
   "supporting_alumni",
 ]);
 
@@ -193,10 +195,7 @@ function FilterChip({
 
 function PersonCard({ user }: { user: PublicUser }) {
   const initials = (user.firstName[0] ?? "") + (user.lastName[0] ?? "");
-  const showBadge = SHOW_STATUS_BADGE.has(user.status);
-  const statusLabel = STATUS_OPTIONS.find(
-    (s) => s.value === user.status,
-  )?.label;
+  const showBadge = SHOW_STATUS_BADGE.has(user.peopleStatus);
 
   const subtitle = [
     user.positionLabel ??
@@ -222,9 +221,9 @@ function PersonCard({ user }: { user: PublicUser }) {
         {subtitle && (
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         )}
-        {showBadge && statusLabel && (
+        {showBadge && (
           <div className="mt-1.5">
-            <Badge variant="outline">{statusLabel}</Badge>
+            <PeopleStatusBadge status={user.peopleStatus} />
           </div>
         )}
       </div>
@@ -365,7 +364,7 @@ export default function DirectoryPageClient({
 
   const [status, setStatus] = useQueryState(
     "status",
-    parseAsArrayOf(statusParser).withOptions({ shallow: false }),
+    parseAsArrayOf(peopleStatusParser).withOptions({ shallow: false }),
   );
 
   const [viewMode, setViewMode] = useQueryState(
@@ -422,7 +421,7 @@ export default function DirectoryPageClient({
     setPage(1);
   };
 
-  const handleStatusChange = (next: UserStatus[]) => {
+  const handleStatusChange = (next: PeopleStatus[]) => {
     const addedStatuses = next.filter((v) => !activeStatus.includes(v));
     const removedStatuses = activeStatus.filter((v) => !next.includes(v));
     for (const added of addedStatuses) {
