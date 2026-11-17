@@ -14,8 +14,9 @@ export default function OrgChartLoading() {
       </div>
 
       {/* Controls bar — mirrors page-client.tsx */}
-      <div className="mx-auto w-full max-w-4xl px-6 pb-4 flex justify-end">
-        <Skeleton className="h-9 w-24 rounded-md" />
+      <div className="mx-auto flex w-full max-w-4xl justify-end gap-2 px-6 pb-4">
+        <Skeleton className="h-9 w-36 rounded-md" />
+        <Skeleton className="h-9 w-9 rounded-md" />
       </div>
 
       {/* Canvas — full width, matches SIDE_PAD / TOP_PAD / grid structure */}

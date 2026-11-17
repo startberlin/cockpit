@@ -1,3 +1,4 @@
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,10 +9,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getActiveLegalMembership, getMemberSinceDate } from "@/db/membership";
+import type { ParticipationControls } from "@/db/participation";
 import { getDepartmentHeadForDepartment, getUserDetails } from "@/db/people";
 import type { Department, LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_NAMES } from "@/lib/departments";
-import { USER_STATUS_INFO } from "@/lib/user-status";
+import {
+  formatParticipationDate,
+  getPeopleStatus,
+  getPeopleStatusInfo,
+} from "@/lib/user-status";
 import { AdminMembershipNoticeBlock } from "./admin-membership-notice-block";
 import { MembershipCardMenu } from "./membership-card-menu";
 
@@ -88,6 +94,7 @@ interface MembershipCardProps {
   userId: string;
   canPropose: boolean;
   canRemove: boolean;
+  participation: Promise<ParticipationControls | null> | null;
   canChangeDepartment: boolean;
   canChangePersonalEmail: boolean;
   canResetPassword: boolean;
@@ -99,6 +106,7 @@ export async function MembershipCard({
   userId,
   canPropose,
   canRemove,
+  participation,
   canChangeDepartment,
   canChangePersonalEmail,
   canResetPassword,
@@ -109,18 +117,21 @@ export async function MembershipCard({
 
   if (!user) return null;
 
-  const [memberSince, rawDepartmentHead, membership] = await Promise.all([
-    getMemberSinceDate(userId),
-    user.department
-      ? getDepartmentHeadForDepartment(user.department)
-      : Promise.resolve(null),
-    getActiveLegalMembership(userId),
-  ]);
+  const [memberSince, rawDepartmentHead, membership, participationControls] =
+    await Promise.all([
+      getMemberSinceDate(userId),
+      user.department
+        ? getDepartmentHeadForDepartment(user.department)
+        : Promise.resolve(null),
+      getActiveLegalMembership(userId),
+      participation,
+    ]);
 
   const departmentHead =
     rawDepartmentHead?.id === user.id ? null : rawDepartmentHead;
 
-  const statusInfo = USER_STATUS_INFO[user.status];
+  const peopleStatus = getPeopleStatus(user.status, user.participationPausedAt);
+  const statusInfo = getPeopleStatusInfo(peopleStatus);
   const legalStateInfo = LEGAL_MEMBERSHIP_STATE_INFO[user.legalMembershipState];
   const duration = memberSince ? formatDuration(memberSince, new Date()) : null;
   const noticeType =
@@ -136,6 +147,7 @@ export async function MembershipCard({
           userId={userId}
           canPropose={canPropose}
           canRemove={canRemove}
+          participation={participationControls}
           canChangeDepartment={canChangeDepartment}
           canChangePersonalEmail={canChangePersonalEmail}
           canResetPassword={canResetPassword}
@@ -153,14 +165,19 @@ export async function MembershipCard({
             <FieldLabel>Status</FieldLabel>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge variant="outline" className="capitalize">
-                  {statusInfo.label}
-                </Badge>
+                <span className="inline-flex">
+                  <PeopleStatusBadge status={peopleStatus} />
+                </span>
               </TooltipTrigger>
               <TooltipContent side="top">
                 {statusInfo.description}
               </TooltipContent>
             </Tooltip>
+            {peopleStatus === "paused" && user.participationPausedAt && (
+              <p className="text-xs text-muted-foreground">
+                Since {formatParticipationDate(user.participationPausedAt)}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <FieldLabel>Batch</FieldLabel>

@@ -428,6 +428,13 @@
       "when": 1791629735308,
       "tag": "0060_polite_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1794945859415,
+      "tag": "0061_member_participation_pause",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { getNextPaymentDueDate } from "@/db/membership-payments";
 import type { MembershipTransitionRequest } from "@/db/membership-transitions";
 import type { User } from "@/db/schema/auth";
 import type { LegalMembershipStatus } from "@/db/schema/legal-membership";
 import { getStructuredMembershipState } from "@/lib/membership-status";
+import { formatParticipationDate } from "@/lib/user-status";
 import { ContactDetailsCard } from "./contact-details-card";
 import { MembershipDetailsCard } from "./membership-details-card";
 import { MembershipDetailsSkeleton } from "./membership-details-skeleton";
@@ -16,12 +18,14 @@ interface MembershipPageContentProps {
   user: User;
   activeLegalMembership: { id: string; status: LegalMembershipStatus } | null;
   pendingTransition: MembershipTransitionRequest | null;
+  participationPausedAt: Date | null;
 }
 
 export async function MembershipPageContent({
   user,
   activeLegalMembership,
   pendingTransition,
+  participationPausedAt,
 }: MembershipPageContentProps) {
   const membershipState = getStructuredMembershipState(user);
   const legalMembershipStatus = activeLegalMembership?.status ?? null;
@@ -52,6 +56,16 @@ export async function MembershipPageContent({
           firstName={user.firstName}
           noticeType={noticeType}
         />
+        {participationPausedAt && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card p-4">
+            <PeopleStatusBadge status="paused" />
+            <p className="text-sm">
+              Your participation has been paused since{" "}
+              {formatParticipationDate(participationPausedAt)}. Your membership
+              dues and access to START services continue as usual.
+            </p>
+          </div>
+        )}
         <MembershipNoticeBlock
           membershipState={membershipState}
           legalMembershipStatus={legalMembershipStatus}

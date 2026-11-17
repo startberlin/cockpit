@@ -29,16 +29,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { ParticipationControls } from "@/db/participation";
 import type { Department } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
 import { changeDepartmentAction } from "./change-department-action";
 import { changePersonalEmailAction } from "./change-personal-email-action";
+import { ParticipationDialog } from "./participation-dialog";
 import { resetPasswordAction } from "./reset-password-action";
 
 interface MembershipCardMenuProps {
   userId: string;
   canPropose: boolean;
   canRemove: boolean;
+  participation: ParticipationControls | null;
   canChangeDepartment: boolean;
   canChangePersonalEmail: boolean;
   canResetPassword: boolean;
@@ -50,6 +53,7 @@ export function MembershipCardMenu({
   userId,
   canPropose,
   canRemove,
+  participation,
   canChangeDepartment,
   canChangePersonalEmail,
   canResetPassword,
@@ -59,6 +63,7 @@ export function MembershipCardMenu({
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [participationDialogOpen, setParticipationDialogOpen] = useState(false);
 
   const [selectedDept, setSelectedDept] = useState<string>(
     currentDepartment ?? "",
@@ -111,6 +116,7 @@ export function MembershipCardMenu({
   if (
     !canPropose &&
     !canRemove &&
+    !participation &&
     !canChangeDepartment &&
     !canChangePersonalEmail &&
     !canResetPassword
@@ -145,6 +151,13 @@ export function MembershipCardMenu({
               </Link>
             </DropdownMenuItem>
           )}
+          {participation && (
+            <DropdownMenuItem onSelect={() => setParticipationDialogOpen(true)}>
+              {participation.pausedAt
+                ? "Resume participation"
+                : "Pause participation"}
+            </DropdownMenuItem>
+          )}
           {(canResetPassword || canRemove) && <DropdownMenuSeparator />}
           {canResetPassword && (
             <DropdownMenuItem
@@ -167,6 +180,14 @@ export function MembershipCardMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {participation && (
+        <ParticipationDialog
+          member={participation}
+          open={participationDialogOpen}
+          onOpenChange={setParticipationDialogOpen}
+        />
+      )}
 
       <Dialog
         open={deptDialogOpen}

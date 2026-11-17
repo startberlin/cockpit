@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getLiveLegalMembership } from "@/db/membership";
+import { getParticipationControls } from "@/db/participation";
 import { getUserDetails } from "@/db/people";
 import { getMembershipProposalBlockReason } from "@/lib/membership-proposal";
 import { createMetadata } from "@/lib/metadata";
@@ -59,6 +60,7 @@ export default async function UserDetailPage({ params }: PageProps) {
     canImpersonate,
     canManageAuthority,
     canRemoveMemberBase,
+    canManageParticipation,
     canChangeDepartment,
     canChangePersonalEmail,
     canResetPassword,
@@ -68,6 +70,7 @@ export default async function UserDetailPage({ params }: PageProps) {
     can("users.impersonate"),
     can("users.manage_authority"),
     can("membership.cancel_member"),
+    can("user.participation.manage"),
     can("user.department.change", { department: user.department }),
     can("user.personal_email.change"),
     can("user.password.reset"),
@@ -151,6 +154,9 @@ export default async function UserDetailPage({ params }: PageProps) {
           userId={id}
           canPropose={canProposeMembership}
           canRemove={canRemoveMember}
+          participation={
+            canManageParticipation ? getParticipationControls(user) : null
+          }
           canChangeDepartment={canChangeDepartment}
           canChangePersonalEmail={canChangePersonalEmail}
           canResetPassword={canResetPassword}

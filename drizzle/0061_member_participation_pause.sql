@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "participation_paused_at" timestamp with time zone;

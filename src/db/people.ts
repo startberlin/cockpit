@@ -21,8 +21,14 @@ import {
   type StructuredMembershipState,
 } from "@/lib/membership-status";
 import { unaccentSearch } from "@/lib/search";
+import {
+  DEFAULT_PEOPLE_STATUSES,
+  getPeopleStatus,
+  type PeopleStatus,
+} from "@/lib/user-status";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 import db from ".";
+import { peopleStatusCondition } from "./people-status";
 import type {
   Department,
   LegalMembershipState,
@@ -47,6 +53,8 @@ export interface PublicUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  peopleStatus: PeopleStatus;
+  participationPausedAt?: Date | null;
   legalMembershipState?: LegalMembershipState | null;
   memberSinceDate?: string | null;
   positionLabel?: string | null;
@@ -118,12 +126,6 @@ export interface PaginatedUsers {
   offset: number;
 }
 
-const DEFAULT_COMMUNITY_STATUSES: UserStatus[] = [
-  "onboarding",
-  "member",
-  "supporting_alumni",
-];
-
 export async function getAllUserPublicData({
   page = 1,
   search = "",
@@ -133,12 +135,12 @@ export async function getAllUserPublicData({
 }: {
   page?: number;
   search?: string;
-  status?: UserStatus[];
+  status?: readonly PeopleStatus[];
   department?: Department[];
   batchNumber?: number[];
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
-  const effectiveStatus = status ?? DEFAULT_COMMUNITY_STATUSES;
+  const effectiveStatus = status ?? DEFAULT_PEOPLE_STATUSES;
 
   const searchClause = search
     ? unaccentSearch(
@@ -151,7 +153,7 @@ export async function getAllUserPublicData({
 
   const whereClause = and(
     searchClause,
-    inArray(userTable.status, effectiveStatus),
+    peopleStatusCondition(effectiveStatus),
     department?.length ? inArray(userTable.department, department) : undefined,
     batchNumber?.length
       ? inArray(userTable.batchNumber, batchNumber)
@@ -170,6 +172,7 @@ export async function getAllUserPublicData({
         department: userTable.department,
         batchNumber: sql<number | null>`${userTable.batchNumber}`,
         status: userTable.status,
+        participationPausedAt: userTable.participationPausedAt,
       })
       .from(userTable)
       .where(whereClause)
@@ -231,6 +234,7 @@ export async function getAllUserPublicData({
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
+      peopleStatus: getPeopleStatus(u.status, u.participationPausedAt),
       positionLabel: posLabelMap.get(u.id)?.label ?? null,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
@@ -238,12 +242,6 @@ export async function getAllUserPublicData({
     offset,
   };
 }
-
-const ADMIN_ACTIVE_STATUSES: UserStatus[] = [
-  "onboarding",
-  "member",
-  "supporting_alumni",
-];
 
 // Legal-membership tenure statuses that drive an open action item. All three
 // are part of the live-tenure unique index, so at most one such row exists per
@@ -325,16 +323,16 @@ export async function getAllUsersForAdmin({
 }: {
   page?: number;
   search?: string;
-  status?: UserStatus[];
+  status?: readonly PeopleStatus[];
   department?: Department[];
   batchNumber?: number[];
   legalMembershipState?: LegalMembershipState[];
   actionItem?: ActionItemType[];
   sortBy?: "name" | "joinDate";
-} = {}): Promise<PaginatedUsers> {
+} = {}): Promise<AdminPaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
 
-  const effectiveStatus = status ?? ADMIN_ACTIVE_STATUSES;
+  const effectiveStatus = status ?? DEFAULT_PEOPLE_STATUSES;
 
   const searchClause = search
     ? unaccentSearch(
@@ -349,9 +347,8 @@ export async function getAllUsersForAdmin({
     ? or(...actionItem.map(actionItemPredicate))
     : undefined;
 
-  const whereClause = and(
+  const baseWhere = and(
     searchClause,
-    inArray(userTable.status, effectiveStatus),
     department?.length ? inArray(userTable.department, department) : undefined,
     batchNumber?.length
       ? inArray(userTable.batchNumber, batchNumber)
@@ -362,6 +359,7 @@ export async function getAllUsersForAdmin({
     actionItemClause,
     or(isNull(userTable.email), ne(userTable.email, SYSTEM_USER_EMAIL)),
   );
+  const whereClause = and(baseWhere, peopleStatusCondition(effectiveStatus));
 
   const orderBy =
     sortBy === "joinDate"
@@ -377,7 +375,7 @@ export async function getAllUsersForAdmin({
     inArray(legalMembership.status, [...ACTION_ITEM_LM_STATUSES]),
   );
 
-  const [rows, [{ total }]] = await Promise.all([
+  const [rows, [{ total }], [{ pausedCount }]] = await Promise.all([
     db
       .select({
         id: userTable.id,
@@ -388,6 +386,7 @@ export async function getAllUsersForAdmin({
         department: userTable.department,
         batchNumber: sql<number | null>`${userTable.batchNumber}`,
         status: userTable.status,
+        participationPausedAt: userTable.participationPausedAt,
         legalMembershipState: userTable.legalMembershipState,
         memberSinceDate: userTable.memberSinceDate,
       })
@@ -402,6 +401,11 @@ export async function getAllUsersForAdmin({
       .from(userTable)
       .leftJoin(legalMembership, legalMembershipJoin)
       .where(whereClause),
+    db
+      .select({ pausedCount: count() })
+      .from(userTable)
+      .leftJoin(legalMembership, legalMembershipJoin)
+      .where(and(baseWhere, peopleStatusCondition(["paused"]))),
   ]);
 
   return {
@@ -414,13 +418,20 @@ export async function getAllUsersForAdmin({
       department: u.department ?? null,
       batchNumber: u.batchNumber ?? null,
       status: u.status,
+      peopleStatus: getPeopleStatus(u.status, u.participationPausedAt),
+      participationPausedAt: u.participationPausedAt,
       legalMembershipState: u.legalMembershipState,
       memberSinceDate: u.memberSinceDate,
     })),
     pageCount: Math.ceil(total / PEOPLE_PAGE_SIZE),
     total,
+    pausedCount,
     offset,
   };
+}
+
+export interface AdminPaginatedUsers extends PaginatedUsers {
+  pausedCount: number;
 }
 
 export interface UserDetails {
@@ -439,6 +450,7 @@ export interface UserDetails {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  participationPausedAt: Date | null;
   legalMembershipState: LegalMembershipState;
   membershipState: StructuredMembershipState;
   profileOnboardingComplete: boolean;
@@ -494,6 +506,7 @@ export const getUserDetails = cache(
         country: true,
         department: true,
         status: true,
+        participationPausedAt: true,
         legalMembershipState: true,
         gocardlessMandateId: true,
         gocardlessCustomerId: true,
@@ -525,6 +538,7 @@ export const getUserDetails = cache(
       department: user.department ?? null,
       batchNumber: user.batch?.number ?? null,
       status: user.status,
+      participationPausedAt: user.participationPausedAt,
       legalMembershipState: user.legalMembershipState,
       membershipState: getStructuredMembershipState(user),
       profileOnboardingComplete: getOnboardingProgress(user) === "completed",
@@ -711,6 +725,7 @@ export interface OrgChartUser {
   department: Department | null;
   batchNumber: number | null;
   status: UserStatus;
+  isPaused?: boolean;
   positions: Array<{
     position: OrganizationPosition;
     scope: AuthorityScope;
@@ -734,6 +749,7 @@ export async function getOrgChartData(): Promise<OrgChartUser[]> {
       image: true,
       department: true,
       status: true,
+      participationPausedAt: true,
     },
     with: {
       batch: { columns: { number: true } },
@@ -751,6 +767,7 @@ export async function getOrgChartData(): Promise<OrgChartUser[]> {
     department: u.department ?? null,
     batchNumber: u.batch?.number ?? null,
     status: u.status,
+    isPaused: getPeopleStatus(u.status, u.participationPausedAt) === "paused",
     positions: u.organizationPositions,
   }));
 }

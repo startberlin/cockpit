@@ -76,6 +76,7 @@ const globalActions = [
   "users.impersonate",
   "membership.resolution.admission.vote",
   "membership.cancel_member",
+  "user.participation.manage",
   "groups.view_all",
   "groups.create",
   "batches.manage",
@@ -249,6 +250,12 @@ function evaluateGlobalAction(
       return isLegalOfficer(authority);
     case "membership.cancel_member":
       return isLegalOfficer(authority) || hasSuperAdminGrant(authority);
+    case "user.participation.manage":
+      return (
+        hasAdminGrant(authority) ||
+        hasPeopleAdminGrant(authority) ||
+        isLegalOfficer(authority)
+      );
     case "groups.view_all":
       return (
         hasAdminGrant(authority) ||

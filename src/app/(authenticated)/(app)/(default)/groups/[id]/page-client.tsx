@@ -8,6 +8,8 @@ import { use, useState } from "react";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { useCan } from "@/components/can";
 import { GroupExportMenu } from "@/components/group-export-menu";
+import { GroupMemberStatusFilter } from "@/components/group-member-status-filter";
+import { PeopleStatusBadge } from "@/components/people-status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,12 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { GroupDetail, GroupMember } from "@/db/groups";
+import type { PeopleStatus } from "@/lib/user-status";
 
 type SystemGroupMember = {
   id: string;
   firstName: string | null;
   lastName: string | null;
   email: string | null;
+  peopleStatus: PeopleStatus;
 };
 
 type GroupDetailClientProps =
@@ -34,6 +38,7 @@ type GroupDetailClientProps =
       name: string;
       googleGroupEmail: string;
       members: SystemGroupMember[];
+      hasMembers: boolean;
     }
   | {
       kind: "manual";
@@ -59,11 +64,13 @@ function SystemGroupView({
   name,
   googleGroupEmail,
   members,
+  hasMembers,
 }: {
   slug: string;
   name: string;
   googleGroupEmail: string;
   members: SystemGroupMember[];
+  hasMembers: boolean;
 }) {
   const router = useRouter();
   const can = useCan();
@@ -119,11 +126,12 @@ function SystemGroupView({
       <div>
         <div className="flex items-center justify-between gap-3 pb-3">
           <h2 className="text-sm font-semibold">Members</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <GroupMemberStatusFilter />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {members.length} member{members.length === 1 ? "" : "s"}
             </span>
-            {members.length > 0 && canExport ? (
+            {hasMembers && canExport ? (
               <GroupExportMenu groupId={slug} canExportPhone={canExportPhone} />
             ) : null}
           </div>
@@ -140,7 +148,7 @@ function SystemGroupView({
               {members.length === 0 ? (
                 <TableRow>
                   <TableCell className="py-10 text-center text-muted-foreground text-sm">
-                    No members match this group&apos;s criteria right now.
+                    No members match this filter.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -161,6 +169,12 @@ function SystemGroupView({
                           <div className="text-xs text-muted-foreground">
                             {member.email}
                           </div>
+                          {member.peopleStatus === "paused" && (
+                            <PeopleStatusBadge
+                              status="paused"
+                              className="mt-1"
+                            />
+                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -245,12 +259,13 @@ function ManualGroupView({
       <div>
         <div className="flex items-center justify-between gap-3 pb-3">
           <h2 className="text-sm font-semibold">Members</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <GroupMemberStatusFilter />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {group.totalMembers} member
               {group.totalMembers === 1 ? "" : "s"}
             </span>
-            {group.totalMembers > 0 && canExport ? (
+            {group.hasMembers && canExport ? (
               <GroupExportMenu
                 groupId={group.id}
                 canExportPhone={canExportPhone}
@@ -270,7 +285,9 @@ function ManualGroupView({
               {group.totalMembers === 0 ? (
                 <TableRow>
                   <TableCell className="py-10 text-center text-muted-foreground text-sm">
-                    No members yet.
+                    {group.hasMembers
+                      ? "No members match this filter."
+                      : "No members yet."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -307,6 +324,12 @@ function ManualGroupView({
                             <div className="text-xs text-muted-foreground">
                               {member.email}
                             </div>
+                            {member.peopleStatus === "paused" && (
+                              <PeopleStatusBadge
+                                status="paused"
+                                className="mt-1"
+                              />
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -358,6 +381,7 @@ export default function GroupDetailClient(props: GroupDetailClientProps) {
         name={props.name}
         googleGroupEmail={props.googleGroupEmail}
         members={props.members}
+        hasMembers={props.hasMembers}
       />
     );
   }
