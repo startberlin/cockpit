@@ -31,7 +31,9 @@ For an active listing, use its expiry-date button to change the date or extend i
 
 Pause and close remove the role from active listings. Expiry is enforced when reading public data, independently of the maintenance schedule. Pausing hides the original public URL and its application link. Closed and expired roles keep a closed detail page. To publish again, explicitly review and publish a fresh version.
 
-Active department heads and co-leads across all departments and the Legal Board receive incoming submission notifications. Recipients can open their own notification while they still hold an eligible position. Editing the submission requires separate Jobboard access.
+Active department heads and co-leads across all departments and the Legal Board receive a personal Cockpit notice for each new employer submission. When transactional mail is enabled, Cockpit also queues one email per recipient in the same database transaction. The email includes the company name, role title and a link to the recipient's protected notice. Multiple qualifying positions and repeated submissions with the same request ID do not create extra notices. Editing the submission requires separate Jobboard access.
+
+The Jobboard submission email worker runs on Inngest after the submission commits. A check every 15 minutes also picks up outstanding work. It checks the recipient's current eligibility and verified Cockpit account address before sending. Existing inbox notices are not backfilled. Only a confirmed rate limit is retried, up to three total attempts. An ambiguous provider response is recorded for investigation instead of automatically sending another copy. Provider acceptance does not confirm mailbox delivery. Use the existing Cockpit SES configuration and Inngest environment for that deployment. Keep `DISABLE_EMAIL=true` for local tests unless using an isolated mail transport.
 
 Employer submissions remain private and pending until reviewed. Acceptance creates a draft against the selected company; it does not modify that company's contacts or publish a role. Review potential duplicates before accepting. Rejecting does not erase the review history.
 
@@ -52,4 +54,4 @@ The Cockpit and public applications deploy separately. Only the existing Cockpit
 
 Cockpit owns the PlanetScale PostgreSQL database. The deployment workflows apply migrations to the matching branch using `DATABASE_URL_STAGING` or `DATABASE_URL_PROD`. The Jobboard runtime uses the shared Cockpit connection.
 
-Generate additions against the current Cockpit migration history. Jobboard's `0062_jobboard.sql` follows `0061_member_participation_pause.sql`. It adds eight `jobboard_*` tables with their indexes and constraints, and the `jobboard_editor` access grant. Migration `0063_jobboard_submission_notifications.sql` then adds the personal inbox and unread lookup index.
+Generate additions against the current Cockpit migration history. Jobboard's `0062_jobboard.sql` follows `0061_member_participation_pause.sql`. It adds eight `jobboard_*` tables with their indexes and constraints, and the `jobboard_editor` access grant. Migration `0063_jobboard_submission_notifications.sql` adds the personal inbox. Migration `0064_jobboard_notification_email_outbox.sql` adds the delivery state and due-work index. Earlier notifications retain an empty email state.

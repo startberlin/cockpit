@@ -12,6 +12,7 @@ import type {
   SubmissionInput,
 } from "../lib/contracts";
 import { createJobboardHttp } from "../lib/http";
+import { createJobboardEmailQueue } from "./email-queue";
 import { createJobboardNotifications } from "./notifications";
 import {
   jobboardAudit,
@@ -22,6 +23,7 @@ import {
   jobboardRevision,
   jobboardServiceWindow,
   jobboardSubmission,
+  jobboardSubmissionNotification as notification,
 } from "./schema";
 import { createJobboardService, JobboardError } from "./service";
 
@@ -232,6 +234,129 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       await db.delete(user).where(inArray(user.id, ids));
     }
   });
+  test("submission email claims are exclusive, bounded and never replay uncertain deliveries", async (t) => {
+    const userId = randomUUID();
+    const email = `jobboard-test-${userId}@workspace.example`;
+    await db.insert(user).values({
+      id: userId,
+      name: "Test lead",
+      firstName: "Test",
+      lastName: "Lead",
+      status: "member",
+      email,
+      emailVerified: true,
+    });
+    t.after(() => db.delete(user).where(eq(user.id, userId)).execute());
+    await db.insert(userOrganizationPosition).values({
+      userId,
+      position: "department_co_lead",
+      scope: "department",
+      department: "growth",
+    });
+    // Only the fixture's recipient is due for this test. Other recipients in a
+    // pre-seeded test DB can keep their ordinary delivery schedule.
+    let time = new Date("2000-01-01T00:00:00Z");
+    const queue = createJobboardEmailQueue(db, () => time);
+    const writer = createJobboardService(db, () => new Date(now), {
+      emailEnabled: true,
+    });
+    const owned = (id: string) =>
+      and(eq(notification.userId, userId), eq(notification.submissionId, id));
+    const state = async (id: string) =>
+      (await db.select().from(notification).where(owned(id)))[0];
+    const createDue = async () => {
+      const payload = submission();
+      const [a, b] = await Promise.all([
+        writer.submitJob(payload),
+        writer.submitJob(payload),
+      ]);
+      assert.equal(a.id, b.id);
+      submissionIds.push(a.id);
+      assert.equal((await state(a.id)).emailStatus, "pending");
+      await db
+        .update(notification)
+        .set({ emailNextActionAt: time })
+        .where(owned(a.id));
+      return a.id;
+    };
+
+    const existingPayload = submission();
+    const existing = await service.submitJob(existingPayload);
+    submissionIds.push(existing.id);
+    assert.equal((await state(existing.id)).emailStatus, "disabled");
+    await db
+      .update(notification)
+      .set({ emailStatus: null })
+      .where(owned(existing.id));
+    await writer.submitJob(existingPayload);
+    assert.equal((await state(existing.id)).emailStatus, null);
+
+    const exhausted = await createDue();
+    const claims = await Promise.all([queue.claimNext(), queue.claimNext()]);
+    const [first] = claims.filter((claim) => claim !== null);
+    assert.ok(first && typeof first === "object");
+    assert.equal(claims.filter(Boolean).length, 1);
+    assert.deepEqual(
+      [first.email, first.companyName, first.jobTitle],
+      [email, "Unverified Employer", "Employer supplied role"],
+    );
+    assert.equal(await queue.retry(first, 30), "pending");
+    assert.equal(await queue.retry(first, 30), "stale");
+    assert.equal(await queue.claimNext(), null);
+    time = new Date(time.getTime() + 30_000);
+    const second = await queue.claimNext();
+    assert.ok(second && typeof second === "object");
+    assert.notEqual(first.token, second.token);
+    assert.equal(await queue.finish(first, "accepted"), false);
+    assert.equal(await queue.retry(second, 1), "pending");
+    time = new Date(time.getTime() + 1000);
+    const third = await queue.claimNext();
+    assert.ok(third && typeof third === "object");
+    assert.equal(await queue.retry(third, 1), "exhausted");
+    assert.equal((await state(exhausted)).emailStatus, "exhausted");
+    assert.equal((await state(exhausted)).emailAttempts, 3);
+
+    const lost = await createDue();
+    const lostClaim = await queue.claimNext();
+    assert.ok(lostClaim && typeof lostClaim === "object");
+    time = new Date(time.getTime() + 16 * 60_000);
+    assert.equal(await queue.claimNext(), "uncertain");
+    assert.equal((await state(lost)).emailStatus, "uncertain");
+    assert.equal(await queue.finish(lostClaim, "accepted"), false);
+
+    const closed = await createDue();
+    await service.rejectSubmission(
+      closed,
+      "Closed before the email worker ran.",
+      actor,
+    );
+    const deliverable = await queue.claimNext();
+    assert.ok(deliverable && typeof deliverable === "object");
+    assert.equal(deliverable.submissionId, closed);
+    assert.ok(await queue.finish(deliverable, "accepted"));
+    assert.equal(await queue.finish(deliverable, "accepted"), false);
+    assert.equal((await state(closed)).readAt, null);
+
+    const unverified = await createDue();
+    await db
+      .update(user)
+      .set({ emailVerified: false })
+      .where(eq(user.id, userId));
+    assert.equal(await queue.claimNext(), "skipped");
+    assert.equal((await state(unverified)).emailStatus, "skipped");
+    await db
+      .update(user)
+      .set({ emailVerified: true })
+      .where(eq(user.id, userId));
+
+    const revoked = await createDue();
+    await db
+      .delete(userOrganizationPosition)
+      .where(eq(userOrganizationPosition.userId, userId));
+    assert.equal(await queue.claimNext(), "skipped");
+    assert.equal((await state(revoked)).emailStatus, "skipped");
+  });
+
   after(async () => {
     try {
       if (eventIds.length)
@@ -1222,7 +1347,12 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       outcomes.filter((row) => row.status === "fulfilled").length,
       30,
     );
-    assert.equal(outcomes.filter((row) => row.status === "rejected").length, 2);
+    const rejected = outcomes.filter((row) => row.status === "rejected");
+    assert.equal(rejected.length, 2);
+    for (const result of rejected) {
+      assert.ok(result.reason instanceof JobboardError);
+      assert.equal(result.reason.retryAfterSeconds, 60);
+    }
   });
 
   test("the authenticated HTTP contract works with the real database and denies escalation", async () => {
@@ -1241,7 +1371,15 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
     assert.equal(data.job.id, job.id);
     assert.doesNotMatch(JSON.stringify(data), /PRIVATE|contacts|terms/);
     const body = submission();
-    const posted = await api.submissions(
+    const committed: string[] = [];
+    const submissionApi = createJobboardHttp(
+      service,
+      () => keys,
+      (id) => {
+        committed.push(id);
+      },
+    );
+    const posted = await submissionApi.submissions(
       new Request("http://localhost/api/jobboard/v1/submissions", {
         method: "POST",
         headers: {
@@ -1252,8 +1390,10 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       }),
     );
     assert.equal(posted.status, 202);
-    submissionIds.push((await posted.json()).id);
-    const denied = await api.submissions(
+    const acknowledgement = await posted.json();
+    submissionIds.push(acknowledgement.id);
+    assert.deepEqual(committed, [acknowledgement.id]);
+    const denied = await submissionApi.submissions(
       new Request("http://localhost/api/jobboard/v1/submissions", {
         method: "POST",
         headers: {
@@ -1264,6 +1404,7 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       }),
     );
     assert.equal(denied.status, 422);
+    assert.deepEqual(committed, [acknowledgement.id]);
   });
 
   test("maintenance prunes dedupe receipts and old aggregates without removing recent counts", async () => {
@@ -1278,6 +1419,13 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       eventId: oldId,
       createdAt: new Date(now.getTime() - 49 * 3_600_000),
     });
+    const lastReceived = await service.latestMetricReceipt();
+    assert.ok(lastReceived && lastReceived >= now);
+    const afterRetention = createJobboardService(
+      db,
+      () => new Date(lastReceived.getTime() + 48 * 3_600_000 + 1),
+    );
+    assert.equal(await afterRetention.latestMetricReceipt(), null);
     await db.insert(jobboardMetricDaily).values({
       day: "2020-01-01",
       jobId: job.id,

@@ -449,6 +449,13 @@
       "when": 1795007334593,
       "tag": "0063_jobboard_submission_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1795013500617,
+      "tag": "0064_jobboard_notification_email_outbox",
+      "breakpoints": true
     }
   ]
 }

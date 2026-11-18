@@ -23,6 +23,7 @@ interface EmailShellProps {
   eyebrow?: string;
   footerAudience?: "member" | "board";
   receivingReason?: string;
+  showFooterLinks?: boolean;
   campaign: string;
   isReminder?: boolean;
   children: ReactNode;
@@ -33,6 +34,7 @@ export function EmailShell({
   eyebrow,
   footerAudience = "member",
   receivingReason,
+  showFooterLinks = true,
   campaign,
   isReminder,
   children,
@@ -113,13 +115,17 @@ export function EmailShell({
                   padding: "28px 40px",
                 }}
               >
-                <EmailSocialLinks />
+                {showFooterLinks && <EmailSocialLinks />}
                 <Row>
                   <Column
-                    style={{
-                      paddingTop: "20px",
-                      borderTop: "1px solid #343A56",
-                    }}
+                    style={
+                      showFooterLinks
+                        ? {
+                            paddingTop: "20px",
+                            borderTop: "1px solid #343A56",
+                          }
+                        : undefined
+                    }
                   >
                     <Text className="mt-0 mb-[12px] text-[12px] text-[#C5C8D6] leading-[20px]">
                       {resolvedReason}
@@ -131,18 +137,20 @@ export function EmailShell({
                       Vereinsregister VR 32262 B · Amtsgericht Charlottenburg,
                       Berlin
                     </Text>
-                    <Text className="mt-[8px] mb-0 text-[11px] text-[#C5C8D6] leading-[18px]">
-                      <Link
-                        href={withUtm(COCKPIT_URL, {
-                          campaign,
-                          content: "footer",
-                          isReminder,
-                        })}
-                        className="text-white underline"
-                      >
-                        Open START Cockpit
-                      </Link>
-                    </Text>
+                    {showFooterLinks && (
+                      <Text className="mt-[8px] mb-0 text-[11px] text-[#C5C8D6] leading-[18px]">
+                        <Link
+                          href={withUtm(COCKPIT_URL, {
+                            campaign,
+                            content: "footer",
+                            isReminder,
+                          })}
+                          className="text-white underline"
+                        >
+                          Open START Cockpit
+                        </Link>
+                      </Text>
+                    )}
                   </Column>
                 </Row>
               </Column>

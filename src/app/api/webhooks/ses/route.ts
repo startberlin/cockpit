@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
 import { resolveUserIdsByEmail } from "@/lib/email";
+import { shouldCaptureEmailEngagement } from "@/lib/email-engagement";
 import { getPostHogClient } from "@/lib/posthog-server";
 
 // SNS always sends Content-Type: text/plain even though the body is JSON.
@@ -255,11 +256,7 @@ export async function POST(req: Request): Promise<Response> {
   let engagement: SesEngagement;
   try {
     const json = JSON.parse(envelope.Message);
-    if (json?.eventType !== "Open" && json?.eventType !== "Click") {
-      return new Response("OK");
-    }
-    const environment = json?.mail?.tags?.environment?.[0];
-    if (environment && environment !== "production") {
+    if (!shouldCaptureEmailEngagement(json?.eventType, json?.mail?.tags)) {
       return new Response("OK");
     }
     engagement = SesEngagementSchema.parse(json);

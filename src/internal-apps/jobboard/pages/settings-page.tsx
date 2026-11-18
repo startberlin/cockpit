@@ -10,6 +10,8 @@ import { requireAppAccess } from "@/lib/apps/server";
 import { createMetadata } from "@/lib/metadata";
 import { ContextHelp } from "../components/context-help";
 import { PageHeader } from "../components/page-header";
+import { formatActivityTime } from "../lib/activity-display";
+import { service } from "../lib/service";
 import { serviceKeyStatus } from "../lib/service-auth";
 
 export const metadata = createMetadata({
@@ -23,6 +25,9 @@ export default async function SettingsPage() {
     submit: env.JOBBOARD_SUBMIT_API_KEY,
     metrics: env.JOBBOARD_METRICS_API_KEY,
   };
+  const metricsKey = serviceKeyStatus("metrics", keys);
+  const lastReceived =
+    metricsKey === "configured" ? await service.latestMetricReceipt() : null;
   const integrations = [
     {
       name: "Published jobs",
@@ -103,11 +108,38 @@ export default async function SettingsPage() {
           ))}
           <li className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3">
             <div className="min-w-0 flex-1 basis-56 space-y-1">
+              <h3 className="text-sm font-medium">Submission emails</h3>
+              <p className="text-xs text-muted-foreground">
+                New submissions notify department leads and the Legal Board at
+                their verified Cockpit email addresses.
+              </p>
+            </div>
+            <Badge variant="outline" className="shrink-0">
+              {env.DISABLE_EMAIL ? "Sending disabled" : "Sending enabled"}
+            </Badge>
+          </li>
+          <li className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0 flex-1 basis-56 space-y-1">
               <h3 className="text-sm font-medium">Analytics API (optional)</h3>
               <p className="text-xs text-muted-foreground">
                 This key lets Cockpit receive aggregate request counts. The
                 public website controls collection separately.
               </p>
+              {metricsKey === "configured" && (
+                <p className="text-xs text-muted-foreground">
+                  {lastReceived ? (
+                    <>
+                      Last event received{" "}
+                      <time dateTime={lastReceived.toISOString()}>
+                        {formatActivityTime(lastReceived)}
+                      </time>
+                      .
+                    </>
+                  ) : (
+                    "No events received in the past 48 hours."
+                  )}
+                </p>
+              )}
             </div>
             <Badge variant="outline" className="shrink-0">
               {
@@ -115,7 +147,7 @@ export default async function SettingsPage() {
                   configured: "Key configured",
                   invalid: "Invalid key",
                   missing: "No key configured",
-                }[serviceKeyStatus("metrics", keys)]
+                }[metricsKey]
               }
             </Badge>
           </li>
