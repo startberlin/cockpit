@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 /**
  * DEV-ONLY email login. Posts to the dev-login endpoint, which signs in a
@@ -45,15 +46,8 @@ export default function DevLogin() {
         return;
       }
 
-      // Only allow same-origin relative paths to avoid an open redirect.
-      // Rejects absolute URLs (https://evil.com) and protocol-relative (//evil.com).
-      const safeTarget =
-        callbackURL?.startsWith("/") && !callbackURL.startsWith("//")
-          ? callbackURL
-          : "/";
-
       // Full navigation so the new session cookie is picked up server-side.
-      window.location.href = safeTarget;
+      window.location.href = safeRedirectPath(callbackURL);
     } catch (error) {
       console.error(error);
       toast.error("Could not sign you in. Please try again.");

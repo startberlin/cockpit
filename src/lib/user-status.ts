@@ -42,6 +42,12 @@ export const PEOPLE_STATUSES = [
 
 export type PeopleStatus = (typeof PEOPLE_STATUSES)[number];
 
+export function directoryStatuses(requested?: readonly PeopleStatus[]) {
+  return DEFAULT_PEOPLE_STATUSES.filter(
+    (status) => !requested || requested.includes(status),
+  );
+}
+
 export function getPeopleStatus(
   status: UserStatus,
   participationPausedAt: Date | null,

@@ -21,6 +21,12 @@ const schema = z.object({
 export const changePersonalEmailAction = actionClient
   .inputSchema(schema)
   .action(async ({ parsedInput, ctx }) => {
+    if (
+      !(await can("user.personal_email.change", { id: parsedInput.userId }))
+    ) {
+      throw new Error("Not authorized");
+    }
+
     const [existingUser] = await db
       .select({
         id: userTable.id,
@@ -39,10 +45,6 @@ export const changePersonalEmailAction = actionClient
       .limit(1);
 
     if (!existingUser) {
-      throw new Error("Not authorized");
-    }
-
-    if (!(await can("user.personal_email.change"))) {
       throw new Error("Not authorized");
     }
 

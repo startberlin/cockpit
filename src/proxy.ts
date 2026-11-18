@@ -1,12 +1,13 @@
 import { headers } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { isMaintenanceAdmin } from "@/app/maintenance/eligibility";
 import { env } from "@/env";
 import { auth } from "@/lib/auth";
 import {
   MAINTENANCE_BYPASS_COOKIE,
-  maintenanceBypassSecret,
-  safeRedirectPath,
+  verifyMaintenanceBypass,
 } from "@/lib/maintenance";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { getSystemSettings } from "@/lib/system-settings";
 
 const publicRoutes = ["/auth"];
@@ -55,7 +56,15 @@ export async function proxy(request: NextRequest) {
   if (settings.maintenanceMode) {
     const bypassCookie = request.cookies.get(MAINTENANCE_BYPASS_COOKIE);
 
-    if (bypassCookie?.value === maintenanceBypassSecret()) {
+    if (
+      bypassCookie?.value &&
+      (await verifyMaintenanceBypass(
+        bypassCookie.value,
+        session.session.id,
+        env.BETTER_AUTH_SECRET,
+      )) &&
+      (await isMaintenanceAdmin(session.user.id))
+    ) {
       return NextResponse.next();
     }
 

@@ -29,7 +29,14 @@
     "test:referrals:integration": "node --import tsx --test src/internal-apps/referrals/db/store.integration.test.ts",
     "test:referrals:browser": "playwright test --config=playwright.referrals.config.ts",
     "prepare": "simple-git-hooks",
-    "newsletter:seed": "tsx scripts/seed-newsletter.ts"
+    "newsletter:seed": "tsx scripts/seed-newsletter.ts",
+    "jobboard:seed": "tsx scripts/seed-jobboard.ts",
+    "jobboard:check-contract": "tsx scripts/check-jobboard-contract.ts",
+    "jobboard:maintenance": "tsx scripts/jobboard-maintenance.ts",
+    "test:jobboard": "node --import tsx --test src/internal-apps/jobboard/lib/*.test.ts src/internal-apps/jobboard/actions/*.test.ts src/lib/permissions/jobboard.test.ts src/lib/authority/model.test.ts src/lib/apps/*.test.ts src/internal-apps/jobboard/db/service.test.ts src/internal-apps/jobboard/components/job-preview.test.tsx",
+    "test:jobboard:integration": "tsx scripts/run-jobboard-integration.ts",
+    "test:jobboard:history": "node --import tsx --test e2e/jobboard/unsaved-history.e2e.ts",
+    "test:jobboard:live": "tsx scripts/verify-jobboard-live.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1047.0",
@@ -68,7 +75,7 @@
     "@xyflow/react": "^12.10.2",
     "bcryptjs": "^3.0.3",
     "better-all": "^0.0.7",
-    "better-auth": "^1.4.3",
+    "better-auth": "1.7.25",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -91,14 +98,14 @@
     "lodash.merge": "^4.6.2",
     "lucide-react": "^1.14.0",
     "motion": "^12.38.0",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "next-safe-action": "^8.5.2",
     "next-themes": "^0.4.6",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "10.6.0",
     "nuqs": "^2.8.9",
     "pdf-lib": "^1.17.1",
     "pg": "^8.20.0",
-    "postcss": "^8.5.14",
+    "postcss": "8.5.33",
     "posthog-js": "^1.396.4",
     "posthog-node": "^5.39.2",
     "radix-ui": "^1.4.3",
@@ -107,6 +114,7 @@
     "react-dom": "19.2.6",
     "react-email": "6.9.2",
     "react-hook-form": "^7.75.0",
+    "react-is": "19.2.6",
     "react-resizable-panels": "^4.11.0",
     "react-zoom-pan-pinch": "^4.0.3",
     "recharts": "^3.8.1",
@@ -115,11 +123,12 @@
     "slugify": "^1.6.9",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
+    "tldts": "^7.5.4",
     "tsscmp": "^1.0.6",
     "use-debounce": "^10.1.1",
     "usehooks-ts": "^3.1.1",
     "vaul": "^1.1.2",
-    "zod": "^4.4.3"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
@@ -150,6 +159,12 @@
     "*.{ts,tsx,js,jsx,json,css}": "biome check --write --no-errors-on-unmatched"
   },
   "overrides": {
+    "@vercel/oidc@3.8.10": {
+      "@vercel/cli-config": "0.3.8"
+    },
+    "inngest": {
+      "@opentelemetry/auto-instrumentations-node": "0.81.2"
+    },
     "next": "$next",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

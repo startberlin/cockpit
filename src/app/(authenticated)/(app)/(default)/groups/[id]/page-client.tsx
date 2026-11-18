@@ -21,15 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { GroupDetail, GroupMember } from "@/db/groups";
-import type { PeopleStatus } from "@/lib/user-status";
-
-type SystemGroupMember = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  peopleStatus: PeopleStatus;
-};
+import type { SystemGroupMemberSummary } from "@/lib/groups/system-groups";
 
 type GroupDetailClientProps =
   | {
@@ -37,7 +29,7 @@ type GroupDetailClientProps =
       slug: string;
       name: string;
       googleGroupEmail: string;
-      members: SystemGroupMember[];
+      members: SystemGroupMemberSummary[];
       hasMembers: boolean;
     }
   | {
@@ -69,7 +61,7 @@ function SystemGroupView({
   slug: string;
   name: string;
   googleGroupEmail: string;
-  members: SystemGroupMember[];
+  members: SystemGroupMemberSummary[];
   hasMembers: boolean;
 }) {
   const router = useRouter();

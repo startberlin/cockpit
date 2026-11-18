@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { env } from "@/env";
 import { authClient } from "@/lib/auth-client";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export default function Google() {
   const [callbackURL] = useQueryState("redirect");
@@ -25,7 +26,8 @@ export default function Google() {
 
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: callbackURL ?? undefined,
+        callbackURL:
+          callbackURL === null ? undefined : safeRedirectPath(callbackURL),
         errorCallbackURL: `${env.NEXT_PUBLIC_COCKPIT_URL}/auth`,
       });
 

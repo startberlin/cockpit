@@ -85,6 +85,8 @@ export const membershipCancellationWorkflow = inngest.createFunction(
       };
     });
 
+    const { startEmail, mandateId, personalEmail } = userData;
+
     // Step 2: Acknowledgement step (self-service cancellations only).
     if (requiresAcknowledgement) {
       const subjectName = `${userData.firstName} ${userData.lastName}`.trim();
@@ -115,11 +117,11 @@ export const membershipCancellationWorkflow = inngest.createFunction(
         const subjectPrefix = opts.isReminder ? "Reminder: " : "";
         await Promise.all(
           recipients
-            .filter((r) => r.email)
+            .filter((r): r is typeof r & { email: string } => Boolean(r.email))
             .map((recipient) =>
               sendEmail({
                 from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-                to: recipient.email!,
+                to: recipient.email,
                 subject: `${subjectPrefix}Action required: acknowledge ${subjectName}'s membership cancellation`,
                 react: MembershipCancellationAcknowledgementNeededEmail({
                   firstName: recipient.firstName,
@@ -210,16 +212,16 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     });
 
     // Step 4: Suspend Google Workspace account.
-    if (userData.startEmail) {
+    if (startEmail) {
       await step.run("suspend-google-account", async () => {
-        await suspendWorkspaceUser(userData.startEmail!);
+        await suspendWorkspaceUser(startEmail);
       });
     }
 
     // Step 5: Cancel GoCardless mandate.
-    if (userData.mandateId) {
+    if (mandateId) {
       await step.run("cancel-gocardless-mandate", async () => {
-        await cancelMembershipMandate(userData.mandateId!);
+        await cancelMembershipMandate(mandateId);
         await db
           .update(user)
           .set({
@@ -258,7 +260,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     });
 
     // Step 7: Send confirmation email to cached personal email.
-    if (userData.personalEmail) {
+    if (personalEmail) {
       const hadLegalMembership = userData.legalMembershipId !== null;
       await step.run("send-cancellation-email", async () => {
         const subject = hadLegalMembership
@@ -270,7 +272,7 @@ export const membershipCancellationWorkflow = inngest.createFunction(
             : "Your START Berlin account has been closed";
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-          to: userData.personalEmail!,
+          to: personalEmail,
           subject,
           react: MembershipCancelledEmail({
             firstName: userData.firstName,
@@ -323,11 +325,11 @@ export const membershipCancellationWorkflow = inngest.createFunction(
 
       const results = await Promise.allSettled(
         recipients
-          .filter((r) => r.email)
+          .filter((r): r is typeof r & { email: string } => Boolean(r.email))
           .map((recipient) =>
             sendEmail({
               from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-              to: recipient.email!,
+              to: recipient.email,
               subject: emailSubject,
               react: MembershipTerminationFyiEmail({
                 firstName: recipient.firstName,
@@ -397,9 +399,9 @@ export const membershipCancellationWorkflow = inngest.createFunction(
     await step.sleep("wait-7d-before-deletion", "7d");
 
     // Step 13: Hard-delete Google Workspace account.
-    if (userData.startEmail) {
+    if (startEmail) {
       await step.run("hard-delete-google-account", async () => {
-        await deleteWorkspaceUser(userData.startEmail!);
+        await deleteWorkspaceUser(startEmail);
       });
     }
 

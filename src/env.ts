@@ -37,6 +37,10 @@ const googleLoginString = devLoginEnabled
   ? z.string().min(1).optional()
   : z.string().min(1);
 
+const optionalJobboardKey = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(32).optional(),
+);
 // Optional credentials are routinely left blank in a local `.env` rather than
 // deleted (e.g. `RESEND_API_KEY=`). An empty string is still a string, so a
 // plain `.min(1).optional()` would reject it and take the whole app down over a
@@ -46,6 +50,13 @@ const optionalSecret = z.string().min(1).optional().catch(undefined);
 export const env = createEnv({
   server: {
     DATABASE_URL: z.url(),
+    JOBBOARD_READ_API_KEY: optionalJobboardKey,
+    JOBBOARD_SUBMIT_API_KEY: optionalJobboardKey,
+    JOBBOARD_METRICS_API_KEY: optionalJobboardKey,
+    JOBBOARD_PUBLIC_URL: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.url().optional(),
+    ),
     BETTER_AUTH_SECRET: z.string().min(1),
     BETTER_AUTH_URL: z.url().optional().default("http://localhost:3000"),
     GOOGLE_CLIENT_ID: googleLoginString,
@@ -106,6 +117,10 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
     NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     DATABASE_URL: process.env.DATABASE_URL,
+    JOBBOARD_READ_API_KEY: process.env.JOBBOARD_READ_API_KEY,
+    JOBBOARD_SUBMIT_API_KEY: process.env.JOBBOARD_SUBMIT_API_KEY,
+    JOBBOARD_METRICS_API_KEY: process.env.JOBBOARD_METRICS_API_KEY,
+    JOBBOARD_PUBLIC_URL: process.env.JOBBOARD_PUBLIC_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
