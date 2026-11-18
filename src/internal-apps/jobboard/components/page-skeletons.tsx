@@ -231,16 +231,19 @@ export function SettingsLoading() {
     <LoadingFrame label="Loading jobboard settings" className="max-w-4xl">
       <HeaderSkeleton />
       {[
-        { id: "connections", rows: 4 },
-        { id: "defaults", rows: 3 },
+        {
+          id: "connections",
+          rows: ["h-10", "h-10", "h-10", "h-20 sm:h-14", "h-24 sm:h-20"],
+        },
+        { id: "defaults", rows: ["h-10", "h-10", "h-10"] },
       ].map((section) => (
         <div
           key={section.id}
           className="space-y-4 rounded-xl border bg-card p-5 sm:p-6"
         >
           <Skeleton className="h-6 w-40" />
-          {Array.from({ length: section.rows }, (_, row) => (
-            <Skeleton key={row} className="h-10" />
+          {section.rows.map((height, row) => (
+            <Skeleton key={row} className={height} />
           ))}
         </div>
       ))}
