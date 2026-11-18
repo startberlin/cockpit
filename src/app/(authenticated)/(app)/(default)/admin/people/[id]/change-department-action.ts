@@ -233,7 +233,7 @@ export const changeDepartmentAction = actionClient
       }
     }
 
-    revalidatePath("/admin/people/" + parsedInput.userId);
+    revalidatePath(`/admin/people/${parsedInput.userId}`);
 
     after(() =>
       track({

@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -56,11 +57,16 @@ export function AppShellSidebar({
   };
 
   const items = navItems ?? app.nav?.items ?? [];
+  const currentItem = items
+    .filter(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0];
 
   return (
     <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
+      <SidebarHeader className="flex-row items-center">
+        <SidebarMenu className="min-w-0 flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
@@ -81,28 +87,50 @@ export function AppShellSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        {isMobile ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Close navigation"
+            onClick={closeMobile}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent>
         {items.length > 0 ? (
           <SidebarGroup>
-            <SidebarGroupContent>
+            <SidebarGroupContent
+              role="navigation"
+              aria-label={`${app.name} navigation`}
+            >
               <SidebarMenu>
                 {items.map((item) => {
                   const Icon = APP_NAV_ICONS[item.icon];
-                  const isCurrent = pathname === item.href;
+                  const isCurrent = item === currentItem;
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
                         isActive={isCurrent}
                         tooltip={item.label}
+                        className="h-11 md:h-8"
                       >
                         <Link
                           href={item.href}
                           onClick={closeMobile}
                           aria-label={item.label}
-                          aria-current={isCurrent ? "page" : undefined}
+                          aria-current={
+                            isCurrent
+                              ? pathname === item.href
+                                ? "page"
+                                : "location"
+                              : undefined
+                          }
                         >
                           <Icon aria-hidden="true" />
                           <span className="group-data-[collapsible=icon]:hidden">

@@ -109,7 +109,9 @@ export const financePaymentProposalsDigest = inngest.createFunction(
         }
       }
 
-      return [...byUserId.values()].filter((r) => r.email);
+      return [...byUserId.values()].filter(
+        (r): r is typeof r & { email: string } => Boolean(r.email),
+      );
     });
 
     if (recipients.length === 0) {
@@ -122,7 +124,7 @@ export const financePaymentProposalsDigest = inngest.createFunction(
       await step.run(`send-digest-email-${r.userId}`, async () => {
         await sendEmail({
           from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-          to: r.email!,
+          to: r.email,
           subject: `${proposals.length} membership payment proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
           react: PaymentProposalsDigestEmail({
             firstName: r.firstName,

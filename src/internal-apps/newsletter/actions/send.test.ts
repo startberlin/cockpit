@@ -60,7 +60,17 @@ it("keeps accepted sends recoverable, rejects concurrent dispatch, and preserves
       Module._load = function (request, parent, ...rest) {
         if (request === "@/db") return { __esModule: true, default: mockDb };
         if (request === "@/env") return { env: { RESEND_NEWSLETTER_SEGMENT_ID: "segment", NEXT_PUBLIC_COCKPIT_URL: "http://localhost:3000" } };
-        if (request === "@/lib/action-client") return { actionClient: { inputSchema: (schema) => ({ action: (handler) => (input) => handler({ parsedInput: schema.parse(input) }) }) } };
+        if (request === "@/lib/action-client") {
+          const { createSafeActionClient } = require("next-safe-action");
+          const client = createSafeActionClient({
+            throwValidationErrors: true,
+            handleServerError(error) { throw error; },
+          });
+          return { actionClient: { inputSchema: (schema) => ({ action: (handler) => {
+            const run = client.inputSchema(schema).action(handler);
+            return async (input) => (await run(input)).data;
+          } }) } };
+        }
         if (request === "next/cache") return { revalidatePath: () => {} };
         if (parent.filename.endsWith("/actions/send.ts")) {
           if (request === "../lib/access") return { assertNewsletterAccess: async () => { if (!allowed) throw new Error("Forbidden"); } };

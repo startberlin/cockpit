@@ -1,3 +1,5 @@
+import { jobboardMaintenance } from "@/internal-apps/jobboard/inngest/maintenance";
+import { jobboardSubmissionEmails } from "@/internal-apps/jobboard/inngest/submission-emails";
 import { syncNewsletterAudienceCron } from "@/internal-apps/newsletter/inngest/sync-audience";
 import { provisionReferralLinks } from "@/internal-apps/referrals/inngest/provision-links";
 import { applicationResumeReminderWorkflow } from "./application-resume-reminder-workflow";
@@ -30,6 +32,8 @@ import { syncSystemGroupsCron } from "./sync-system-groups-cron";
 import { syncUserSystemGroupsWorkflow } from "./sync-user-system-groups";
 
 export const inngestFunctions = [
+  jobboardMaintenance,
+  jobboardSubmissionEmails,
   syncNewsletterAudienceCron,
   provisionReferralLinks,
   applicationResumeReminderWorkflow,

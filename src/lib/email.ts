@@ -9,13 +9,15 @@ import db from "@/db";
 import { env } from "@/env";
 import { writeAuditLog } from "@/lib/audit-log";
 
-const ses = new SESv2Client({
+const sesConfig = {
   region: env.AWS_REGION,
   credentials: {
     accessKeyId: env.AWS_ACCESS_KEY_ID,
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
   },
-});
+};
+const ses = new SESv2Client(sesConfig);
+const singleAttemptSes = new SESv2Client({ ...sesConfig, maxAttempts: 1 });
 
 // Nodemailer stream transport: used only to build the raw MIME message.
 // No actual sending happens through nodemailer.
@@ -136,18 +138,29 @@ export async function resolveUserIdsByEmail(
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
+  await deliverEmail(options, false);
+}
+
+/** For outboxes that record an ambiguous provider response and control retries themselves. */
+export function sendEmailOnce(options: SendEmailOptions) {
+  return deliverEmail(options, true);
+}
+
+async function deliverEmail(
+  options: SendEmailOptions,
+  singleAttempt: boolean,
+): Promise<"accepted" | "disabled"> {
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
   if (env.DISABLE_EMAIL) {
     console.warn(
       `[email disabled] would have sent "${options.subject}" from ${options.from} to ${recipients.join(", ")}`,
     );
-    return;
+    return "disabled";
   }
 
-  // SES manages its own account-level / configuration-set suppression list,
-  // so we don't filter recipients locally — SES will reject the SendEmail
-  // call if a recipient is suppressed.
+  // SES applies account/configuration-set suppression. Acceptance of a message
+  // is a provider acknowledgement; delivery to the recipient is separate.
 
   const logEmail = () => {
     after(async () => {
@@ -197,6 +210,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     emailType: options.emailType,
   });
 
+  let command: SendEmailCommand;
   if (options.attachments && options.attachments.length > 0) {
     const info = await mimeBuilder.sendMail({
       from: options.from,
@@ -217,30 +231,39 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     }
     const rawEmail = Buffer.concat(chunks);
 
-    await ses.send(
-      new SendEmailCommand({
-        Content: { Raw: { Data: rawEmail } },
-        EmailTags,
-      }),
-    );
-    logEmail();
+    command = new SendEmailCommand({
+      Content: { Raw: { Data: rawEmail } },
+      EmailTags,
+    });
   } else {
-    await ses.send(
-      new SendEmailCommand({
-        FromEmailAddress: options.from,
-        Destination: { ToAddresses: recipients },
-        Content: {
-          Simple: {
-            Subject: { Data: options.subject, Charset: "UTF-8" },
-            Body: {
-              Html: { Data: html, Charset: "UTF-8" },
-              Text: { Data: text, Charset: "UTF-8" },
-            },
+    command = new SendEmailCommand({
+      FromEmailAddress: options.from,
+      Destination: { ToAddresses: recipients },
+      Content: {
+        Simple: {
+          Subject: { Data: options.subject, Charset: "UTF-8" },
+          Body: {
+            Html: { Data: html, Charset: "UTF-8" },
+            Text: { Data: text, Charset: "UTF-8" },
           },
         },
-        EmailTags,
-      }),
-    );
-    logEmail();
+      },
+      EmailTags,
+    });
   }
+  const response = singleAttempt
+    ? await singleAttemptSes.send(command, {
+        abortSignal: AbortSignal.timeout(15_000),
+      })
+    : await ses.send(command);
+  if (singleAttempt && !response.MessageId)
+    throw new Error("SES acknowledgement is missing a message ID.");
+  // Failure to schedule a secondary audit write must not turn an SES acceptance
+  // into an apparent send failure (and hence a repeat send).
+  try {
+    logEmail();
+  } catch {
+    console.error("[email] Could not schedule the audit log.");
+  }
+  return "accepted";
 }

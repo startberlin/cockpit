@@ -1,5 +1,27 @@
 import posthog from "posthog-js";
 import { env } from "@/env";
+import {
+  BEFORE_ROUTER_POPSTATE,
+  trackLegacyHistory,
+} from "@/internal-apps/jobboard/lib/navigation-intent";
+
+// Run before the router can unmount an editor with unsaved changes.
+const legacyTraversal = window.navigation ? null : trackLegacyHistory();
+window.addEventListener(
+  "popstate",
+  (event) => {
+    if (
+      !window.dispatchEvent(
+        new CustomEvent(BEFORE_ROUTER_POPSTATE, {
+          cancelable: true,
+          detail: legacyTraversal?.() ?? null,
+        }),
+      )
+    )
+      event.stopImmediatePropagation();
+  },
+  true,
+);
 
 const token = env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 if (token) {

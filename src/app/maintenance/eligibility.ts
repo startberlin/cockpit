@@ -1,20 +1,13 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
-import db from "@/db";
-import { userAccessGrant } from "@/db/schema";
-import { getCurrentUser } from "@/db/user";
+import { getUserAuthority } from "@/db/authority";
+import { isActiveAuthorityStatus } from "@/lib/authority/model";
 
-export async function isMaintenanceAdmin(): Promise<boolean> {
-  const user = await getCurrentUser();
-  if (!user) return false;
-
-  const grant = await db.query.userAccessGrant.findFirst({
-    where: and(
-      eq(userAccessGrant.userId, user.id),
-      eq(userAccessGrant.grant, "admin"),
-    ),
-  });
-
-  return !!grant;
+export async function isMaintenanceAdmin(userId: string): Promise<boolean> {
+  const authority = await getUserAuthority(userId);
+  return (
+    !!authority &&
+    isActiveAuthorityStatus(authority.status) &&
+    authority.grants.some(({ grant }) => grant === "admin")
+  );
 }

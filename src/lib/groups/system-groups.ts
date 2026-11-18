@@ -5,6 +5,7 @@ import type {
   OrganizationPosition,
 } from "@/db/schema/authority";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
+import type { PeopleStatus } from "@/lib/user-status";
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
@@ -15,6 +16,25 @@ export type SystemGroupUser = {
   batchNumber: number | null;
   grants: AccessGrant[];
 };
+
+export type SystemGroupMemberSummary = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  peopleStatus: PeopleStatus;
+};
+
+/** Grant and position inputs used for membership stay on the server. */
+export function systemGroupMemberSummary({
+  id,
+  firstName,
+  lastName,
+  email,
+  peopleStatus,
+}: SystemGroupMemberSummary): SystemGroupMemberSummary {
+  return { id, firstName, lastName, email, peopleStatus };
+}
 
 /** Per-user position shape — same as userOrganizationPosition columns (no userId). */
 export type UserPosition = {

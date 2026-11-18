@@ -6,7 +6,7 @@ function expandDigraphsToUmlauts(s: string): string {
   return s.replace(/ae|oe|ue/gi, (match) => {
     const umlaut = { ae: "ä", oe: "ö", ue: "ü" }[
       match.toLowerCase() as "ae" | "oe" | "ue"
-    ]!;
+    ];
     return match[0] === match[0].toUpperCase() ? umlaut.toUpperCase() : umlaut;
   });
 }

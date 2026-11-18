@@ -11,7 +11,20 @@ import {
   getSystemGroupBySlug,
   getSystemGroupsForUser,
   isSystemGroupSlug,
+  systemGroupMemberSummary,
 } from "./system-groups";
+
+it("sends only display fields from a system group to the member list", () => {
+  const display = {
+    id: "member-1",
+    firstName: "Jane",
+    lastName: "Example",
+    email: "member@example.org",
+    peopleStatus: "paused" as const,
+  };
+  const row = { ...display, grants: ["admin"], batchNumber: 11 };
+  assert.deepEqual(systemGroupMemberSummary(row), display);
+});
 
 const BATCHES = [{ number: 7 }, { number: 3 }, { number: 99 }];
 
