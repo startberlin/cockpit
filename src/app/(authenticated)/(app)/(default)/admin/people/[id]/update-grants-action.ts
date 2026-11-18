@@ -66,6 +66,7 @@ export const updateGrantsAction = actionClient
       finance_admin: "Finance Admin",
       people_admin: "People Admin",
       members_group_exporter: "Members Group Exporter",
+      jobboard_editor: "Jobboard Editor",
     };
     const oldSet = new Set(oldGrants);
     const newSet = new Set(newGrants);

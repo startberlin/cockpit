@@ -42,6 +42,7 @@ export const globalAccessGrants = [
   "finance_admin",
   "people_admin",
   "members_group_exporter",
+  "jobboard_editor",
 ] as const;
 
 export type GlobalAccessGrant = (typeof globalAccessGrants)[number];

@@ -1,7 +1,9 @@
 import type { Department } from "@/db/schema/auth";
 import {
+  type AuthorityScope,
   isActiveAuthorityStatus,
   isDepartmentLeadPosition,
+  type OrganizationPosition,
   type UserAuthority,
 } from "@/lib/authority/model";
 
@@ -58,7 +60,22 @@ export type GroupScopedAction =
   | "group.export"
   | "group.export_phone";
 
-export type Action = GlobalAction | UserScopedAction | GroupScopedAction;
+const recoveryActions = [
+  "user.personal_email.change",
+  "user.password.reset",
+] as const;
+export type RecoveryAction = (typeof recoveryActions)[number];
+type RecoveryScope = { recoveryTarget: UserAuthority | null };
+
+export function isRecoveryAction(action: Action): action is RecoveryAction {
+  return (recoveryActions as readonly Action[]).includes(action);
+}
+
+export type Action =
+  | GlobalAction
+  | UserScopedAction
+  | GroupScopedAction
+  | RecoveryAction;
 
 export type UserScope = {
   // undefined = gate check (any department); null = subject has no department
@@ -85,11 +102,11 @@ const globalActions = [
   "settings.positions.manage",
   "users.view_inactive",
   "audit_log.read",
-  "user.personal_email.change",
-  "user.password.reset",
   // Internal app access. One action per app, named `apps.<slug>.access`, so the
   // same check gates the launcher card, the sidebar entry, the app's route
   // layout, and its server actions. See src/lib/apps/visibility.ts.
+  "apps.jobboard.access",
+  "apps.jobboard.publish",
   "apps.newsletter.access",
   "apps.referrals.access",
   "apps.referrals.overview",
@@ -137,14 +154,23 @@ export function hasMembersGroupExporterGrant(authority: UserAuthority) {
   return authority.grants.some((a) => a.grant === "members_group_exporter");
 }
 
-export function isLegalOfficer(authority: UserAuthority) {
-  return authority.positions.some(
-    (assignment) =>
-      assignment.scope === "global" &&
-      (assignment.position === "president" ||
-        assignment.position === "vice_president" ||
-        assignment.position === "head_of_finance"),
+type AuthorityPosition = {
+  position: OrganizationPosition;
+  scope: AuthorityScope;
+  department?: Department | null;
+};
+
+function isLegalOfficerPosition(assignment: AuthorityPosition) {
+  return (
+    assignment.scope === "global" &&
+    (assignment.position === "president" ||
+      assignment.position === "vice_president" ||
+      assignment.position === "head_of_finance")
   );
+}
+
+export function isLegalOfficer(authority: UserAuthority) {
+  return authority.positions.some(isLegalOfficerPosition);
 }
 
 function isHeadOfFinance(authority: UserAuthority) {
@@ -177,6 +203,22 @@ function isDepartmentHead(
       targetDepartment !== null && assignment.department === targetDepartment
     );
   });
+}
+
+export function isJobboardNotificationPosition(assignment: AuthorityPosition) {
+  return (
+    isLegalOfficerPosition(assignment) ||
+    (assignment.scope === "department" &&
+      assignment.department != null &&
+      isDepartmentLeadPosition(assignment.position))
+  );
+}
+
+export function isJobboardNotificationRecipient(authority: UserAuthority) {
+  return (
+    isActiveAuthorityStatus(authority.status) &&
+    authority.positions.some(isJobboardNotificationPosition)
+  );
 }
 
 function hasUserScope(scope: unknown): scope is UserScope {
@@ -265,9 +307,17 @@ function evaluateGlobalAction(
       );
     case "audit_log.read":
       return hasAdminGrant(authority);
-    case "user.personal_email.change":
-    case "user.password.reset":
-      return hasAdminGrant(authority);
+    case "apps.jobboard.access":
+      return (
+        hasAdminGrant(authority) ||
+        isDepartmentHead(authority, "partnerships") ||
+        authority.department === "partnerships" ||
+        authority.grants.some((grant) => grant.grant === "jobboard_editor")
+      );
+    case "apps.jobboard.publish":
+      return (
+        hasAdminGrant(authority) || isDepartmentHead(authority, "partnerships")
+      );
     case "apps.newsletter.access":
       // Growth owns the newsletter. All department leads and the Legal Board
       // retain access without needing an admin grant. `evaluateAuth` rejects
@@ -363,6 +413,11 @@ export function evaluateAuth(
 ): boolean;
 export function evaluateAuth(
   authority: UserAuthority,
+  action: RecoveryAction,
+  scope: RecoveryScope,
+): boolean;
+export function evaluateAuth(
+  authority: UserAuthority,
   action: UnscopedViewAction,
   scope?: UserScope,
 ): boolean;
@@ -379,10 +434,25 @@ export function evaluateAuth(
 export function evaluateAuth(
   authority: UserAuthority,
   action: Action,
-  scope?: unknown,
+  scope?: UserScope | GroupScope | RecoveryScope,
 ): boolean {
   if (!isActiveAuthorityStatus(authority.status)) {
     return false;
+  }
+
+  if (isRecoveryAction(action)) {
+    if (!scope || !("recoveryTarget" in scope) || !scope.recoveryTarget) {
+      return false;
+    }
+    // Only super admins can assign positions or the super_admin grant.
+    // Account recovery for those identities requires the same authority.
+    const target = scope.recoveryTarget;
+    return (
+      hasSuperAdminGrant(authority) ||
+      (hasAdminGrant(authority) &&
+        !hasSuperAdminGrant(target) &&
+        target.positions.length === 0)
+    );
   }
 
   if (isGlobalAction(action)) {

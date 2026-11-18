@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/sidebar";
 import { getUserAuthority } from "@/db/authority";
 import { getCurrentUser } from "@/db/user";
+import { NotificationBell } from "@/internal-apps/jobboard/components/notification-controls";
 import { AuthorityProvider } from "@/lib/permissions/authority-context";
+import { isJobboardNotificationRecipient } from "@/lib/permissions/evaluate";
 import { getOnboardingProgress } from "@/schema/onboarding-progress";
 
 interface AppLayoutProps {
@@ -47,7 +49,10 @@ export default async function AppLayout({ children }: AppLayoutProps) {
             <header className="flex h-14 min-h-14 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger className="-ml-1" />
               <NavBreadcrumb />
-              <div className="ml-auto">
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {isJobboardNotificationRecipient(authority) && (
+                  <NotificationBell viewerId={user.id} />
+                )}
                 <BugReportButton />
               </div>
             </header>

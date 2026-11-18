@@ -48,6 +48,7 @@ describe("authority domain model", () => {
       "finance_admin",
       "people_admin",
       "members_group_exporter",
+      "jobboard_editor",
     ]);
     assert.deepEqual(accessGrants, [
       "super_admin",
@@ -55,6 +56,7 @@ describe("authority domain model", () => {
       "finance_admin",
       "people_admin",
       "members_group_exporter",
+      "jobboard_editor",
     ]);
   });
 

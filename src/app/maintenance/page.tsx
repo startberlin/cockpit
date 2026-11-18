@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { createLoader, parseAsString } from "nuqs/server";
 import Logo from "@/app/logo-black.png";
 import { Button } from "@/components/ui/button";
-import { safeRedirectPath } from "@/lib/maintenance";
+import { getCurrentUser } from "@/db/user";
 import { createMetadata } from "@/lib/metadata";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { getSystemSettings } from "@/lib/system-settings";
 import { grantMaintenanceBypassAction } from "./actions";
 import { isMaintenanceAdmin } from "./eligibility";
@@ -30,7 +31,8 @@ export default async function MaintenancePage({ searchParams }: PageProps) {
     redirect(safeRedirectPath(redirectParam));
   }
 
-  const eligible = await isMaintenanceAdmin();
+  const user = await getCurrentUser();
+  const eligible = user && (await isMaintenanceAdmin(user.id));
 
   return (
     <div className="flex min-h-screen flex-1 flex-col md:justify-center px-6 md:px-4 py-6 md:py-10 lg:px-6">

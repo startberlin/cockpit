@@ -18,8 +18,6 @@ export interface PublicGroup {
 }
 
 export interface GroupMember extends PublicUser {
-  personalEmail: string | null;
-  eventEmailPreference: "personal_email" | "start_email" | "custom" | null;
   role: "member" | "manager";
 }
 
@@ -203,8 +201,6 @@ export async function getGroupDetail(
       lastName: user.lastName,
       email: user.email,
       image: user.image,
-      personalEmail: user.personalEmail,
-      eventEmailPreference: user.eventEmailPreference,
       department: user.department,
       status: user.status,
       participationPausedAt: user.participationPausedAt,

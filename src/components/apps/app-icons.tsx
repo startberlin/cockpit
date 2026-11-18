@@ -1,5 +1,8 @@
 import {
+  BriefcaseBusiness,
+  Building2,
   ChartNoAxesCombined,
+  Inbox,
   LayoutDashboard,
   Link2,
   Mail,
@@ -27,6 +30,7 @@ import type { AppIcon } from "@/lib/apps/types";
  * compile error rather than a hole in the UI.
  */
 export const APP_ICONS: Record<AppId, AppIcon> = {
+  jobboard: { kind: "lucide", icon: BriefcaseBusiness },
   newsletter: { kind: "lucide", icon: Mail },
   referrals: { kind: "lucide", icon: UsersRound },
   slack: { kind: "image", src: SlackIcon },
@@ -40,8 +44,11 @@ export const APP_ICONS: Record<AppId, AppIcon> = {
 };
 
 export const APP_NAV_ICONS = {
+  briefcase: BriefcaseBusiness,
+  building: Building2,
   chart: ChartNoAxesCombined,
   dashboard: LayoutDashboard,
+  inbox: Inbox,
   link: Link2,
   newspaper: Newspaper,
   settings: Settings,

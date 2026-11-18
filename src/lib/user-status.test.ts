@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { getPeopleStatus, getPeopleStatusInfo } from "./user-status";
+import {
+  DEFAULT_PEOPLE_STATUSES,
+  directoryStatuses,
+  getPeopleStatus,
+  getPeopleStatusInfo,
+} from "./user-status";
+
+it("keeps member directory filters within the visible statuses", () => {
+  assert.deepEqual(directoryStatuses(), DEFAULT_PEOPLE_STATUSES);
+  assert.deepEqual(directoryStatuses(["paused", "cancelled"]), ["paused"]);
+  assert.deepEqual(directoryStatuses(["alumni"]), []);
+});
 
 it("only overlays the Paused label on an operational member", () => {
   const timestamp = new Date("2026-11-17T12:00:00.000Z");

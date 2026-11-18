@@ -1,0 +1,28 @@
+# Jobboard API v1
+
+The canonical executable schema is `src/internal-apps/jobboard/lib/contracts.ts`. Its exact copy in the independent public project is checked by `npm run jobboard:check-contract`. Both sides validate payloads. Unknown private/analytics properties are rejected instead of forwarded.
+
+## Authentication
+
+Every request needs `Authorization: Bearer <key>`. The read, submission and metrics keys are independent, at least 32 characters, and configured only in server environments. No key provides access to member data or editorial mutations. Use TLS outside localhost. Empty, missing, reused across scopes, or invalid credentials fail closed. Do not log authorization headers. To revoke, remove the corresponding key and reload the server configuration.
+
+| Method and path | Key | Result |
+| --- | --- | --- |
+| GET `/api/jobboard/v1/jobs` | Read | `{version:"1", jobs: PublicJob[], nextCursor: string|null}` |
+| GET `/api/jobboard/v1/jobs/{id}` | Read | `{version:"1", job: PublicJob}`; never-published roles return not found |
+| POST `/api/jobboard/v1/submissions` | Submit | `{version:"1", id, status:"pending_review"}` |
+| POST `/api/jobboard/v1/metrics` | Metrics | `{version:"1", accepted: number}` |
+
+List pagination uses opaque cursors and a bounded `limit`. The public client follows cursors. Paused roles return 404 on the public detail endpoint. Details return `status:"closed"` for expired or closed published roles; a consumer must not offer an application or active JobPosting markup for those records. Public reads are not cached across publication/status changes.
+
+`PublicJob` contains `id`, `slug`, `content`, `company`, `status`, `publishedAt`, and `expiresAt`. `content` is the approved `JobContent`; `company` contains only `id`, `name`, `website`, and `description`. Private contacts and review/terms notes are excluded by construction.
+
+Submissions contain a UUID `requestId`, public company fields, one contact, job content and `permissionToPublish:true`. The same request ID must be reused only when retrying the same submission. A conflicting payload with the same ID must fail rather than create or overwrite a record. Neither a requested status nor a publication field is accepted.
+
+Metrics contain `{events:[...]}` with at most 100 events per batch. An event has a UUID `eventId`, ISO `occurredAt`, allowed `type`, nullable `jobId`, `surface`, and `source`. Retry an event with its original ID. Retained IDs prevent a repeated transfer from incrementing aggregates twice. Events more than 24 hours old are rejected; deduplication records outlive the accepted replay window.
+
+Allowed types: `board_request`, `detail_request`, `widget_request`, `apply_redirect`, `share_redirect`. Sources: `direct`, `website`, `widget`, `whatsapp`, `linkedin`, `newsletter`, `unknown`. Surfaces: `standalone`, `widget`. No arbitrary query parameters, user IDs, IP addresses, email addresses or full referrers are accepted.
+
+Errors use `{version:"1", error:{code,message}}`. Invalid JSON or unsupported schema is rejected; bodies and batch sizes are bounded. Missing records, forbidden capabilities, invalid requests and temporary backend failures remain distinguishable. Responses never expose SQL or configuration details. The public UI must show a temporary failure rather than pretend a submission succeeded.
+
+The public application's redirect handlers resolve the approved job by ID and re-check active status. They do not accept arbitrary destination URLs. Metrics transfer runs after the response with bounded retries, so telemetry cannot block applying or sharing.

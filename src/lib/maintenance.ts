@@ -1,16 +1,34 @@
-import { env } from "@/env";
+import { signCookieValue, verifySignedCookie } from "./auth-cookies";
 
 export const MAINTENANCE_BYPASS_COOKIE = "maintenance_bypass";
+const BYPASS_LIFETIME = 30 * 60 * 1000;
 
-export function maintenanceBypassSecret() {
-  return `${env.BETTER_AUTH_SECRET}:maintenance`;
+export async function createMaintenanceBypass(
+  sessionId: string,
+  secret: string,
+  now = Date.now(),
+) {
+  const expires = new Date(now + BYPASS_LIFETIME);
+  const value = await signCookieValue(
+    `maintenance:v1:${sessionId}:${expires.getTime()}`,
+    secret,
+  );
+  return { expires, value };
 }
 
-/** Returns a safe internal path from any redirect param, falling back to "/". */
-export function safeRedirectPath(
-  raw: string | FormDataEntryValue | null | undefined,
-): string {
-  const p = typeof raw === "string" ? raw : null;
-  if (!p?.startsWith("/") || p.startsWith("//")) return "/";
-  return p;
+export async function verifyMaintenanceBypass(
+  cookie: string,
+  sessionId: string,
+  secret: string,
+  now = Date.now(),
+) {
+  const payload = await verifySignedCookie(cookie, secret);
+  const prefix = `maintenance:v1:${sessionId}:`;
+  if (!payload?.startsWith(prefix)) return false;
+  const expires = Number(payload.slice(prefix.length));
+  return (
+    Number.isSafeInteger(expires) &&
+    expires > now &&
+    expires <= now + BYPASS_LIFETIME
+  );
 }
