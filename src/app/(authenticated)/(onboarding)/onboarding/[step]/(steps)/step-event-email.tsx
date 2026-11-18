@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
 import { AlertCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Controller, useWatch } from "react-hook-form";
+import { Controller } from "react-hook-form";
 import { z } from "zod";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -57,11 +57,6 @@ export function StepEventEmail({ user }: StepEventEmailProps) {
       },
     },
   );
-
-  const watchedPreference = useWatch({
-    control: form.control,
-    name: "eventEmailPreference",
-  });
 
   return (
     <form className="flex flex-col gap-y-8" onSubmit={handleSubmitWithAction}>

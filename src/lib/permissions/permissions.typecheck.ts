@@ -44,6 +44,12 @@ can("group.members.manage"); // gate check — valid without group id
 can("user.view_details"); // unscoped — valid for listing route gate
 can("user.view_details", { department: "events" });
 can("user.payment.view", { department: "events" });
+can("user.password.reset", { id: "usr_target" });
+can("user.personal_email.change", { id: "usr_target" });
+// @ts-expect-error recovery requires the target identity.
+can("user.password.reset");
+// @ts-expect-error the server loads target authority from trusted data.
+can("user.personal_email.change", { department: "events" });
 can("group.members.manage", { id: "gr_123" });
 can("group.export_phone", { id: "gr_123" });
 can("membership.transition.view"); // gate check — valid without dept

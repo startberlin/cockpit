@@ -8,6 +8,7 @@ import {
   getMembersOfSystemGroup,
   getSystemGroupBySlug,
   isSystemGroupSlug,
+  systemGroupMemberSummary,
 } from "@/lib/groups/system-groups";
 import { createMetadata } from "@/lib/metadata";
 import { groupPeopleParams } from "@/lib/people-search-params";
@@ -99,7 +100,9 @@ export default async function GroupPage({
       grants: u.accessGrants.map((g) => g.grant),
     }));
 
-    const members = getMembersOfSystemGroup(id, users, positions);
+    const members = getMembersOfSystemGroup(id, users, positions).map(
+      systemGroupMemberSummary,
+    );
 
     return (
       <>

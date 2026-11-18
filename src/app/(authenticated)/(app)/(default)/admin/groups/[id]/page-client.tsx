@@ -56,6 +56,7 @@ import type { GroupDetail, GroupMember } from "@/db/groups";
 import type { PublicUser } from "@/db/people";
 import type { LegalMembershipState } from "@/db/schema/auth";
 import { DEPARTMENT_IDS, DEPARTMENT_NAMES } from "@/lib/departments";
+import type { SystemGroupMemberSummary } from "@/lib/groups/system-groups";
 import {
   getPeopleStatusInfo,
   PEOPLE_STATUSES,
@@ -68,21 +69,13 @@ import {
   removeUserFromGroupAction,
 } from "../../../groups/[id]/actions";
 
-type SystemGroupMember = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  peopleStatus: PeopleStatus;
-};
-
 type AdminGroupDetailClientProps =
   | {
       kind: "system";
       slug: string;
       name: string;
       googleGroupEmail: string;
-      members: SystemGroupMember[];
+      members: SystemGroupMemberSummary[];
       hasMembers: boolean;
     }
   | {
@@ -100,7 +93,7 @@ function SystemGroupView({
 }: {
   name: string;
   googleGroupEmail: string;
-  members: SystemGroupMember[];
+  members: SystemGroupMemberSummary[];
   hasMembers: boolean;
   slug: string;
 }) {

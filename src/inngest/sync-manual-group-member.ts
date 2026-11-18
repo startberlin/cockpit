@@ -26,32 +26,35 @@ export const syncManualGroupMemberWorkflow = inngest.createFunction(
   async ({ event, step }) => {
     const { groupId, userId } = event.data;
 
-    const data = await step.run("load-data", async () => {
-      const [g, u] = await Promise.all([
-        db.query.group.findFirst({
-          where: eq(group.id, groupId),
-          columns: { googleGroupEmail: true },
-        }),
-        db.query.user.findFirst({
-          where: eq(user.id, userId),
-          columns: { email: true },
-        }),
-      ]);
-      return {
-        googleGroupEmail: g?.googleGroupEmail ?? null,
-        email: u?.email ?? null,
-      };
-    });
+    const { googleGroupEmail, email } = await step.run(
+      "load-data",
+      async () => {
+        const [g, u] = await Promise.all([
+          db.query.group.findFirst({
+            where: eq(group.id, groupId),
+            columns: { googleGroupEmail: true },
+          }),
+          db.query.user.findFirst({
+            where: eq(user.id, userId),
+            columns: { email: true },
+          }),
+        ]);
+        return {
+          googleGroupEmail: g?.googleGroupEmail ?? null,
+          email: u?.email ?? null,
+        };
+      },
+    );
 
-    if (!data.googleGroupEmail || !data.email) return { skipped: true };
+    if (!googleGroupEmail || !email) return { skipped: true };
 
     if (event.name === events.groupMemberAdded.name) {
       await step.run("add-to-google-group", () =>
-        addGroupMember(data.googleGroupEmail!, data.email!),
+        addGroupMember(googleGroupEmail, email),
       );
     } else {
       await step.run("remove-from-google-group", () =>
-        removeGroupMember(data.googleGroupEmail!, data.email!),
+        removeGroupMember(googleGroupEmail, email),
       );
     }
   },

@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: staging
     outputs:
       url: ${{ steps.deploy.outputs.url }}
 
@@ -61,13 +62,38 @@ jobs:
       - name: Create Vercel preview deployment
         id: deploy
         run: |
+          for key in JOBBOARD_READ_API_KEY JOBBOARD_SUBMIT_API_KEY JOBBOARD_METRICS_API_KEY; do
+            value=${!key}
+            if [[ ${#value} -lt 32 || ${#value} -gt 512 || "$value" == *[[:space:]]* ]]; then
+              echo "Invalid staging credential: $key" >&2
+              exit 1
+            fi
+          done
+          if [[ "$JOBBOARD_READ_API_KEY" == "$JOBBOARD_SUBMIT_API_KEY" ||
+                "$JOBBOARD_READ_API_KEY" == "$JOBBOARD_METRICS_API_KEY" ||
+                "$JOBBOARD_SUBMIT_API_KEY" == "$JOBBOARD_METRICS_API_KEY" ||
+                "$JOBBOARD_PUBLIC_URL" != "https://staging.start-berlin.com/jobs" ]]; then
+            echo "Invalid staging Jobboard configuration" >&2
+            exit 1
+          fi
           deployment_url=$(npx vercel@54.0.0 deploy \
             --target=preview \
+            --env JOBBOARD_READ_API_KEY \
+            --env JOBBOARD_SUBMIT_API_KEY \
+            --env JOBBOARD_METRICS_API_KEY \
+            --env JOBBOARD_PUBLIC_URL \
+            --build-env NEXT_PUBLIC_COCKPIT_URL \
+            --env NEXT_PUBLIC_COCKPIT_URL \
             --yes \
             --scope=start-berlin)
           [[ "$deployment_url" =~ ^https://[a-zA-Z0-9-]+\.vercel\.app$ ]]
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
         env:
+          JOBBOARD_READ_API_KEY: ${{ secrets.JOBBOARD_READ_API_KEY }}
+          JOBBOARD_SUBMIT_API_KEY: ${{ secrets.JOBBOARD_SUBMIT_API_KEY }}
+          JOBBOARD_METRICS_API_KEY: ${{ secrets.JOBBOARD_METRICS_API_KEY }}
+          JOBBOARD_PUBLIC_URL: ${{ vars.JOBBOARD_PUBLIC_URL }}
+          NEXT_PUBLIC_COCKPIT_URL: https://staging.cockpit.start-berlin.com
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -110,10 +136,22 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Verify staging domain commit
+        shell: bash
+        timeout-minutes: 2
         run: |
-          curl --fail --silent --show-error --max-time 30 \
-            "https://staging.cockpit.start-berlin.com/api/health" | \
-            jq --exit-status --arg commit "$GITHUB_SHA" '.ok == true and .commit == $commit'
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 4 \
+                --header 'Cache-Control: no-cache' \
+                https://staging.cockpit.start-berlin.com/api/health | \
+                jq --slurp --exit-status --arg commit "$GITHUB_SHA" \
+                  'length == 1 and .[0].ok == true and .[0].commit == $commit' >/dev/null; then
+              echo "Verified staging commit $GITHUB_SHA."
+              exit 0
+            fi
+            if [[ "$attempt" != 12 ]]; then sleep 5; fi
+          done
+          echo "Staging did not serve the expected commit $GITHUB_SHA." >&2
+          exit 1
 
   sync-inngest:
     needs: migrate

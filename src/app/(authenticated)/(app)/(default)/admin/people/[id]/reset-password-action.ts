@@ -24,7 +24,7 @@ const schema = z.object({
 export const resetPasswordAction = actionClient
   .inputSchema(schema)
   .action(async ({ parsedInput, ctx }) => {
-    if (!(await can("user.password.reset"))) {
+    if (!(await can("user.password.reset", { id: parsedInput.userId }))) {
       throw new Error("Not authorized");
     }
 
@@ -70,7 +70,7 @@ export const resetPasswordAction = actionClient
         name: `${existingUser.firstName} ${existingUser.lastName}`.trim(),
       },
       metadata: {},
-      description: existingUser.email ?? "",
+      description: existingUser.email,
     });
 
     const password = generateRandomPassword();
@@ -91,29 +91,25 @@ export const resetPasswordAction = actionClient
 
       await Promise.race([
         admin.users.update({
-          userKey: existingUser.email!,
+          userKey: existingUser.email,
           requestBody: { password, changePasswordAtNextLogin: true },
         }),
         timeoutPromise,
       ]);
     }
 
-    const recipients = [existingUser.personalEmail, existingUser.email].filter(
-      Boolean,
-    ) as string[];
-
     await sendEmail({
       from: "START Berlin <no-reply@notification.cockpit.start-berlin.com>",
-      to: recipients,
+      to: [existingUser.personalEmail, existingUser.email],
       subject: "Your START Berlin password has been reset",
       react: PasswordResetEmail({
         firstName: existingUser.firstName ?? "",
-        companyEmail: existingUser.email ?? "",
+        companyEmail: existingUser.email,
         temporaryPassword: password,
       }),
     });
 
-    revalidatePath("/admin/people/" + parsedInput.userId);
+    revalidatePath(`/admin/people/${parsedInput.userId}`);
 
     after(() =>
       track({

@@ -1519,6 +1519,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         true,
       );
@@ -1529,6 +1530,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "super_admin" }] }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         true,
       );
@@ -1539,6 +1541,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1557,6 +1560,7 @@ describe("permissions", () => {
             ],
           }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1569,6 +1573,7 @@ describe("permissions", () => {
             positions: [{ position: "president", scope: "global" }],
           }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1579,6 +1584,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ status: "alumni", grants: [{ grant: "admin" }] }),
           "user.personal_email.change",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1591,6 +1597,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "admin" }] }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         true,
       );
@@ -1601,6 +1608,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "super_admin" }] }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         true,
       );
@@ -1611,6 +1619,7 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ grants: [{ grant: "people_admin" }] }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1629,6 +1638,7 @@ describe("permissions", () => {
             ],
           }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1641,6 +1651,7 @@ describe("permissions", () => {
             positions: [{ position: "president", scope: "global" }],
           }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         false,
       );
@@ -1651,11 +1662,60 @@ describe("permissions", () => {
         evaluateAuth(
           authority({ status: "alumni", grants: [{ grant: "admin" }] }),
           "user.password.reset",
+          { recoveryTarget: authority() },
         ),
         false,
       );
     });
   });
+
+  for (const action of [
+    "user.personal_email.change",
+    "user.password.reset",
+  ] as const) {
+    describe(`protected targets for ${action}`, () => {
+      const admin = authority({ grants: [{ grant: "admin" }] });
+      const superAdmin = authority({ grants: [{ grant: "super_admin" }] });
+
+      it("requires a super admin to recover a super admin or a position holder", () => {
+        for (const recoveryTarget of [
+          superAdmin,
+          authority({
+            positions: [{ position: "president", scope: "global" }],
+          }),
+          authority({
+            positions: [
+              {
+                position: "department_co_lead",
+                scope: "department",
+                department: "events",
+              },
+            ],
+          }),
+        ]) {
+          assert.equal(evaluateAuth(admin, action, { recoveryTarget }), false);
+          assert.equal(
+            evaluateAuth(superAdmin, action, { recoveryTarget }),
+            true,
+          );
+        }
+      });
+
+      it("denies recovery when the target does not exist", () => {
+        assert.equal(
+          evaluateAuth(superAdmin, action, { recoveryTarget: null }),
+          false,
+        );
+      });
+
+      it("keeps ordinary delegated accounts recoverable by admins", () => {
+        const recoveryTarget = authority({
+          grants: [{ grant: "jobboard_editor" }],
+        });
+        assert.equal(evaluateAuth(admin, action, { recoveryTarget }), true);
+      });
+    });
+  }
 
   describe("apps.newsletter.access", () => {
     it("allows anyone in the Growth department", () => {

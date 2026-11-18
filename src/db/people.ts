@@ -23,6 +23,7 @@ import {
 import { unaccentSearch } from "@/lib/search";
 import {
   DEFAULT_PEOPLE_STATUSES,
+  directoryStatuses,
   getPeopleStatus,
   type PeopleStatus,
 } from "@/lib/user-status";
@@ -140,7 +141,7 @@ export async function getAllUserPublicData({
   batchNumber?: number[];
 } = {}): Promise<PaginatedUsers> {
   const offset = (page - 1) * PEOPLE_PAGE_SIZE;
-  const effectiveStatus = status ?? DEFAULT_PEOPLE_STATUSES;
+  const effectiveStatus = directoryStatuses(status);
 
   const searchClause = search
     ? unaccentSearch(

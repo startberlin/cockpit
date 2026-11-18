@@ -13,13 +13,19 @@ import {
   type GroupScopedAction,
   isGlobalAction,
   isGroupScopedAction,
+  isRecoveryAction,
   isUnscopedViewAction,
   isUserScopedAction,
+  type RecoveryAction,
   type UnscopedViewAction,
   type UserScopedAction,
 } from ".";
 
 export function can(action: GlobalAction): Promise<boolean>;
+export function can(
+  action: RecoveryAction,
+  user: { id: string },
+): Promise<boolean>;
 export function can(
   action: UnscopedViewAction,
   user?: { department?: Department | null; id?: string },
@@ -50,6 +56,12 @@ export async function can(
 
   const authority = await getUserAuthority(currentUser.id);
   if (!authority) return false;
+
+  if (isRecoveryAction(action)) {
+    if (!resource?.id) return false;
+    const recoveryTarget = await getUserAuthority(resource.id);
+    return evaluateAuth(authority, action, { recoveryTarget });
+  }
 
   if (isGlobalAction(action)) {
     return evaluateAuth(authority, action);

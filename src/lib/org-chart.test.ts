@@ -118,30 +118,6 @@ const eventsMember1 = makeUser({
   department: "events",
 });
 
-const eventsMember2 = makeUser({
-  id: "usr_events_m2",
-  firstName: "Faye",
-  batchNumber: 5,
-  department: "events",
-});
-
-const growthHead = makeUser({
-  id: "usr_growth_head",
-  firstName: "Grace",
-  batchNumber: 4,
-  department: "growth",
-  positions: [
-    { position: "department_head", scope: "department", department: "growth" },
-  ],
-});
-
-const growthMember = makeUser({
-  id: "usr_growth_m1",
-  firstName: "Hal",
-  batchNumber: 4,
-  department: "growth",
-});
-
 // ─── buildOrgChart ────────────────────────────────────────────────────────────
 
 describe("buildOrgChart", () => {

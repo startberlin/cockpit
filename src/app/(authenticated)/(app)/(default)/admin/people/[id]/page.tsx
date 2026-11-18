@@ -72,8 +72,8 @@ export default async function UserDetailPage({ params }: PageProps) {
     can("membership.cancel_member"),
     can("user.participation.manage", { department: user.department }),
     can("user.department.change", { department: user.department }),
-    can("user.personal_email.change"),
-    can("user.password.reset"),
+    can("user.personal_email.change", { id }),
+    can("user.password.reset", { id }),
   ]);
 
   if (!canViewDetails) {

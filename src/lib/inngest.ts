@@ -5,6 +5,9 @@ import { endpointAdapter } from "inngest/next";
 import type { Department, UserStatus } from "@/db/schema/auth";
 
 export const events = {
+  jobboardSubmissionReceived: eventType("jobboard/submission.received", {
+    schema: staticSchema<{ submissionId: string }>(),
+  }),
   userCreated: eventType("user.created", {
     schema: staticSchema<{
       firstName: string;
