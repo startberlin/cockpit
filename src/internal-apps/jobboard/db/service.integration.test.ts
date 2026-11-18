@@ -963,7 +963,10 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
             error instanceof JobboardError &&
             error.code === "invalid_transition",
         );
-        assert.equal((await service.getPublicJob(job.id))?.status, "closed");
+        const publicJob = await service.getPublicJob(job.id);
+        if (status === "draft" || status === "paused")
+          assert.equal(publicJob, null);
+        else assert.equal(publicJob?.status, "closed");
       } finally {
         now = originalNow;
       }
