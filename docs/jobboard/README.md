@@ -11,7 +11,7 @@ Use a dedicated local PostgreSQL database for editing. Integration tests use a s
 1. `npm ci`
 2. Create `.env` using the core `.env.example`. Set `DATABASE_URL` to your isolated database.
 3. Set `ENABLE_DEV_LOGIN=true`, `DISABLE_GOOGLE_WORKSPACE=true`, `DISABLE_EMAIL=true`, and `DISABLE_SLACK=true` locally. Core AWS/OAuth fields can use local placeholder values when their integrations are disabled. Do not copy real credentials from another checkout.
-4. Generate three different random service keys of at least 32 characters. Configure `JOBBOARD_READ_API_KEY`, `JOBBOARD_SUBMIT_API_KEY`, and `JOBBOARD_METRICS_API_KEY` on both servers. Removing or changing a key disables or revokes its capability immediately after the environment is reloaded.
+4. Generate distinct random keys of at least 32 characters for `JOBBOARD_READ_API_KEY` and `JOBBOARD_SUBMIT_API_KEY`. Configure each key on both servers. `JOBBOARD_METRICS_API_KEY` is optional and needs its own distinct value for an integration that sends request counts. The website controls collection separately. Removing or changing a key revokes the old credential after the environment is reloaded.
 5. `npm run db:migrate`
 6. `npm run jobboard:seed` creates only local demonstration records and test accounts.
 7. `npm run next:dev -- --hostname 127.0.0.1 --port 3011`

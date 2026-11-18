@@ -194,12 +194,15 @@ export function AuthorityEditor({
                   setIsJobboardEditor(checked === true)
                 }
               />
-              <span className="flex flex-col gap-0.5">
-                <span>Jobboard Editor</span>
-                <span className="text-muted-foreground text-xs">
-                  Edit job drafts and company contacts. Review incoming
-                  submissions. Partnerships leads and Cockpit admins approve
-                  publication.
+              <span className="inline-flex items-center gap-2">
+                <ShieldCheck className="size-4" aria-hidden="true" />
+                <span className="flex flex-col gap-0.5">
+                  <span>Jobboard Editor</span>
+                  <span className="text-muted-foreground text-xs">
+                    Edit job drafts and company contacts. Review incoming
+                    submissions. Partnerships leads and Cockpit admins approve
+                    publication.
+                  </span>
                 </span>
               </span>
             </label>
