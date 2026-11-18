@@ -17,6 +17,7 @@ export async function queueSubmissionNotifications<
   tx: Pick<NodePgDatabase<TSchema>, "select" | "insert">,
   submissionId: string,
   createdAt: Date,
+  emailEnabled: boolean,
 ) {
   const positions = await tx
     .select({
@@ -37,7 +38,15 @@ export async function queueSubmissionNotifications<
     await tx
       .insert(notification)
       .values(
-        [...recipients].map((userId) => ({ userId, submissionId, createdAt })),
+        [...recipients].map((userId) => ({
+          userId,
+          submissionId,
+          createdAt,
+          emailStatus: emailEnabled
+            ? ("pending" as const)
+            : ("disabled" as const),
+          emailNextActionAt: emailEnabled ? createdAt : null,
+        })),
       )
       .onConflictDoNothing({
         target: [notification.userId, notification.submissionId],

@@ -103,6 +103,7 @@ type PublicService = Pick<
 export function createJobboardHttp(
   service: PublicService,
   keys: () => ServiceKeys,
+  onSubmissionCommitted?: (submissionId: string) => void,
 ) {
   const json = (value: unknown, status = 200) =>
     Response.json(value, { status, headers: responseHeaders });
@@ -132,14 +133,18 @@ export function createJobboardHttp(
     try {
       return await work();
     } catch (error) {
-      if (error instanceof JobboardError)
-        return json(
+      if (error instanceof JobboardError) {
+        const response = json(
           {
             version: API_VERSION,
             error: { code: error.code, message: error.message },
           },
           error.status,
         );
+        if (error.status === 429 && error.retryAfterSeconds !== undefined)
+          response.headers.set("Retry-After", String(error.retryAfterSeconds));
+        return response;
+      }
       if (error instanceof z.ZodError)
         return json(
           {
@@ -210,6 +215,14 @@ export function createJobboardHttp(
         );
         await service.consumeServiceBudget("submit");
         const result = await service.submitJob(input);
+        try {
+          onSubmissionCommitted?.(result.id);
+        } catch {
+          // The submission is durable; the scheduled worker can find its outbox.
+          console.error(
+            "[jobboard-api] Could not schedule the outbox wake-up.",
+          );
+        }
         return json(
           submissionResponseSchema.parse({ version: API_VERSION, ...result }),
           202,

@@ -6,6 +6,10 @@ The canonical executable schema is `src/internal-apps/jobboard/lib/contracts.ts`
 
 Every request needs `Authorization: Bearer <key>`. The read, submission and metrics keys are independent, at least 32 characters, and configured only in server environments. No key provides access to member data or editorial mutations. Use TLS outside localhost. Empty, missing, reused across scopes, or invalid credentials fail closed. Do not log authorization headers. To revoke, remove the corresponding key and reload the server configuration.
 
+Staging receives `JOBBOARD_READ_API_KEY`, `JOBBOARD_SUBMIT_API_KEY` and `JOBBOARD_METRICS_API_KEY` from the two repositories' main-only GitHub `staging` environments. Each secret must match across the two services. The trusted deployment workflows pass them to the individual Vercel deployment at runtime. The website additionally uses `JOBBOARD_METRICS_ENABLED=true` to send aggregate events.
+
+For a production release, generate a separate set of three keys and configure them as Production-only secrets in the Cockpit and website Vercel projects. Set Cockpit's `JOBBOARD_PUBLIC_URL=https://www.start-berlin.com/jobs` and `NEXT_PUBLIC_COCKPIT_URL=https://cockpit.start-berlin.com`. Next.js needs the latter at build time and runtime for links to the authenticated inbox. On the website set `COCKPIT_API_URL=https://cockpit.start-berlin.com/api/jobboard/v1` and `PUBLIC_SITE_URL=https://www.start-berlin.com`. Enable website collection with `JOBBOARD_METRICS_ENABLED=true` when approved. Both production workflows build a Production candidate before assigning public domains. PR previews must stay credential-free.
+
 | Method and path | Key | Result |
 | --- | --- | --- |
 | GET `/api/jobboard/v1/jobs` | Read | `{version:"1", jobs: PublicJob[], nextCursor: string|null}` |

@@ -129,6 +129,16 @@ export const jobboardSubmission = pgTable(
   ],
 );
 
+export type NotificationEmailStatus =
+  | "pending"
+  | "sending"
+  | "accepted"
+  | "uncertain"
+  | "rejected"
+  | "disabled"
+  | "skipped"
+  | "exhausted";
+
 export const jobboardSubmissionNotification = pgTable(
   "jobboard_submission_notification",
   {
@@ -142,6 +152,13 @@ export const jobboardSubmissionNotification = pgTable(
       .defaultNow()
       .notNull(),
     readAt: timestamp("read_at", { withTimezone: true }),
+    // NULL on historical in-app notifications. Only a new submission can queue mail.
+    emailStatus: text("email_status").$type<NotificationEmailStatus>(),
+    emailNextActionAt: timestamp("email_next_action_at", {
+      withTimezone: true,
+    }),
+    emailClaimToken: text("email_claim_token"),
+    emailAttempts: integer("email_attempts").notNull().default(0),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.submissionId] }),
@@ -153,6 +170,22 @@ export const jobboardSubmissionNotification = pgTable(
     index("jobboard_notification_unread_idx")
       .on(table.userId)
       .where(sql`${table.readAt} IS NULL`),
+    index("jobboard_notification_email_due_idx")
+      .on(
+        table.emailStatus,
+        table.emailNextActionAt,
+        table.userId,
+        table.submissionId,
+      )
+      .where(sql`${table.emailStatus} IN ('pending', 'sending')`),
+    check(
+      "jobboard_notification_email_state_check",
+      sql`${table.emailAttempts} >= 0 AND CASE
+        WHEN ${table.emailStatus} = 'pending' THEN ${table.emailNextActionAt} IS NOT NULL AND ${table.emailClaimToken} IS NULL
+        WHEN ${table.emailStatus} = 'sending' THEN ${table.emailNextActionAt} IS NOT NULL AND ${table.emailClaimToken} IS NOT NULL
+        WHEN ${table.emailStatus} IS NULL OR ${table.emailStatus} IN ('accepted', 'uncertain', 'rejected', 'disabled', 'skipped', 'exhausted') THEN ${table.emailNextActionAt} IS NULL AND ${table.emailClaimToken} IS NULL
+        ELSE FALSE END`,
+    ),
   ],
 );
 

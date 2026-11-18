@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createJobboardService } from "../db/service";
 import { createJobboardHttp, readBoundedJson } from "./http";
 
 const keys = {
@@ -231,4 +233,45 @@ test("the icon API checks the read credential and active listing before loading 
   );
   assert.equal(host, "example.edu");
   assert.equal(response.status, 404);
+});
+
+test("rate-limited writes report whole seconds until the shared minute resets", async () => {
+  let now = new Date("2032-01-01T00:00:41.250Z");
+  const budget = createJobboardService(drizzle.mock(), () => now);
+  const { service } = fixture();
+  // An oversized batch follows the same rate-limit error path without a database.
+  service.consumeServiceBudget = () =>
+    budget.consumeServiceBudget("metrics", 6001);
+  const api = createJobboardHttp(service, () => keys);
+  const request = () =>
+    new Request(`${base}/metrics`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${keys.metrics}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        events: [
+          {
+            eventId: "190eb33b-d0ad-45bb-89cd-d2212f15cc38",
+            occurredAt: now.toISOString(),
+            type: "board_request",
+            jobId: null,
+            surface: "standalone",
+            source: "direct",
+          },
+        ],
+      }),
+    });
+  for (const [time, seconds] of [
+    ["00:00:41.250", "19"],
+    ["00:00:59.999", "1"],
+    ["00:01:00.000", "60"],
+  ]) {
+    now = new Date(`2032-01-01T${time}Z`);
+    const response = await api.metrics(request());
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get("Retry-After"), seconds);
+    assert.equal((await response.json()).error.code, "rate_limited");
+  }
 });

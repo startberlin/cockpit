@@ -63,6 +63,7 @@ export class JobboardError extends Error {
     public readonly code: string,
     message: string,
     public readonly status = 400,
+    public readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "JobboardError";
@@ -103,6 +104,7 @@ const metricProperty: Record<MetricEvent["type"], keyof MetricTotals> = {
 };
 const MAX_LISTING_DAYS = 365;
 const DAY_MS = 86_400_000;
+const METRIC_RECEIPT_RETENTION_MS = 2 * DAY_MS;
 
 function requireRow<T>(row: T | undefined, label: string): T {
   if (!row) throw new JobboardError("not_found", `${label} not found.`, 404);
@@ -200,6 +202,7 @@ function reviewTokenFor(
 export function createJobboardService<TSchema extends Record<string, unknown>>(
   db: NodePgDatabase<TSchema>,
   clock: () => Date = () => new Date(),
+  { emailEnabled = false }: { emailEnabled?: boolean } = {},
 ) {
   const audit = async (
     tx: Pick<typeof db, "insert">,
@@ -875,7 +878,12 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
           );
         return { id: existing.id, status: "pending_review" as const };
       }
-      await queueSubmissionNotifications(tx, inserted.id, clock());
+      await queueSubmissionNotifications(
+        tx,
+        inserted.id,
+        clock(),
+        emailEnabled,
+      );
       await audit(
         tx,
         inserted.id,
@@ -1085,14 +1093,23 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
   }
   async function consumeServiceBudget(scope: "submit" | "metrics", weight = 1) {
     const limit = scope === "submit" ? 30 : 6000;
-    if (!Number.isSafeInteger(weight) || weight < 1 || weight > limit)
-      throw new JobboardError(
+    const windowMs = 60_000;
+    const now = clock().getTime();
+    const windowStart = new Date(Math.floor(now / windowMs) * windowMs);
+    const limitError = () =>
+      new JobboardError(
         "rate_limited",
         "Too many requests. Try again later.",
         429,
+        Math.max(
+          1,
+          Math.ceil(
+            (windowStart.getTime() + windowMs - clock().getTime()) / 1000,
+          ),
+        ),
       );
-    const now = clock();
-    const windowStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
+    if (!Number.isSafeInteger(weight) || weight < 1 || weight > limit)
+      throw limitError();
     const rows = await db
       .insert(jobboardServiceWindow)
       .values({ scope, windowStart, count: weight })
@@ -1105,12 +1122,7 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
         setWhere: sql`${jobboardServiceWindow.count} + ${weight} <= ${limit}`,
       })
       .returning({ count: jobboardServiceWindow.count });
-    if (!rows.length)
-      throw new JobboardError(
-        "rate_limited",
-        "Too many requests. Try again later.",
-        429,
-      );
+    if (!rows.length) throw limitError();
   }
   async function recordMetrics(input: { events: MetricEvent[] }) {
     const { events } = metricsInputSchema.parse(input);
@@ -1356,6 +1368,21 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
       .where(eq(jobboardRevision.jobId, jobId))
       .orderBy(desc(jobboardRevision.createdAt));
   }
+  async function latestMetricReceipt(): Promise<Date | null> {
+    const [latest] = await db
+      .select({ receivedAt: jobboardMetricReceipt.createdAt })
+      .from(jobboardMetricReceipt)
+      .where(
+        gte(
+          jobboardMetricReceipt.createdAt,
+          new Date(clock().getTime() - METRIC_RECEIPT_RETENTION_MS),
+        ),
+      )
+      .orderBy(desc(jobboardMetricReceipt.createdAt))
+      .limit(1);
+    return latest?.receivedAt ?? null;
+  }
+
   async function runMaintenance() {
     const now = clock();
     const aggregateCutoff = aggregateRetentionCutoff(now);
@@ -1365,7 +1392,7 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
         .where(
           lt(
             jobboardMetricReceipt.createdAt,
-            new Date(now.getTime() - 2 * DAY_MS),
+            new Date(now.getTime() - METRIC_RECEIPT_RETENTION_MS),
           ),
         );
       const aggregates = await tx
@@ -1431,6 +1458,7 @@ export function createJobboardService<TSchema extends Record<string, unknown>>(
     rejectSubmission,
     consumeServiceBudget,
     recordMetrics,
+    latestMetricReceipt,
     getAnalytics,
     getDashboard,
     getAudit,
