@@ -6,10 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { SaveJobInput } from "../actions/schemas";
 import type { PublicJob } from "../lib/contracts";
-import { ContextHelp } from "./context-help";
 import type { JobEditorCompany } from "./job-editor-data";
 import { JobPreview } from "./job-preview";
-import { formatDate } from "./status-badge";
 
 export function JobPreviewPane({
   companies,
@@ -36,11 +34,6 @@ export function JobPreviewPane({
       <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background px-4 py-2">
         <div className="flex items-center gap-1">
           <h2 className="text-sm font-semibold">Preview</h2>
-          <ContextHelp label="About this preview">
-            {showPublished
-              ? `Published ${formatDate(published.publishedAt)}. ${isPublished ? "Visible on the jobboard." : "This listing is no longer live."}`
-              : "Your current edits. Private notes are excluded."}
-          </ContextHelp>
           {showPublished && !isPublished ? (
             <Badge variant="outline">Not live</Badge>
           ) : null}
