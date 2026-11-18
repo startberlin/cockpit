@@ -17,13 +17,14 @@ import {
   leavesCurrentDocument,
 } from "../lib/navigation-intent";
 
-type Destination = { href: string; historyKey?: string };
+type Destination = { href: string; historyKey?: string; legacyDelta?: number };
 
 export function UnsavedChangesGuard({ dirty }: { dirty: boolean }) {
   const router = useRouter();
   const [destination, setDestination] = useState<Destination | null>(null);
   const approvedUnload = useRef(false);
   const approvedHistoryKey = useRef<string | null>(null);
+  const approvedLegacyDelta = useRef<number | null>(null);
   const lastLink = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
@@ -76,6 +77,17 @@ export function UnsavedChangesGuard({ dirty }: { dirty: boolean }) {
         requested = { delta, target: { href: url, historyKey: key } };
     };
     const restoreEditor = (event: Event) => {
+      const delta = (event as CustomEvent<number | null>).detail;
+      if (!navigation && delta && !restoring) {
+        if (delta === approvedLegacyDelta.current) {
+          approvedLegacyDelta.current = null;
+          return;
+        }
+        requested = {
+          delta,
+          target: { href: window.location.href, legacyDelta: delta },
+        };
+      }
       if (restoring) {
         event.preventDefault();
         lastLink.current = null;
@@ -132,6 +144,11 @@ export function UnsavedChangesGuard({ dirty }: { dirty: boolean }) {
             onClick={() => {
               if (!destination) return;
               setDestination(null);
+              if (destination.legacyDelta) {
+                approvedLegacyDelta.current = destination.legacyDelta;
+                window.history.go(destination.legacyDelta);
+                return;
+              }
               if (destination.historyKey) {
                 const navigation = window.navigation;
                 const from = navigation?.currentEntry;

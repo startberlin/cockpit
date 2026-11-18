@@ -3,10 +3,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellIcon, CheckIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
-import { useFormStatus } from "react-dom";
+import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
-import { getUnreadNotificationCount } from "../actions/notification";
+import {
+  getUnreadNotificationCount,
+  markNotificationRead,
+} from "../actions/notification";
 
 const countKey = (viewerId: string) => [
   "jobboard-notification-count",
@@ -39,36 +41,42 @@ export function NotificationBell({ viewerId }: { viewerId: string }) {
   );
 }
 
-function MarkReadButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="outline" size="sm" disabled={pending}>
-      <CheckIcon aria-hidden="true" />
-      {pending ? "Marking as read" : "Mark as read"}
-    </Button>
-  );
-}
-
 export function NotificationReadControl({
   viewerId,
   isRead,
-  markRead,
+  submissionId,
 }: {
   viewerId: string;
   isRead: boolean;
-  markRead: () => Promise<void>;
+  submissionId: string;
 }) {
   const queryClient = useQueryClient();
-  useEffect(() => {
-    if (isRead)
+  const action = useAction(markNotificationRead, {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: countKey(viewerId) });
-  }, [isRead, viewerId, queryClient]);
+    },
+  });
 
   if (isRead)
     return <span className="text-sm text-muted-foreground">Read</span>;
   return (
-    <form action={markRead}>
-      <MarkReadButton />
-    </form>
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={action.isPending}
+        onClick={() => action.execute({ id: submissionId })}
+      >
+        <CheckIcon aria-hidden="true" />
+        {action.isPending ? "Marking as read" : "Mark as read"}
+      </Button>
+      {action.hasErrored && (
+        <p role="alert" className="text-sm text-destructive">
+          {action.result.serverError ??
+            "Unable to mark this notification as read. Try again."}
+        </p>
+      )}
+    </div>
   );
 }

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BreadcrumbCrumb } from "@/components/breadcrumb-bridge";
 import { Button } from "@/components/ui/button";
-import { markNotificationRead } from "@/internal-apps/jobboard/actions/notification";
 import { JobPreview } from "@/internal-apps/jobboard/components/job-preview";
 import { NotificationReadControl } from "@/internal-apps/jobboard/components/notification-controls";
 import {
@@ -58,7 +57,7 @@ export default async function NotificationDetailPage({
         <NotificationReadControl
           viewerId={viewer.id}
           isRead={item.readAt !== null}
-          markRead={markNotificationRead.bind(null, item.submissionId)}
+          submissionId={item.submissionId}
         />
       </header>
       <section

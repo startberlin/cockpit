@@ -208,12 +208,12 @@ describe("jobboard PostgreSQL integration", { skip: !connectionString }, () => {
       assert.equal(detail?.job.title, payload.job.title);
       assert.ok(!JSON.stringify(detail).includes(payload.contact.email));
       assert.equal(await app.detail(member, first.id), null);
-      await app.markRead(member, first.id);
+      assert.equal(await app.markRead(member, first.id), false);
       assert.equal(await app.unreadCount(lead), 1);
-      await app.markRead(lead, first.id);
+      assert.equal(await app.markRead(lead, first.id), true);
       const read = await app.detail(lead, first.id);
       assert.ok(read?.readAt);
-      await app.markRead(lead, first.id);
+      assert.equal(await app.markRead(lead, first.id), true);
       assert.equal(
         (await app.detail(lead, first.id))?.readAt?.getTime(),
         read.readAt.getTime(),

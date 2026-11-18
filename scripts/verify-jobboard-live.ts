@@ -34,6 +34,12 @@ for (const url of [database, publicOrigin, cockpitOrigin]) {
 }
 if (database.pathname !== "/jobboard_test")
   throw new Error("Use the isolated jobboard_test database.");
+const listingsPath = publicOrigin.pathname.replace(/\/$/, "");
+if (listingsPath !== "" && listingsPath !== "/jobs")
+  throw new Error(
+    "Set JOBBOARD_PUBLIC_URL to the standalone root or Website V2 /jobs.",
+  );
+const websiteV2 = listingsPath === "/jobs";
 const pool = new Pool({ connectionString: database.href, max: 2 });
 const db = drizzle(pool);
 const service = createJobboardService(db);
@@ -75,7 +81,7 @@ async function main() {
   );
   companyId = company.id;
   const content = jobContentSchema.parse({
-    title: "HTTP Verification Engineer",
+    title: `HTTP Verification Engineer ${randomUUID().slice(0, 8)}`,
     description:
       "A fictional role used only to verify local jobboard behaviour. This is not a real vacancy.",
     employmentType: "full_time",
@@ -122,6 +128,13 @@ async function main() {
     },
     actor,
   );
+  const listingUrl = new URL(publicOrigin);
+  listingUrl.searchParams.set("q", content.title);
+  const activeListing = await fetch(listingUrl, { headers });
+  check(
+    activeListing.ok && (await activeListing.text()).includes(jobId),
+    "The configured listings page shows the active fixture.",
+  );
   const path = `/jobs/${jobId}/${job.published?.slug}`;
   const detail = await fetch(new URL(path, publicOrigin), { headers });
   const html = await detail.text();
@@ -162,7 +175,7 @@ async function main() {
     "Saving a draft must not change public content.",
   );
   const apply = await fetch(
-    new URL(`/apply/${jobId}?source=website`, publicOrigin),
+    new URL(`${listingsPath}/apply/${jobId}?source=website`, publicOrigin),
     { headers, redirect: "manual" },
   );
   check(
@@ -170,10 +183,13 @@ async function main() {
     "Active apply preserves the approved UTM values, ATS parameters and fragment.",
   );
   check(!apply.headers.has("set-cookie"), "Apply must not set a cookie.");
-  const share = await fetch(new URL(`/share/${jobId}/whatsapp`, publicOrigin), {
-    headers,
-    redirect: "manual",
-  });
+  const share = await fetch(
+    new URL(`${listingsPath}/share/${jobId}/whatsapp`, publicOrigin),
+    {
+      headers,
+      redirect: "manual",
+    },
+  );
   check(
     share.status === 303 &&
       new URL(share.headers.get("location") ?? "").hostname === "wa.me",
@@ -198,15 +214,21 @@ async function main() {
     permissionToPublish: true,
   };
   const submit = async (origin: string) =>
-    fetch(new URL("/api/submissions", publicOrigin), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin,
-        "sec-fetch-site": "same-origin",
+    fetch(
+      new URL(
+        websiteV2 ? "/api/jobboard/submissions" : "/api/submissions",
+        publicOrigin,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin,
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify(submission),
       },
-      body: JSON.stringify(submission),
-    });
+    );
   check(
     (await submit("https://unrelated.example")).status === 403,
     "Foreign-origin submissions are rejected.",
@@ -274,29 +296,38 @@ async function main() {
     !closedHtml.includes('"@type":"JobPosting"'),
     "Closed roles do not advertise active JobPosting markup.",
   );
-  const blocked = await fetch(new URL(`/apply/${jobId}`, publicOrigin), {
-    headers,
-    redirect: "manual",
-  });
+  const blocked = await fetch(
+    new URL(`${listingsPath}/apply/${jobId}`, publicOrigin),
+    {
+      headers,
+      redirect: "manual",
+    },
+  );
   check(
     blocked.headers.get("location") !== content.applyUrl,
     "Closed role cannot redirect to employer application.",
   );
-  const listing = await fetch(new URL("/", publicOrigin), { headers });
+  const listing = await fetch(listingUrl, { headers });
   check(
-    !(await listing.text()).includes(content.title),
+    listing.ok && !(await listing.text()).includes(jobId),
     "Inactive role is absent from the public board.",
   );
-  const widget = await fetch(new URL("/embed/jobs", publicOrigin), { headers });
-  check(
-    widget.ok && widget.headers.get("x-robots-tag")?.includes("noindex"),
-    "Widget is available and excluded from indexing.",
-  );
-  check(!widget.headers.has("set-cookie"), "Widget must not set a cookie.");
-  check(
-    widget.headers.get("content-security-policy")?.includes("frame-ancestors"),
-    "Widget has an explicit embedding boundary.",
-  );
+  if (!websiteV2) {
+    const widget = await fetch(new URL("/embed/jobs", publicOrigin), {
+      headers,
+    });
+    check(
+      widget.ok && widget.headers.get("x-robots-tag")?.includes("noindex"),
+      "Widget is available and excluded from indexing.",
+    );
+    check(!widget.headers.has("set-cookie"), "Widget must not set a cookie.");
+    check(
+      widget.headers
+        .get("content-security-policy")
+        ?.includes("frame-ancestors"),
+      "Widget has an explicit embedding boundary.",
+    );
+  }
   console.log(
     `${checks} live checks passed against both applications. No external application or share destination was followed.`,
   );

@@ -107,10 +107,12 @@ export function createJobboardNotifications<
       return item ?? null;
     },
     async markRead(userId: string, submissionId: string) {
-      await db
+      const [ownedNotification] = await db
         .update(notification)
-        .set({ readAt: sql`now()` })
-        .where(and(owned(userId, submissionId), isNull(notification.readAt)));
+        .set({ readAt: sql`coalesce(${notification.readAt}, now())` })
+        .where(owned(userId, submissionId))
+        .returning({ id: notification.submissionId });
+      return Boolean(ownedNotification);
     },
   };
 }
