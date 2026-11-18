@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isServiceScopeConfigured,
+  serviceKeyStatus,
   verifyServiceAuthorization,
 } from "./service-auth";
 
@@ -10,6 +11,20 @@ const keys = {
   submit: "s".repeat(40),
   metrics: "m".repeat(40),
 };
+
+test("reports the optional intake key independently from website collection", () => {
+  assert.equal(serviceKeyStatus("metrics", {}), "missing");
+  assert.equal(serviceKeyStatus("metrics", { metrics: "" }), "missing");
+  assert.equal(serviceKeyStatus("metrics", keys), "configured");
+  for (const metrics of ["short", " ".repeat(40), keys.read, keys.submit]) {
+    const config = { ...keys, metrics };
+    assert.equal(serviceKeyStatus("metrics", config), "invalid");
+    assert.equal(
+      verifyServiceAuthorization(`Bearer ${metrics}`, "metrics", config),
+      false,
+    );
+  }
+});
 
 test("configuration readiness uses the same scope boundaries as authentication", () => {
   assert.equal(isServiceScopeConfigured("read", keys), true);

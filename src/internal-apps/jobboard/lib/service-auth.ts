@@ -3,6 +3,11 @@ import { createHash, timingSafeEqual } from "node:crypto";
 export type ServiceScope = "read" | "submit" | "metrics";
 export type ServiceKeys = Partial<Record<ServiceScope, string>>;
 
+export function serviceKeyStatus(scope: ServiceScope, keys: ServiceKeys) {
+  if (!keys[scope]) return "missing";
+  return isServiceScopeConfigured(scope, keys) ? "configured" : "invalid";
+}
+
 export function isServiceScopeConfigured(
   scope: ServiceScope,
   keys: ServiceKeys,

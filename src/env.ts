@@ -52,7 +52,9 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     JOBBOARD_READ_API_KEY: optionalJobboardKey,
     JOBBOARD_SUBMIT_API_KEY: optionalJobboardKey,
-    JOBBOARD_METRICS_API_KEY: optionalJobboardKey,
+    // A malformed optional metrics key disables that scope and is shown in Settings.
+    // Service authorization checks its length, format and uniqueness on each request.
+    JOBBOARD_METRICS_API_KEY: z.string().optional(),
     JOBBOARD_PUBLIC_URL: z.preprocess(
       (value) => (value === "" ? undefined : value),
       z.url().optional(),

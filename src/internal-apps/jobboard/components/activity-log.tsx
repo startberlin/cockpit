@@ -1,12 +1,16 @@
 import { ChevronDownIcon, HistoryIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "./status-badge";
+import {
+  formatActivityDescription,
+  formatActivityTime,
+} from "../lib/activity-display";
 
 export function ActivityLog({
   entries,
 }: {
   entries: {
     id: string;
+    eventType: string;
     actorName: string;
     description: string;
     createdAt: Date;
@@ -36,16 +40,16 @@ export function ActivityLog({
             {entries.map((entry) => (
               <li key={entry.id} className="space-y-2 py-4">
                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                  {entry.description}
+                  {formatActivityDescription(
+                    entry.eventType,
+                    entry.description,
+                  )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {entry.actorName} · {formatDate(entry.createdAt)} at{" "}
-                  {entry.createdAt.toLocaleTimeString("en-GB", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    timeZone: "Europe/Berlin",
-                  })}{" "}
-                  (Berlin)
+                  {entry.actorName} ·{" "}
+                  <time dateTime={entry.createdAt.toISOString()}>
+                    {formatActivityTime(entry.createdAt)}
+                  </time>
                 </p>
               </li>
             ))}

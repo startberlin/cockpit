@@ -10,7 +10,7 @@ import { requireAppAccess } from "@/lib/apps/server";
 import { createMetadata } from "@/lib/metadata";
 import { ContextHelp } from "../components/context-help";
 import { PageHeader } from "../components/page-header";
-import { isServiceScopeConfigured } from "../lib/service-auth";
+import { serviceKeyStatus } from "../lib/service-auth";
 
 export const metadata = createMetadata({
   title: "Jobboard settings",
@@ -26,27 +26,18 @@ export default async function SettingsPage() {
   const integrations = [
     {
       name: "Published jobs",
-      configured: isServiceScopeConfigured("read", keys),
-      present: Boolean(keys.read),
-      description: "The public website can retrieve approved jobs.",
+      status: serviceKeyStatus("read", keys),
+      description: "The key the public website uses to request approved jobs.",
     },
     {
       name: "Employer submissions",
-      configured: isServiceScopeConfigured("submit", keys),
-      present: Boolean(keys.submit),
+      status: serviceKeyStatus("submit", keys),
       description:
-        "Employers can send jobs for review from the public website.",
-    },
-    {
-      name: "Analytics",
-      configured: isServiceScopeConfigured("metrics", keys),
-      present: Boolean(keys.metrics),
-      description: "The public website can report aggregate request counts.",
+        "The key the public website uses to submit an employer's job for review.",
     },
     {
       name: "Public website",
-      configured: Boolean(env.JOBBOARD_PUBLIC_URL),
-      present: Boolean(env.JOBBOARD_PUBLIC_URL),
+      status: env.JOBBOARD_PUBLIC_URL ? "configured" : "missing",
       description: "The address used for job links and sharing.",
     },
   ];
@@ -70,14 +61,13 @@ export default async function SettingsPage() {
           <div className="flex items-center gap-1">
             <h2 className="text-base font-semibold">Connection settings</h2>
             <ContextHelp label="About connection settings">
-              Service keys must be valid and different for each capability. This
-              checks configuration, not connectivity. Update settings in the
-              deployment configuration.
+              Cockpit checks its local deployment settings. Each service needs a
+              different key. Verify the website connection separately.
             </ContextHelp>
           </div>
           <Badge variant="secondary">
-            {integrations.filter((item) => item.configured).length}/{" "}
-            {integrations.length} configured
+            {integrations.filter((item) => item.status === "configured").length}
+            /{integrations.length} required settings configured
           </Badge>
         </div>
         <ul className="divide-y px-5 sm:px-6">
@@ -94,21 +84,41 @@ export default async function SettingsPage() {
               </div>
               <Badge
                 className="shrink-0"
-                variant={integration.configured ? "secondary" : "outline"}
+                variant={
+                  integration.status === "configured" ? "secondary" : "outline"
+                }
               >
-                {integration.configured ? (
+                {integration.status === "configured" ? (
                   <CircleCheckIcon aria-hidden="true" />
                 ) : (
                   <CircleDashedIcon aria-hidden="true" />
                 )}
-                {integration.configured
+                {integration.status === "configured"
                   ? "Configured"
-                  : integration.present
+                  : integration.status === "invalid"
                     ? "Invalid configuration"
                     : "Missing"}
               </Badge>
             </li>
           ))}
+          <li className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0 flex-1 basis-56 space-y-1">
+              <h3 className="text-sm font-medium">Analytics API (optional)</h3>
+              <p className="text-xs text-muted-foreground">
+                This key lets Cockpit receive aggregate request counts. The
+                public website controls collection separately.
+              </p>
+            </div>
+            <Badge variant="outline" className="shrink-0">
+              {
+                {
+                  configured: "Key configured",
+                  invalid: "Invalid key",
+                  missing: "No key configured",
+                }[serviceKeyStatus("metrics", keys)]
+              }
+            </Badge>
+          </li>
         </ul>
       </section>
       <section className="overflow-hidden rounded-xl border bg-card">
